@@ -57,6 +57,8 @@ func starterConfigText() -> String {
     let starterBindings: [String: String] = [
         ("alt-space", "layout horizontal vertical"),
         ("ctrl-f", "open-sidebar"),
+        ("ctrl-tab", "[]"),
+        ("ctrl-shift-tab", "[]"),
         ("alt-h", "focus left"),
         ("alt-j", "focus down"),
         ("alt-k", "focus up"),

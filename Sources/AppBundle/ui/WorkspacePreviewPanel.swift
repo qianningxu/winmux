@@ -121,6 +121,20 @@ final class WorkspacePreviewPanel: NSPanelHud {
 }
 
 @MainActor
+func handleWorkspacePreviewHotkey(_ binding: String) -> Bool {
+    switch binding {
+        case "ctrl-tab":
+            WorkspacePreviewPanel.shared.advance(direction: 1)
+            return true
+        case "ctrl-shift-tab":
+            WorkspacePreviewPanel.shared.advance(direction: -1)
+            return true
+        default:
+            return false
+    }
+}
+
+@MainActor
 private func workspacePreviewWindowItems(for workspace: Workspace) -> [WorkspacePreviewWindowItem] {
     (workspace.allLeafWindowsRecursive + workspace.floatingWindows).map { window in
         WorkspacePreviewWindowItem(

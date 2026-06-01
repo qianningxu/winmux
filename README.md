@@ -99,7 +99,7 @@ make build VERSION=0.2.1-workspace-preview
 ./.debug/WinMuxApp --config-path ~/.config/winmux/winmux.toml
 ```
 
-The workspace preview prototype opens with `Option + Tab`, cycles while Option is held, and switches to the selected workspace when Option is released.
+The workspace preview prototype opens with `Control + Tab`, cycles while Control is held, and switches to the selected workspace when Control is released.
 
 ## Migrating
 ### From AeroSpace

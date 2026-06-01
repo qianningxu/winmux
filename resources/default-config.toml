@@ -44,6 +44,8 @@ on-mode-changed = []
     show-date = true
 
 [mode.main.binding]
+    ctrl-tab = []
+    ctrl-shift-tab = []
     ctrl-f = 'open-sidebar'
     alt-space = 'layout horizontal vertical'
     alt-h = 'focus left'

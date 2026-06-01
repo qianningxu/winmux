@@ -109,6 +109,7 @@ extension HotKey {
 
 @MainActor private func triggerBinding(_ binding: String, _ commands: [any Command]) {
     if hotkeysSuspended { return }
+    if handleWorkspacePreviewHotkey(binding) { return }
     Task {
         if let activeMode {
             broadcastEvent(.bindingTriggered(
