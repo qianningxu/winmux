@@ -24,7 +24,7 @@ func buildWorkspaceSidebarModelState() async -> WorkspaceSidebarModelState {
         monitorScopes: monitorScopes,
         focusedMonitorScopeId: focusedMonitorScopeId,
         showsMonitorSelector: availableMonitors.count > 1,
-        topPadding: CGFloat(gaps.outer.top),
+        topPadding: max(CGFloat(gaps.outer.top), workspaceSidebarMinimumTopPadding),
         hoveredWorkspaceName: TrayMenuModel.shared.workspaceSidebarHoveredWorkspaceName,
     )
 }

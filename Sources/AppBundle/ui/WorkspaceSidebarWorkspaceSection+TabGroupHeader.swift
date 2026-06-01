@@ -22,6 +22,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 style: .tabGroupHeader,
                 appBundleIds: group.tabs.map(\.appBundleId),
                 appBundlePaths: group.tabs.map(\.appBundlePath),
+                reservesCloseButtonSpace: false,
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())

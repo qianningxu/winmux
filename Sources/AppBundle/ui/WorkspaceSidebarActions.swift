@@ -173,6 +173,16 @@ func createWorkspaceFromSidebarButton(projectId: WorkspaceProjectId, monitorScop
 }
 
 @MainActor
+func closeWindowFromSidebar(_ windowId: UInt32) {
+    runWorkspaceSidebarSession {
+        var args = CloseCmdArgs(rawArgs: [])
+        args.windowId = windowId
+        _ = try await CloseCommand(args: args).run(.defaultEnv, .emptyStdin)
+        await updateWorkspaceSidebarModel()
+    }
+}
+
+@MainActor
 func createWorkspaceFromSidebarDrag(sourceNode: TreeNode, sourceWindow: Window) -> Bool {
     createWorkspaceFromSidebarDrag(sourceNode: sourceNode, sourceWindow: sourceWindow, projectId: nil, monitorScopeId: nil)
 }

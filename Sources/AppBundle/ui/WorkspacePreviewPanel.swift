@@ -17,6 +17,7 @@ private struct WorkspacePreviewWindowItem: Identifiable {
     let appName: String
     let appIcon: NSImage?
     let thumbnail: NSImage?
+    let layoutFrame: CGRect?
 }
 
 @MainActor
@@ -123,10 +124,10 @@ final class WorkspacePreviewPanel: NSPanelHud {
 @MainActor
 func handleWorkspacePreviewHotkey(_ binding: String) -> Bool {
     switch binding {
-        case "ctrl-tab":
+        case "alt-tab":
             WorkspacePreviewPanel.shared.advance(direction: 1)
             return true
-        case "ctrl-shift-tab":
+        case "alt-shift-tab":
             WorkspacePreviewPanel.shared.advance(direction: -1)
             return true
         default:
@@ -136,14 +137,37 @@ func handleWorkspacePreviewHotkey(_ binding: String) -> Bool {
 
 @MainActor
 private func workspacePreviewWindowItems(for workspace: Workspace) -> [WorkspacePreviewWindowItem] {
-    (workspace.allLeafWindowsRecursive + workspace.floatingWindows).map { window in
+    let workspaceRect = workspace.rootTilingContainer.lastAppliedLayoutPhysicalRect
+        ?? workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
+    return (workspace.allLeafWindowsRecursive + workspace.floatingWindows).map { window in
         WorkspacePreviewWindowItem(
             id: window.windowId,
             title: sidebarDisplayLabel(for: window),
             appName: window.app.name ?? "Unknown",
             appIcon: appIconImage(bundleIdentifier: window.app.rawAppBundleId, bundlePath: window.app.bundlePath),
             thumbnail: captureExposeThumbnail(window.windowId),
+            layoutFrame: normalizedWorkspacePreviewFrame(for: window, in: workspaceRect),
         )
+    }
+}
+
+private func normalizedWorkspacePreviewFrame(for window: Window, in workspaceRect: Rect) -> CGRect? {
+    guard let rect = window.lastAppliedLayoutPhysicalRect,
+          workspaceRect.width > 0,
+          workspaceRect.height > 0
+    else { return nil }
+
+    return CGRect(
+        x: ((rect.minX - workspaceRect.minX) / workspaceRect.width).clamped(to: 0...1),
+        y: ((rect.minY - workspaceRect.minY) / workspaceRect.height).clamped(to: 0...1),
+        width: (rect.width / workspaceRect.width).clamped(to: 0.04...1),
+        height: (rect.height / workspaceRect.height).clamped(to: 0.04...1),
+    )
+}
+
+private extension CGFloat {
+    func clamped(to range: ClosedRange<CGFloat>) -> CGFloat {
+        Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
     }
 }
 
@@ -155,23 +179,37 @@ private struct WorkspacePreviewView: View {
 
     var body: some View {
         ZStack {
-            VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
+            Color.clear
                 .ignoresSafeArea()
-            Color.black.opacity(0.42)
-                .ignoresSafeArea()
+                .contentShape(Rectangle())
                 .onTapGesture { onDismiss() }
 
-            HStack(spacing: 18) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    WorkspacePreviewCard(
-                        item: item,
-                        isSelected: index == selectedIndex,
-                    )
-                    .onTapGesture { onSelect(index) }
+            GeometryReader { geometry in
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 18) {
+                            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                                WorkspacePreviewCard(
+                                    item: item,
+                                    isSelected: index == selectedIndex,
+                                )
+                                .id(index)
+                                .onTapGesture { onSelect(index) }
+                            }
+                        }
+                        .padding(.horizontal, 36)
+                        .padding(.vertical, 28)
+                        .frame(minWidth: geometry.size.width, minHeight: geometry.size.height, alignment: .center)
+                    }
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .onAppear { proxy.scrollTo(selectedIndex, anchor: .center) }
+                    .onChange(of: selectedIndex) { index in
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.86)) {
+                            proxy.scrollTo(index, anchor: .center)
+                        }
+                    }
                 }
             }
-            .padding(28)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }
@@ -195,81 +233,167 @@ private struct WorkspacePreviewCard: View {
                 }
             }
 
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.black.opacity(0.24))
-                windowPreviewGrid
-                    .padding(14)
-            }
-            .frame(width: 220, height: 136)
+            WorkspacePreviewLayoutCanvas(windows: item.windows)
+                .frame(width: 268, height: 168)
 
-            Text("\(item.windows.count) window\(item.windows.count == 1 ? "" : "s")")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.52))
         }
         .padding(14)
-        .frame(width: 252)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.white.opacity(isSelected ? 0.16 : 0.08))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Color.white.opacity(isSelected ? 0.64 : 0.14), lineWidth: isSelected ? 2 : 1)
-                }
-        )
-        .scaleEffect(isSelected ? 1.04 : 1)
+        .frame(width: 300)
+        .background {
+            let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+            LiquidGlassSurface(
+                shape: shape,
+                tint: Color.white,
+                tintOpacity: isSelected ? 0.04 : 0.02,
+                scrimOpacity: isSelected ? 0.03 : 0.015,
+                highlightOpacity: isSelected ? 0.18 : 0.12,
+                borderOpacity: isSelected ? 0.78 : 0.28,
+                glowOpacity: isSelected ? 0.16 : 0,
+                glowRadius: isSelected ? 18 : 0,
+                lineWidth: isSelected ? 1.8 : 0.9,
+            )
+        }
+        .shadow(color: Color.black.opacity(isSelected ? 0.42 : 0.24), radius: isSelected ? 30 : 18, x: 0, y: 18)
         .animation(.spring(response: 0.22, dampingFraction: 0.85), value: isSelected)
     }
+}
 
-    private var windowPreviewGrid: some View {
-        let windows = Array(item.windows.prefix(9))
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
-            if windows.isEmpty {
-                Text("Empty")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.45))
-                    .frame(width: 188, height: 92)
-            } else {
-                ForEach(windows) { window in
-                    WorkspacePreviewWindowTile(window: window)
+private struct WorkspacePreviewLayoutCanvas: View {
+    let windows: [WorkspacePreviewWindowItem]
+
+    var body: some View {
+        GeometryReader { geometry in
+            let placedWindows = placedWindowFrames(in: geometry.size)
+
+            ZStack(alignment: .topLeading) {
+                let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+                LiquidGlassSurface(
+                    shape: shape,
+                    tint: Color.white,
+                    tintOpacity: 0.02,
+                    scrimOpacity: 0.01,
+                    highlightOpacity: 0.14,
+                    borderOpacity: 0.28,
+                    lineWidth: 0.7,
+                    isInteractive: false,
+                )
+
+                if windows.isEmpty {
+                    Text("Empty")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.54))
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                } else {
+                    ForEach(Array(placedWindows.enumerated()), id: \.element.id) { index, placedWindow in
+                        WorkspacePreviewWindowTile(window: placedWindow.window, showsLabel: placedWindow.frame.width >= 58 && placedWindow.frame.height >= 42)
+                            .frame(width: placedWindow.frame.width, height: placedWindow.frame.height)
+                            .position(x: placedWindow.frame.midX, y: placedWindow.frame.midY)
+                            .zIndex(Double(index))
+                    }
                 }
             }
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
     }
+
+    private func placedWindowFrames(in size: CGSize) -> [WorkspacePreviewPlacedWindow] {
+        let visibleWindows = Array(windows.prefix(12))
+        let rawFrames = visibleWindows.enumerated().map { index, window in
+            WorkspacePreviewPlacedWindow(
+                window: window,
+                frame: previewFrame(for: window, index: index, count: visibleWindows.count, in: size),
+            )
+        }
+        guard let unionFrame = rawFrames.map(\.frame).reduce(nil, { partial, frame in
+            partial.map { $0.union(frame) } ?? frame
+        }) else {
+            return rawFrames
+        }
+        let offsetX = (size.width - unionFrame.width) / 2 - unionFrame.minX
+        let offsetY = (size.height - unionFrame.height) / 2 - unionFrame.minY
+        return rawFrames.map { placedWindow in
+            WorkspacePreviewPlacedWindow(
+                window: placedWindow.window,
+                frame: placedWindow.frame.offsetBy(dx: offsetX, dy: offsetY),
+            )
+        }
+    }
+
+    private func previewFrame(for window: WorkspacePreviewWindowItem, index: Int, count: Int, in size: CGSize) -> CGRect {
+        let normalized = window.layoutFrame ?? fallbackFrame(index: index, count: count)
+        let inset: CGFloat = 8
+        let availableWidth = max(size.width - inset * 2, 1)
+        let availableHeight = max(size.height - inset * 2, 1)
+        let width = max(28, normalized.width * availableWidth)
+        let height = max(24, normalized.height * availableHeight)
+        return CGRect(
+            x: min(inset + normalized.minX * availableWidth, max(inset, size.width - inset - width)),
+            y: min(inset + normalized.minY * availableHeight, max(inset, size.height - inset - height)),
+            width: width,
+            height: height,
+        )
+    }
+
+    private func fallbackFrame(index: Int, count: Int) -> CGRect {
+        let columns = max(1, Int(ceil(sqrt(Double(max(count, 1))))))
+        let rows = max(1, Int(ceil(Double(max(count, 1)) / Double(columns))))
+        let col = index % columns
+        let row = index / columns
+        return CGRect(
+            x: CGFloat(col) / CGFloat(columns),
+            y: CGFloat(row) / CGFloat(rows),
+            width: 1 / CGFloat(columns),
+            height: 1 / CGFloat(rows),
+        )
+    }
+}
+
+private struct WorkspacePreviewPlacedWindow: Identifiable {
+    let window: WorkspacePreviewWindowItem
+    let frame: CGRect
+
+    var id: UInt32 { window.id }
 }
 
 private struct WorkspacePreviewWindowTile: View {
     let window: WorkspacePreviewWindowItem
+    let showsLabel: Bool
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(Color.white.opacity(0.10))
+                .fill(Color(red: 0.08, green: 0.09, blue: 0.10))
             if let thumbnail = window.thumbnail {
                 Image(nsImage: thumbnail)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 54, height: 34)
                     .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
             } else if let appIcon = window.appIcon {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color(red: 0.12, green: 0.13, blue: 0.15))
                 Image(nsImage: appIcon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .padding(7)
-                    .frame(width: 54, height: 34)
+                    .padding(8)
             }
         }
-        .frame(width: 54, height: 34)
         .overlay(alignment: .bottomLeading) {
-            Text(window.appName)
-                .font(.system(size: 6, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.82))
-                .lineLimit(1)
-                .padding(.horizontal, 4)
-                .padding(.vertical, 2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.black.opacity(0.34))
+            if showsLabel {
+                Text(window.appName)
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.84))
+                    .lineLimit(1)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.black.opacity(0.88))
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.32), lineWidth: 0.6)
+        }
+        .shadow(color: Color.black.opacity(0.24), radius: 5, x: 0, y: 2)
     }
 }

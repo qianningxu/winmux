@@ -5,6 +5,7 @@ import SwiftUI
 let workspaceSidebarPanelId = "WinMux.workspaceSidebar"
 let workspaceSidebarContentLeadingInset: CGFloat = 12
 let workspaceSidebarContentTrailingInset: CGFloat = 12
+let workspaceSidebarMinimumTopPadding: CGFloat = 12
 let workspaceSidebarCompactRailHorizontalInset: CGFloat = 7
 let workspaceSidebarSectionInnerHorizontalInset: CGFloat = 5
 let workspaceSidebarSectionGap: CGFloat = 5
@@ -20,6 +21,9 @@ let workspaceSidebarRowHorizontalPadding: CGFloat = 4
 let workspaceSidebarWindowRowsLeadingIndent: CGFloat = 8
 let workspaceSidebarAppIconSize: CGFloat = 14
 let workspaceSidebarAppIconTextSpacing: CGFloat = 6
+let workspaceSidebarWindowCloseButtonSize: CGFloat = 18
+let workspaceSidebarWindowCloseButtonTrailingInset: CGFloat = 3
+let workspaceSidebarWindowCloseButtonReservedWidth: CGFloat = 22
 let workspaceSidebarTabGroupChildLeadingIndent: CGFloat = workspaceSidebarAppIconSize + workspaceSidebarAppIconTextSpacing - 2
 let workspaceSidebarControlHeight: CGFloat = 30
 let workspaceSidebarDropdownHeight: CGFloat = 28

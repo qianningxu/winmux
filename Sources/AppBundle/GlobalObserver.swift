@@ -52,7 +52,7 @@ enum GlobalObserver {
         let modifierFlags = event.modifierFlags
         let keyCode = event.keyCode
         Task { @MainActor in
-            if modifierFlags.contains(.control), keyCode == 48 { // Tab key
+            if modifierFlags.contains(.option), keyCode == 48 { // Tab key
                 let direction = modifierFlags.contains(.shift) ? -1 : 1
                 WorkspacePreviewPanel.shared.advance(direction: direction)
                 return
@@ -159,7 +159,7 @@ enum GlobalObserver {
 
         retainEventMonitor(NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: onKeyDown))
         retainEventMonitor(NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if event.modifierFlags.contains(.control), event.keyCode == 48 {
+            if event.modifierFlags.contains(.option), event.keyCode == 48 {
                 onKeyDown(event)
                 return nil
             }

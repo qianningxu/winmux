@@ -5,7 +5,7 @@
 
 # WinMux
 
-This is a fork of [ZimengXiong/winmux](https://github.com/ZimengXiong/winmux), used for experimenting with workspace preview switching.
+This is a fork of [ZimengXiong/winmux](https://github.com/ZimengXiong/winmux), used for experimenting with workspace preview switching and sidebar workflow improvements.
 
 <p align="left">A powerful sidebar-first window manager for macOS.</p>
 
@@ -99,7 +99,20 @@ make build VERSION=0.2.1-workspace-preview
 ./.debug/WinMuxApp --config-path ~/.config/winmux/winmux.toml
 ```
 
-The workspace preview prototype opens with `Control + Tab`, cycles while Control is held, and switches to the selected workspace when Control is released.
+### Workspace Preview Branch
+This branch adds a workspace switcher that behaves like Command-Tab, but switches WinMux workspaces instead of macOS apps.
+
+- `Option + Tab` opens the workspace preview and cycles forward.
+- `Option + Shift + Tab` cycles backward.
+- Releasing Option switches to the selected workspace.
+- Preview cards draw each workspace using its actual window layout, with stable card sizing between selected and unselected states.
+- The overlay keeps the area outside the floating preview cards transparent.
+
+This branch also includes sidebar refinements:
+
+- Each window row has a bare `x` close control, without a circular background, for closing exactly that window.
+- Closing a window from the sidebar refreshes the sidebar model afterward.
+- The sidebar keeps a minimum 12pt top padding even when outer window gaps are set to `0`.
 
 ## Migrating
 ### From AeroSpace

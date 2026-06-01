@@ -20,6 +20,7 @@ struct WorkspaceSidebarWindowRow: View {
     let style: Style
     let appBundleIds: [String?]
     let appBundlePaths: [String?]
+    let reservesCloseButtonSpace: Bool
 
     private var isTabGroupHeader: Bool { style == .tabGroupHeader }
     private var isTabGroupChild: Bool { style == .tabGroupChild }
@@ -41,6 +42,10 @@ struct WorkspaceSidebarWindowRow: View {
                 Text(badge)
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(isTabGroupHeader ? Color.white.opacity(0.50) : Color.white.opacity(0.38))
+            }
+            if reservesCloseButtonSpace {
+                Color.clear
+                    .frame(width: workspaceSidebarWindowCloseButtonReservedWidth)
             }
         }
         .padding(.horizontal, workspaceSidebarRowHorizontalPadding)

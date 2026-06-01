@@ -47,6 +47,8 @@ func handleWorkspaceSidebarAction(
             overrideWorkspaceInUseFromSidebar(name, targetMonitorScopeId: targetMonitorScopeId)
         case .selectWindow(let windowId):
             focusWindowFromSidebar(windowId)
+        case .closeWindow(let windowId):
+            closeWindowFromSidebar(windowId)
         case .selectProject(let projectId):
             debugWorkspaceSidebarProjectLog(
                 "adapterSelectProject project=\(projectId.rawValue) targetScope=\(targetMonitorScopeId ?? "nil") modelActive=\(viewModel.workspaceSidebarActiveProjectId.rawValue)"
