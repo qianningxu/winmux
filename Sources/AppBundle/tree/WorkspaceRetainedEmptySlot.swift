@@ -16,7 +16,9 @@ func retainedEmptyWorkspaceIdsByScope() -> [WorkspaceScope: WorkspaceId] {
 @MainActor
 func retainedEmptyWorkspaceId(in scope: WorkspaceScope) -> WorkspaceId? {
     let orderedWorkspaces = orderedWorkspaces(in: scope)
-    let ordinaryEmptyWorkspaces = orderedWorkspaces.filter(\.isOrdinaryEmptySlot).sorted {
+    let ordinaryEmptyWorkspaces = orderedWorkspaces.filter {
+        $0.isOrdinaryEmptySlot && !workspaceHasSidebarDisplayNameOverride($0.name)
+    }.sorted {
         if $0.lifecycle != $1.lifecycle {
             return $0.lifecycle == .durable
         }

@@ -1,3 +1,23 @@
+import Common
+
+@MainActor
+func closeWindowFromTabStrip(_ windowId: UInt32, fallbackWorkspace: String) {
+    guard let token: RunSessionGuard = .isServerEnabled else { return }
+    Task {
+        try await runLightSession(.menuBarButton, token) {
+            guard Window.get(byId: windowId) != nil else {
+                _ = Workspace.existing(byName: fallbackWorkspace)?.focusWorkspace()
+                await updateWindowTabModel()
+                return
+            }
+            var args = CloseCmdArgs(rawArgs: [])
+            args.windowId = windowId
+            _ = try await CloseCommand(args: args).run(.defaultEnv, .emptyStdin)
+            await updateWindowTabModel()
+        }
+    }
+}
+
 @MainActor
 func removeWindowFromTabStrip(_ windowId: UInt32, fallbackWorkspace: String) {
     guard let token: RunSessionGuard = .isServerEnabled else { return }

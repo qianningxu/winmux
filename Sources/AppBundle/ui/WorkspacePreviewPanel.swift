@@ -300,7 +300,7 @@ private func workspacePreviewItem(
 ) -> WorkspacePreviewWindowItem? {
     let rect = prefersActualRect
         ? (window.lastKnownActualRect ?? window.lastAppliedLayoutPhysicalRect ?? window.lastAppliedLayoutVirtualRect)
-        : (window.lastAppliedLayoutPhysicalRect ?? window.lastAppliedLayoutVirtualRect ?? window.lastKnownActualRect ?? fallbackRect)
+        : (window.lastAppliedLayoutPhysicalRect ?? window.lastAppliedLayoutVirtualRect ?? fallbackRect ?? window.lastKnownActualRect)
     guard let layoutFrame = workspacePreviewNormalizedFrame(for: rect, in: workspaceRect) else { return nil }
     return workspacePreviewItem(for: window, layoutFrame: layoutFrame)
 }
@@ -502,18 +502,6 @@ private struct WorkspacePreviewLayoutCanvas: View {
             )
 
             ZStack(alignment: .topLeading) {
-                let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
-                LiquidGlassSurface(
-                    shape: shape,
-                    tint: Color.white,
-                    tintOpacity: 0.02,
-                    scrimOpacity: 0.01,
-                    highlightOpacity: 0.14,
-                    borderOpacity: 0.28,
-                    lineWidth: 0.7,
-                    isInteractive: false,
-                )
-
                 if windows.isEmpty {
                     Text("Empty")
                         .font(.system(size: 13, weight: .medium))
@@ -528,7 +516,7 @@ private struct WorkspacePreviewLayoutCanvas: View {
                     }
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
     }
 
@@ -597,20 +585,6 @@ private struct WorkspacePreviewWindowFallback: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing,
                 )
-
-                VStack(alignment: .leading, spacing: max(2, minDimension * 0.08)) {
-                    ForEach(0 ..< 3, id: \.self) { index in
-                        Capsule()
-                            .fill(Color.white.opacity(index == 0 ? 0.26 : 0.14))
-                            .frame(
-                                width: max(8, geometry.size.width * (index == 0 ? 0.62 : 0.42)),
-                                height: max(1, minDimension * 0.035),
-                            )
-                    }
-                    Spacer(minLength: 0)
-                }
-                .padding(max(5, minDimension * 0.13))
-                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
 
                 if let appIcon = window.appIcon {
                     Image(nsImage: appIcon)

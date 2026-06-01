@@ -1,10 +1,42 @@
 import AppKit
 
+@MainActor private var exposeThumbnailCache: [UInt32: NSImage] = [:]
+@MainActor private var exposeThumbnailCacheOrder: [UInt32] = []
+private let exposeThumbnailCacheLimit = 64
+
+@MainActor
 func captureExposeThumbnail(_ windowId: UInt32) -> NSImage? {
+    if let thumbnail = captureFreshExposeThumbnail(windowId) {
+        rememberExposeThumbnail(thumbnail, for: windowId)
+        return thumbnail
+    }
+    return exposeThumbnailCache[windowId]
+}
+
+@MainActor
+@discardableResult
+func refreshExposeThumbnailCache(_ windowId: UInt32) -> NSImage? {
+    guard let thumbnail = captureFreshExposeThumbnail(windowId) else { return nil }
+    rememberExposeThumbnail(thumbnail, for: windowId)
+    return thumbnail
+}
+
+private func captureFreshExposeThumbnail(_ windowId: UInt32) -> NSImage? {
     guard let cg = CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(windowId),
                                            [.boundsIgnoreFraming, .nominalResolution]) else { return nil }
     guard !isLikelyBlankWindowThumbnail(cg) else { return nil }
     return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+}
+
+@MainActor
+private func rememberExposeThumbnail(_ thumbnail: NSImage, for windowId: UInt32) {
+    exposeThumbnailCache[windowId] = thumbnail
+    exposeThumbnailCacheOrder.removeAll { $0 == windowId }
+    exposeThumbnailCacheOrder.append(windowId)
+    while exposeThumbnailCacheOrder.count > exposeThumbnailCacheLimit {
+        let expired = exposeThumbnailCacheOrder.removeFirst()
+        exposeThumbnailCache.removeValue(forKey: expired)
+    }
 }
 
 func isLikelyBlankWindowThumbnail(_ image: CGImage, sampleGrid: Int = 18) -> Bool {

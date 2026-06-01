@@ -146,6 +146,23 @@ final class WorkspaceLifecycleTest: XCTestCase {
         XCTAssertEqual(userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace), [occupied])
     }
 
+    func testRenamedVisibleEmptyWorkspaceIsDeletedWhenItBecomesEmpty() throws {
+        let occupied = Workspace.get(byName: "1")
+        occupied.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 9, parent: occupied.rootTilingContainer)
+        let renamed = Workspace.get(byName: "2")
+        renamed.markAsAutomaticallyNamed()
+        try renameWorkspaceForSidebar(workspaceName: renamed.name, displayName: "Code")
+        _ = renamed.focusWorkspace()
+
+        Workspace.reconcileWorkspaceState()
+
+        XCTAssertNil(Workspace.existing(byName: renamed.name))
+        XCTAssertNil(config.workspaceSidebar.workspaceLabels[renamed.name])
+        XCTAssertTrue(mainMonitor.activeWorkspace === occupied)
+        XCTAssertEqual(userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace), [occupied])
+    }
+
     func testConnectingSecondMonitorCreatesVisibleWorkspaceForDefaultProject() {
         let main = WorkspaceNamingTestMonitor(
             monitorAppKitNsScreenScreensId: 1,

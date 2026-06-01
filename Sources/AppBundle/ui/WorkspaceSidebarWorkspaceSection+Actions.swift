@@ -15,6 +15,14 @@ extension WorkspaceSidebarWorkspaceSection {
         }
     }
 
+    func handleHeaderDoubleClick() {
+        guard !isCompact,
+              !isRenamingWorkspace,
+              !isWorkspaceSidebarDragInProgress()
+        else { return }
+        onBeginRenameWorkspace()
+    }
+
     func handlePayloadDrop(_ payload: WorkspaceSidebarDragPayload) {
         guard !workspaceSidebarPayload(payload, comesFromWorkspace: workspace.name) else {
             actions.send(.clearDropPreview)

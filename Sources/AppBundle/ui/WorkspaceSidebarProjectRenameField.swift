@@ -24,6 +24,7 @@ struct WorkspaceSidebarProjectRenameTextField: NSViewRepresentable {
     let onCommit: @MainActor @Sendable () -> Void
     let onCancel: @MainActor @Sendable () -> Void
     let onPanelReady: @MainActor (WorkspaceSidebarPanel) -> Void
+    var font: NSFont = .systemFont(ofSize: 12.5, weight: .medium)
 
     func makeNSView(context: Context) -> NSTextField {
         debugWorkspaceSidebarRenameLog("makeNSView text=\(text)")
@@ -33,7 +34,7 @@ struct WorkspaceSidebarProjectRenameTextField: NSViewRepresentable {
         field.drawsBackground = false
         field.focusRingType = .none
         field.textColor = .white
-        field.font = .systemFont(ofSize: 12.5, weight: .medium)
+        field.font = font
         field.lineBreakMode = .byTruncatingTail
         field.usesSingleLineMode = true
         field.cell?.wraps = false
@@ -50,6 +51,7 @@ struct WorkspaceSidebarProjectRenameTextField: NSViewRepresentable {
         if field.stringValue != text {
             field.stringValue = text
         }
+        field.font = font
         field.delegate = context.coordinator
         DispatchQueue.main.async {
             context.coordinator.focus(field)
@@ -246,18 +248,9 @@ struct WorkspaceSidebarWorkspaceRenameField: View {
             onPanelReady: { panel in
                 startInlineTextEditing(on: panel)
             },
+            font: .systemFont(ofSize: 15, weight: .semibold),
         )
-        .padding(.horizontal, 6)
-        .frame(height: 24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
-                .fill(Color.white.opacity(0.12))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
-                .strokeBorder(Color.accentColor.opacity(0.65), lineWidth: 0.8)
-        }
+        .frame(maxWidth: .infinity, minHeight: 18, maxHeight: 18, alignment: .leading)
         .onAppear {
             debugWorkspaceSidebarRenameLog("workspaceRenameField onAppear workspace=\(workspaceName) text=\(text)")
             shouldReplaceSelection = true

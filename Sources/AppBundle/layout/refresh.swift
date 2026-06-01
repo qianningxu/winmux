@@ -360,6 +360,9 @@ private func layoutWorkspaces() async throws {
             guard let macWindow = window as? MacWindow else { continue }
             macWindow.lastAppliedLayoutPhysicalRect = nil
             macWindow.lastAppliedLayoutVirtualRect = nil
+            if !macWindow.isHiddenInCorner {
+                refreshExposeThumbnailCache(macWindow.windowId)
+            }
             try await macWindow.hideInCorner(corner, force: shouldReassertHiddenWindows)
         }
     }

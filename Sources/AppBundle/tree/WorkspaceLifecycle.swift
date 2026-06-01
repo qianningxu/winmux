@@ -198,11 +198,15 @@ func workspaceShouldSurviveReconciliation(
     retainedEmptyWorkspaceIds: [WorkspaceScope: WorkspaceId],
 ) -> Bool {
     guard !workspace.isArchived else { return false }
-    return workspace.isVisible ||
+    let scope = WorkspaceScope(projectId: workspace.projectId)
+    let isReplaceableVisibleRename = workspace.isVisible &&
+        workspace.isOrdinaryEmptySlot &&
+        workspaceHasSidebarDisplayNameOverride(workspace.name)
+    return (workspace.isVisible && !isReplaceableVisibleRename) ||
         workspaceHasLifecycleWindows(workspace) ||
         workspace.isConfiguredPersistent ||
-        projectWorkspaces(projectId: workspace.projectId).filter { !$0.isArchived }.count == 1 ||
-        retainedEmptyWorkspaceIds[WorkspaceScope(projectId: workspace.projectId)] == workspace.id
+        (!isReplaceableVisibleRename && projectWorkspaces(projectId: workspace.projectId).filter { !$0.isArchived }.count == 1) ||
+        retainedEmptyWorkspaceIds[scope] == workspace.id
 }
 
 @MainActor

@@ -6,6 +6,7 @@ struct WindowTabItemView: View {
     let height: CGFloat
     let isDragSource: Bool
     let isHovered: Bool
+    let reservesCloseButtonSpace: Bool
 
     var body: some View {
         HStack(spacing: 6) {
@@ -15,6 +16,11 @@ struct WindowTabItemView: View {
                 .font(.system(size: 12, weight: tab.isActive ? .semibold : .medium))
                 .lineLimit(1)
                 .truncationMode(.tail)
+            Spacer(minLength: 0)
+            if reservesCloseButtonSpace {
+                Color.clear
+                    .frame(width: windowTabStripCloseButtonReservedWidth)
+            }
         }
         .foregroundStyle(tabForegroundStyle)
         .padding(.horizontal, 10)

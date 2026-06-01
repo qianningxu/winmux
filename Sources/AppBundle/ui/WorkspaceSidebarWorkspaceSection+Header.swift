@@ -34,12 +34,17 @@ extension WorkspaceSidebarWorkspaceSection {
                     onCommit: onCommitRenameWorkspace,
                     onCancel: onCancelRenameWorkspace,
                 )
+                .layoutPriority(1)
             } else {
                 Text(workspace.displayName)
                     .font(.system(size: 15, weight: isActiveOnTargetMonitor ? .bold : .semibold))
                     .foregroundStyle(isActiveOnTargetMonitor ? Color.white : Color.white.opacity(0.85))
                     .lineLimit(1)
                     .truncationMode(.tail)
+                    .contentShape(Rectangle())
+                    .onTapGesture(count: 2, perform: handleHeaderDoubleClick)
+                    .onTapGesture(count: 1) {}
+                    .layoutPriority(1)
             }
             if let projectContextLabel, let projectContextColor {
                 Text(projectContextLabel)

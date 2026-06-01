@@ -7,7 +7,8 @@ extension WorkspaceSidebarWorkspaceSection {
         subject: WindowDragSubject = .window,
         leadingHitInset: CGFloat = 0,
     ) -> some View {
-        let isRowHovered = hoveredWindowId == window.windowId || selectedSearchTarget == .window(window.windowId)
+        let isPointerHovered = hoveredWindowId == window.windowId
+        let isRowHovered = isPointerHovered || selectedSearchTarget == .window(window.windowId)
         return ZStack(alignment: .trailing) {
             Button {
                 guard allowsWorkspaceActivation else { return }
@@ -59,8 +60,11 @@ extension WorkspaceSidebarWorkspaceSection {
                 WorkspaceSidebarDragPayload.window(window.windowId).itemProvider
             }
 
-            workspaceWindowCloseButton(window, isEmphasized: isRowHovered || window.isFocused)
-                .padding(.trailing, workspaceSidebarWindowCloseButtonTrailingInset)
+            if isPointerHovered {
+                workspaceWindowCloseButton(window)
+                    .padding(.trailing, workspaceSidebarWindowCloseButtonTrailingInset)
+                    .transition(.opacity)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
@@ -77,14 +81,13 @@ extension WorkspaceSidebarWorkspaceSection {
 
     private func workspaceWindowCloseButton(
         _ window: WorkspaceSidebarWindowViewModel,
-        isEmphasized: Bool,
     ) -> some View {
         Button {
             actions.send(.closeWindow(window.windowId))
         } label: {
             Image(systemName: "xmark")
                 .font(.system(size: 8.5, weight: .bold))
-                .foregroundStyle(Color.white.opacity(isEmphasized ? 0.78 : 0.42))
+                .foregroundStyle(Color.white.opacity(0.78))
                 .frame(width: workspaceSidebarWindowCloseButtonSize, height: workspaceSidebarWindowCloseButtonSize)
                 .contentShape(Rectangle())
         }

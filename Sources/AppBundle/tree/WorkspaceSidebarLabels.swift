@@ -46,6 +46,11 @@ func clearOrphanedWorkspaceSidebarLabels() {
 }
 
 @MainActor
+func workspaceHasSidebarDisplayNameOverride(_ workspaceName: String) -> Bool {
+    config.workspaceSidebar.workspaceLabels[workspaceName]?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+}
+
+@MainActor
 func workspaceDefaultDisplayName(_ workspaceName: String) -> String {
     if let workspace = Workspace.existing(byName: workspaceName) {
         guard workspace.usesAutomaticDisplayName else { return workspaceName }

@@ -41,6 +41,25 @@ final class WorkspacePreviewGeometryTest: XCTestCase {
         assertFrame(items[0].layoutFrame, equals: CGRect(x: 0, y: 0, width: 1, height: 1))
     }
 
+    @MainActor
+    func testTiledHiddenWorkspaceWindowsPreferTreeFallbackOverParkedActualRect() {
+        setUpWorkspacesForTests()
+        config.gaps = .zero
+        let workspace = Workspace.get(byName: "preview-parked")
+        let workspaceRect = Rect(topLeftX: 0, topLeftY: 0, width: 1000, height: 800)
+        let root = workspace.rootTilingContainer
+        let first = TestWindow.new(id: 1, parent: root, adaptiveWeight: 0.5)
+        let second = TestWindow.new(id: 2, parent: root, adaptiveWeight: 0.5)
+        first.lastKnownActualRect = Rect(topLeftX: 1600, topLeftY: 900, width: 500, height: 400)
+        second.lastKnownActualRect = Rect(topLeftX: 1600, topLeftY: 900, width: 500, height: 400)
+
+        let items = workspacePreviewWindowItems(for: workspace, workspaceRect: workspaceRect)
+
+        XCTAssertEqual(items.map(\.id), [1, 2])
+        assertFrame(items[0].layoutFrame, equals: CGRect(x: 0, y: 0, width: 0.5, height: 1))
+        assertFrame(items[1].layoutFrame, equals: CGRect(x: 0.5, y: 0, width: 0.5, height: 1))
+    }
+
     func testPlacedWindowsUseExactWorkspaceCanvasWithoutRecenteringVisibleUnion() {
         let item = previewTestItem(id: 1, layoutFrame: CGRect(x: 0.5, y: 0, width: 0.5, height: 1))
 

@@ -7,19 +7,30 @@ extension WindowTabStripView {
         context: WindowTabStripLayoutContext,
         itemHeight: CGFloat,
     ) -> some View {
-        Button {
-            guard !isWindowTabStripDragInProgress() else { return }
-            focusWindowFromTabStripClick(tab.windowId, fallbackWorkspace: tab.workspaceName)
-        } label: {
-            WindowTabItemView(
-                tab: tab,
-                width: context.tabWidth,
-                height: itemHeight,
-                isDragSource: draggingTabId == tab.windowId,
-                isHovered: hoveredTabId == tab.windowId
-            )
+        let isHovered = hoveredTabId == tab.windowId
+        return ZStack(alignment: .trailing) {
+            Button {
+                guard !isWindowTabStripDragInProgress() else { return }
+                focusWindowFromTabStripClick(tab.windowId, fallbackWorkspace: tab.workspaceName)
+            } label: {
+                WindowTabItemView(
+                    tab: tab,
+                    width: context.tabWidth,
+                    height: itemHeight,
+                    isDragSource: draggingTabId == tab.windowId,
+                    isHovered: isHovered,
+                    reservesCloseButtonSpace: true
+                )
+            }
+            .buttonStyle(.plain)
+
+            if isHovered && draggingTabId == nil {
+                tabCloseButton(tab)
+                    .padding(.trailing, windowTabStripCloseButtonTrailingInset)
+                    .transition(.opacity)
+            }
         }
-        .buttonStyle(.plain)
+        .frame(width: context.tabWidth, height: itemHeight, alignment: .leading)
         .offset(x: tabVisualOffset(for: tab, context: context))
         .zIndex(draggingTabId == tab.windowId ? 1 : 0)
         .shadow(
@@ -38,9 +49,27 @@ extension WindowTabStripView {
             updateHoveredTab(tab.windowId, hovering: hovering)
         }
         .contextMenu {
+            Button("Close Tab") {
+                closeWindowFromTabStrip(tab.windowId, fallbackWorkspace: tab.workspaceName)
+            }
             Button("Remove Tab From Stack") {
                 removeWindowFromTabStrip(tab.windowId, fallbackWorkspace: tab.workspaceName)
             }
         }
+    }
+
+    private func tabCloseButton(_ tab: WindowTabItemViewModel) -> some View {
+        Button {
+            closeWindowFromTabStrip(tab.windowId, fallbackWorkspace: tab.workspaceName)
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 8.5, weight: .bold))
+                .foregroundStyle(Color.white.opacity(0.78))
+                .frame(width: windowTabStripCloseButtonSize, height: windowTabStripCloseButtonSize)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Close \(tab.title)")
+        .accessibilityLabel("Close \(tab.title)")
     }
 }
