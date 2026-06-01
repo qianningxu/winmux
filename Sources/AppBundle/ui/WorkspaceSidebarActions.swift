@@ -526,6 +526,18 @@ func deleteWorkspaceFromSidebar(_ workspace: WorkspaceSidebarWorkspaceViewModel)
 }
 
 @MainActor
+func reorderWorkspaceFromSidebar(_ workspaceName: String, projectId: WorkspaceProjectId, placement: WorkspaceReorderPlacement) {
+    runWorkspaceSidebarSession {
+        guard reorderWorkspaceForSidebar(
+            sourceWorkspaceName: workspaceName,
+            projectId: projectId,
+            placement: placement
+        ) else { return }
+        await updateWorkspaceSidebarModel()
+    }
+}
+
+@MainActor
 func focusWindowFromSidebar(_ windowId: UInt32) {
     WorkspaceSidebarPanel.suppressEdgeTrapForWorkspaceActivation()
     runWorkspaceSidebarSession {

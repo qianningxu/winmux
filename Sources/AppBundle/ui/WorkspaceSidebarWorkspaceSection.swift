@@ -23,6 +23,10 @@ struct WorkspaceSidebarWorkspaceSection: View {
     let onCancelRenameWorkspace: @MainActor () -> Void
     let selectedSearchTarget: WorkspaceSidebarSearchSelection?
     let isSearchFiltering: Bool
+    let isWorkspaceReorderEnabled: Bool
+    let isWorkspaceReorderSource: Bool
+    let onWorkspaceReorderDragChanged: (CGPoint) -> Void
+    let onWorkspaceReorderDragEnded: (CGPoint) -> Void
     @Binding var activeInUseOverrideWorkspaceName: String?
     let actions: WorkspaceSidebarActions
 
@@ -69,7 +73,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
             .frame(minHeight: sectionMinHeight, alignment: .top)
             .frame(maxWidth: .infinity, alignment: .leading)
             .clipped()
-            .opacity(compactFocusOpacity)
+            .opacity(compactFocusOpacity * (isWorkspaceReorderSource ? 0.58 : 1))
             .contentShape(Rectangle())
             .contextMenu {
                 Button {
@@ -130,6 +134,15 @@ struct WorkspaceSidebarWorkspaceSection: View {
                             kind: .workspace(workspace.name),
                             frame: geometry.frame(in: .named("workspaceSidebarContent")),
                         )] : [],
+                    )
+                    .preference(
+                        key: WorkspaceSidebarWorkspaceReorderFramePreferenceKey.self,
+                        value: [WorkspaceSidebarWorkspaceReorderFrame(
+                            workspaceName: workspace.name,
+                            projectId: workspace.projectId,
+                            frame: geometry.frame(in: .named("workspaceSidebarContent")),
+                            isReorderable: isWorkspaceReorderEnabled,
+                        )]
                     )
                 }
             }

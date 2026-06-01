@@ -67,20 +67,28 @@ extension WorkspaceSidebarView {
                         emitsDropTarget: true,
                         allowsWorkspaceActivation: false,
                         isPinnedActiveWorkspace: true,
+                        isInteractive: isInteractive,
                         projectContextLabel: projectName(snapshot.activeProjectId),
                         projectContextColor: projectColor(snapshot.activeProjectId)
                     )
                 }
                 ForEach(workspaces) { workspace in
+                    if showsWorkspaceReorderIndicator(before: workspace, projectId: projectId) {
+                        workspaceReorderIndicator(expansionProgress: expansionProgress)
+                    }
                     workspaceSection(
                         workspace: workspace,
                         expansionProgress: expansionProgress,
                         emitsDropTarget: true,
                         allowsWorkspaceActivation: allowsActivation ?? allowsWorkspaceActivation(projectId: projectId),
                         isPinnedActiveWorkspace: false,
+                        isInteractive: isInteractive,
                         projectContextLabel: browsedProjectId != nil && projectId != snapshot.activeProjectId ? projectName(projectId) : nil,
                         projectContextColor: browsedProjectId != nil && projectId != snapshot.activeProjectId ? projectColor(projectId) : nil
                     )
+                    if showsWorkspaceReorderIndicator(after: workspace, projectId: projectId) {
+                        workspaceReorderIndicator(expansionProgress: expansionProgress)
+                    }
                 }
                 if showsCreateWorkspace && workspaceSidebarShowsCreateWorkspace(selectedScopeId: snapshot.selectedMonitorScopeId) {
                     let createMonitorScopeId = workspaceSidebarWorkspaceCreateScope(
@@ -181,6 +189,7 @@ extension WorkspaceSidebarView {
         emitsDropTarget: Bool,
         allowsWorkspaceActivation: Bool,
         isPinnedActiveWorkspace: Bool,
+        isInteractive: Bool,
         projectContextLabel: String? = nil,
         projectContextColor: Color? = nil
     ) -> some View {
@@ -218,6 +227,19 @@ extension WorkspaceSidebarView {
             },
             selectedSearchTarget: searchText.isEmpty ? nil : selectedSearchTarget,
             isSearchFiltering: !searchText.isEmpty,
+            isWorkspaceReorderEnabled: isWorkspaceReorderEnabled(
+                workspace: workspace,
+                expansionProgress: expansionProgress,
+                isPinnedActiveWorkspace: isPinnedActiveWorkspace,
+                isInteractive: isInteractive
+            ),
+            isWorkspaceReorderSource: isWorkspaceReorderSource(workspace),
+            onWorkspaceReorderDragChanged: { pointer in
+                updateWorkspaceReorderDrag(workspace: workspace, projectId: workspace.projectId, pointer: pointer)
+            },
+            onWorkspaceReorderDragEnded: { pointer in
+                finishWorkspaceReorderDrag(workspace: workspace, projectId: workspace.projectId, pointer: pointer)
+            },
             activeInUseOverrideWorkspaceName: $activeInUseOverrideWorkspaceName,
             actions: actions,
         )

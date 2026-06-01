@@ -45,3 +45,25 @@ enum WorkspaceNamingStyle: String, Codable, Sendable {
     case explicit
     case automatic
 }
+
+enum WorkspaceReorderPlacement: Equatable {
+    case before(String)
+    case after(String)
+
+    var targetWorkspaceName: String {
+        switch self {
+            case .before(let name), .after(let name): name
+        }
+    }
+}
+
+enum WorkspaceOrderDestination: Equatable {
+    case before(WorkspaceId)
+    case after(WorkspaceId)
+
+    var targetWorkspaceId: WorkspaceId {
+        switch self {
+            case .before(let id), .after(let id): id
+        }
+    }
+}

@@ -118,6 +118,29 @@ func renameWorkspaceForSidebar(workspaceName: String, displayName: String) throw
 }
 
 @MainActor
+@discardableResult
+func reorderWorkspaceForSidebar(
+    sourceWorkspaceName: String,
+    projectId: WorkspaceProjectId,
+    placement: WorkspaceReorderPlacement
+) -> Bool {
+    materializePersistedWorkspaceProjects()
+    guard let source = Workspace.existing(byName: sourceWorkspaceName),
+          let target = Workspace.existing(byName: placement.targetWorkspaceName),
+          source.projectId == projectId,
+          target.projectId == projectId,
+          !source.isArchived,
+          !target.isArchived
+    else { return false }
+
+    let destination: WorkspaceOrderDestination = switch placement {
+        case .before(_): .before(target.id)
+        case .after(_): .after(target.id)
+    }
+    return winMuxWorkspaceState.reorderWorkspace(source.id, inProject: projectId, destination: destination)
+}
+
+@MainActor
 func resetWorkspaceSidebarName(workspaceName: String) throws {
     guard Workspace.existing(byName: workspaceName) != nil else {
         throw WorkspaceMutationError.workspaceNotFound(workspaceName)

@@ -102,6 +102,9 @@ extension WorkspaceSidebarView {
         .onPreferenceChange(WorkspaceSidebarDropTargetPreferenceKey.self) { frames in
             actions.setDropTargets(frames)
         }
+        .onPreferenceChange(WorkspaceSidebarWorkspaceReorderFramePreferenceKey.self) { frames in
+            workspaceReorderFrames = frames
+        }
         .background {
             sidebarSurface(in: sidebarShape)
                 .contentShape(Rectangle())

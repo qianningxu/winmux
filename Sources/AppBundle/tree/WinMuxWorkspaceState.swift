@@ -164,6 +164,38 @@ struct WinMuxWorkspaceState {
         insertWorkspace(workspace.id, intoProject: projectId)
     }
 
+    mutating func reorderWorkspace(_ workspaceId: WorkspaceId, inProject projectId: WorkspaceProjectId, destination: WorkspaceOrderDestination) -> Bool {
+        pruneProjectWorkspaceIndexes()
+        guard var project = projectsById[projectId],
+              let workspace = workspaceById[workspaceId],
+              workspace.projectId == projectId,
+              !workspace.isArchived
+        else { return false }
+
+        let targetWorkspaceId = destination.targetWorkspaceId
+        guard workspaceId != targetWorkspaceId,
+              let targetWorkspace = workspaceById[targetWorkspaceId],
+              targetWorkspace.projectId == projectId,
+              !targetWorkspace.isArchived
+        else { return false }
+
+        var reordered = project.workspaceOrder
+        guard reordered.contains(workspaceId), reordered.contains(targetWorkspaceId) else { return false }
+        reordered.removeAll { $0 == workspaceId }
+        guard let targetIndex = reordered.firstIndex(of: targetWorkspaceId) else { return false }
+
+        let insertionIndex = switch destination {
+            case .before(_): targetIndex
+            case .after(_): targetIndex + 1
+        }
+        reordered.insert(workspaceId, at: insertionIndex)
+        guard reordered != project.workspaceOrder else { return false }
+
+        project.workspaceOrder = reordered
+        projectsById[projectId] = project
+        return true
+    }
+
     mutating func pruneProjectWorkspaceIndexes() {
         for workspace in workspaceById.values {
             ensureProjectExists(workspace.projectId)

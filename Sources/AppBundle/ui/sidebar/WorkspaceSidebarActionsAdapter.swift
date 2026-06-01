@@ -76,6 +76,8 @@ func handleWorkspaceSidebarAction(
             if let workspace = workspaceSidebarWorkspaceViewModel(name) {
                 deleteWorkspaceFromSidebar(workspace)
             }
+        case .reorderWorkspace(let name, let projectId, let placement):
+            reorderWorkspaceFromSidebar(name, projectId: projectId, placement: placement)
         case .moveWindow(let windowId, let workspaceName):
             moveWindowFromSidebar(windowId, toWorkspace: workspaceName)
         case .moveTabGroup(let windowId, let workspaceName):

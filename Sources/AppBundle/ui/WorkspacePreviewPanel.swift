@@ -8,16 +8,17 @@ private struct WorkspacePreviewItem: Identifiable {
     let workspace: Workspace
     let displayName: String
     let isCurrent: Bool
+    let workspaceAspectRatio: CGFloat
     let windows: [WorkspacePreviewWindowItem]
 }
 
-private struct WorkspacePreviewWindowItem: Identifiable {
+struct WorkspacePreviewWindowItem: Identifiable {
     let id: UInt32
     let title: String
     let appName: String
     let appIcon: NSImage?
     let thumbnail: NSImage?
-    let layoutFrame: CGRect?
+    let layoutFrame: CGRect
 }
 
 @MainActor
@@ -81,12 +82,14 @@ final class WorkspacePreviewPanel: NSPanelHud {
         let candidates = orderedUserFacingWorkspaces(in: current.projectId, focusedWorkspace: current)
         guard !candidates.isEmpty else { return }
         items = candidates.map { workspace in
-            WorkspacePreviewItem(
+            let workspaceRect = workspacePreviewRect(for: workspace)
+            return WorkspacePreviewItem(
                 id: workspace.name,
                 workspace: workspace,
                 displayName: workspaceDisplayName(workspace.name),
                 isCurrent: workspace == current,
-                windows: workspacePreviewWindowItems(for: workspace),
+                workspaceAspectRatio: workspacePreviewAspectRatio(for: workspaceRect),
+                windows: workspacePreviewWindowItems(for: workspace, workspaceRect: workspaceRect),
             )
         }
         let currentIndex = items.firstIndex { $0.workspace == current } ?? 0
@@ -136,39 +139,267 @@ func handleWorkspacePreviewHotkey(_ binding: String) -> Bool {
 }
 
 @MainActor
-private func workspacePreviewWindowItems(for workspace: Workspace) -> [WorkspacePreviewWindowItem] {
-    let workspaceRect = workspace.rootTilingContainer.lastAppliedLayoutPhysicalRect
+func workspacePreviewRect(for workspace: Workspace) -> Rect {
+    workspace.rootTilingContainer.lastAppliedLayoutPhysicalRect
+        ?? workspace.rootTilingContainer.lastAppliedLayoutVirtualRect
         ?? workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
-    return (workspace.allLeafWindowsRecursive + workspace.floatingWindows).map { window in
-        WorkspacePreviewWindowItem(
-            id: window.windowId,
-            title: sidebarDisplayLabel(for: window),
-            appName: window.app.name ?? "Unknown",
-            appIcon: appIconImage(bundleIdentifier: window.app.rawAppBundleId, bundlePath: window.app.bundlePath),
-            thumbnail: captureExposeThumbnail(window.windowId),
-            layoutFrame: normalizedWorkspacePreviewFrame(for: window, in: workspaceRect),
+}
+
+func workspacePreviewAspectRatio(for rect: Rect) -> CGFloat {
+    guard rect.width > 0, rect.height > 0 else { return 1 }
+    return rect.width / rect.height
+}
+
+@MainActor
+func workspacePreviewWindowItems(
+    for workspace: Workspace,
+    workspaceRect: Rect,
+) -> [WorkspacePreviewWindowItem] {
+    var items: [WorkspacePreviewWindowItem] = []
+    let resolvedGaps = ResolvedGaps(gaps: config.gaps, monitor: workspace.workspaceMonitor)
+    appendWorkspacePreviewItems(
+        from: workspace.rootTilingContainer,
+        workspaceRect: workspaceRect,
+        fallbackRect: workspaceRect,
+        resolvedGaps: resolvedGaps,
+        to: &items,
+    )
+    for window in workspace.floatingWindows where window.isBound {
+        if let item = workspacePreviewItem(
+            for: window,
+            workspaceRect: workspaceRect,
+            fallbackRect: nil,
+            prefersActualRect: true,
+        ) {
+            items.append(item)
+        }
+    }
+    return items
+}
+
+@MainActor
+private func appendWorkspacePreviewItems(
+    from node: TreeNode,
+    workspaceRect: Rect,
+    fallbackRect: Rect,
+    resolvedGaps: ResolvedGaps,
+    to items: inout [WorkspacePreviewWindowItem],
+) {
+    switch node.nodeCases {
+        case .window(let window):
+            if let item = workspacePreviewItem(
+                for: window,
+                workspaceRect: workspaceRect,
+                fallbackRect: fallbackRect,
+                prefersActualRect: false,
+            ) {
+                items.append(item)
+            }
+        case .tilingContainer(let container):
+            if container.usesWindowTabBehavior {
+                if let item = workspacePreviewItem(for: container, workspaceRect: workspaceRect, fallbackRect: fallbackRect) {
+                    items.append(item)
+                }
+            } else {
+                switch container.layout {
+                    case .tiles:
+                        appendWorkspacePreviewTileItems(
+                            from: container,
+                            workspaceRect: workspaceRect,
+                            fallbackRect: fallbackRect,
+                            resolvedGaps: resolvedGaps,
+                            to: &items,
+                        )
+                    case .tabGroup:
+                        for child in container.children {
+                            appendWorkspacePreviewItems(
+                                from: child,
+                                workspaceRect: workspaceRect,
+                                fallbackRect: fallbackRect,
+                                resolvedGaps: resolvedGaps,
+                                to: &items,
+                            )
+                        }
+                }
+            }
+        case .workspace, .macosMinimizedWindowsContainer, .macosFullscreenWindowsContainer,
+             .macosPopupWindowsContainer, .macosHiddenAppsWindowsContainer:
+            return
+    }
+}
+
+@MainActor
+private func appendWorkspacePreviewTileItems(
+    from container: TilingContainer,
+    workspaceRect: Rect,
+    fallbackRect: Rect,
+    resolvedGaps: ResolvedGaps,
+    to items: inout [WorkspacePreviewWindowItem],
+) {
+    guard !container.children.isEmpty else { return }
+    let orientation = container.orientation
+    let totalWeight = CGFloat(container.children.sumOfDouble { $0.getWeight(orientation) })
+    let delta = (fallbackRect.getDimension(orientation) - totalWeight) / CGFloat(container.children.count)
+    let rawGap = resolvedGaps.inner.get(orientation).toDouble()
+    let lastIndex = container.children.indices.last
+    var point = fallbackRect.topLeftCorner
+
+    for (index, child) in container.children.enumerated() {
+        let childDimension = max(child.getWeight(orientation) + delta, 0)
+        let gap = rawGap - (index == 0 ? rawGap / 2 : 0) - (index == lastIndex ? rawGap / 2 : 0)
+        let childFallbackRect: Rect
+        switch orientation {
+            case .h:
+                childFallbackRect = Rect(
+                    topLeftX: index == 0 ? point.x : point.x + rawGap / 2,
+                    topLeftY: fallbackRect.topLeftY,
+                    width: max(childDimension - gap, 0),
+                    height: fallbackRect.height,
+                )
+                point = point.addingXOffset(childDimension)
+            case .v:
+                childFallbackRect = Rect(
+                    topLeftX: fallbackRect.topLeftX,
+                    topLeftY: index == 0 ? point.y : point.y + rawGap / 2,
+                    width: fallbackRect.width,
+                    height: max(childDimension - gap, 0),
+                )
+                point = point.addingYOffset(childDimension)
+        }
+        appendWorkspacePreviewItems(
+            from: child,
+            workspaceRect: workspaceRect,
+            fallbackRect: childFallbackRect,
+            resolvedGaps: resolvedGaps,
+            to: &items,
         )
     }
 }
 
-private func normalizedWorkspacePreviewFrame(for window: Window, in workspaceRect: Rect) -> CGRect? {
-    guard let rect = window.lastAppliedLayoutPhysicalRect,
+@MainActor
+private func workspacePreviewItem(
+    for container: TilingContainer,
+    workspaceRect: Rect,
+    fallbackRect: Rect,
+) -> WorkspacePreviewWindowItem? {
+    guard let representative = container.tabActiveWindow ?? container.mostRecentWindowRecursive ?? container.anyLeafWindowRecursive,
+          let layoutFrame = workspacePreviewNormalizedFrame(
+            for: container.lastAppliedLayoutPhysicalRect ?? container.lastAppliedLayoutVirtualRect ?? fallbackRect,
+            in: workspaceRect
+          )
+    else { return nil }
+    return workspacePreviewItem(for: representative, layoutFrame: layoutFrame)
+}
+
+@MainActor
+private func workspacePreviewItem(
+    for window: Window,
+    workspaceRect: Rect,
+    fallbackRect: Rect?,
+    prefersActualRect: Bool,
+) -> WorkspacePreviewWindowItem? {
+    let rect = prefersActualRect
+        ? (window.lastKnownActualRect ?? window.lastAppliedLayoutPhysicalRect ?? window.lastAppliedLayoutVirtualRect)
+        : (window.lastAppliedLayoutPhysicalRect ?? window.lastAppliedLayoutVirtualRect ?? window.lastKnownActualRect ?? fallbackRect)
+    guard let layoutFrame = workspacePreviewNormalizedFrame(for: rect, in: workspaceRect) else { return nil }
+    return workspacePreviewItem(for: window, layoutFrame: layoutFrame)
+}
+
+@MainActor
+private func workspacePreviewItem(
+    for window: Window,
+    layoutFrame: CGRect,
+) -> WorkspacePreviewWindowItem {
+    WorkspacePreviewWindowItem(
+        id: window.windowId,
+        title: sidebarDisplayLabel(for: window),
+        appName: window.app.name ?? "Unknown",
+        appIcon: appIconImage(bundleIdentifier: window.app.rawAppBundleId, bundlePath: window.app.bundlePath),
+        thumbnail: captureExposeThumbnail(window.windowId),
+        layoutFrame: layoutFrame,
+    )
+}
+
+func workspacePreviewNormalizedFrame(for rect: Rect?, in workspaceRect: Rect) -> CGRect? {
+    guard let rect,
           workspaceRect.width > 0,
           workspaceRect.height > 0
     else { return nil }
 
+    let minX = max(rect.minX, workspaceRect.minX)
+    let minY = max(rect.minY, workspaceRect.minY)
+    let maxX = min(rect.maxX, workspaceRect.maxX)
+    let maxY = min(rect.maxY, workspaceRect.maxY)
+    guard maxX > minX, maxY > minY else { return nil }
+
     return CGRect(
-        x: ((rect.minX - workspaceRect.minX) / workspaceRect.width).clamped(to: 0...1),
-        y: ((rect.minY - workspaceRect.minY) / workspaceRect.height).clamped(to: 0...1),
-        width: (rect.width / workspaceRect.width).clamped(to: 0.04...1),
-        height: (rect.height / workspaceRect.height).clamped(to: 0.04...1),
+        x: (minX - workspaceRect.minX) / workspaceRect.width,
+        y: (minY - workspaceRect.minY) / workspaceRect.height,
+        width: (maxX - minX) / workspaceRect.width,
+        height: (maxY - minY) / workspaceRect.height,
     )
 }
 
-private extension CGFloat {
-    func clamped(to range: ClosedRange<CGFloat>) -> CGFloat {
-        Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
+func workspacePreviewPlacedWindows(
+    windows: [WorkspacePreviewWindowItem],
+    workspaceAspectRatio: CGFloat,
+    in size: CGSize,
+    inset: CGFloat = 8,
+) -> [WorkspacePreviewPlacedWindow] {
+    let canvasRect = workspacePreviewCanvasRect(
+        workspaceAspectRatio: workspaceAspectRatio,
+        in: size,
+        inset: inset,
+    )
+    return windows.map { window in
+        WorkspacePreviewPlacedWindow(
+            window: window,
+            frame: workspacePreviewFrame(for: window.layoutFrame, in: canvasRect),
+        )
     }
+}
+
+func workspacePreviewCanvasRect(
+    workspaceAspectRatio: CGFloat,
+    in size: CGSize,
+    inset: CGFloat = 8,
+) -> CGRect {
+    let available = CGRect(
+        x: inset,
+        y: inset,
+        width: max(size.width - inset * 2, 1),
+        height: max(size.height - inset * 2, 1),
+    )
+    guard workspaceAspectRatio > 0, available.width > 0, available.height > 0 else {
+        return available
+    }
+    let availableAspectRatio = available.width / available.height
+    if availableAspectRatio > workspaceAspectRatio {
+        let width = available.height * workspaceAspectRatio
+        return CGRect(
+            x: available.minX + (available.width - width) / 2,
+            y: available.minY,
+            width: width,
+            height: available.height,
+        )
+    } else {
+        let height = available.width / workspaceAspectRatio
+        return CGRect(
+            x: available.minX,
+            y: available.minY + (available.height - height) / 2,
+            width: available.width,
+            height: height,
+        )
+    }
+}
+
+func workspacePreviewFrame(for normalizedFrame: CGRect, in canvasRect: CGRect) -> CGRect {
+    CGRect(
+        x: canvasRect.minX + normalizedFrame.minX * canvasRect.width,
+        y: canvasRect.minY + normalizedFrame.minY * canvasRect.height,
+        width: normalizedFrame.width * canvasRect.width,
+        height: normalizedFrame.height * canvasRect.height,
+    )
 }
 
 private struct WorkspacePreviewView: View {
@@ -233,7 +464,7 @@ private struct WorkspacePreviewCard: View {
                 }
             }
 
-            WorkspacePreviewLayoutCanvas(windows: item.windows)
+            WorkspacePreviewLayoutCanvas(windows: item.windows, workspaceAspectRatio: item.workspaceAspectRatio)
                 .frame(width: 268, height: 168)
 
         }
@@ -260,10 +491,15 @@ private struct WorkspacePreviewCard: View {
 
 private struct WorkspacePreviewLayoutCanvas: View {
     let windows: [WorkspacePreviewWindowItem]
+    let workspaceAspectRatio: CGFloat
 
     var body: some View {
         GeometryReader { geometry in
-            let placedWindows = placedWindowFrames(in: geometry.size)
+            let placedWindows = workspacePreviewPlacedWindows(
+                windows: windows,
+                workspaceAspectRatio: workspaceAspectRatio,
+                in: geometry.size,
+            )
 
             ZStack(alignment: .topLeading) {
                 let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -296,59 +532,9 @@ private struct WorkspacePreviewLayoutCanvas: View {
         }
     }
 
-    private func placedWindowFrames(in size: CGSize) -> [WorkspacePreviewPlacedWindow] {
-        let visibleWindows = Array(windows.prefix(12))
-        let rawFrames = visibleWindows.enumerated().map { index, window in
-            WorkspacePreviewPlacedWindow(
-                window: window,
-                frame: previewFrame(for: window, index: index, count: visibleWindows.count, in: size),
-            )
-        }
-        guard let unionFrame = rawFrames.map(\.frame).reduce(nil, { partial, frame in
-            partial.map { $0.union(frame) } ?? frame
-        }) else {
-            return rawFrames
-        }
-        let offsetX = (size.width - unionFrame.width) / 2 - unionFrame.minX
-        let offsetY = (size.height - unionFrame.height) / 2 - unionFrame.minY
-        return rawFrames.map { placedWindow in
-            WorkspacePreviewPlacedWindow(
-                window: placedWindow.window,
-                frame: placedWindow.frame.offsetBy(dx: offsetX, dy: offsetY),
-            )
-        }
-    }
-
-    private func previewFrame(for window: WorkspacePreviewWindowItem, index: Int, count: Int, in size: CGSize) -> CGRect {
-        let normalized = window.layoutFrame ?? fallbackFrame(index: index, count: count)
-        let inset: CGFloat = 8
-        let availableWidth = max(size.width - inset * 2, 1)
-        let availableHeight = max(size.height - inset * 2, 1)
-        let width = max(28, normalized.width * availableWidth)
-        let height = max(24, normalized.height * availableHeight)
-        return CGRect(
-            x: min(inset + normalized.minX * availableWidth, max(inset, size.width - inset - width)),
-            y: min(inset + normalized.minY * availableHeight, max(inset, size.height - inset - height)),
-            width: width,
-            height: height,
-        )
-    }
-
-    private func fallbackFrame(index: Int, count: Int) -> CGRect {
-        let columns = max(1, Int(ceil(sqrt(Double(max(count, 1))))))
-        let rows = max(1, Int(ceil(Double(max(count, 1)) / Double(columns))))
-        let col = index % columns
-        let row = index / columns
-        return CGRect(
-            x: CGFloat(col) / CGFloat(columns),
-            y: CGFloat(row) / CGFloat(rows),
-            width: 1 / CGFloat(columns),
-            height: 1 / CGFloat(rows),
-        )
-    }
 }
 
-private struct WorkspacePreviewPlacedWindow: Identifiable {
+struct WorkspacePreviewPlacedWindow: Identifiable {
     let window: WorkspacePreviewWindowItem
     let frame: CGRect
 
@@ -368,13 +554,8 @@ private struct WorkspacePreviewWindowTile: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-            } else if let appIcon = window.appIcon {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color(red: 0.12, green: 0.13, blue: 0.15))
-                Image(nsImage: appIcon)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .padding(8)
+            } else {
+                WorkspacePreviewWindowFallback(window: window)
             }
         }
         .overlay(alignment: .bottomLeading) {
@@ -396,4 +577,74 @@ private struct WorkspacePreviewWindowTile: View {
         }
         .shadow(color: Color.black.opacity(0.24), radius: 5, x: 0, y: 2)
     }
+}
+
+private struct WorkspacePreviewWindowFallback: View {
+    let window: WorkspacePreviewWindowItem
+
+    var body: some View {
+        GeometryReader { geometry in
+            let minDimension = max(min(geometry.size.width, geometry.size.height), 1)
+            let hue = workspacePreviewFallbackHue(for: window)
+            let tint = Color(hue: hue, saturation: 0.42, brightness: 0.50)
+
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        tint.opacity(0.58),
+                        Color(hue: hue, saturation: 0.28, brightness: 0.22).opacity(0.94),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing,
+                )
+
+                VStack(alignment: .leading, spacing: max(2, minDimension * 0.08)) {
+                    ForEach(0 ..< 3, id: \.self) { index in
+                        Capsule()
+                            .fill(Color.white.opacity(index == 0 ? 0.26 : 0.14))
+                            .frame(
+                                width: max(8, geometry.size.width * (index == 0 ? 0.62 : 0.42)),
+                                height: max(1, minDimension * 0.035),
+                            )
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(max(5, minDimension * 0.13))
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+
+                if let appIcon = window.appIcon {
+                    Image(nsImage: appIcon)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .padding(max(6, minDimension * 0.24))
+                } else {
+                    Text(workspacePreviewFallbackInitials(for: window))
+                        .font(.system(size: max(12, minDimension * 0.34), weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.88))
+                        .minimumScaleFactor(0.6)
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+}
+
+private func workspacePreviewFallbackHue(for window: WorkspacePreviewWindowItem) -> Double {
+    let raw = "\(window.appName)-\(window.title)-\(window.id)"
+    var seed = UInt64(window.id)
+    for scalar in raw.unicodeScalars {
+        seed = seed &* 1_664_525 &+ UInt64(scalar.value) &+ 1_013_904_223
+    }
+    return Double(seed % 360) / 360.0
+}
+
+private func workspacePreviewFallbackInitials(for window: WorkspacePreviewWindowItem) -> String {
+    let source = window.appName.isEmpty || window.appName == "Unknown" ? window.title : window.appName
+    let initials = source
+        .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+        .prefix(2)
+        .compactMap(\.first)
+        .map { String($0).uppercased() }
+        .joined()
+    return initials.isEmpty ? "W" : initials
 }

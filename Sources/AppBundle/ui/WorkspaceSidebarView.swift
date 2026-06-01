@@ -25,6 +25,8 @@ struct WorkspaceSidebarView: View {
     @State var lastProjectEdgeDragDirection: Int? = nil
     @State var lastProjectEdgeDragSwitchAt: Date = .distantPast
     @State var showsPinnedActiveWorkspaceForBrowsedProject = true
+    @State var workspaceReorderFrames: [WorkspaceSidebarWorkspaceReorderFrame] = []
+    @State var workspaceReorderDrag: WorkspaceSidebarWorkspaceReorderDragState? = nil
 
     init(snapshot: WorkspaceSidebarSnapshot, actions: WorkspaceSidebarActions = WorkspaceSidebarActions()) {
         self.snapshot = snapshot
@@ -68,11 +70,13 @@ struct WorkspaceSidebarView: View {
             browseMode = .activeProject
             showsPinnedActiveWorkspaceForBrowsedProject = true
             activeInUseOverrideWorkspaceName = nil
+            cancelWorkspaceReorderDrag()
             finishProjectRename(cancelled: true)
             finishSidebarSearch(clearText: true)
             resetProjectSwipeWithoutAnimation()
         }
         .onChange(of: browseMode) { mode in
+            cancelWorkspaceReorderDrag()
             guard snapshot.visibleWidth > collapsedWidth + 0.5,
                   let panel = WorkspaceSidebarPanel.panel(for: snapshot.targetMonitorScopeId)
             else { return }
@@ -95,6 +99,7 @@ struct WorkspaceSidebarView: View {
             if let renamingWorkspaceName, !snapshot.workspaces.contains(where: { $0.name == renamingWorkspaceName }) {
                 finishWorkspaceRename(cancelled: true)
             }
+            cancelWorkspaceReorderDrag()
             isProjectMenuOpen = false
             resetProjectSwipeWithoutAnimation()
         }
