@@ -5,6 +5,8 @@
 
 # WinMux
 
+This is a fork of [ZimengXiong/winmux](https://github.com/ZimengXiong/winmux), used for experimenting with workspace preview switching.
+
 <p align="left">A powerful sidebar-first window manager for macOS.</p>
 
 https://github.com/user-attachments/assets/51983568-a168-494f-8ae3-5f50ca1efce1
@@ -88,6 +90,16 @@ As WinMux is not signed, you will need to bypass gatekeeper:
 ```bash
 xattr -dr com.apple.quarantine /Applications/WinMux.app/
 ```
+
+## Development
+Build and run this fork locally:
+
+```bash
+make build VERSION=0.2.1-workspace-preview
+./.debug/WinMuxApp --config-path ~/.config/winmux/winmux.toml
+```
+
+The workspace preview prototype opens with `Option + Tab`, cycles while Option is held, and switches to the selected workspace when Option is released.
 
 ## Migrating
 ### From AeroSpace
