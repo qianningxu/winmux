@@ -11,7 +11,20 @@ extension WorkspaceSidebarView {
         visibleWorkspacesByProject: [WorkspaceProjectId: [WorkspaceSidebarWorkspaceViewModel]],
         swipeDirection: Int?,
     ) -> some View {
-        if let browsedProjectId,
+        if !projectsAreEnabled() {
+            workspacePage(
+                projectId: snapshot.activeProjectId,
+                workspaces: visibleWorkspacesByProject[snapshot.activeProjectId] ?? snapshot.workspaces,
+                expansionProgress: expansionProgress,
+                leadingInset: leadingInset,
+                trailingInset: trailingInset,
+                topPadding: topPadding,
+                isInteractive: true,
+                showsPinnedActiveWorkspace: true,
+                showsCreateWorkspace: true,
+                allowsActivation: true,
+            )
+        } else if let browsedProjectId,
            browsedProjectId != snapshot.activeProjectId
         {
             splitWorkspacePage(

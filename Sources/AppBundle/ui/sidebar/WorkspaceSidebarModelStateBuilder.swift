@@ -9,7 +9,7 @@ func buildWorkspaceSidebarModelState() async -> WorkspaceSidebarModelState {
         sortedMonitors: availableMonitors,
         focusedMonitorScopeId: focusedMonitorScopeId,
     )
-    let activeProjectId = currentFocus.workspace.projectId
+    let activeProjectId = projectsAreEnabled() ? currentFocus.workspace.projectId : workspaceProjectDefaultId
     let projects = buildWorkspaceSidebarProjectViewModels()
     let workspaces = await buildWorkspaceSidebarWorkspaceViewModels(
         currentFocus: currentFocus,

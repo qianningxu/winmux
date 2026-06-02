@@ -2,6 +2,7 @@ config-version = 2
 
 start-at-login = false
 auto-reload-config = true
+enable-projects = true
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true
 tab-group-padding = 30

@@ -309,6 +309,60 @@ final class WorkspaceCommandTest: XCTestCase {
         XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Workspace 2")
     }
 
+    func testWorkspaceNextTraversesAllProjectsWhenProjectsDisabled() async throws {
+        let defaultWorkspace = Workspace.get(byName: "1")
+        defaultWorkspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 59, parent: defaultWorkspace.rootTilingContainer)
+        let project = createWorkspaceProject()
+        let projectWorkspace = try XCTUnwrap(switchWorkspaceProject(project.id, on: mainMonitor))
+        projectWorkspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 60, parent: projectWorkspace.rootTilingContainer)
+        _ = defaultWorkspace.focusWorkspace()
+        config.enableProjects = false
+
+        let result = try await WorkspaceCommand(
+            args: WorkspaceCmdArgs(target: .relative(.next)),
+        ).run(.defaultEnv, .emptyStdin)
+
+        assertEquals(result.exitCode, 0)
+        XCTAssertTrue(focus.workspace === projectWorkspace)
+    }
+
+    func testDirectWorkspaceShortcutUsesGlobalDisplayIndexWhenProjectsDisabled() async throws {
+        let defaultWorkspace = Workspace.get(byName: "1")
+        defaultWorkspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 61, parent: defaultWorkspace.rootTilingContainer)
+        let project = createWorkspaceProject()
+        let projectWorkspace = try XCTUnwrap(switchWorkspaceProject(project.id, on: mainMonitor))
+        projectWorkspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 62, parent: projectWorkspace.rootTilingContainer)
+        _ = defaultWorkspace.focusWorkspace()
+        config.enableProjects = false
+
+        let result = try await WorkspaceCommand(
+            args: WorkspaceCmdArgs(target: .direct(.parse("2").getOrDie())),
+        ).run(.defaultEnv, .emptyStdin)
+
+        assertEquals(result.exitCode, 0)
+        XCTAssertTrue(focus.workspace === projectWorkspace)
+    }
+
+    func testWorkspaceNextCreatesDefaultProjectWorkspaceWhenProjectsDisabled() async throws {
+        let project = createWorkspaceProject()
+        let projectWorkspace = try XCTUnwrap(switchWorkspaceProject(project.id, on: mainMonitor))
+        projectWorkspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 63, parent: projectWorkspace.rootTilingContainer)
+        _ = projectWorkspace.focusWorkspace()
+        config.enableProjects = false
+
+        let result = try await WorkspaceCommand(
+            args: WorkspaceCmdArgs(target: .relative(.next)),
+        ).run(.defaultEnv, .emptyStdin)
+
+        assertEquals(result.exitCode, 0)
+        XCTAssertEqual(focus.workspace.projectId, workspaceProjectDefaultId)
+    }
+
     func testWorkspaceNextDoesNotCreateBlankWorkspaceWhenWrapping() async throws {
         let workspace1 = Workspace.get(byName: "1")
         workspace1.markAsAutomaticallyNamed()

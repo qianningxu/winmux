@@ -104,6 +104,22 @@ extension MoveNodeToWorkspaceCmdArgs {
     }
 }
 
+extension ProjectCmdArgs {
+    init(target: ProjectTarget, wrapAround: Bool? = nil) {
+        self = ProjectCmdArgs(rawArgs: [])
+        self.target = .initialized(target)
+        self._wrapAround = wrapAround
+    }
+}
+
+extension MoveNodeToProjectCmdArgs {
+    init(target: ProjectTarget, wrapAround: Bool? = nil) {
+        self = MoveNodeToProjectCmdArgs(rawArgs: [])
+        self.target = .initialized(target)
+        self._wrapAround = wrapAround
+    }
+}
+
 extension HotkeyBinding {
     init(_ modifiers: NSEvent.ModifierFlags, _ keyCode: Key, _ commands: [any Command]) {
         let descriptionWithKeyNotation = modifiers.isEmpty

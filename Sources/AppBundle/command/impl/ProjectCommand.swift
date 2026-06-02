@@ -5,6 +5,9 @@ struct ProjectCommand: Command {
     /*conforms*/ let shouldResetClosedWindowsCache = true
 
     func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
+        guard projectsAreEnabled() else {
+            return io.err(projectFeatureDisabledMessage())
+        }
         guard let target = args.resolveTargetOrReportError(env, io) else { return false }
         let monitor = target.workspace.workspaceMonitor
         let currentProjectId = activeWorkspaceProjectId(for: monitor)

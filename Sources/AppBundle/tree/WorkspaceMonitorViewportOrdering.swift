@@ -96,6 +96,9 @@ func orderedWorkspaces(in projectId: WorkspaceProjectId) -> [Workspace] {
 
 @MainActor
 func orderedWorkspacesForPresentation() -> [Workspace] {
+    guard projectsAreEnabled() else {
+        return Workspace.all.filter { !$0.isArchived }.sorted()
+    }
     var seen: Set<WorkspaceId> = []
     var result: [Workspace] = []
     for project in workspaceProjects() {

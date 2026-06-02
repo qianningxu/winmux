@@ -2,6 +2,16 @@ import AppKit
 import Common
 
 @MainActor
+func projectsAreEnabled() -> Bool {
+    config.enableProjects
+}
+
+@MainActor
+func projectFeatureDisabledMessage() -> String {
+    "Projects are disabled by enable-projects = false"
+}
+
+@MainActor
 func workspaceProjects() -> [WorkspaceProject] {
     materializePersistedWorkspaceProjects()
     ensureMinimumWorkspaceForAllProjects()
@@ -46,6 +56,7 @@ func workspaceProjectDisplayName(_ projectId: WorkspaceProjectId, fallbackName: 
 
 @MainActor
 func activeWorkspaceProjectId(for monitor: Monitor) -> WorkspaceProjectId {
+    guard projectsAreEnabled() else { return workspaceProjectDefaultId }
     materializePersistedWorkspaceProjects()
     return winMuxWorkspaceState.activeProjectId(for: monitor)
 }

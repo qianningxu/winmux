@@ -35,8 +35,28 @@ final class ConfigTest: XCTestCase {
 
     func testParseDefaultConfig() throws {
         let toml = try String(contentsOf: projectRoot.appending(component: "resources/default-config.toml"), encoding: .utf8)
-        let (_, errors) = parseConfig(toml)
+        let (parsed, errors) = parseConfig(toml)
         assertEquals(errors, [])
+        XCTAssertTrue(parsed.enableProjects)
+    }
+
+    func testParseEnableProjects() {
+        let (parsed, errors) = parseConfig(
+            """
+            enable-projects = false
+            """,
+        )
+        assertEquals(errors, [])
+        XCTAssertFalse(parsed.enableProjects)
+    }
+
+    func testParseEnableProjectsRequiresBool() {
+        let (_, errors) = parseConfig(
+            """
+            enable-projects = 'false'
+            """,
+        )
+        assertEquals(errors.descriptions, ["enable-projects: Expected type is 'bool'. But actual type is 'string'"])
     }
 
     func testConfigVersionOutOfBounds() {

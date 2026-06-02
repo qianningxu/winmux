@@ -4,15 +4,16 @@ import SwiftUI
 
 extension WorkspaceSidebarView {
     func sidebarContent(expansionProgress: CGFloat) -> some View {
+        let projectsEnabled = projectsAreEnabled()
         let isCompact = expansionProgress < workspaceSidebarRowsRevealProgress
         let leadingInset = workspaceSidebarOuterLeadingPadding(isCompact: isCompact)
         let trailingInset = workspaceSidebarOuterTrailingPadding(isCompact: isCompact)
         let showsMonitorSelector = !isCompact && shouldShowTopFilterBar
-        let projectSwipeDirection = workspaceSidebarProjectSwipeDirection(
+        let projectSwipeDirection = projectsEnabled ? workspaceSidebarProjectSwipeDirection(
             horizontalTranslation: projectSwipeTranslation,
             verticalTranslation: 0,
             minimumDistance: 1,
-        )
+        ) : nil
         let activeProjectIndex = projectPagerDisplayIndex
         let projectSwipeProgress = workspaceSidebarProjectEdgeCreationProgress(
             currentIndex: activeProjectIndex,
@@ -35,6 +36,7 @@ extension WorkspaceSidebarView {
             selectedScopeId: snapshot.selectedMonitorScopeId,
             focusedMonitorScopeId: snapshot.focusedMonitorScopeId,
             browsedProjectId: browsedProjectId,
+            projectsEnabled: projectsEnabled,
         )
         let filteredWorkspacesByProject = workspaceSidebarFilteredWorkspacesByProject(
             visibleWorkspacesByProject,
@@ -80,7 +82,7 @@ extension WorkspaceSidebarView {
                 )
                 Color.clear
                     .frame(height: isCompact ? compactProjectReserveHeight + 8 : workspaceSidebarCollapseReservedProjectPagerHeight)
-            } else {
+            } else if projectsEnabled {
                 projectPagerSection(
                     expansionProgress: expansionProgress,
                     leadingInset: leadingInset,
@@ -136,7 +138,7 @@ private let workspaceSidebarCollapseReservedProjectPagerHeight = (workspaceSideb
 extension WorkspaceSidebarView {
     var shouldShowTopFilterBar: Bool {
         let hasFocusFilter = snapshot.monitorScopes.contains { $0.id == workspaceSidebarFocusedScopeId }
-        let hasOtherProjects = snapshot.projects.contains { $0.id != snapshot.activeProjectId }
+        let hasOtherProjects = projectsAreEnabled() && snapshot.projects.contains { $0.id != snapshot.activeProjectId }
         return hasFocusFilter || hasOtherProjects
     }
 
@@ -146,7 +148,7 @@ extension WorkspaceSidebarView {
     }
 
     func workspaceSidebarContentFrameWidth(expansionProgress: CGFloat) -> CGFloat {
-        guard browsedProjectId != nil else {
+        guard projectsAreEnabled(), browsedProjectId != nil else {
             return max(snapshot.visibleWidth, 0)
         }
         return workspaceSidebarSplitSectionWidth(expansionProgress: expansionProgress) +

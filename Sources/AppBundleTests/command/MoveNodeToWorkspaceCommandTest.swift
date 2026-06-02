@@ -113,6 +113,17 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
         XCTAssertEqual(Workspace.get(byName: "b").projectId, project.id)
     }
 
+    func testNewWorkspaceUsesDefaultProjectWhenProjectsDisabled() async throws {
+        let project = createWorkspaceProject()
+        let sourceWorkspace = try XCTUnwrap(switchWorkspaceProject(project.id, on: mainMonitor))
+        _ = TestWindow.new(id: 2, parent: sourceWorkspace.rootTilingContainer).focusWindow()
+        config.enableProjects = false
+
+        try await MoveNodeToWorkspaceCommand(args: MoveNodeToWorkspaceCmdArgs(workspace: "b")).run(.defaultEnv, .emptyStdin)
+
+        XCTAssertEqual(Workspace.get(byName: "b").projectId, workspaceProjectDefaultId)
+    }
+
     func testDirectNumericMoveCreatesOnlyAdjacentWorkspace() async throws {
         let workspace1 = Workspace.get(byName: "1")
         workspace1.markAsAutomaticallyNamed()

@@ -90,7 +90,9 @@ struct WorkspaceSidebarView: View {
             panel.animateVisibleSidebarWidth(targetWidth, animation: .easeInOut(duration: panel.animationDuration))
         }
         .onChange(of: snapshot.projects) { _ in
-            if let browsedProjectId, !snapshot.projects.contains(where: { $0.id == browsedProjectId }) {
+            if (!projectsAreEnabled() && browseMode != .activeProject) ||
+                (browsedProjectId != nil && !snapshot.projects.contains(where: { $0.id == browsedProjectId.orDie() }))
+            {
                 browseMode = .activeProject
             }
             if let renamingProjectId, !snapshot.projects.contains(where: { $0.id == renamingProjectId }) {
@@ -317,6 +319,7 @@ struct WorkspaceSidebarView: View {
             selectedScopeId: snapshot.selectedMonitorScopeId,
             focusedMonitorScopeId: snapshot.focusedMonitorScopeId,
             browsedProjectId: browsedProjectId,
+            projectsEnabled: projectsAreEnabled(),
         )
         let filteredWorkspacesByProject = workspaceSidebarFilteredWorkspacesByProject(
             visibleWorkspacesByProject,

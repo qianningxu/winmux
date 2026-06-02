@@ -1,6 +1,7 @@
 @MainActor
 func buildWorkspaceSidebarProjectViewModels() -> [WorkspaceSidebarProjectViewModel] {
-    workspaceProjects().map {
+    guard projectsAreEnabled() else { return [] }
+    return workspaceProjects().map {
         WorkspaceSidebarProjectViewModel(
             id: $0.id,
             displayName: $0.name,

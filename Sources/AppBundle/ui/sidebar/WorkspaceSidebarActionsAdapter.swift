@@ -50,19 +50,24 @@ func handleWorkspaceSidebarAction(
         case .closeWindow(let windowId):
             closeWindowFromSidebar(windowId)
         case .selectProject(let projectId):
+            guard projectsAreEnabled() else { return }
             debugWorkspaceSidebarProjectLog(
                 "adapterSelectProject project=\(projectId.rawValue) targetScope=\(targetMonitorScopeId ?? "nil") modelActive=\(viewModel.workspaceSidebarActiveProjectId.rawValue)"
             )
             selectWorkspaceSidebarProject(projectId, viewModel: viewModel, targetMonitorScopeId: targetMonitorScopeId)
         case .createProject:
+            guard projectsAreEnabled() else { return }
             createWorkspaceSidebarProject(viewModel: viewModel, targetMonitorScopeId: targetMonitorScopeId)
         case .renameProject(let projectId, let displayName):
+            guard projectsAreEnabled() else { return }
             renameWorkspaceSidebarProject(projectId, displayName: displayName)
         case .setProjectColor(let projectId, let colorHex):
+            guard projectsAreEnabled() else { return }
             if let project = workspaceSidebarProjectViewModel(projectId) {
                 setWorkspaceSidebarProjectColor(project, colorHex: colorHex)
             }
         case .deleteProject(let projectId):
+            guard projectsAreEnabled() else { return }
             if let project = workspaceSidebarProjectViewModel(projectId) {
                 deleteWorkspaceSidebarProject(project, viewModel: viewModel)
             }

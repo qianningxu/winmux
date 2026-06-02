@@ -12,27 +12,29 @@ struct ShortcutGeneralView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                GeneralSection(title: "Management") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Deleting projects")
-                                Text("Close windows keeps app confirmation dialogs visible and aborts deletion if a window stays open.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            Spacer()
-                            Picker("", selection: $projectDeletionAction) {
-                                ForEach(WorkspaceProjectDeletionAction.allCases) { action in
-                                    Text(action.settingsTitle).tag(action)
+                if projectsAreEnabled() {
+                    GeneralSection(title: "Management") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Deleting projects")
+                                    Text("Close windows keeps app confirmation dialogs visible and aborts deletion if a window stays open.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
-                            }
-                            .labelsHidden()
-                            .pickerStyle(.menu)
-                            .frame(width: 210)
-                            .onChange(of: projectDeletionAction) { newValue in
-                                setProjectDeletionAction(newValue)
+                                Spacer()
+                                Picker("", selection: $projectDeletionAction) {
+                                    ForEach(WorkspaceProjectDeletionAction.allCases) { action in
+                                        Text(action.settingsTitle).tag(action)
+                                    }
+                                }
+                                .labelsHidden()
+                                .pickerStyle(.menu)
+                                .frame(width: 210)
+                                .onChange(of: projectDeletionAction) { newValue in
+                                    setProjectDeletionAction(newValue)
+                                }
                             }
                         }
                     }

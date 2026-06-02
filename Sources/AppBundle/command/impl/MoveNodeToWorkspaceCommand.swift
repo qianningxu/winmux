@@ -68,7 +68,7 @@ private func resolveMoveTargetWorkspace(
     let existedBefore = Workspace.existing(byName: workspaceName) != nil
     let workspace = Workspace.get(byName: workspaceName)
     if !existedBefore {
-        workspace.assignProject(sourceWorkspace.projectId)
+        workspace.assignProject(projectsAreEnabled() ? sourceWorkspace.projectId : workspaceProjectDefaultId)
     }
     workspace.seedMonitorIfNeeded(sourceMonitor)
     return workspace

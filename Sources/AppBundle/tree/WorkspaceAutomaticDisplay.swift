@@ -1,7 +1,8 @@
 @MainActor
 func automaticWorkspaceDisplayIndex(_ workspace: Workspace, focusedWorkspace: Workspace?) -> Int? {
-    orderedWorkspacesForPresentation()
-        .filter { $0.projectId == workspace.projectId }
+    let workspaces = orderedWorkspacesForPresentation()
+    return workspaces
+        .filter { !projectsAreEnabled() || $0.projectId == workspace.projectId }
         .filter { userFacingWorkspaces([$0], focusedWorkspace: focusedWorkspace).contains($0) }
         .filter(\.usesAutomaticDisplayName)
         .firstIndex(of: workspace)
@@ -15,7 +16,7 @@ func automaticWorkspaceDisplayIndexFallback(_ workspaceName: String) -> Int? {
 @MainActor
 func scopedAutomaticDisplayWorkspaces(current: Workspace) -> [Workspace] {
     orderedWorkspacesForPresentation()
-        .filter { $0.projectId == current.projectId }
+        .filter { !projectsAreEnabled() || $0.projectId == current.projectId }
         .filter { userFacingWorkspaces([$0], focusedWorkspace: current).contains($0) }
         .filter(\.usesAutomaticDisplayName)
 }
@@ -33,8 +34,9 @@ func createAdjacentTransientBlankWorkspaceIfAllowed(named workspaceName: String,
         return nil
     }
 
-    let workspace = Workspace.get(byName: nextSidebarCreatedWorkspaceName(projectId: current.projectId, monitor: current.workspaceMonitor))
+    let projectId = projectsAreEnabled() ? current.projectId : workspaceProjectDefaultId
+    let workspace = Workspace.get(byName: nextSidebarCreatedWorkspaceName(projectId: projectId, monitor: current.workspaceMonitor))
     workspace.markAsTransientBlank()
-    workspace.assignProject(current.projectId)
+    workspace.assignProject(projectId)
     return workspace
 }
