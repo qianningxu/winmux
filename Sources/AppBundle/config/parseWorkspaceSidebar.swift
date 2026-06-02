@@ -43,6 +43,16 @@ private let workspaceSidebarWidgetParser: [String: any ParserProtocol<WorkspaceS
     "enabled": Parser(\.enabled, parseBool),
     "show-date": Parser(\.showDate, parseBool),
     "bundle": Parser(\.bundle) { raw, backtrace in parseString(raw, backtrace).map { Optional($0) } },
+    "entries-path": Parser(\.entriesPath) { raw, backtrace in
+        parseString(raw, backtrace)
+            .filter(.semantic(backtrace, "Must not be empty")) { !$0.isEmpty }
+            .map { Optional($0) }
+    },
+    "days": Parser(\.days) { raw, backtrace in
+        parseInt(raw, backtrace)
+            .filter(.semantic(backtrace, "Must be greater than 0")) { $0 > 0 }
+            .map { Optional($0) }
+    },
 ]
 
 private func parseWorkspaceSidebarWidgets(
@@ -77,10 +87,30 @@ private func parseWorkspaceSidebarWidgets(
                 if widget.bundle != nil {
                     errors.append(.semantic(widgetBacktrace + .key("bundle"), "Only plugin widgets can specify bundle"))
                 }
+                if widget.entriesPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("entries-path"), "Only data widgets can specify entries-path"))
+                }
+                if widget.days != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("days"), "Only data widgets can specify days"))
+                }
+            case .builtInTogglProjects:
+                if widget.bundle != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("bundle"), "Only plugin widgets can specify bundle"))
+                }
+            case .builtInSpendingCategories:
+                if widget.bundle != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("bundle"), "Only plugin widgets can specify bundle"))
+                }
             case .plugin:
                 if widget.bundle?.isEmpty != false {
                     errors.append(.semantic(widgetBacktrace + .key("bundle"), "Plugin widgets require a bundle name"))
                     return nil
+                }
+                if widget.entriesPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("entries-path"), "Only data widgets can specify entries-path"))
+                }
+                if widget.days != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("days"), "Only data widgets can specify days"))
                 }
         }
         return widget

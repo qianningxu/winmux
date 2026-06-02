@@ -98,12 +98,21 @@ struct WorkspaceSidebarWidgetConfig: ConvenienceCopyable, Equatable, Sendable {
     var enabled: Bool = true
     var showDate: Bool = true
     var bundle: String? = nil
+    var entriesPath: String? = nil
+    var days: Int? = nil
 }
 
 enum WorkspaceSidebarWidgetType: String, CaseIterable, Sendable {
     case builtInTimeDate = "built-in/time-date"
+    case builtInTogglProjects = "built-in/toggl-projects"
+    case builtInSpendingCategories = "built-in/spending-categories"
     case plugin
 }
+
+let defaultWorkspaceSidebarTogglEntriesPath = "/Users/side/Documents/now/self/Tracks/data/toggl/entries"
+let defaultWorkspaceSidebarTogglDays = 7
+let defaultWorkspaceSidebarSpendingEntriesPath = "/Users/side/Documents/now/self/Tracks/data/spending"
+let defaultWorkspaceSidebarSpendingDays = 30
 
 enum WorkspaceProjectDeletionAction: String, CaseIterable, Identifiable, Sendable {
     case closeWindows = "close-windows"

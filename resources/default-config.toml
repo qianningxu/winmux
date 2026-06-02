@@ -43,6 +43,8 @@ on-mode-changed = []
     project-deletion-action = 'close-windows'
     widgets = [
         { id = 'time-date', type = 'built-in/time-date', enabled = true, show-date = true },
+        { id = 'toggl-projects', type = 'built-in/toggl-projects', enabled = true, entries-path = '/Users/side/Documents/now/self/Tracks/data/toggl/entries', days = 7 },
+        { id = 'spending-categories', type = 'built-in/spending-categories', enabled = true, entries-path = '/Users/side/Documents/now/self/Tracks/data/spending', days = 30 },
     ]
 
 [mode.main.binding]

@@ -182,6 +182,12 @@ private func workspaceSidebarWidgetConfigMap(_ widget: WorkspaceSidebarWidgetCon
     switch widget.type {
         case .builtInTimeDate:
             map["show-date"] = .scalar(.bool(widget.showDate))
+        case .builtInTogglProjects:
+            map["entries-path"] = .scalar(.string(widget.entriesPath ?? defaultWorkspaceSidebarTogglEntriesPath))
+            map["days"] = .scalar(.int(widget.days ?? defaultWorkspaceSidebarTogglDays))
+        case .builtInSpendingCategories:
+            map["entries-path"] = .scalar(.string(widget.entriesPath ?? defaultWorkspaceSidebarSpendingEntriesPath))
+            map["days"] = .scalar(.int(widget.days ?? defaultWorkspaceSidebarSpendingDays))
         case .plugin:
             if let bundle = widget.bundle {
                 map["bundle"] = .scalar(.string(bundle))

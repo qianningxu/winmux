@@ -20,6 +20,22 @@ struct WorkspaceSidebarWidgetStack: View {
                             isCompact: isCompact,
                             showsDate: widget.showDate,
                         )
+                    case .builtInTogglProjects:
+                        WorkspaceSidebarTogglProjectsWidget(
+                            id: widget.id,
+                            sectionWidth: sectionWidth,
+                            isCompact: isCompact,
+                            entriesPath: widget.entriesPath ?? defaultWorkspaceSidebarTogglEntriesPath,
+                            days: widget.days ?? defaultWorkspaceSidebarTogglDays,
+                        )
+                    case .builtInSpendingCategories:
+                        WorkspaceSidebarSpendingCategoriesWidget(
+                            id: widget.id,
+                            sectionWidth: sectionWidth,
+                            isCompact: isCompact,
+                            entriesPath: widget.entriesPath ?? defaultWorkspaceSidebarSpendingEntriesPath,
+                            days: widget.days ?? defaultWorkspaceSidebarSpendingDays,
+                        )
                     case .plugin:
                         WorkspaceSidebarPluginWidget(
                             config: widget,

@@ -90,6 +90,8 @@ extension ConfigTest {
             [workspace-sidebar]
                 widgets = [
                     { id = 'time-date', type = 'built-in/time-date', enabled = true, show-date = false },
+                    { id = 'toggl-projects', type = 'built-in/toggl-projects', enabled = true, entries-path = '/tmp/toggl/entries', days = 7 },
+                    { id = 'spending-categories', type = 'built-in/spending-categories', enabled = true, entries-path = '/tmp/spending', days = 30 },
                     { id = 'custom', type = 'plugin', enabled = false, bundle = 'CustomWidget.bundle' },
                 ]
             """,
@@ -101,6 +103,22 @@ extension ConfigTest {
                 type: .builtInTimeDate,
                 enabled: true,
                 showDate: false,
+            ),
+            WorkspaceSidebarWidgetConfig(
+                id: "toggl-projects",
+                type: .builtInTogglProjects,
+                enabled: true,
+                showDate: true,
+                entriesPath: "/tmp/toggl/entries",
+                days: 7,
+            ),
+            WorkspaceSidebarWidgetConfig(
+                id: "spending-categories",
+                type: .builtInSpendingCategories,
+                enabled: true,
+                showDate: true,
+                entriesPath: "/tmp/spending",
+                days: 30,
             ),
             WorkspaceSidebarWidgetConfig(
                 id: "custom",
@@ -135,13 +153,18 @@ extension ConfigTest {
                     { id = 'time-date', type = 'built-in/time-date', bundle = 'Nope.bundle' },
                     { id = 'time-date', type = 'plugin' },
                     { id = 'unknown', type = 'built-in/nope' },
+                    { id = 'wrong-fields', type = 'plugin', bundle = 'CustomWidget.bundle', entries-path = '/tmp/toggl/entries', days = 7 },
+                    { id = 'bad-days', type = 'built-in/toggl-projects', days = 0 },
                 ]
             """,
         )
         assertEquals(errors.descriptions, [
             "workspace-sidebar.widgets[0].bundle: Only plugin widgets can specify bundle",
             "workspace-sidebar.widgets[1].id: Duplicate widget id 'time-date'",
-            "workspace-sidebar.widgets[2].type: Possible values: built-in/time-date, plugin",
+            "workspace-sidebar.widgets[2].type: Possible values: built-in/time-date, built-in/toggl-projects, built-in/spending-categories, plugin",
+            "workspace-sidebar.widgets[3].entries-path: Only data widgets can specify entries-path",
+            "workspace-sidebar.widgets[3].days: Only data widgets can specify days",
+            "workspace-sidebar.widgets[4].days: Must be greater than 0",
         ])
     }
 
@@ -155,6 +178,8 @@ extension ConfigTest {
             [workspace-sidebar]
                 widgets = [
                     { id = 'time-date', type = 'built-in/time-date', enabled = true, show-date = true },
+                    { id = 'toggl-projects', type = 'built-in/toggl-projects', enabled = true, entries-path = '/tmp/toggl/entries', days = 7 },
+                    { id = 'spending-categories', type = 'built-in/spending-categories', enabled = true, entries-path = '/tmp/spending', days = 30 },
                     { id = 'custom', type = 'plugin', enabled = false, bundle = 'CustomWidget.bundle' },
                 ]
             """,
@@ -168,9 +193,13 @@ extension ConfigTest {
         XCTAssertTrue(json.contains("\"workspace-sidebar\""))
         XCTAssertTrue(json.contains("\"widgets\""))
         XCTAssertTrue(json.contains("\"time-date\""))
+        XCTAssertTrue(json.contains("\"toggl-projects\""))
+        XCTAssertTrue(json.contains("\"/tmp/toggl/entries\""))
+        XCTAssertTrue(json.contains("\"spending-categories\""))
+        XCTAssertTrue(json.contains("\"/tmp/spending\""))
         XCTAssertTrue(json.contains("\"CustomWidget.bundle\""))
         assertEquals(
-            try? configMap.find(keyPath: ["workspace-sidebar", "widgets", "1", "enabled"].slice).get(),
+            try? configMap.find(keyPath: ["workspace-sidebar", "widgets", "3", "enabled"].slice).get(),
             .scalar(.bool(false)),
         )
     }

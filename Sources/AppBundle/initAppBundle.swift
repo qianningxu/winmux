@@ -21,7 +21,9 @@ import Foundation
                 body: error.localizedDescription,
             )
         }
+        let startupConfigUrl = bootstrappedConfigUrl ?? findCustomConfigUrl().urlOrNil
         if try await !reloadConfig(forceConfigUrl: bootstrappedConfigUrl) {
+            let failedConfigMessage = MessageModel.shared.message
             var out = ""
             check(
                 try await reloadConfig(forceConfigUrl: defaultConfigUrl, stdout: &out),
@@ -32,6 +34,16 @@ import Foundation
                 \(out)
                 """,
             )
+            if let startupConfigUrl {
+                configUrl = startupConfigUrl
+                syncConfigFileWatcher()
+            }
+            if let failedConfigMessage {
+                MessageModel.shared.message = startupFallbackMessage(
+                    failedConfigMessage,
+                    startupConfigUrl: startupConfigUrl,
+                )
+            }
         }
         MonitorConfigurationObserver.shared.prepareForStartup()
 
@@ -56,6 +68,22 @@ import Foundation
             }
         }
     }
+}
+
+private func startupFallbackMessage(_ message: Message, startupConfigUrl: URL?) -> Message {
+    let watchedConfig = startupConfigUrl?.path ?? "your custom config"
+    return Message(
+        type: message.type,
+        title: message.title,
+        description: message.description,
+        body: """
+        \(message.body)
+
+        WinMux loaded the default config so the app can keep running. Sidebar settings and other custom options may look like defaults until the config above parses successfully.
+
+        WinMux will keep watching \(watchedConfig) and will retry automatically when it changes.
+        """,
+    )
 }
 
 @MainActor
