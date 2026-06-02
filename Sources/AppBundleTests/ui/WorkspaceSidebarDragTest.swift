@@ -112,6 +112,7 @@ private func workspaceSidebarSnapshotForTopFilterBar(
             showMonitorSelector: true,
             showsDate: false,
             showsStatusPills: false,
+            widgets: [],
         ),
     )
 }

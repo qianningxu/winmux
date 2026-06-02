@@ -93,7 +93,7 @@ extension WorkspaceSidebarView {
                 )
             }
 
-            statusSection(
+            widgetSection(
                 expansionProgress: expansionProgress,
                 isCompact: isCompact,
                 leadingInset: leadingInset,

@@ -11,6 +11,7 @@ private let workspaceSidebarParser: [String: any ParserProtocol<WorkspaceSidebar
     },
     "show-status-pills": Parser(\.showStatusPills, parseBool),
     "show-date": Parser(\.showDate, parseBool),
+    "widgets": Parser(\.widgets, parseWorkspaceSidebarWidgets),
     "menu-bar-reserve-height": Parser(\.menuBarReserveHeight, parseWorkspaceSidebarMenuBarReserveHeight),
     "project-deletion-action": Parser(\.projectDeletionAction, parseWorkspaceProjectDeletionAction),
     "workspace-labels": Parser(\.workspaceLabels, parseWorkspaceSidebarLabels),
@@ -34,6 +35,69 @@ private func parseWorkspaceSidebarWidth(_ raw: TOMLValueConvertible, _ backtrace
 private func parseWorkspaceSidebarMenuBarReserveHeight(_ raw: TOMLValueConvertible, _ backtrace: TomlBacktrace) -> ParsedToml<Int> {
     parseInt(raw, backtrace)
         .filter(.semantic(backtrace, "Must be greater than or equal to 0")) { $0 >= 0 }
+}
+
+private let workspaceSidebarWidgetParser: [String: any ParserProtocol<WorkspaceSidebarWidgetConfig>] = [
+    "id": Parser(\.id, parseString),
+    "type": Parser(\.type, parseWorkspaceSidebarWidgetType),
+    "enabled": Parser(\.enabled, parseBool),
+    "show-date": Parser(\.showDate, parseBool),
+    "bundle": Parser(\.bundle) { raw, backtrace in parseString(raw, backtrace).map { Optional($0) } },
+]
+
+private func parseWorkspaceSidebarWidgets(
+    _ raw: TOMLValueConvertible,
+    _ backtrace: TomlBacktrace,
+    _ errors: inout [TomlParseError],
+) -> [WorkspaceSidebarWidgetConfig]? {
+    guard let rawArray = raw.array else {
+        errors.append(expectedActualTypeError(expected: .array, actual: raw.type, backtrace))
+        return nil
+    }
+
+    var seenIds = Set<String>()
+    return rawArray.enumerated().compactMap { index, rawWidget in
+        let widgetBacktrace = backtrace + .index(index)
+        guard rawWidget.table != nil else {
+            errors.append(expectedActualTypeError(expected: .table, actual: rawWidget.type, widgetBacktrace))
+            return nil
+        }
+
+        let widget = parseTable(rawWidget, WorkspaceSidebarWidgetConfig(), workspaceSidebarWidgetParser, widgetBacktrace, &errors)
+        guard !widget.id.isEmpty else {
+            errors.append(.semantic(widgetBacktrace + .key("id"), "Must not be empty"))
+            return nil
+        }
+        guard seenIds.insert(widget.id).inserted else {
+            errors.append(.semantic(widgetBacktrace + .key("id"), "Duplicate widget id '\(widget.id)'"))
+            return nil
+        }
+        switch widget.type {
+            case .builtInTimeDate:
+                if widget.bundle != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("bundle"), "Only plugin widgets can specify bundle"))
+                }
+            case .plugin:
+                if widget.bundle?.isEmpty != false {
+                    errors.append(.semantic(widgetBacktrace + .key("bundle"), "Plugin widgets require a bundle name"))
+                    return nil
+                }
+        }
+        return widget
+    }
+}
+
+private func parseWorkspaceSidebarWidgetType(
+    _ raw: TOMLValueConvertible,
+    _ backtrace: TomlBacktrace,
+) -> ParsedToml<WorkspaceSidebarWidgetType> {
+    parseString(raw, backtrace).flatMap { rawValue in
+        WorkspaceSidebarWidgetType(rawValue: rawValue)
+            .orFailure(.semantic(
+                backtrace,
+                "Possible values: \(WorkspaceSidebarWidgetType.allCases.map(\.rawValue).joined(separator: ", "))",
+            ))
+    }
 }
 
 private func parseWorkspaceProjectDeletionAction(

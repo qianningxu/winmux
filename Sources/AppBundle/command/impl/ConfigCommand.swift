@@ -13,6 +13,7 @@ struct ConfigCommand: Command {
                 let modeKeys = config.modes.keys.sorted().flatMap { ["mode.\($0).binding", "mode.\($0).binding-tap"] }
                 let out = """
                     .
+                    workspace-sidebar
                     mode
                     \(modeKeys.joined(separator: "\n"))
                     """
@@ -160,17 +161,45 @@ extension [Command] {
             "binding-tap": .map(tapKeyNotationToScript),
         ])
     }
-    return .map(["mode": .map(mode)])
+    return .map([
+        "mode": .map(mode),
+        "workspace-sidebar": workspaceSidebarConfigMap(config.workspaceSidebar),
+    ])
 }
 
-enum ConfigScalarValue: Encodable {
+private func workspaceSidebarConfigMap(_ config: WorkspaceSidebarConfig) -> ConfigMapValue {
+    .map([
+        "widgets": .array(config.resolvedWidgets.map(workspaceSidebarWidgetConfigMap)),
+    ])
+}
+
+private func workspaceSidebarWidgetConfigMap(_ widget: WorkspaceSidebarWidgetConfig) -> ConfigMapValue {
+    var map: [String: ConfigMapValue] = [
+        "id": .scalar(.string(widget.id)),
+        "type": .scalar(.string(widget.type.rawValue)),
+        "enabled": .scalar(.bool(widget.enabled)),
+    ]
+    switch widget.type {
+        case .builtInTimeDate:
+            map["show-date"] = .scalar(.bool(widget.showDate))
+        case .plugin:
+            if let bundle = widget.bundle {
+                map["bundle"] = .scalar(.string(bundle))
+            }
+    }
+    return .map(map)
+}
+
+enum ConfigScalarValue: Encodable, Equatable {
     case string(String)
     case int(Int)
+    case bool(Bool)
 
     var describe: String {
         return switch self {
             case .string(let string): string
             case .int(let int): String(int)
+            case .bool(let bool): String(bool)
         }
     }
 
@@ -178,6 +207,7 @@ enum ConfigScalarValue: Encodable {
         let value: Encodable = switch self {
             case .string(let string): string
             case .int(let int): int
+            case .bool(let bool): bool
         }
         var container = encoder.singleValueContainer()
         try container.encode(value)
@@ -197,5 +227,20 @@ enum ConfigMapValue: Encodable {
         }
         var container = encoder.singleValueContainer()
         try container.encode(value)
+    }
+}
+
+extension ConfigMapValue: Equatable {
+    static func == (lhs: ConfigMapValue, rhs: ConfigMapValue) -> Bool {
+        switch (lhs, rhs) {
+            case (.scalar(let lhs), .scalar(let rhs)):
+                lhs == rhs
+            case (.map(let lhs), .map(let rhs)):
+                lhs == rhs
+            case (.array(let lhs), .array(let rhs)):
+                lhs == rhs
+            default:
+                false
+        }
     }
 }

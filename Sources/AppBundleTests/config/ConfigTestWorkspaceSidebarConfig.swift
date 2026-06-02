@@ -39,6 +39,7 @@ extension ConfigTest {
                 monitor: [.secondary, .sequenceNumber(2)],
                 showStatusPills: false,
                 showDate: false,
+                widgets: nil,
                 menuBarReserveHeight: 30,
                 projectDeletionAction: .moveWindowsToFallback,
                 workspaceLabels: ["1": "Code", "2": "Web"],
@@ -80,6 +81,98 @@ extension ConfigTest {
         assertEquals(actionErrors.descriptions, [
             "workspace-sidebar.project-deletion-action: Possible values: close-windows, move-windows-to-fallback",
         ])
+    }
+
+    @MainActor
+    func testParseWorkspaceSidebarWidgets() {
+        let (parsed, errors) = parseConfig(
+            """
+            [workspace-sidebar]
+                widgets = [
+                    { id = 'time-date', type = 'built-in/time-date', enabled = true, show-date = false },
+                    { id = 'custom', type = 'plugin', enabled = false, bundle = 'CustomWidget.bundle' },
+                ]
+            """,
+        )
+        assertEquals(errors, [])
+        assertEquals(parsed.workspaceSidebar.widgets, [
+            WorkspaceSidebarWidgetConfig(
+                id: "time-date",
+                type: .builtInTimeDate,
+                enabled: true,
+                showDate: false,
+            ),
+            WorkspaceSidebarWidgetConfig(
+                id: "custom",
+                type: .plugin,
+                enabled: false,
+                bundle: "CustomWidget.bundle",
+            ),
+        ])
+
+        let (legacyParsed, legacyErrors) = parseConfig(
+            """
+            [workspace-sidebar]
+                show-date = false
+            """,
+        )
+        assertEquals(legacyErrors, [])
+        assertEquals(legacyParsed.workspaceSidebar.resolvedWidgets, [
+            WorkspaceSidebarWidgetConfig(
+                id: "time-date",
+                type: .builtInTimeDate,
+                enabled: true,
+                showDate: false,
+            ),
+        ])
+    }
+
+    func testParseWorkspaceSidebarWidgetErrors() {
+        let (_, errors) = parseConfig(
+            """
+            [workspace-sidebar]
+                widgets = [
+                    { id = 'time-date', type = 'built-in/time-date', bundle = 'Nope.bundle' },
+                    { id = 'time-date', type = 'plugin' },
+                    { id = 'unknown', type = 'built-in/nope' },
+                ]
+            """,
+        )
+        assertEquals(errors.descriptions, [
+            "workspace-sidebar.widgets[0].bundle: Only plugin widgets can specify bundle",
+            "workspace-sidebar.widgets[1].id: Duplicate widget id 'time-date'",
+            "workspace-sidebar.widgets[2].type: Possible values: built-in/time-date, plugin",
+        ])
+    }
+
+    @MainActor
+    func testConfigMapIncludesWorkspaceSidebarWidgets() {
+        let previousConfig = config
+        defer { config = previousConfig }
+
+        config = parseConfig(
+            """
+            [workspace-sidebar]
+                widgets = [
+                    { id = 'time-date', type = 'built-in/time-date', enabled = true, show-date = true },
+                    { id = 'custom', type = 'plugin', enabled = false, bundle = 'CustomWidget.bundle' },
+                ]
+            """,
+        ).config
+
+        let configMap = buildConfigMap()
+        guard let json = JSONEncoder.winMuxDefault.encodeToString(configMap) else {
+            XCTFail("Expected config map to encode as JSON")
+            return
+        }
+        XCTAssertTrue(json.contains("\"workspace-sidebar\""))
+        XCTAssertTrue(json.contains("\"widgets\""))
+        XCTAssertTrue(json.contains("\"time-date\""))
+        XCTAssertTrue(json.contains("\"CustomWidget.bundle\""))
+        assertEquals(
+            try? configMap.find(keyPath: ["workspace-sidebar", "widgets", "1", "enabled"].slice).get(),
+            .scalar(.bool(false)),
+        )
     }
 
     func testParseWindowTabs() {

@@ -41,8 +41,9 @@ on-mode-changed = []
     # Use monitor = 1, 'secondary', 2, or a list to restrict it.
     menu-bar-reserve-height = 28
     project-deletion-action = 'close-windows'
-    show-status-pills = true
-    show-date = true
+    widgets = [
+        { id = 'time-date', type = 'built-in/time-date', enabled = true, show-date = true },
+    ]
 
 [mode.main.binding]
     ctrl-tab = []

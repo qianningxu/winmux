@@ -58,16 +58,16 @@ extension WorkspaceSidebarView {
         return workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration)
     }
 
-    func statusSection(
+    func widgetSection(
         expansionProgress: CGFloat,
         isCompact: Bool,
         leadingInset: CGFloat,
         trailingInset: CGFloat,
     ) -> some View {
-        WorkspaceSidebarStatusView(
+        WorkspaceSidebarWidgetStack(
+            widgets: snapshot.configuration.widgets,
             sectionWidth: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration),
             isCompact: isCompact,
-            showsDate: snapshot.configuration.showsDate,
         )
         .padding(.leading, leadingInset)
         .padding(.trailing, trailingInset)

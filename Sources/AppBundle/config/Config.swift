@@ -84,11 +84,25 @@ struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var monitor: [MonitorDescription] = []
     var showStatusPills: Bool = true
     var showDate: Bool = true
+    var widgets: [WorkspaceSidebarWidgetConfig]? = nil
     var menuBarReserveHeight: Int = 28
     var projectDeletionAction: WorkspaceProjectDeletionAction = .closeWindows
     var workspaceLabels: [String: String] = [:]
     var projectLabels: [String: String] = [:]
     var projectColors: [String: String] = [:]
+}
+
+struct WorkspaceSidebarWidgetConfig: ConvenienceCopyable, Equatable, Sendable {
+    var id: String = ""
+    var type: WorkspaceSidebarWidgetType = .builtInTimeDate
+    var enabled: Bool = true
+    var showDate: Bool = true
+    var bundle: String? = nil
+}
+
+enum WorkspaceSidebarWidgetType: String, CaseIterable, Sendable {
+    case builtInTimeDate = "built-in/time-date"
+    case plugin
 }
 
 enum WorkspaceProjectDeletionAction: String, CaseIterable, Identifiable, Sendable {
@@ -104,6 +118,17 @@ struct WindowTabsConfig: ConvenienceCopyable, Equatable, Sendable {
 }
 
 extension WorkspaceSidebarConfig {
+    var resolvedWidgets: [WorkspaceSidebarWidgetConfig] {
+        widgets ?? [
+            WorkspaceSidebarWidgetConfig(
+                id: "time-date",
+                type: .builtInTimeDate,
+                enabled: true,
+                showDate: showDate,
+            ),
+        ]
+    }
+
     @MainActor
     func resolvedMonitor(sortedMonitors: [Monitor]) -> Monitor? {
         monitor.lazy

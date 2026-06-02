@@ -35,6 +35,7 @@ struct WorkspaceSidebarConfiguration: Equatable {
     var showMonitorSelector: Bool
     var showsDate: Bool
     var showsStatusPills: Bool
+    var widgets: [WorkspaceSidebarWidgetConfig]
 
     static let empty = WorkspaceSidebarConfiguration(
         collapsedWidth: 0,
@@ -43,6 +44,7 @@ struct WorkspaceSidebarConfiguration: Equatable {
         showMonitorSelector: false,
         showsDate: false,
         showsStatusPills: false,
+        widgets: [],
     )
 }
 

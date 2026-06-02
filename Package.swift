@@ -15,6 +15,7 @@ let package = Package(
         .executable(name: "WinMuxApp", targets: ["WinMuxApp"]),
         // We only need to expose this as a product for xcode
         .library(name: "AppBundle", targets: ["AppBundle"]),
+        .library(name: "SidebarWidgetsAPI", targets: ["SidebarWidgetsAPI"]),
     ],
     dependencies: [
         .package(path: "./ShellParserGenerated"),
@@ -39,6 +40,7 @@ let package = Package(
                 .product(name: "Collections", package: "swift-collections"),
             ],
         ),
+        .target(name: "SidebarWidgetsAPI"),
         .target(
             name: "AppBundle",
             dependencies: [
@@ -50,6 +52,7 @@ let package = Package(
                 .product(name: "TOMLKit", package: "TOMLKit"),
                 .target(name: "Common"),
                 .target(name: "PrivateApi"),
+                .target(name: "SidebarWidgetsAPI"),
             ],
             swiftSettings: [
                 .enableUpcomingFeature("NonisolatedNonsendingByDefault"),

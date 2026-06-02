@@ -52,5 +52,6 @@ func workspaceSidebarConfiguration() -> WorkspaceSidebarConfiguration {
         showMonitorSelector: TrayMenuModel.shared.workspaceSidebarShowsMonitorSelector,
         showsDate: config.workspaceSidebar.showDate,
         showsStatusPills: config.workspaceSidebar.showStatusPills,
+        widgets: config.workspaceSidebar.resolvedWidgets,
     )
 }
