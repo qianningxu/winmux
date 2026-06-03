@@ -134,6 +134,9 @@ let project_help_generated = """
 let reload_config_help_generated = """
     USAGE: reload-config [-h|--help] [--no-gui] [--dry-run]
     """
+let reorder_workspace_help_generated = """
+    USAGE: reorder-workspace [-h|--help] <workspace-name> (--before <workspace-name>|--after <workspace-name>)
+    """
 let resize_help_generated = """
     USAGE: resize [-h|--help] [--window-id <window-id>] (smart|smart-opposite|width|height) [+|-]<number>
     """

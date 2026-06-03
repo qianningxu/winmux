@@ -57,6 +57,7 @@ extension Command {
                  is MoveWorkspaceToMonitorCommand,
                  is OpenSidebarCommand,
                  is ProjectCommand,
+                 is ReorderWorkspaceCommand,
                  is ResizeCommand,
                  is SplitCommand,
                  is StackWithCommand,

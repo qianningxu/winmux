@@ -4,6 +4,10 @@ import SwiftUI
 extension View {
     @ViewBuilder
     func workspaceSidebarDrag(enabled: Bool, provider: @escaping () -> NSItemProvider) -> some View {
-        self
+        if enabled {
+            self.onDrag(provider)
+        } else {
+            self
+        }
     }
 }

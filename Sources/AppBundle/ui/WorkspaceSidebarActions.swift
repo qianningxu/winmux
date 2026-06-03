@@ -236,13 +236,7 @@ func moveTabGroupToNewWorkspaceFromSidebar(_ windowId: UInt32, projectId: Worksp
 @MainActor
 private func moveSidebarSource(_ windowId: UInt32, subject: WindowDragSubject, toWorkspace workspaceName: String) {
     runWorkspaceSidebarSession {
-        guard let sourceWindow = Window.get(byId: windowId),
-              let targetWorkspace = Workspace.existing(byName: workspaceName)
-        else { return }
-        let sourceNode = dragSubjectNode(for: sourceWindow, subject: subject)
-        syncClosedWindowsCacheToCurrentWorld()
-        suppressPostDragAxObserverEvents(for: sourceNode.allLeafWindowsRecursive.map(\.windowId))
-        applySidebarWorkspaceMove(sourceNode: sourceNode, sourceWindow: sourceWindow, targetWorkspace: targetWorkspace)
+        guard applySidebarSource(windowId, subject: subject, toWorkspace: workspaceName) else { return }
         await updateWorkspaceSidebarModel()
     }
 }
@@ -255,22 +249,50 @@ private func moveSidebarSourceToNewWorkspace(
     monitorScopeId: String,
 ) {
     runWorkspaceSidebarSession {
-        guard let sourceWindow = Window.get(byId: windowId) else { return }
-        let sourceNode = dragSubjectNode(for: sourceWindow, subject: subject)
-        let targetMonitor = workspaceSidebarTargetMonitor(
-            scopeId: monitorScopeId,
-            fallbackWindow: sourceWindow,
-            fallbackPoint: mouseLocation,
-        )
-        let workspace = getOrCreateAdjacentBlankWorkspace(projectId: projectId, monitor: targetMonitor)
-        let targetContainer: NonLeafTreeNodeObject = sourceNode is Window && sourceWindow.isFloating
-            ? workspace
-            : workspace.rootTilingContainer
-        syncClosedWindowsCacheToCurrentWorld()
-        suppressPostDragAxObserverEvents(for: sourceNode.allLeafWindowsRecursive.map(\.windowId))
-        sourceNode.bind(to: targetContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+        guard applySidebarSourceToNewWorkspace(
+            windowId,
+            subject: subject,
+            projectId: projectId,
+            monitorScopeId: monitorScopeId
+        ) else { return }
         await updateWorkspaceSidebarModel()
     }
+}
+
+@MainActor
+private func applySidebarSource(_ windowId: UInt32, subject: WindowDragSubject, toWorkspace workspaceName: String) -> Bool {
+    guard let sourceWindow = Window.get(byId: windowId),
+          let targetWorkspace = Workspace.existing(byName: workspaceName)
+    else { return false }
+    let sourceNode = dragSubjectNode(for: sourceWindow, subject: subject)
+    syncClosedWindowsCacheToCurrentWorld()
+    suppressPostDragAxObserverEvents(for: sourceNode.allLeafWindowsRecursive.map(\.windowId))
+    applySidebarWorkspaceMove(sourceNode: sourceNode, sourceWindow: sourceWindow, targetWorkspace: targetWorkspace)
+    return true
+}
+
+@MainActor
+private func applySidebarSourceToNewWorkspace(
+    _ windowId: UInt32,
+    subject: WindowDragSubject,
+    projectId: WorkspaceProjectId,
+    monitorScopeId: String,
+) -> Bool {
+    guard let sourceWindow = Window.get(byId: windowId) else { return false }
+    let sourceNode = dragSubjectNode(for: sourceWindow, subject: subject)
+    let targetMonitor = workspaceSidebarTargetMonitor(
+        scopeId: monitorScopeId,
+        fallbackWindow: sourceWindow,
+        fallbackPoint: mouseLocation,
+    )
+    let workspace = getOrCreateAdjacentBlankWorkspace(projectId: projectId, monitor: targetMonitor)
+    let targetContainer: NonLeafTreeNodeObject = sourceNode is Window && sourceWindow.isFloating
+        ? workspace
+        : workspace.rootTilingContainer
+    syncClosedWindowsCacheToCurrentWorld()
+    suppressPostDragAxObserverEvents(for: sourceNode.allLeafWindowsRecursive.map(\.windowId))
+    sourceNode.bind(to: targetContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+    return true
 }
 
 @MainActor
@@ -528,11 +550,12 @@ func deleteWorkspaceFromSidebar(_ workspace: WorkspaceSidebarWorkspaceViewModel)
 @MainActor
 func reorderWorkspaceFromSidebar(_ workspaceName: String, projectId: WorkspaceProjectId, placement: WorkspaceReorderPlacement) {
     runWorkspaceSidebarSession {
-        guard reorderWorkspaceForSidebar(
+        let didReorder = reorderWorkspaceForSidebar(
             sourceWorkspaceName: workspaceName,
             projectId: projectId,
             placement: placement
-        ) else { return }
+        )
+        guard didReorder else { return }
         await updateWorkspaceSidebarModel()
     }
 }
@@ -636,10 +659,18 @@ func finishSidebarWindowDrag(pointer: CGPoint? = nil) {
 
 @MainActor
 func finishWorkspaceSidebarDragAfterGlobalMouseUp() {
-    let hasSidebarDragState = currentActiveWorkspaceSidebarDrag() != nil || isWorkspaceSidebarItemDragActive()
+    let hasSidebarWindowDragState = currentActiveWorkspaceSidebarDrag() != nil
     let hasCursorProxy = WindowDragCursorProxyPanel.shared.currentContent != nil || WindowDragCursorProxyPanel.shared.isVisible
-    guard hasSidebarDragState || hasCursorProxy else { return }
-    finishSidebarWindowDrag()
+    guard hasSidebarWindowDragState || hasCursorProxy else {
+        resetWorkspaceSidebarItemDrag()
+        return
+    }
+    if hasSidebarWindowDragState {
+        finishSidebarWindowDrag()
+    } else {
+        clearWorkspaceSidebarDropPreview()
+        WindowDragCursorProxyPanel.shared.hide()
+    }
     resetWorkspaceSidebarItemDrag()
 }
 
@@ -684,10 +715,10 @@ private func updateActiveWorkspaceSidebarDragPreview(sourceWindow: Window, subje
 }
 
 @MainActor
-private func commitActiveWorkspaceSidebarDragIfPossible() -> Bool {
+func commitActiveWorkspaceSidebarDrag(to target: WorkspaceSidebarDropTargetKind) -> Bool {
     guard let activeDrag = currentActiveWorkspaceSidebarDrag(),
           let sourceWindow = Window.get(byId: activeDrag.windowId),
-          let target = workspaceSidebarDragTarget(for: sourceWindow, subject: activeDrag.subject)
+          isActionableSidebarDropTarget(sourceWindow: sourceWindow, subject: activeDrag.subject, target: target)
     else {
         clearWorkspaceSidebarDropPreview()
         WindowDragCursorProxyPanel.shared.hide()
@@ -698,19 +729,40 @@ private func commitActiveWorkspaceSidebarDragIfPossible() -> Bool {
     switch target {
         case .workspace(let workspaceName):
             if activeDrag.subject == .group {
-                moveTabGroupFromSidebar(sourceWindow.windowId, toWorkspace: workspaceName)
+                return applySidebarSource(sourceWindow.windowId, subject: .group, toWorkspace: workspaceName)
             } else {
-                moveWindowFromSidebar(sourceWindow.windowId, toWorkspace: workspaceName)
+                return applySidebarSource(sourceWindow.windowId, subject: .window, toWorkspace: workspaceName)
             }
-            return true
         case .newWorkspace(let projectId, let monitorScopeId):
             if activeDrag.subject == .group {
-                moveTabGroupToNewWorkspaceFromSidebar(sourceWindow.windowId, projectId: projectId, monitorScopeId: monitorScopeId)
+                return applySidebarSourceToNewWorkspace(
+                    sourceWindow.windowId,
+                    subject: .group,
+                    projectId: projectId,
+                    monitorScopeId: monitorScopeId
+                )
             } else {
-                moveWindowToNewWorkspaceFromSidebar(sourceWindow.windowId, projectId: projectId, monitorScopeId: monitorScopeId)
+                return applySidebarSourceToNewWorkspace(
+                    sourceWindow.windowId,
+                    subject: .window,
+                    projectId: projectId,
+                    monitorScopeId: monitorScopeId
+                )
             }
-            return true
         case .monitor:
             return false
     }
+}
+
+@MainActor
+private func commitActiveWorkspaceSidebarDragIfPossible() -> Bool {
+    guard let activeDrag = currentActiveWorkspaceSidebarDrag(),
+          let sourceWindow = Window.get(byId: activeDrag.windowId),
+          let target = workspaceSidebarDragTarget(for: sourceWindow, subject: activeDrag.subject)
+    else {
+        clearWorkspaceSidebarDropPreview()
+        WindowDragCursorProxyPanel.shared.hide()
+        return false
+    }
+    return commitActiveWorkspaceSidebarDrag(to: target)
 }

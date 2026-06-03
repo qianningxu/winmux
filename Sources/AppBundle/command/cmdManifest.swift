@@ -36,6 +36,7 @@ extension CmdArgs {
             case let args as OpenSidebarCmdArgs: OpenSidebarCommand(args: args)
             case let args as ProjectCmdArgs: ProjectCommand(args: args)
             case let args as ReloadConfigCmdArgs: ReloadConfigCommand(args: args)
+            case let args as ReorderWorkspaceCmdArgs: ReorderWorkspaceCommand(args: args)
             case let args as ResizeCmdArgs: ResizeCommand(args: args)
             case let args as SplitCmdArgs: SplitCommand(args: args)
             case let args as StackWithCmdArgs: StackWithCommand(args: args)

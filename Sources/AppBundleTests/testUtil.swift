@@ -120,6 +120,15 @@ extension MoveNodeToProjectCmdArgs {
     }
 }
 
+extension ReorderWorkspaceCmdArgs {
+    init(source: WorkspaceName, beforeTarget: WorkspaceName? = nil, afterTarget: WorkspaceName? = nil) {
+        self = ReorderWorkspaceCmdArgs(rawArgs: [])
+        self.source = .initialized(source)
+        self.beforeTarget = beforeTarget
+        self.afterTarget = afterTarget
+    }
+}
+
 extension HotkeyBinding {
     init(_ modifiers: NSEvent.ModifierFlags, _ keyCode: Key, _ commands: [any Command]) {
         let descriptionWithKeyNotation = modifiers.isEmpty

@@ -121,6 +121,23 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ])
     }
 
+    func testReorderWorkspaceChangesPresentationOrderWhenProjectsDisabled() {
+        config.enableProjects = false
+        let (first, second, third) = makeOrderedDefaultWorkspaces()
+
+        XCTAssertTrue(reorderWorkspaceForSidebar(
+            sourceWorkspaceName: third.name,
+            projectId: workspaceProjectDefaultId,
+            placement: .before(second.name)
+        ))
+
+        XCTAssertEqual(orderedWorkspacesForPresentation().map(\.name), [
+            first.name,
+            third.name,
+            second.name,
+        ])
+    }
+
     func testWorkspaceSidebarModelRefreshUsesReorderedWorkspaceOrder() async {
         config.workspaceSidebar.enabled = true
         let (first, second, third) = makeOrderedDefaultWorkspaces()

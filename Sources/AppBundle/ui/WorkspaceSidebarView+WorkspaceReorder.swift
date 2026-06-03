@@ -69,16 +69,17 @@ extension WorkspaceSidebarView {
             NotificationCenter.default.post(name: workspaceSidebarDismissProjectMenusNotification, object: nil)
             isProjectMenuOpen = false
         }
+        let target = workspaceSidebarWorkspaceReorderTarget(
+            sourceWorkspaceName: workspace.name,
+            projectId: projectId,
+            pointer: pointer,
+            frames: workspaceReorderFrames
+        )
         workspaceReorderDrag = WorkspaceSidebarWorkspaceReorderDragState(
             sourceWorkspaceName: workspace.name,
             projectId: projectId,
             pointer: pointer,
-            target: workspaceSidebarWorkspaceReorderTarget(
-                sourceWorkspaceName: workspace.name,
-                projectId: projectId,
-                pointer: pointer,
-                frames: workspaceReorderFrames
-            )
+            target: target
         )
     }
 

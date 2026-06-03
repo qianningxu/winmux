@@ -97,11 +97,34 @@ func orderedWorkspaces(in projectId: WorkspaceProjectId) -> [Workspace] {
 @MainActor
 func orderedWorkspacesForPresentation() -> [Workspace] {
     guard projectsAreEnabled() else {
-        return Workspace.all.filter { !$0.isArchived }.sorted()
+        return orderedWorkspacesAcrossProjectIndexes()
     }
     var seen: Set<WorkspaceId> = []
     var result: [Workspace] = []
     for project in workspaceProjects() {
+        for workspaceId in project.workspaceOrder {
+            guard let workspace = winMuxWorkspaceState.workspaceById[workspaceId],
+                  !workspace.isArchived,
+                  seen.insert(workspaceId).inserted
+            else { continue }
+            result.append(workspace)
+        }
+    }
+    result.append(contentsOf: Workspace.all.filter { !$0.isArchived && seen.insert($0.id).inserted })
+    return result
+}
+
+@MainActor
+private func orderedWorkspacesAcrossProjectIndexes() -> [Workspace] {
+    winMuxWorkspaceState.pruneProjectWorkspaceIndexes()
+    var seen: Set<WorkspaceId> = []
+    var result: [Workspace] = []
+    let projects = winMuxWorkspaceState.projectsById.values.sorted {
+        if $0.id == workspaceProjectDefaultId { return true }
+        if $1.id == workspaceProjectDefaultId { return false }
+        return workspaceProjectOrderPrecedes($0, $1)
+    }
+    for project in projects {
         for workspaceId in project.workspaceOrder {
             guard let workspace = winMuxWorkspaceState.workspaceById[workspaceId],
                   !workspace.isArchived,

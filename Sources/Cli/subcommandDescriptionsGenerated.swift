@@ -33,6 +33,7 @@ let subcommandDescriptions = [
     ["  move", "Move the focused window in the given direction"],
     ["  project", "Focus the specified project"],
     ["  reload-config", "Reload currently active config"],
+    ["  reorder-workspace", "Reorder a workspace before or after another workspace"],
     ["  resize", "Resize the focused window"],
     ["  split", "Split focused window"],
     ["  stack-with", "Put the focused window into the same tab group as the nearest window in the specified direction."],

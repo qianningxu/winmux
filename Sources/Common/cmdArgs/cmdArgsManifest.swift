@@ -34,6 +34,7 @@ public enum CmdKind: String, CaseIterable, Equatable, Sendable {
     case openSidebar = "open-sidebar"
     case project
     case reloadConfig = "reload-config"
+    case reorderWorkspace = "reorder-workspace"
     case resize
     case split
     case stackWith = "stack-with"
@@ -120,6 +121,8 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(parseProjectCmdArgs)
             case .reloadConfig:
                 result[kind.rawValue] = SubCommandParser(ReloadConfigCmdArgs.init)
+            case .reorderWorkspace:
+                result[kind.rawValue] = SubCommandParser(parseReorderWorkspaceCmdArgs)
             case .resize:
                 result[kind.rawValue] = SubCommandParser(parseResizeCmdArgs)
             case .split:

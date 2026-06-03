@@ -1,0 +1,42 @@
+import Common
+
+struct ReorderWorkspaceCommand: Command {
+    let args: ReorderWorkspaceCmdArgs
+    /*conforms*/ let shouldResetClosedWindowsCache = false
+
+    func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
+        materializePersistedWorkspaceProjects()
+        let sourceName = args.source.val.raw
+        guard let source = Workspace.existing(byName: sourceName),
+              !source.isArchived
+        else {
+            return io.err("Workspace '\(sourceName)' doesn't exist")
+        }
+
+        let placement: WorkspaceReorderPlacement
+        if let beforeTarget = args.beforeTarget {
+            placement = .before(beforeTarget.raw)
+        } else if let afterTarget = args.afterTarget {
+            placement = .after(afterTarget.raw)
+        } else {
+            return io.err("Either --before or --after is required")
+        }
+
+        guard let target = Workspace.existing(byName: placement.targetWorkspaceName),
+              !target.isArchived
+        else {
+            return io.err("Workspace '\(placement.targetWorkspaceName)' doesn't exist")
+        }
+        guard source.projectId == target.projectId else {
+            return io.err("Workspace '\(source.name)' and workspace '\(target.name)' are in different projects")
+        }
+        guard reorderWorkspaceForSidebar(
+            sourceWorkspaceName: source.name,
+            projectId: source.projectId,
+            placement: placement
+        ) else {
+            return io.err("Workspace '\(source.name)' is already in the requested position")
+        }
+        return true
+    }
+}

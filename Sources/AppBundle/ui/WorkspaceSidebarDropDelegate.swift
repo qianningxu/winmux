@@ -49,7 +49,15 @@ struct WorkspaceSidebarDropDelegate: DropDelegate {
             startedInSidebar: getCurrentMouseDragStartedInSidebar()
         ) {
             Task { @MainActor in
-                try? await resetManipulatedWithMouseIfPossible()
+                if commitActiveWorkspaceSidebarDrag(to: target) {
+                    clearActiveWorkspaceSidebarDrag()
+                    clearPendingWindowDragIntent()
+                    cancelManipulatedWithMouseState()
+                    resetWorkspaceSidebarItemDrag()
+                    scheduleRefreshSession(.resetManipulatedWithMouse, optimisticallyPreLayoutWorkspaces: true)
+                } else {
+                    try? await resetManipulatedWithMouseIfPossible()
+                }
             }
             return true
         }

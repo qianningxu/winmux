@@ -38,7 +38,9 @@ extension WorkspaceSidebarWorkspaceSection {
     @ViewBuilder
     var headerSlot: some View {
         header
+            .frame(height: headerHeight)
             .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
+            .contentShape(Rectangle())
             .modifier(WorkspaceSidebarWorkspaceReorderGestureModifier(
                 isEnabled: isWorkspaceReorderEnabled,
                 onChanged: onWorkspaceReorderDragChanged,
