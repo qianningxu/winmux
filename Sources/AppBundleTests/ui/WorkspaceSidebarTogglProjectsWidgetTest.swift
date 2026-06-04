@@ -3,12 +3,18 @@ import Foundation
 import XCTest
 
 final class WorkspaceSidebarTogglProjectsWidgetTest: XCTestCase {
-    func testTogglProjectAggregatorSummarizesOverlappingPastSevenDays() throws {
+    func testTogglProjectAggregatorGroupsEntriesByStartDate() throws {
         let entriesDirectory = FileManager.default.temporaryDirectory
             .appending(component: "winmux-toggl-widget-\(UUID().uuidString)", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: entriesDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: entriesDirectory) }
 
+        try writeEntry(
+            entriesDirectory.appending(component: "2026-06-02 09.00.md"),
+            start: "2026-06-02 09:00:00",
+            stop: "2026-06-02 10:00:00",
+            project: "Alpha",
+        )
         try writeEntry(
             entriesDirectory.appending(component: "2026-06-01 10.00.md"),
             start: "2026-06-01 10:00:00",
@@ -22,10 +28,16 @@ final class WorkspaceSidebarTogglProjectsWidgetTest: XCTestCase {
             project: "",
         )
         try writeEntry(
+            entriesDirectory.appending(component: "2026-05-30 23.30.md"),
+            start: "2026-05-30 23:30:00",
+            stop: "2026-05-31 00:30:00",
+            project: "Boundary",
+        )
+        try writeEntry(
             entriesDirectory.appending(component: "2026-05-26 11.00.md"),
             start: "2026-05-26 11:00:00",
             stop: "2026-05-26 13:00:00",
-            project: "Boundary",
+            project: "Old boundary",
         )
         try writeEntry(
             entriesDirectory.appending(component: "2026-05-20 10.00.md"),
@@ -39,9 +51,19 @@ final class WorkspaceSidebarTogglProjectsWidgetTest: XCTestCase {
 
         assertNil(snapshot.errorMessage)
         assertEquals(snapshot.projects.map(\.project), ["Alpha", "No project", "Boundary"])
-        assertEquals(snapshot.projects.map { Int($0.seconds) }, [7200, 5400, 3600])
-        assertEquals(Int(snapshot.totalSeconds), 16_200)
-        assertEquals(snapshot.scannedEntryCount, 4)
+        assertEquals(snapshot.projects.map { Int($0.seconds) }, [10_800, 5400, 3600])
+        assertEquals(Int(snapshot.totalSeconds), 19_800)
+        assertEquals(snapshot.scannedEntryCount, 6)
+        assertEquals(snapshot.dailyFocus.map { dateKey($0.date) }, [
+            "2026-05-27",
+            "2026-05-28",
+            "2026-05-29",
+            "2026-05-30",
+            "2026-05-31",
+            "2026-06-01",
+            "2026-06-02",
+        ])
+        assertEquals(snapshot.dailyFocus.map { Int($0.seconds) }, [0, 0, 0, 3600, 5400, 7200, 3600])
     }
 
     func testTogglProjectAggregatorReportsMissingDirectory() {
@@ -74,5 +96,11 @@ final class WorkspaceSidebarTogglProjectsWidgetTest: XCTestCase {
         formatter.timeZone = .current
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         return formatter
+    }
+
+    private func dateKey(_ date: Date) -> String {
+        let formatter = makeTogglTestDateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
 }

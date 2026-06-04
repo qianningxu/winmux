@@ -99,13 +99,20 @@ struct WorkspaceSidebarWidgetConfig: ConvenienceCopyable, Equatable, Sendable {
     var showDate: Bool = true
     var bundle: String? = nil
     var entriesPath: String? = nil
+    var schedulePath: String? = nil
+    var togglEntriesPath: String? = nil
+    var deviationPath: String? = nil
     var days: Int? = nil
+    var rotationGroup: String? = nil
+    var rotationIntervalSeconds: Int? = nil
 }
 
 enum WorkspaceSidebarWidgetType: String, CaseIterable, Sendable {
     case builtInTimeDate = "built-in/time-date"
+    case builtInTogglDays = "built-in/toggl-days"
     case builtInTogglProjects = "built-in/toggl-projects"
     case builtInSpendingCategories = "built-in/spending-categories"
+    case builtInScheduleHeatmap = "built-in/schedule-heatmap"
     case plugin
 }
 
@@ -113,6 +120,10 @@ let defaultWorkspaceSidebarTogglEntriesPath = "/Users/side/Documents/now/self/Tr
 let defaultWorkspaceSidebarTogglDays = 7
 let defaultWorkspaceSidebarSpendingEntriesPath = "/Users/side/Documents/now/self/Tracks/data/spending"
 let defaultWorkspaceSidebarSpendingDays = 30
+let defaultWorkspaceSidebarSchedulePath = "/Users/side/Documents/now/self/Tracks/data/schedule"
+let defaultWorkspaceSidebarDeviationPath = "/Users/side/Documents/now/self/Record/Deviation"
+let defaultWorkspaceSidebarScheduleHeatmapDays = 7
+let defaultWorkspaceSidebarWidgetRotationIntervalSeconds = 300
 
 enum WorkspaceProjectDeletionAction: String, CaseIterable, Identifiable, Sendable {
     case closeWindows = "close-windows"

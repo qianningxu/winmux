@@ -48,7 +48,32 @@ private let workspaceSidebarWidgetParser: [String: any ParserProtocol<WorkspaceS
             .filter(.semantic(backtrace, "Must not be empty")) { !$0.isEmpty }
             .map { Optional($0) }
     },
+    "schedule-path": Parser(\.schedulePath) { raw, backtrace in
+        parseString(raw, backtrace)
+            .filter(.semantic(backtrace, "Must not be empty")) { !$0.isEmpty }
+            .map { Optional($0) }
+    },
+    "toggl-entries-path": Parser(\.togglEntriesPath) { raw, backtrace in
+        parseString(raw, backtrace)
+            .filter(.semantic(backtrace, "Must not be empty")) { !$0.isEmpty }
+            .map { Optional($0) }
+    },
+    "deviation-path": Parser(\.deviationPath) { raw, backtrace in
+        parseString(raw, backtrace)
+            .filter(.semantic(backtrace, "Must not be empty")) { !$0.isEmpty }
+            .map { Optional($0) }
+    },
     "days": Parser(\.days) { raw, backtrace in
+        parseInt(raw, backtrace)
+            .filter(.semantic(backtrace, "Must be greater than 0")) { $0 > 0 }
+            .map { Optional($0) }
+    },
+    "rotation-group": Parser(\.rotationGroup) { raw, backtrace in
+        parseString(raw, backtrace)
+            .filter(.semantic(backtrace, "Must not be empty")) { !$0.isEmpty }
+            .map { Optional($0) }
+    },
+    "rotation-interval-seconds": Parser(\.rotationIntervalSeconds) { raw, backtrace in
         parseInt(raw, backtrace)
             .filter(.semantic(backtrace, "Must be greater than 0")) { $0 > 0 }
             .map { Optional($0) }
@@ -90,16 +115,50 @@ private func parseWorkspaceSidebarWidgets(
                 if widget.entriesPath != nil {
                     errors.append(.semantic(widgetBacktrace + .key("entries-path"), "Only data widgets can specify entries-path"))
                 }
+                if widget.schedulePath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("schedule-path"), "Only schedule heatmap widgets can specify schedule-path"))
+                }
+                if widget.togglEntriesPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("toggl-entries-path"), "Only schedule heatmap widgets can specify toggl-entries-path"))
+                }
+                if widget.deviationPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("deviation-path"), "Only schedule heatmap widgets can specify deviation-path"))
+                }
                 if widget.days != nil {
                     errors.append(.semantic(widgetBacktrace + .key("days"), "Only data widgets can specify days"))
                 }
-            case .builtInTogglProjects:
+            case .builtInTogglDays, .builtInTogglProjects:
                 if widget.bundle != nil {
                     errors.append(.semantic(widgetBacktrace + .key("bundle"), "Only plugin widgets can specify bundle"))
+                }
+                if widget.schedulePath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("schedule-path"), "Only schedule heatmap widgets can specify schedule-path"))
+                }
+                if widget.togglEntriesPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("toggl-entries-path"), "Only schedule heatmap widgets can specify toggl-entries-path"))
+                }
+                if widget.deviationPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("deviation-path"), "Only schedule heatmap widgets can specify deviation-path"))
                 }
             case .builtInSpendingCategories:
                 if widget.bundle != nil {
                     errors.append(.semantic(widgetBacktrace + .key("bundle"), "Only plugin widgets can specify bundle"))
+                }
+                if widget.schedulePath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("schedule-path"), "Only schedule heatmap widgets can specify schedule-path"))
+                }
+                if widget.togglEntriesPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("toggl-entries-path"), "Only schedule heatmap widgets can specify toggl-entries-path"))
+                }
+                if widget.deviationPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("deviation-path"), "Only schedule heatmap widgets can specify deviation-path"))
+                }
+            case .builtInScheduleHeatmap:
+                if widget.bundle != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("bundle"), "Only plugin widgets can specify bundle"))
+                }
+                if widget.entriesPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("entries-path"), "Schedule heatmap widgets use toggl-entries-path"))
                 }
             case .plugin:
                 if widget.bundle?.isEmpty != false {
@@ -108,6 +167,15 @@ private func parseWorkspaceSidebarWidgets(
                 }
                 if widget.entriesPath != nil {
                     errors.append(.semantic(widgetBacktrace + .key("entries-path"), "Only data widgets can specify entries-path"))
+                }
+                if widget.schedulePath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("schedule-path"), "Only schedule heatmap widgets can specify schedule-path"))
+                }
+                if widget.togglEntriesPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("toggl-entries-path"), "Only schedule heatmap widgets can specify toggl-entries-path"))
+                }
+                if widget.deviationPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("deviation-path"), "Only schedule heatmap widgets can specify deviation-path"))
                 }
                 if widget.days != nil {
                     errors.append(.semantic(widgetBacktrace + .key("days"), "Only data widgets can specify days"))

@@ -3,12 +3,18 @@ import SwiftUI
 
 private let togglTrackThemeColor = Color(red: 0xE5 / 255, green: 0x7C / 255, blue: 0xD8 / 255)
 
+enum WorkspaceSidebarTogglBreakdown: Sendable {
+    case days
+    case projects
+}
+
 struct WorkspaceSidebarTogglProjectsWidget: View {
     let id: String
     let sectionWidth: CGFloat
     let isCompact: Bool
     let entriesPath: String
     let days: Int
+    let breakdown: WorkspaceSidebarTogglBreakdown
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
@@ -23,12 +29,14 @@ struct WorkspaceSidebarTogglProjectsWidget: View {
                         snapshot: snapshot,
                         sectionWidth: sectionWidth,
                         days: days,
+                        breakdown: breakdown,
                     )
                 } else {
                     WorkspaceSidebarExpandedTogglProjectsCard(
                         snapshot: snapshot,
                         sectionWidth: sectionWidth,
                         days: days,
+                        breakdown: breakdown,
                     )
                 }
             }
@@ -44,8 +52,16 @@ struct TogglProjectTimeSummary: Equatable, Identifiable, Sendable {
     var id: String { project }
 }
 
+struct TogglDailyFocusSummary: Equatable, Identifiable, Sendable {
+    let date: Date
+    let seconds: TimeInterval
+
+    var id: Date { date }
+}
+
 struct TogglProjectTimeSnapshot: Equatable, Sendable {
     var projects: [TogglProjectTimeSummary] = []
+    var dailyFocus: [TogglDailyFocusSummary] = []
     var totalSeconds: TimeInterval = 0
     var scannedEntryCount: Int = 0
     var errorMessage: String? = nil
@@ -77,8 +93,19 @@ struct TogglProjectTimeAggregator: Sendable {
             return TogglProjectTimeSnapshot(errorMessage: "Can't read Toggl entries")
         }
 
+        var calendar = Calendar.current
+        calendar.locale = Locale.current
+        let todayStart = calendar.startOfDay(for: now)
+        guard let windowStart = calendar.date(byAdding: .day, value: -(days - 1), to: todayStart) else {
+            return TogglProjectTimeSnapshot(errorMessage: "Invalid Toggl window")
+        }
+
+        let dayStarts = (0 ..< days).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset, to: windowStart)
+        }
+        var totalsByDay = Dictionary(uniqueKeysWithValues: dayStarts.map { ($0, TimeInterval(0)) })
+
         let formatter = makeTogglDateFormatter()
-        let windowStart = now.addingTimeInterval(-Double(days) * 24 * 60 * 60)
         var totalsByProject: [String: TimeInterval] = [:]
         var scannedEntryCount = 0
 
@@ -86,12 +113,15 @@ struct TogglProjectTimeAggregator: Sendable {
             guard let entry = TogglTimeEntry.parse(url: url, formatter: formatter) else { continue }
             scannedEntryCount += 1
 
-            let overlapStart = max(entry.start, windowStart)
-            let overlapStop = min(entry.stop, now)
-            let seconds = overlapStop.timeIntervalSince(overlapStart)
+            let entryDayStart = calendar.startOfDay(for: entry.start)
+            guard totalsByDay[entryDayStart] != nil else { continue }
+
+            let effectiveStop = min(entry.stop, now)
+            let seconds = effectiveStop.timeIntervalSince(entry.start)
             guard seconds > 0 else { continue }
 
             totalsByProject[entry.project, default: 0] += seconds
+            totalsByDay[entryDayStart, default: 0] += seconds
         }
 
         let projects = totalsByProject
@@ -103,8 +133,13 @@ struct TogglProjectTimeAggregator: Sendable {
                 return lhs.project.localizedStandardCompare(rhs.project) == .orderedAscending
             }
 
+        let dailyFocus = dayStarts.map { dayStart in
+            TogglDailyFocusSummary(date: dayStart, seconds: totalsByDay[dayStart] ?? 0)
+        }
+
         return TogglProjectTimeSnapshot(
             projects: projects,
+            dailyFocus: dailyFocus,
             totalSeconds: projects.reduce(0) { $0 + $1.seconds },
             scannedEntryCount: scannedEntryCount,
             errorMessage: nil,
@@ -118,6 +153,7 @@ struct TogglProjectTimeAggregator: Sendable {
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         return formatter
     }
+
 }
 
 private struct TogglTimeEntry {
@@ -182,10 +218,25 @@ private struct WorkspaceSidebarCompactTogglProjectsCard: View {
     let snapshot: TogglProjectTimeSnapshot
     let sectionWidth: CGFloat
     let days: Int
+    let breakdown: WorkspaceSidebarTogglBreakdown
+
+    private var title: String {
+        switch breakdown {
+            case .days: "Toggl/days"
+            case .projects: "Toggl/projects"
+        }
+    }
+
+    private var systemImage: String {
+        switch breakdown {
+            case .days: "calendar"
+            case .projects: "folder"
+        }
+    }
 
     var body: some View {
         VStack(alignment: .center, spacing: 5) {
-            Image(systemName: "timer")
+            Image(systemName: systemImage)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(togglTrackThemeColor.opacity(0.86))
 
@@ -211,7 +262,7 @@ private struct WorkspaceSidebarCompactTogglProjectsCard: View {
         if let errorMessage = snapshot.errorMessage {
             return errorMessage
         }
-        return "Toggl, \(togglDurationText(snapshot.totalSeconds)) in the last \(days) days"
+        return "\(title), \(togglDurationText(snapshot.totalSeconds)) in the last \(days) days"
     }
 }
 
@@ -219,24 +270,53 @@ private struct WorkspaceSidebarExpandedTogglProjectsCard: View {
     let snapshot: TogglProjectTimeSnapshot
     let sectionWidth: CGFloat
     let days: Int
+    let breakdown: WorkspaceSidebarTogglBreakdown
 
     private var visibleProjects: [TogglProjectTimeSummary] {
-        Array(snapshot.projects.prefix(4))
+        Array(snapshot.projects.prefix(3))
+    }
+
+    private var visibleDays: [TogglDailyFocusSummary] {
+        Array(snapshot.dailyFocus.suffix(min(days, 7)).reversed())
+    }
+
+    private var maxDailySeconds: TimeInterval {
+        max(visibleDays.map(\.seconds).max() ?? 0, 1)
+    }
+
+    private var maxProjectSeconds: TimeInterval {
+        max(visibleProjects.map(\.seconds).max() ?? 0, 1)
+    }
+
+    private var title: String {
+        switch breakdown {
+            case .days: "Toggl/days"
+            case .projects: "Toggl/projects"
+        }
+    }
+
+    private var systemImage: String {
+        switch breakdown {
+            case .days: "calendar"
+            case .projects: "folder"
+        }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Label("Toggl", systemImage: "timer")
+                Label(title, systemImage: systemImage)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(togglTrackThemeColor.opacity(0.88))
 
                 Spacer(minLength: 8)
 
-                Text("\(days)d")
-                    .font(.system(size: 11, weight: .bold))
+                Text(togglHoursText(snapshot.totalSeconds))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Color.white.opacity(0.46))
+                    .foregroundStyle(Color.white.opacity(0.82))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
 
             if let errorMessage = snapshot.errorMessage {
@@ -245,32 +325,33 @@ private struct WorkspaceSidebarExpandedTogglProjectsCard: View {
                     .foregroundStyle(Color.white.opacity(0.58))
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
-            } else if visibleProjects.isEmpty {
-                Text("No entries")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.52))
-                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(visibleProjects) { project in
-                        TogglProjectTimeRow(
-                            project: project,
-                            maxSeconds: max(snapshot.projects.first?.seconds ?? 0, 1),
-                        )
-                    }
-                }
-
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text("Total")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(0.42))
-
-                    Spacer(minLength: 8)
-
-                    Text(togglDurationText(snapshot.totalSeconds))
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(Color.white.opacity(0.82))
+                switch breakdown {
+                    case .days:
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(visibleDays) { day in
+                                TogglDailyFocusRow(
+                                    day: day,
+                                    maxSeconds: maxDailySeconds,
+                                )
+                            }
+                        }
+                    case .projects:
+                        if visibleProjects.isEmpty {
+                            Text("No entries")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Color.white.opacity(0.52))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(visibleProjects) { project in
+                                    TogglProjectTimeRow(
+                                        project: project,
+                                        maxSeconds: maxProjectSeconds,
+                                    )
+                                }
+                            }
+                        }
                 }
             }
         }
@@ -279,6 +360,50 @@ private struct WorkspaceSidebarExpandedTogglProjectsCard: View {
         .frame(width: sectionWidth, alignment: .leading)
         .background(WorkspaceSidebarStatusCardBackground())
         .accessibilityElement(children: .combine)
+    }
+}
+
+private struct TogglDailyFocusRow: View {
+    let day: TogglDailyFocusSummary
+    let maxSeconds: TimeInterval
+
+    private var ratio: CGFloat {
+        CGFloat(max(0, min(day.seconds / maxSeconds, 1)))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(togglWeekdayText(day.date))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.76))
+                    .lineLimit(1)
+
+                Spacer(minLength: 8)
+
+                Text(togglCompactHoursText(day.seconds))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.white.opacity(day.seconds > 0 ? 0.64 : 0.36))
+                    .lineLimit(1)
+            }
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.07))
+
+                    if day.seconds > 0 {
+                        Capsule()
+                            .fill(togglTrackThemeColor.opacity(0.56))
+                            .frame(width: max(3, geometry.size.width * ratio))
+                    }
+                }
+            }
+            .frame(height: 4)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("\(togglWeekdayAccessibilityText(day.date)), \(togglDurationText(day.seconds))"))
     }
 }
 
@@ -294,15 +419,15 @@ private struct TogglProjectTimeRow: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(project.project)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.74))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.76))
                     .lineLimit(1)
                     .truncationMode(.tail)
 
                 Spacer(minLength: 8)
 
                 Text(togglDurationText(project.seconds))
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(Color.white.opacity(0.64))
                     .lineLimit(1)
@@ -311,10 +436,10 @@ private struct TogglProjectTimeRow: View {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Color.white.opacity(0.07))
 
                     Capsule()
-                        .fill(togglTrackThemeColor.opacity(0.78))
+                        .fill(togglTrackThemeColor.opacity(0.56))
                         .frame(width: max(3, geometry.size.width * ratio))
                 }
             }
@@ -343,4 +468,32 @@ private func togglDurationText(_ seconds: TimeInterval) -> String {
         return "\(hoursComponent)h"
     }
     return "\(hoursComponent)h \(minutesComponent)m"
+}
+
+private func togglCompactHoursText(_ seconds: TimeInterval) -> String {
+    let hours = max(0, seconds / 60 / 60)
+    guard hours > 0 else { return "0h" }
+
+    let roundedHours = hours.rounded()
+    if abs(hours - roundedHours) < 0.05 {
+        return "\(Int(roundedHours))h"
+    }
+    if hours < 10 {
+        return String(format: "%.1fh", hours)
+    }
+    return String(format: "%.0fh", hours)
+}
+
+private func togglWeekdayText(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.locale = Locale.current
+    formatter.dateFormat = "EEEE"
+    return formatter.string(from: date)
+}
+
+private func togglWeekdayAccessibilityText(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.locale = Locale.current
+    formatter.dateFormat = "EEEE"
+    return formatter.string(from: date)
 }

@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-private let monzoThemeColor = Color(red: 0xFE / 255, green: 0x4B / 255, blue: 0x60 / 255)
+private let dollarGreenThemeColor = Color(red: 0x85 / 255, green: 0xBB / 255, blue: 0x65 / 255)
 
 struct WorkspaceSidebarSpendingCategoriesWidget: View {
     let id: String
@@ -28,7 +28,6 @@ struct WorkspaceSidebarSpendingCategoriesWidget: View {
                     WorkspaceSidebarExpandedSpendingCategoriesCard(
                         snapshot: snapshot,
                         sectionWidth: sectionWidth,
-                        days: days,
                     )
                 }
             }
@@ -199,7 +198,7 @@ private struct WorkspaceSidebarCompactSpendingCategoriesCard: View {
         VStack(alignment: .center, spacing: 5) {
             Image(systemName: "creditcard")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(monzoThemeColor.opacity(0.86))
+                .foregroundStyle(dollarGreenThemeColor.opacity(0.86))
 
             Text(spendingCurrencyText(snapshot.totalAmount, compact: true))
                 .font(.system(size: 17, weight: .bold, design: .rounded))
@@ -230,10 +229,9 @@ private struct WorkspaceSidebarCompactSpendingCategoriesCard: View {
 private struct WorkspaceSidebarExpandedSpendingCategoriesCard: View {
     let snapshot: SpendingCategorySnapshot
     let sectionWidth: CGFloat
-    let days: Int
 
     private var visibleCategories: [SpendingCategorySummary] {
-        Array(snapshot.categories.prefix(4))
+        Array(snapshot.categories.prefix(3))
     }
 
     var body: some View {
@@ -241,14 +239,16 @@ private struct WorkspaceSidebarExpandedSpendingCategoriesCard: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Label("Spending", systemImage: "creditcard")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(monzoThemeColor.opacity(0.88))
+                    .foregroundStyle(dollarGreenThemeColor.opacity(0.88))
 
                 Spacer(minLength: 8)
 
-                Text("\(days)d")
-                    .font(.system(size: 11, weight: .bold))
+                Text(spendingCurrencyText(snapshot.totalAmount))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Color.white.opacity(0.46))
+                    .foregroundStyle(Color.white.opacity(0.82))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
 
             if let errorMessage = snapshot.errorMessage {
@@ -272,18 +272,6 @@ private struct WorkspaceSidebarExpandedSpendingCategoriesCard: View {
                     }
                 }
 
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text("\(snapshot.transactionCount) txns")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(0.42))
-
-                    Spacer(minLength: 8)
-
-                    Text(spendingCurrencyText(snapshot.totalAmount))
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(Color.white.opacity(0.82))
-                }
             }
         }
         .padding(.horizontal, 12)
@@ -306,15 +294,15 @@ private struct SpendingCategoryRow: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(category.category)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.74))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.76))
                     .lineLimit(1)
                     .truncationMode(.tail)
 
                 Spacer(minLength: 8)
 
                 Text(spendingCurrencyText(category.amount))
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(Color.white.opacity(0.64))
                     .lineLimit(1)
@@ -326,7 +314,7 @@ private struct SpendingCategoryRow: View {
                         .fill(Color.white.opacity(0.08))
 
                     Capsule()
-                        .fill(monzoThemeColor.opacity(0.76))
+                        .fill(dollarGreenThemeColor.opacity(0.58))
                         .frame(width: max(3, geometry.size.width * ratio))
                 }
             }

@@ -182,16 +182,27 @@ private func workspaceSidebarWidgetConfigMap(_ widget: WorkspaceSidebarWidgetCon
     switch widget.type {
         case .builtInTimeDate:
             map["show-date"] = .scalar(.bool(widget.showDate))
-        case .builtInTogglProjects:
+        case .builtInTogglDays, .builtInTogglProjects:
             map["entries-path"] = .scalar(.string(widget.entriesPath ?? defaultWorkspaceSidebarTogglEntriesPath))
             map["days"] = .scalar(.int(widget.days ?? defaultWorkspaceSidebarTogglDays))
         case .builtInSpendingCategories:
             map["entries-path"] = .scalar(.string(widget.entriesPath ?? defaultWorkspaceSidebarSpendingEntriesPath))
             map["days"] = .scalar(.int(widget.days ?? defaultWorkspaceSidebarSpendingDays))
+        case .builtInScheduleHeatmap:
+            map["schedule-path"] = .scalar(.string(widget.schedulePath ?? defaultWorkspaceSidebarSchedulePath))
+            map["toggl-entries-path"] = .scalar(.string(widget.togglEntriesPath ?? defaultWorkspaceSidebarTogglEntriesPath))
+            map["deviation-path"] = .scalar(.string(widget.deviationPath ?? defaultWorkspaceSidebarDeviationPath))
+            map["days"] = .scalar(.int(widget.days ?? defaultWorkspaceSidebarScheduleHeatmapDays))
         case .plugin:
             if let bundle = widget.bundle {
                 map["bundle"] = .scalar(.string(bundle))
             }
+    }
+    if let rotationGroup = widget.rotationGroup {
+        map["rotation-group"] = .scalar(.string(rotationGroup))
+    }
+    if let rotationIntervalSeconds = widget.rotationIntervalSeconds {
+        map["rotation-interval-seconds"] = .scalar(.int(rotationIntervalSeconds))
     }
     return .map(map)
 }
