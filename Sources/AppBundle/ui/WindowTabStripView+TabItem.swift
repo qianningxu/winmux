@@ -42,9 +42,6 @@ extension WindowTabStripView {
         .animation(.interactiveSpring(response: 0.2, dampingFraction: 0.8), value: trayModel.windowTabReentryPreview?.targetIndex)
         .animation(nil, value: trayModel.windowTabReentryPreview?.sourceVisualOffset)
         .highPriorityGesture(tabDragGesture(for: tab, context: context))
-        .workspaceSidebarDrag(enabled: true) {
-            WorkspaceSidebarDragPayload.window(tab.windowId).itemProvider
-        }
         .onHover { hovering in
             updateHoveredTab(tab.windowId, hovering: hovering)
         }
