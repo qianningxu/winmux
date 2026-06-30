@@ -24,11 +24,23 @@ struct WorkspaceSidebarWorkspaceReorderTarget: Equatable {
     let placement: WorkspaceReorderPlacement
 }
 
+struct WorkspaceSidebarWorkspaceMergeTarget: Equatable {
+    let projectId: WorkspaceProjectId
+    let sourceWorkspaceName: String
+    let targetWorkspaceName: String
+    let position: WindowStackSplitPosition
+}
+
+enum WorkspaceSidebarWorkspaceDragTarget: Equatable {
+    case reorder(WorkspaceSidebarWorkspaceReorderTarget)
+    case merge(WorkspaceSidebarWorkspaceMergeTarget)
+}
+
 struct WorkspaceSidebarWorkspaceReorderDragState: Equatable {
     let sourceWorkspaceName: String
     let projectId: WorkspaceProjectId
     var pointer: CGPoint
-    var target: WorkspaceSidebarWorkspaceReorderTarget?
+    var target: WorkspaceSidebarWorkspaceDragTarget?
 }
 
 func workspaceSidebarWorkspaceReorderIsEnabled(
@@ -75,6 +87,68 @@ func workspaceSidebarWorkspaceReorderTarget(
         targetWorkspaceName: last.workspaceName,
         placement: .after(last.workspaceName)
     )
+}
+
+func workspaceSidebarWorkspaceDragTarget(
+    sourceWorkspaceName: String,
+    projectId: WorkspaceProjectId,
+    pointer: CGPoint,
+    frames: [WorkspaceSidebarWorkspaceReorderFrame]
+) -> WorkspaceSidebarWorkspaceDragTarget? {
+    if let mergeTarget = workspaceSidebarWorkspaceMergeTarget(
+        sourceWorkspaceName: sourceWorkspaceName,
+        projectId: projectId,
+        pointer: pointer,
+        frames: frames
+    ) {
+        return .merge(mergeTarget)
+    }
+    return workspaceSidebarWorkspaceReorderTarget(
+        sourceWorkspaceName: sourceWorkspaceName,
+        projectId: projectId,
+        pointer: pointer,
+        frames: frames
+    ).map(WorkspaceSidebarWorkspaceDragTarget.reorder)
+}
+
+func workspaceSidebarWorkspaceMergeTarget(
+    sourceWorkspaceName: String,
+    projectId: WorkspaceProjectId,
+    pointer: CGPoint,
+    frames: [WorkspaceSidebarWorkspaceReorderFrame]
+) -> WorkspaceSidebarWorkspaceMergeTarget? {
+    let candidates = frames.filter {
+        $0.projectId == projectId &&
+            $0.isReorderable &&
+            $0.workspaceName != sourceWorkspaceName &&
+            $0.frame.contains(pointer)
+    }
+    guard let candidate = candidates.last,
+          let position = workspaceSidebarWorkspaceMergePosition(pointer: pointer, frame: candidate.frame)
+    else { return nil }
+    return WorkspaceSidebarWorkspaceMergeTarget(
+        projectId: projectId,
+        sourceWorkspaceName: sourceWorkspaceName,
+        targetWorkspaceName: candidate.workspaceName,
+        position: position
+    )
+}
+
+func workspaceSidebarWorkspaceMergePosition(pointer: CGPoint, frame: CGRect) -> WindowStackSplitPosition? {
+    guard frame.width > 0, frame.height > 0 else { return nil }
+    let x = (pointer.x - frame.minX) / frame.width
+    let y = (pointer.y - frame.minY) / frame.height
+    let edgeBand: CGFloat = 0.28
+    let distances: [(position: WindowStackSplitPosition, distance: CGFloat)] = [
+        (.left, x),
+        (.right, 1 - x),
+        (.above, y),
+        (.below, 1 - y),
+    ]
+    guard let nearest = distances.min(by: { $0.distance < $1.distance }),
+          nearest.distance <= edgeBand
+    else { return nil }
+    return nearest.position
 }
 
 struct WorkspaceSidebarWorkspaceReorderGestureModifier: ViewModifier {

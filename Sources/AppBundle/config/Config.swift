@@ -135,7 +135,7 @@ enum WorkspaceProjectDeletionAction: String, CaseIterable, Identifiable, Sendabl
 }
 
 struct WindowTabsConfig: ConvenienceCopyable, Equatable, Sendable {
-    var enabled: Bool = true
+    var enabled: Bool = false
     var height: Int = 36
     var tabLabels: [String: String] = [:]
 }
@@ -146,7 +146,7 @@ extension WorkspaceSidebarConfig {
             WorkspaceSidebarWidgetConfig(
                 id: "time-date",
                 type: .builtInTimeDate,
-                enabled: true,
+                enabled: false,
                 showDate: showDate,
             ),
         ]

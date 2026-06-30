@@ -207,6 +207,146 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertEqual(afterSecond?.placement, .after("third"))
     }
 
+    func testWorkspaceDragTargetUsesEdgesForDirectionalTabMerge() {
+        let frames = [
+            reorderFrame("first", minY: 10, height: 40),
+            reorderFrame("second", minY: 60, height: 40),
+        ]
+
+        let leftTarget = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "first",
+            projectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 2, y: 78),
+            frames: frames
+        )
+        let rightTarget = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "first",
+            projectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 198, y: 78),
+            frames: frames
+        )
+        let aboveTarget = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "first",
+            projectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 100, y: 62),
+            frames: frames
+        )
+        let belowTarget = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "first",
+            projectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 100, y: 98),
+            frames: frames
+        )
+
+        XCTAssertEqual(leftTarget, .merge(WorkspaceSidebarWorkspaceMergeTarget(
+            projectId: workspaceProjectDefaultId,
+            sourceWorkspaceName: "first",
+            targetWorkspaceName: "second",
+            position: .left
+        )))
+        XCTAssertEqual(rightTarget, .merge(WorkspaceSidebarWorkspaceMergeTarget(
+            projectId: workspaceProjectDefaultId,
+            sourceWorkspaceName: "first",
+            targetWorkspaceName: "second",
+            position: .right
+        )))
+        XCTAssertEqual(aboveTarget, .merge(WorkspaceSidebarWorkspaceMergeTarget(
+            projectId: workspaceProjectDefaultId,
+            sourceWorkspaceName: "first",
+            targetWorkspaceName: "second",
+            position: .above
+        )))
+        XCTAssertEqual(belowTarget, .merge(WorkspaceSidebarWorkspaceMergeTarget(
+            projectId: workspaceProjectDefaultId,
+            sourceWorkspaceName: "first",
+            targetWorkspaceName: "second",
+            position: .below
+        )))
+    }
+
+    func testWorkspaceDragTargetCenterDoesNotMergeTabs() {
+        let frames = [
+            reorderFrame("first", minY: 10, height: 40),
+            reorderFrame("second", minY: 60, height: 40),
+        ]
+
+        let target = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "first",
+            projectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 100, y: 80),
+            frames: frames
+        )
+
+        XCTAssertEqual(target, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: workspaceProjectDefaultId,
+            targetWorkspaceName: "second",
+            placement: .before("second")
+        )))
+    }
+
+    func testMergeWorkspaceTabCombinesComposedLayoutsAndRemovesSourceTab() {
+        let source = Workspace.get(byName: "source")
+        source.markAsAutomaticallyNamed()
+        source.assignProject(workspaceProjectDefaultId)
+        source.rootTilingContainer.apply {
+            TestWindow.new(id: 1, parent: $0)
+            TestWindow.new(id: 2, parent: $0)
+        }
+        let target = Workspace.get(byName: "target")
+        target.markAsAutomaticallyNamed()
+        target.assignProject(workspaceProjectDefaultId)
+        target.rootTilingContainer.apply {
+            TestWindow.new(id: 3, parent: $0)
+        }
+        XCTAssertTrue(target.focusWorkspace())
+
+        XCTAssertTrue(mergeWorkspaceTab(
+            sourceWorkspaceName: source.name,
+            targetWorkspaceName: target.name,
+            position: .left
+        ))
+
+        XCTAssertNil(Workspace.existing(byName: source.name))
+        XCTAssertEqual(target.rootTilingContainer.layoutDescription, .h_tiles([
+            .h_tiles([
+                .window(1),
+                .window(2),
+            ]),
+            .window(3),
+        ]))
+        XCTAssertEqual(focus.workspace, target)
+    }
+
+    func testMergeWorkspaceTabRejectsVisibleTabsOnDifferentDisplays() {
+        let main = WorkspaceSidebarDragTestMonitor(
+            monitorAppKitNsScreenScreensId: 1,
+            name: "Main",
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            isMain: true,
+        )
+        let secondary = WorkspaceSidebarDragTestMonitor(
+            monitorAppKitNsScreenScreensId: 2,
+            name: "Secondary",
+            rect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            isMain: false,
+        )
+        setMonitorsForTests([main, secondary])
+        defer { setMonitorsForTests(nil) }
+
+        let source = Workspace.get(byName: "source")
+        let target = Workspace.get(byName: "target")
+        XCTAssertTrue(main.setActiveWorkspace(source))
+        XCTAssertTrue(secondary.setActiveWorkspace(target))
+
+        XCTAssertFalse(mergeWorkspaceTab(
+            sourceWorkspaceName: source.name,
+            targetWorkspaceName: target.name,
+            position: .right
+        ))
+    }
+
     func testWorkspaceReorderTargetIgnoresSourceAndUnreorderableFrames() {
         let frames = [
             reorderFrame("first", minY: 10, height: 30),

@@ -2,20 +2,11 @@ import Foundation
 
 extension WindowTabStripPanelController {
     func hideChromeDuringMouseInteraction(showFrameOnly: Bool = true) {
-        guard TrayMenuModel.shared.isEnabled, config.windowTabs.enabled else { return }
-        let nextMode: MouseInteractionChromeMode = showFrameOnly ? .frameOnly : .hidden
-        guard mouseInteractionChromeMode != nextMode || transientResizeTabGroupId != nil else { return }
-        mouseInteractionChromeMode = nextMode
-        transientResizeTabGroupId = nil
-        transientResizeTabGroupStrip = nil
-        refresh()
+        hideAll()
     }
 
     func showChromeDuringMouseInteraction() {
-        guard mouseInteractionChromeMode != nil || !hiddenPassiveTabGroupChromeIds.isEmpty else { return }
-        mouseInteractionChromeMode = nil
-        hiddenPassiveTabGroupChromeIds.removeAll()
-        refresh()
+        hideAll()
     }
 
     func refreshHiddenChrome(activeIds: Set<ObjectIdentifier>) {
@@ -35,10 +26,11 @@ extension WindowTabStripPanelController {
 
     @discardableResult
     func clearMouseInteractionChromeSuppressionIfInactive() -> Bool {
-        guard currentlyManipulatedWithMouseWindowId == nil,
-              mouseInteractionChromeMode != nil
-        else { return false }
-        mouseInteractionChromeMode = nil
-        return true
+        let hadSuppression = mouseInteractionChromeMode != nil || !hiddenPassiveTabGroupChromeIds.isEmpty
+        if currentlyManipulatedWithMouseWindowId == nil {
+            mouseInteractionChromeMode = nil
+            hiddenPassiveTabGroupChromeIds.removeAll()
+        }
+        return hadSuppression
     }
 }

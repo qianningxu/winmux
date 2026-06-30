@@ -2,12 +2,12 @@ config-version = 2
 
 start-at-login = false
 auto-reload-config = true
-enable-projects = true
+enable-projects = false
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true
 tab-group-padding = 30
 
-window-tabs.enabled = true
+window-tabs.enabled = false
 window-tabs.height = 36
 
 default-root-container-layout = 'tiles'
@@ -43,8 +43,8 @@ on-mode-changed = []
     project-deletion-action = 'close-windows'
     widgets = [
         { id = 'time-date', type = 'built-in/time-date', enabled = false, show-date = true },
-        { id = 'toggl-week-focus', type = 'built-in/toggl-week-focus', enabled = true, entries-path = '/Users/side/Documents/now/self/self_data/data', target-date = '2026-09-13' },
-        { id = 'toggl-weekly-focus', type = 'built-in/toggl-weekly-focus', enabled = true, entries-path = '/Users/side/Documents/now/self/self_data/data', target-date = '2026-09-13' },
+        { id = 'toggl-week-focus', type = 'built-in/toggl-week-focus', enabled = false, entries-path = '/Users/side/Documents/now/self/self_data/data', target-date = '2026-09-13' },
+        { id = 'toggl-weekly-focus', type = 'built-in/toggl-weekly-focus', enabled = false, entries-path = '/Users/side/Documents/now/self/self_data/data', target-date = '2026-09-13' },
     ]
 
 [mode.main.binding]
@@ -114,14 +114,3 @@ on-mode-changed = []
     ctrl-shift-0 = 'move-node-to-workspace 10'
     ctrl-shift-h = 'move-node-to-workspace --focus-follows-window prev'
     ctrl-shift-l = 'move-node-to-workspace --focus-follows-window next'
-    alt-cmd-shift-h = 'move-node-to-project prev'
-    alt-cmd-shift-l = 'move-node-to-project next'
-    alt-cmd-shift-1 = 'move-node-to-project 1'
-    alt-cmd-shift-2 = 'move-node-to-project 2'
-    alt-cmd-shift-3 = 'move-node-to-project 3'
-    alt-cmd-shift-4 = 'move-node-to-project 4'
-    alt-cmd-shift-5 = 'move-node-to-project 5'
-    alt-cmd-shift-6 = 'move-node-to-project 6'
-    alt-cmd-shift-7 = 'move-node-to-project 7'
-    alt-cmd-shift-8 = 'move-node-to-project 8'
-    alt-cmd-shift-9 = 'move-node-to-project 9'

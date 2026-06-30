@@ -561,6 +561,112 @@ func reorderWorkspaceFromSidebar(_ workspaceName: String, projectId: WorkspacePr
 }
 
 @MainActor
+func mergeWorkspaceFromSidebar(
+    sourceWorkspaceName: String,
+    targetWorkspaceName: String,
+    position: WindowStackSplitPosition
+) {
+    runWorkspaceSidebarSession {
+        guard mergeWorkspaceTab(
+            sourceWorkspaceName: sourceWorkspaceName,
+            targetWorkspaceName: targetWorkspaceName,
+            position: position
+        ) else { return }
+        await updateWorkspaceSidebarModel()
+    }
+}
+
+@MainActor
+@discardableResult
+func mergeWorkspaceTab(
+    sourceWorkspaceName: String,
+    targetWorkspaceName: String,
+    position: WindowStackSplitPosition
+) -> Bool {
+    guard sourceWorkspaceName != targetWorkspaceName,
+          let sourceWorkspace = Workspace.existing(byName: sourceWorkspaceName),
+          let targetWorkspace = Workspace.existing(byName: targetWorkspaceName),
+          sourceWorkspace.projectId == targetWorkspace.projectId,
+          !sourceWorkspace.isArchived,
+          !targetWorkspace.isArchived
+    else { return false }
+    if let sourceMonitor = sourceWorkspace.visibleMonitor,
+       let targetMonitor = targetWorkspace.visibleMonitor,
+       sourceMonitor.rect.topLeftCorner != targetMonitor.rect.topLeftCorner
+    {
+        return false
+    }
+
+    let movedWindows = sourceWorkspace.allLeafWindowsRecursive.map(\.windowId)
+    syncClosedWindowsCacheToCurrentWorld()
+    suppressPostDragAxObserverEvents(for: movedWindows)
+
+    mergeWorkspaceTilingContent(
+        from: sourceWorkspace,
+        into: targetWorkspace,
+        position: position
+    )
+    moveWorkspaceFloatingContent(from: sourceWorkspace, to: targetWorkspace)
+    moveWorkspaceNativeContent(from: sourceWorkspace, to: targetWorkspace)
+
+    if let sourceMonitor = sourceWorkspace.visibleMonitor, targetWorkspace.visibleMonitor == nil {
+        _ = sourceMonitor.setActiveWorkspace(targetWorkspace)
+    }
+    if focus.workspace == sourceWorkspace {
+        _ = setFocus(to: targetWorkspace.toLiveFocus())
+    }
+    _ = targetWorkspace.focusWorkspace()
+    removeWorkspaceFromRegistry(sourceWorkspace)
+    checkWorkspaceHierarchyInvariants()
+    return true
+}
+
+@MainActor
+private func mergeWorkspaceTilingContent(
+    from sourceWorkspace: Workspace,
+    into targetWorkspace: Workspace,
+    position: WindowStackSplitPosition
+) {
+    let sourceRoot = sourceWorkspace.rootTilingContainer
+    guard !sourceRoot.children.isEmpty else { return }
+    let targetRoot = workspaceSiblingInsertionRoot(targetWorkspace, orientation: position.orientation)
+    sourceRoot.bind(
+        to: targetRoot,
+        adaptiveWeight: WEIGHT_AUTO,
+        index: position.isPositive ? INDEX_BIND_LAST : 0
+    )
+}
+
+@MainActor
+private func moveWorkspaceFloatingContent(from sourceWorkspace: Workspace, to targetWorkspace: Workspace) {
+    for window in sourceWorkspace.floatingWindows {
+        window.bind(to: targetWorkspace, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+    }
+}
+
+@MainActor
+private func moveWorkspaceNativeContent(from sourceWorkspace: Workspace, to targetWorkspace: Workspace) {
+    if let fullscreenContainer = sourceWorkspace.existingMacOsNativeFullscreenWindowsContainer {
+        for window in fullscreenContainer.children.filterIsInstance(of: Window.self) {
+            window.bind(to: targetWorkspace.macOsNativeFullscreenWindowsContainer, adaptiveWeight: WEIGHT_DOESNT_MATTER, index: INDEX_BIND_LAST)
+        }
+    }
+    if let hiddenAppsContainer = sourceWorkspace.existingMacOsNativeHiddenAppsWindowsContainer {
+        for window in hiddenAppsContainer.children.filterIsInstance(of: Window.self) {
+            window.bind(to: targetWorkspace.macOsNativeHiddenAppsWindowsContainer, adaptiveWeight: WEIGHT_DOESNT_MATTER, index: INDEX_BIND_LAST)
+        }
+    }
+    for window in workspaceOwnedMinimizedWindows(sourceWorkspace) {
+        switch window.layoutReason {
+            case .macos(let prevParentKind, _):
+                window.layoutReason = .macos(prevParentKind: prevParentKind, prevWorkspaceName: targetWorkspace.name)
+            case .standard:
+                break
+        }
+    }
+}
+
+@MainActor
 func focusWindowFromSidebar(_ windowId: UInt32) {
     WorkspaceSidebarPanel.suppressEdgeTrapForWorkspaceActivation()
     runWorkspaceSidebarSession {

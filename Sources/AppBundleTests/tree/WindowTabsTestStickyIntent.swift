@@ -145,6 +145,20 @@ import XCTest
     }
 
     @MainActor
+    func testWindowTabChromeHelpersStayHiddenForHardSidebarTabs() {
+        config.windowTabs.enabled = true
+        WindowTabStripPanelController.shared.mouseInteractionChromeMode = .frameOnly
+        WindowTabStripPanelController.shared.hiddenPassiveTabGroupChromeIds = [ObjectIdentifier(Workspace.get(byName: "tabs").rootTilingContainer)]
+
+        WindowTabStripPanelController.shared.showChromeDuringMouseInteraction()
+
+        XCTAssertNil(WindowTabStripPanelController.shared.mouseInteractionChromeMode)
+        XCTAssertTrue(WindowTabStripPanelController.shared.hiddenPassiveTabGroupChromeIds.isEmpty)
+        XCTAssertTrue(WindowTabStripPanelController.shared.visualPanels.isEmpty)
+        XCTAssertTrue(WindowTabStripPanelController.shared.stripPanels.isEmpty)
+    }
+
+    @MainActor
     func testBeginWindowMoveSessionPreservesAnchorRectAcrossRepeatedCallbacks() {
         setUpWorkspacesForTests()
         cancelManipulatedWithMouseState()

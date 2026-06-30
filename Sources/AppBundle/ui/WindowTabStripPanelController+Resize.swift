@@ -3,21 +3,8 @@ import Foundation
 extension WindowTabStripPanelController {
     @discardableResult
     func updateResizingTabGroupChrome(window: Window, activeWindowRect: Rect) -> Bool {
-        guard let transientStrip = resizingTabGroupStrip(window: window, activeWindowRect: activeWindowRect) else {
-            transientResizeTabGroupId = nil
-            transientResizeTabGroupStrip = nil
-            return false
-        }
-
-        transientResizeTabGroupId = transientStrip.id
-        transientResizeTabGroupStrip = transientStrip
-        if hiddenPassiveTabGroupChromeIds.contains(transientStrip.id) {
-            orderOutPanels(id: transientStrip.id)
-            return true
-        }
-        visualPanel(for: transientStrip.id).update(with: transientStrip)
-        updateInteractivePanelForResizingStrip(transientStrip)
-        return true
+        clearTransientResizeChrome()
+        return false
     }
 
     func clearTransientResizeChrome() {

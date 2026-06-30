@@ -37,7 +37,8 @@ final class ConfigTest: XCTestCase {
         let toml = try String(contentsOf: projectRoot.appending(component: "resources/default-config.toml"), encoding: .utf8)
         let (parsed, errors) = parseConfig(toml)
         assertEquals(errors, [])
-        XCTAssertTrue(parsed.enableProjects)
+        XCTAssertFalse(parsed.enableProjects)
+        XCTAssertFalse(parsed.windowTabs.enabled)
     }
 
     func testParseEnableProjects() {

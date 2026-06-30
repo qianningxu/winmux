@@ -234,6 +234,8 @@ extension WorkspaceSidebarView {
                 isInteractive: isInteractive
             ),
             isWorkspaceReorderSource: isWorkspaceReorderSource(workspace),
+            isWorkspaceMergeTarget: isWorkspaceMergeTarget(workspace),
+            workspaceMergePreviewOverlay: AnyView(workspaceMergePreviewOverlay(workspace)),
             onWorkspaceReorderDragChanged: { pointer in
                 updateWorkspaceReorderDrag(workspace: workspace, projectId: workspace.projectId, pointer: pointer)
             },

@@ -25,6 +25,8 @@ struct WorkspaceSidebarWorkspaceSection: View {
     let isSearchFiltering: Bool
     let isWorkspaceReorderEnabled: Bool
     let isWorkspaceReorderSource: Bool
+    let isWorkspaceMergeTarget: Bool
+    let workspaceMergePreviewOverlay: AnyView?
     let onWorkspaceReorderDragChanged: (CGPoint) -> Void
     let onWorkspaceReorderDragEnded: (CGPoint) -> Void
     @Binding var activeInUseOverrideWorkspaceName: String?
@@ -123,6 +125,13 @@ struct WorkspaceSidebarWorkspaceSection: View {
                     .opacity(allowsWorkspaceActivation && isShowingInUseOverlay ? 1 : 0)
                     .allowsHitTesting(allowsWorkspaceActivation && isShowingInUseOverlay)
                     .zIndex(5)
+            }
+            .overlay {
+                if let workspaceMergePreviewOverlay {
+                    workspaceMergePreviewOverlay
+                        .opacity(isWorkspaceMergeTarget ? 1 : 0)
+                        .zIndex(4)
+                }
             }
             .shadow(
                 color: isDropTarget ? Color.accentColor.opacity(0.18) : .clear,

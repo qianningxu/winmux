@@ -83,6 +83,8 @@ func handleWorkspaceSidebarAction(
             }
         case .reorderWorkspace(let name, let projectId, let placement):
             reorderWorkspaceFromSidebar(name, projectId: projectId, placement: placement)
+        case .mergeWorkspace(let sourceName, let targetName, let position):
+            mergeWorkspaceFromSidebar(sourceWorkspaceName: sourceName, targetWorkspaceName: targetName, position: position)
         case .moveWindow(let windowId, let workspaceName):
             moveWindowFromSidebar(windowId, toWorkspace: workspaceName)
         case .moveTabGroup(let windowId, let workspaceName):
