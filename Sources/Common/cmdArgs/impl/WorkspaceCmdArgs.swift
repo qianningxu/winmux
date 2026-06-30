@@ -60,7 +60,7 @@ public enum WorkspaceTarget: Equatable, Sendable {
     }
 }
 
-let workspaceTargetPlaceholder = "(<workspace-name>|next|prev)"
+let workspaceTargetPlaceholder = "(<tab-name>|next|prev)"
 
 func parseWorkspaceTarget(i: PosArgParserInput) -> ParsedCliArgs<WorkspaceTarget> {
     switch i.arg {

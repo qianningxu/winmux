@@ -17,23 +17,23 @@ public struct WorkspaceName: Equatable, Sendable {
             raw == "all" || raw == "none" ||
             raw == "mouse" || raw == "target"
         {
-            return .failure("'\(raw)' is a reserved workspace name")
+            return .failure("'\(raw)' is a reserved Tab name")
         }
         if raw.isEmpty {
-            return .failure("Empty workspace name is forbidden")
+            return .failure("Empty Tab name is forbidden")
         }
         if raw.contains(",") {
-            return .failure("Workspace names are not allowed to contain comma")
+            return .failure("Tab names are not allowed to contain comma")
         }
         if raw.starts(with: "_") {
-            return .failure("Workspace names starting with underscore are reserved for future use")
+            return .failure("Tab names starting with underscore are reserved for future use")
         }
         if raw.starts(with: "-") {
             // The syntax conflicts with CLI options. E.g. list-windows --workspace -foo
-            return .failure("Workspace names starting with dash are disallowed")
+            return .failure("Tab names starting with dash are disallowed")
         }
         if raw.rangeOfCharacter(from: .whitespacesAndNewlines) != nil {
-            return .failure("Whitespace characters are forbidden in workspace names")
+            return .failure("Whitespace characters are forbidden in Tab names")
         }
         return .success(WorkspaceName(raw))
     }

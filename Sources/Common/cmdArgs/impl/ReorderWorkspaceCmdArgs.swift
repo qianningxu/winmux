@@ -10,7 +10,7 @@ public struct ReorderWorkspaceCmdArgs: CmdArgs {
             "--after": ArgParser(\.afterTarget, upcastArgParserFun(parseWorkspaceNameSubArg)),
         ],
         posArgs: [
-            newMandatoryPosArgParser(\.source, parseReorderWorkspaceSource, placeholder: "<workspace-name>"),
+            newMandatoryPosArgParser(\.source, parseReorderWorkspaceSource, placeholder: "<tab-name>"),
         ],
         conflictingOptions: [
             ["--before", "--after"],

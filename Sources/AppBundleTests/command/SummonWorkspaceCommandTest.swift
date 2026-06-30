@@ -7,7 +7,7 @@ final class SummonWorkspaceCommandTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
 
     func testParse() {
-        assertEquals(parseCommand("summon-workspace").errorOrNil, "ERROR: Argument '<workspace>' is mandatory")
+        assertEquals(parseCommand("summon-workspace").errorOrNil, "ERROR: Argument '<tab>' is mandatory")
     }
 
     func testSummonDoesNotCreateMissingWorkspace() async throws {

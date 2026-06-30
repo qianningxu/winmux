@@ -18,6 +18,16 @@ final class ListWorkspacesTest: XCTestCase {
         assertEquals(parseCommand("list-workspaces --all --focused --monitor mouse").errorOrNil, "ERROR: Conflicting options: --all, --focused, --monitor")
     }
 
+    func testHelpUsesTabLanguageWhileKeepingCommandNameCompatible() {
+        guard case .help(let help) = parseCommand("list-workspaces --help") else {
+            XCTFail("Expected help")
+            return
+        }
+
+        XCTAssertTrue(help.contains("list-workspaces"))
+        XCTAssertFalse(help.contains("<workspace-name>"))
+    }
+
     @MainActor
     func testListWorkspacesUsesProjectViewportOrderInsteadOfRawNameSort() async throws {
         setUpWorkspacesForTests()
@@ -34,5 +44,44 @@ final class ListWorkspacesTest: XCTestCase {
 
         XCTAssertTrue(succeeded)
         XCTAssertEqual(io.stdout.filter { $0 != "setUpWorkspacesForTests" }, ["10", "2"])
+    }
+
+    @MainActor
+    func testListWorkspacesDefaultOutputUsesTabDisplayNames() async throws {
+        setUpWorkspacesForTests()
+        let first = Workspace.get(byName: "10")
+        first.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 1, parent: first.rootTilingContainer)
+        let second = Workspace.get(byName: "2")
+        second.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 2, parent: second.rootTilingContainer)
+
+        let io = CmdIo(stdin: .emptyStdin)
+        let command = parseCommand("list-workspaces --all").cmdOrDie
+        let succeeded = try await command.run(.defaultEnv, io)
+
+        XCTAssertTrue(succeeded)
+        XCTAssertEqual(io.stdout.filter { $0 != "setUpWorkspacesForTests" }, ["Tab 1", "Tab 2"])
+    }
+
+    @MainActor
+    func testListWorkspacesTabFormatUsesDisplayNameAndWorkspaceFormatStaysRaw() async throws {
+        setUpWorkspacesForTests()
+        let workspace = Workspace.get(byName: "10")
+        workspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+
+        let tabIo = CmdIo(stdin: .emptyStdin)
+        let tabCommand = parseCommand("list-workspaces --all --format %{tab}").cmdOrDie
+        let tabSucceeded = try await tabCommand.run(.defaultEnv, tabIo)
+
+        let workspaceIo = CmdIo(stdin: .emptyStdin)
+        let workspaceCommand = parseCommand("list-workspaces --all --format %{workspace}").cmdOrDie
+        let workspaceSucceeded = try await workspaceCommand.run(.defaultEnv, workspaceIo)
+
+        XCTAssertTrue(tabSucceeded)
+        XCTAssertTrue(workspaceSucceeded)
+        XCTAssertEqual(tabIo.stdout.filter { $0 != "setUpWorkspacesForTests" }, ["Tab 1"])
+        XCTAssertEqual(workspaceIo.stdout.filter { $0 != "setUpWorkspacesForTests" }, ["10"])
     }
 }

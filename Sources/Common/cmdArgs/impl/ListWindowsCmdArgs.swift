@@ -1,6 +1,6 @@
 import OrderedCollections
 
-private let workspace = "<workspace>"
+private let workspace = "<tab>"
 private let workspaces = "\(workspace)..."
 
 public struct ListWindowsCmdArgs: CmdArgs, JsonFormattableListCmdArgs {
@@ -98,7 +98,7 @@ func formatParser<Root>(
 
 private func parseWorkspaces(input: SubArgParserInput) -> ParsedCliArgs<[WorkspaceFilter]> {
     let args = input.nonFlagArgs()
-    let possibleValues = "\(workspace) possible values: (<workspace-name>|focused|visible)"
+    let possibleValues = "\(workspace) possible values: (<tab-name>|focused|visible)"
     if args.isEmpty {
         return .fail("\(workspaces) is mandatory. \(possibleValues)", advanceBy: args.count)
     }
@@ -140,6 +140,10 @@ public enum FormatVar: Equatable {
     }
 
     public enum WorkspaceFormatVar: String, Equatable, CaseIterable {
+        case tabName = "tab"
+        case tabFocused = "tab-is-focused"
+        case tabVisible = "tab-is-visible"
+        case tabRootContainerLayout = "tab-root-container-layout"
         case workspaceName = "workspace"
         case workspaceFocused = "workspace-is-focused"
         case workspaceVisible = "workspace-is-visible"

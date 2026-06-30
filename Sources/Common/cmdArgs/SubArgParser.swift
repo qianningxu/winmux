@@ -57,6 +57,6 @@ func parseWorkspaceNameSubArg(i: SubArgParserInput) -> ParsedCliArgs<WorkspaceNa
     if let arg = i.nonFlagArgOrNil() {
         .init(WorkspaceName.parse(arg), advanceBy: 1)
     } else {
-        .fail("'\(i.superArg)' must be followed by mandatory workspace name", advanceBy: 0)
+        .fail("'\(i.superArg)' must be followed by mandatory Tab name", advanceBy: 0)
     }
 }

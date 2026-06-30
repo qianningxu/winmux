@@ -77,8 +77,8 @@ let list_monitors_help_generated = """
     USAGE: list-monitors [-h|--help] [--focused [no]] [--mouse [no]] [--format <output-format>] [--count] [--json]
     """
 let list_windows_help_generated = """
-    USAGE: list-windows [-h|--help] (--workspace <workspace>...|--monitor <monitor>...)
-                        [--monitor <monitor>...] [--workspace <workspace>...]
+    USAGE: list-windows [-h|--help] (--workspace <tab>...|--monitor <monitor>...)
+                        [--monitor <monitor>...] [--workspace <tab>...]
                         [--pid <pid>] [--app-bundle-id <app-bundle-id>] [--format <output-format>]
                         [--count] [--json]
        OR: list-windows [-h|--help] --all [--format <output-format>] [--count] [--json]
@@ -118,7 +118,7 @@ let move_node_to_workspace_help_generated = """
                                   [--stdin|--no-stdin]
                                   (next|prev)
        OR: move-node-to-workspace [-h|--help] [--focus-follows-window] [--fail-if-noop]
-                                  [--window-id <window-id>] <workspace-name>
+                                  [--window-id <window-id>] <tab-name>
     """
 let move_workspace_to_monitor_help_generated = """
     USAGE: move-workspace-to-monitor [-h|--help] [--workspace <workspace>] [--wrap-around] (left|down|up|right)
@@ -135,7 +135,7 @@ let reload_config_help_generated = """
     USAGE: reload-config [-h|--help] [--no-gui] [--dry-run]
     """
 let reorder_workspace_help_generated = """
-    USAGE: reorder-workspace [-h|--help] <workspace-name> (--before <workspace-name>|--after <workspace-name>)
+    USAGE: reorder-workspace [-h|--help] <tab-name> (--before <tab-name>|--after <tab-name>)
     """
 let resize_help_generated = """
     USAGE: resize [-h|--help] [--window-id <window-id>] (smart|smart-opposite|width|height) [+|-]<number>
@@ -150,7 +150,7 @@ let subscribe_help_generated = """
     USAGE: subscribe [-h|--help] [--all] [--no-send-initial] [<event>...]
     """
 let summon_workspace_help_generated = """
-    USAGE: summon-workspace [-h|--help] [--fail-if-noop] <workspace>
+    USAGE: summon-workspace [-h|--help] [--fail-if-noop] <tab>
     """
 let swap_help_generated = """
     USAGE: swap [-h|--help] [--window-id <window-id>] [--swap-focus]
@@ -169,6 +169,6 @@ let workspace_back_and_forth_help_generated = """
     USAGE: workspace-back-and-forth [-h|--help]
     """
 let workspace_help_generated = """
-    USAGE: workspace [-h|--help] [--auto-back-and-forth] [--fail-if-noop] <workspace-name>
+    USAGE: workspace [-h|--help] [--auto-back-and-forth] [--fail-if-noop] <tab-name>
        OR: workspace [-h|--help] [--wrap-around] [--stdin|--no-stdin] (next|prev)
     """

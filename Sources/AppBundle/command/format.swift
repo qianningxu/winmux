@@ -145,6 +145,10 @@ extension String {
                 }
             case (.workspace(let w), .workspace(let f)):
                 return switch f {
+                    case .tabName: .success(.string(workspaceDisplayName(w.name)))
+                    case .tabVisible: .success(.bool(w.isVisible))
+                    case .tabFocused: .success(.bool(focus.workspace == w))
+                    case .tabRootContainerLayout: .success(.string(toLayoutString(tc: w.rootTilingContainer)))
                     case .workspaceName: .success(.string(w.name))
                     case .workspaceVisible: .success(.bool(w.isVisible))
                     case .workspaceFocused: .success(.bool(focus.workspace == w))
