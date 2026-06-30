@@ -1,10 +1,10 @@
 @MainActor
 func automaticWorkspaceDisplayIndex(_ workspace: Workspace, focusedWorkspace: Workspace?) -> Int? {
-    let workspaces = orderedWorkspacesForPresentation()
-    return workspaces
-        .filter { !projectsAreEnabled() || $0.projectId == workspace.projectId }
-        .filter { userFacingWorkspaces([$0], focusedWorkspace: focusedWorkspace).contains($0) }
-        .filter(\.usesAutomaticDisplayName)
+    monitorScopedAutomaticDisplayWorkspaces(
+        projectId: workspace.projectId,
+        monitor: workspace.workspaceMonitor,
+        focusedWorkspace: focusedWorkspace,
+    )
         .firstIndex(of: workspace)
         .map { $0 + 1 }
 }
@@ -15,9 +15,23 @@ func automaticWorkspaceDisplayIndexFallback(_ workspaceName: String) -> Int? {
 
 @MainActor
 func scopedAutomaticDisplayWorkspaces(current: Workspace) -> [Workspace] {
+    monitorScopedAutomaticDisplayWorkspaces(
+        projectId: current.projectId,
+        monitor: current.workspaceMonitor,
+        focusedWorkspace: current,
+    )
+}
+
+@MainActor
+func monitorScopedAutomaticDisplayWorkspaces(
+    projectId: WorkspaceProjectId,
+    monitor: Monitor,
+    focusedWorkspace: Workspace?,
+) -> [Workspace] {
     orderedWorkspacesForPresentation()
-        .filter { !projectsAreEnabled() || $0.projectId == current.projectId }
-        .filter { userFacingWorkspaces([$0], focusedWorkspace: current).contains($0) }
+        .filter { !projectsAreEnabled() || $0.projectId == projectId }
+        .filter { $0.workspaceMonitor.rect.topLeftCorner == monitor.rect.topLeftCorner }
+        .filter { userFacingWorkspaces([$0], focusedWorkspace: focusedWorkspace).contains($0) }
         .filter(\.usesAutomaticDisplayName)
 }
 

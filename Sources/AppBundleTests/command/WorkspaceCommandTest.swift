@@ -249,7 +249,7 @@ final class WorkspaceCommandTest: XCTestCase {
         XCTAssertEqual(workspaceDisplayName("1"), "Tab 1")
     }
 
-    func testDirectWorkspaceShortcutUsesGlobalTabDisplayIndexWhenProjectsAreHardDisabled() async throws {
+    func testDirectWorkspaceShortcutUsesMonitorLocalTabDisplayIndexWhenProjectsAreHardDisabled() async throws {
         let defaultWorkspace = Workspace.get(byName: "1")
         defaultWorkspace.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 51, parent: defaultWorkspace.rootTilingContainer)
@@ -267,37 +267,76 @@ final class WorkspaceCommandTest: XCTestCase {
         XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Tab 1")
     }
 
-    func testDirectWorkspaceShortcutUsesExistingGlobalTabWhenProjectsAreHardDisabled() async throws {
-        let defaultWorkspace1 = Workspace.get(byName: "1")
-        defaultWorkspace1.markAsAutomaticallyNamed()
-        _ = TestWindow.new(id: 52, parent: defaultWorkspace1.rootTilingContainer)
-        let defaultWorkspace2 = Workspace.get(byName: "2")
-        defaultWorkspace2.markAsAutomaticallyNamed()
-        _ = TestWindow.new(id: 53, parent: defaultWorkspace2.rootTilingContainer)
-        let project = createWorkspaceProject()
-        let firstProjectWorkspace = try XCTUnwrap(switchWorkspaceProject(project.id, on: mainMonitor))
-        XCTAssertTrue(TestWindow.new(id: 57, parent: firstProjectWorkspace.rootTilingContainer).focusWindow())
+    func testDirectWorkspaceShortcutCreatesMonitorLocalAdjacentTabWhenProjectsAreHardDisabled() async throws {
+        let main = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 1,
+            name: "Main",
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            isMain: true,
+        )
+        let secondary = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 2,
+            name: "Secondary",
+            rect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            isMain: false,
+        )
+        setMonitorsForTests([main, secondary])
+        let mainFirst = Workspace.get(byName: "main-first")
+        mainFirst.markAsAutomaticallyNamed()
+        mainFirst.seedMonitorIfNeeded(main)
+        _ = TestWindow.new(id: 52, parent: mainFirst.rootTilingContainer)
+        let mainSecond = Workspace.get(byName: "main-second")
+        mainSecond.markAsAutomaticallyNamed()
+        mainSecond.seedMonitorIfNeeded(main)
+        _ = TestWindow.new(id: 53, parent: mainSecond.rootTilingContainer)
+        let secondaryFirst = Workspace.get(byName: "secondary-first")
+        secondaryFirst.markAsAutomaticallyNamed()
+        secondaryFirst.seedMonitorIfNeeded(secondary)
+        _ = TestWindow.new(id: 57, parent: secondaryFirst.rootTilingContainer)
+        XCTAssertTrue(main.setActiveWorkspace(mainFirst))
+        XCTAssertTrue(secondary.setActiveWorkspace(secondaryFirst))
+        XCTAssertTrue(secondaryFirst.focusWorkspace())
 
         let result = try await WorkspaceCommand(
             args: WorkspaceCmdArgs(target: .direct(.parse("2").getOrDie())),
         ).run(.defaultEnv, .emptyStdin)
 
         assertEquals(result.exitCode, 0)
-        XCTAssertEqual(focus.workspace.projectId, workspaceProjectDefaultId)
-        XCTAssertTrue(focus.workspace === defaultWorkspace2)
+        XCTAssertFalse(focus.workspace === mainSecond)
+        XCTAssertEqual(focus.workspace.workspaceMonitor.rect.topLeftCorner, secondary.rect.topLeftCorner)
         XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Tab 2")
+        XCTAssertEqual(scopedAutomaticDisplayWorkspaces(current: mainFirst), [mainFirst, mainSecond])
     }
 
-    func testWorkspaceNextTraversesGlobalTabsWhenProjectsAreHardDisabled() async throws {
-        let defaultWorkspace1 = Workspace.get(byName: "1")
-        defaultWorkspace1.markAsAutomaticallyNamed()
-        _ = TestWindow.new(id: 54, parent: defaultWorkspace1.rootTilingContainer)
-        let defaultWorkspace2 = Workspace.get(byName: "2")
-        defaultWorkspace2.markAsAutomaticallyNamed()
-        _ = TestWindow.new(id: 55, parent: defaultWorkspace2.rootTilingContainer)
-        let project = createWorkspaceProject()
-        let firstProjectWorkspace = try XCTUnwrap(switchWorkspaceProject(project.id, on: mainMonitor))
-        XCTAssertTrue(TestWindow.new(id: 58, parent: firstProjectWorkspace.rootTilingContainer).focusWindow())
+    func testWorkspaceNextTraversesMonitorLocalTabsWhenProjectsAreHardDisabled() async throws {
+        let main = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 1,
+            name: "Main",
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            isMain: true,
+        )
+        let secondary = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 2,
+            name: "Secondary",
+            rect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            isMain: false,
+        )
+        setMonitorsForTests([main, secondary])
+        let mainFirst = Workspace.get(byName: "main-first")
+        mainFirst.markAsAutomaticallyNamed()
+        mainFirst.seedMonitorIfNeeded(main)
+        _ = TestWindow.new(id: 54, parent: mainFirst.rootTilingContainer)
+        let secondaryFirst = Workspace.get(byName: "secondary-first")
+        secondaryFirst.markAsAutomaticallyNamed()
+        secondaryFirst.seedMonitorIfNeeded(secondary)
+        _ = TestWindow.new(id: 58, parent: secondaryFirst.rootTilingContainer)
+        XCTAssertTrue(main.setActiveWorkspace(mainFirst))
+        XCTAssertTrue(secondary.setActiveWorkspace(secondaryFirst))
+        XCTAssertTrue(secondaryFirst.focusWorkspace())
 
         let result = try await WorkspaceCommand(
             args: WorkspaceCmdArgs(target: .relative(.next)),
@@ -305,8 +344,8 @@ final class WorkspaceCommandTest: XCTestCase {
 
         assertEquals(result.exitCode, 0)
         XCTAssertEqual(focus.workspace.projectId, workspaceProjectDefaultId)
-        XCTAssertFalse(focus.workspace === defaultWorkspace2)
-        XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Tab 3")
+        XCTAssertEqual(focus.workspace.workspaceMonitor.rect.topLeftCorner, secondary.rect.topLeftCorner)
+        XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Tab 2")
     }
 
     func testWorkspaceNextTraversesAllProjectsWhenProjectsDisabled() async throws {

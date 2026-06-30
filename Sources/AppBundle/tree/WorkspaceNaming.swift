@@ -26,9 +26,11 @@ func nextInternalAutomaticWorkspaceName() -> String {
 
 @MainActor
 func nextAutomaticWorkspaceDisplayIndex(projectId: WorkspaceProjectId, monitor: Monitor) -> Int {
-    let usedIndices = orderedWorkspacesForPresentation()
-        .filter { !projectsAreEnabled() || $0.projectId == projectId }
-        .filter(\.usesAutomaticDisplayName)
+    let usedIndices = monitorScopedAutomaticDisplayWorkspaces(
+        projectId: projectId,
+        monitor: monitor,
+        focusedWorkspace: nil,
+    )
         .compactMap { automaticWorkspaceDisplayIndex($0, focusedWorkspace: nil) }
         .toSet()
     return lowestUnusedPositiveIndex(usedIndices)

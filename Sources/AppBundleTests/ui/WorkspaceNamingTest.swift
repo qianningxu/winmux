@@ -237,7 +237,7 @@ final class WorkspaceNamingTest: XCTestCase {
         XCTAssertEqual(focus.workspace.name, "1")
     }
 
-    func testAutomaticWorkspaceDisplayNamesAreGlobalWithinProjectAcrossDisplays() {
+    func testAutomaticWorkspaceDisplayNamesAreMonitorLocalAcrossDisplays() {
         let main = WorkspaceNamingTestMonitor(
             monitorAppKitNsScreenScreensId: 1,
             name: "Main",
@@ -264,7 +264,7 @@ final class WorkspaceNamingTest: XCTestCase {
         _ = TestWindow.new(id: 11, parent: secondaryWorkspace.rootTilingContainer)
 
         XCTAssertEqual(workspaceDisplayName(mainWorkspace.name), "Tab 1")
-        XCTAssertEqual(workspaceDisplayName(secondaryWorkspace.name), "Tab 2")
+        XCTAssertEqual(workspaceDisplayName(secondaryWorkspace.name), "Tab 1")
         XCTAssertEqual(mainWorkspace.projectId, workspaceProjectDefaultId)
         XCTAssertEqual(secondaryWorkspace.projectId, workspaceProjectDefaultId)
     }
