@@ -48,7 +48,7 @@ final class ReorderWorkspaceCommandTest: XCTestCase {
         ).run(.defaultEnv, .emptyStdin)
 
         assertEquals(result.exitCode, 1)
-        XCTAssertEqual(result.stderr, ["Workspace 'missing' doesn't exist"])
+        XCTAssertEqual(result.stderr, ["Tab 'missing' doesn't exist"])
         XCTAssertEqual(projectWorkspaces(projectId: workspaceProjectDefaultId).map(\.name), [
             first.name,
             second.name,

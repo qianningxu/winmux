@@ -16,7 +16,7 @@ extension CmdArgs {
             guard let workspace = Workspace.existing(byName: workspaceName.raw),
                   isUserFacingWorkspace(workspace, focusedWorkspace: focus.workspace)
             else {
-                io.err("Workspace '\(workspaceName.raw)' doesn't exist")
+                io.err("Tab '\(workspaceName.raw)' doesn't exist")
                 return nil
             }
             return workspace.toLiveFocus()
@@ -34,7 +34,7 @@ extension CmdArgs {
             guard let workspace = Workspace.existing(byName: wsName),
                   isUserFacingWorkspace(workspace, focusedWorkspace: focus.workspace)
             else {
-                io.err("Workspace '\(wsName)' doesn't exist")
+                io.err("Tab '\(wsName)' doesn't exist")
                 return nil
             }
             return workspace.toLiveFocus()
@@ -50,7 +50,7 @@ extension Window {
         if let result = toLiveFocusOrNil() {
             return result
         } else {
-            io.err("Window \(windowId) doesn't belong to any monitor. And thus can't even define a focused workspace")
+            io.err("Window \(windowId) doesn't belong to any monitor. And thus can't define a focused Tab")
             return nil
         }
     }

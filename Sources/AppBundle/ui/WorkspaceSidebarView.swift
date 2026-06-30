@@ -318,8 +318,6 @@ struct WorkspaceSidebarView: View {
         switch selectedSearchTarget {
             case .workspace(let workspaceName):
                 actions.send(.selectWorkspace(workspaceName))
-            case .window(let windowId):
-                actions.send(.selectWindow(windowId))
         }
         finishSidebarSearch(clearText: true)
         closeWorkspaceSidebarFromCommand(panel)

@@ -197,7 +197,7 @@ extension ConfigTest {
             WorkspaceSidebarWidgetConfig(
                 id: "time-date",
                 type: .builtInTimeDate,
-                enabled: true,
+                enabled: false,
                 showDate: false,
             ),
         ])

@@ -360,6 +360,7 @@ final class WindowTabsTest: XCTestCase {
     @MainActor
     func testTabGroupDropAndSwapZonesDoNotOverlap() {
         setUpWorkspacesForTests()
+        config.windowTabs.enabled = true
         let workspace = Workspace.get(byName: "tabs")
         let root = workspace.rootTilingContainer
         let tabGroup = TilingContainer(parent: root, adaptiveWeight: WEIGHT_AUTO, .v, .tabGroup, index: INDEX_BIND_LAST)

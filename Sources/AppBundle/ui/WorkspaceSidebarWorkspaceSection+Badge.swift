@@ -22,7 +22,7 @@ extension WorkspaceSidebarWorkspaceSection {
     }
 
     var generatedWorkspaceBadgeText: String {
-        let prefix = "Workspace "
+        let prefix = "Tab "
         if workspace.displayName.hasPrefix(prefix) {
             let suffix = String(workspace.displayName.dropFirst(prefix.count))
             if !suffix.isEmpty { return suffix }

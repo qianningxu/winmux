@@ -8,7 +8,7 @@ extension WorkspaceSidebarWorkspaceSection {
         leadingHitInset: CGFloat = 0,
     ) -> some View {
         let isPointerHovered = hoveredWindowId == window.windowId
-        let isRowHovered = isPointerHovered || selectedSearchTarget == .window(window.windowId)
+        let isRowHovered = isPointerHovered
         return ZStack(alignment: .trailing) {
             Button {
                 guard allowsWorkspaceActivation else { return }

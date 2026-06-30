@@ -235,8 +235,9 @@ import XCTest
     }
 
     @MainActor
-    func testWindowTabAliasesAppearInTabStripAndSidebarModels() async throws {
+    func testWindowTabAliasesAppearInTabStripAndFlatSidebarTabSummary() async throws {
         setUpWorkspacesForTests()
+        config.windowTabs.enabled = true
         let workspace = Workspace.get(byName: "tabs")
         let tabGroup = TilingContainer(parent: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, .v, .tabGroup, index: INDEX_BIND_LAST)
         let first = TestWindow.new(id: 51, parent: tabGroup)
@@ -250,13 +251,14 @@ import XCTest
         let strips = await buildWindowTabStripViewModelsFromChromeItems()
         XCTAssertEqual(strips.singleOrNil()?.tabs.first(where: { $0.windowId == first.windowId })?.title, "Docs")
 
-        let sidebarGroup = await makeWorkspaceSidebarTabGroupViewModel(
-            for: tabGroup,
-            workspaceName: workspace.name,
+        let sidebarTabs = await buildWorkspaceSidebarWorkspaceViewModels(
             currentFocus: focus,
+            workspaceLabels: [:],
+            availableMonitors: [mainMonitor],
         )
-        XCTAssertEqual(sidebarGroup?.title, "Docs")
-        XCTAssertEqual(sidebarGroup?.tabs.first?.title, "Docs")
+        let sidebarTab = try XCTUnwrap(sidebarTabs.first { $0.name == workspace.name })
+        XCTAssertEqual(sidebarTab.tabSummary.title, "Docs")
+        XCTAssertEqual(sidebarTab.items, [])
     }
 
     func testCompositedGroupPreviewOnlyRunsForTabStripOriginatedGroupDrags() {

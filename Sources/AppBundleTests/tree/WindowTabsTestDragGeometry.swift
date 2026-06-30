@@ -6,6 +6,7 @@ import XCTest
 @MainActor extension WindowTabsTest {
     func testTabGroupTabBarUsesAppliedContainerFrame() {
         setUpWorkspacesForTests()
+        config.windowTabs.enabled = true
         let workspace = Workspace.get(byName: "tabs")
         let tabGroup = TilingContainer(parent: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, .v, .tabGroup, index: INDEX_BIND_LAST)
         let active = TestWindow.new(
@@ -33,6 +34,7 @@ import XCTest
     @MainActor
     func testManagedTabGroupLayoutInsetsActiveWindowInsideTabShell() async throws {
         setUpWorkspacesForTests()
+        config.windowTabs.enabled = true
         cancelManipulatedWithMouseState()
         clearPendingWindowDragIntent()
         let workspace = Workspace.get(byName: "tabs")
@@ -359,6 +361,7 @@ import XCTest
     @MainActor
     func testTabDetachKeepRectsDifferentiateWindowAndTabStripDrags() {
         setUpWorkspacesForTests()
+        config.windowTabs.enabled = true
         let workspace = Workspace.get(byName: "tabs")
         let tabGroup = TilingContainer(parent: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, .v, .tabGroup, index: INDEX_BIND_LAST)
         let window = TestWindow.new(id: 1, parent: tabGroup)

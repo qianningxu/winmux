@@ -11,7 +11,7 @@ struct MoveNodeToWorkspaceCommand: Command {
         let targetWorkspace: Workspace
         switch args.target.val {
             case .relative(let nextPrev):
-                guard let subjectWs else { return io.err("Window \(window.windowId) doesn't belong to any workspace") }
+                guard let subjectWs else { return io.err("Window \(window.windowId) doesn't belong to any Tab") }
                 let ws = getNextPrevWorkspace(
                     current: subjectWs,
                     isNext: nextPrev == .next,
@@ -24,7 +24,7 @@ struct MoveNodeToWorkspaceCommand: Command {
                         wrapAround: args.wrapAround,
                         usesStdin: args.useStdin,
                     )
-                guard let ws else { return io.err("Can't resolve next or prev workspace") }
+                guard let ws else { return io.err("Can't resolve next or prev Tab") }
                 targetWorkspace = ws
             case .direct(let name):
                 guard let ws = resolveMoveTargetWorkspace(
@@ -32,7 +32,7 @@ struct MoveNodeToWorkspaceCommand: Command {
                     sourceWorkspace: subjectWs ?? target.workspace,
                     sourceMonitor: window.nodeMonitor ?? target.workspace.workspaceMonitor,
                 ) else {
-                    return io.err("Workspace '\(name.raw)' doesn't exist")
+                    return io.err("Tab '\(name.raw)' doesn't exist")
                 }
                 targetWorkspace = ws
         }
@@ -78,7 +78,7 @@ private func resolveMoveTargetWorkspace(
 func moveWindowToWorkspace(_ window: Window, _ targetWorkspace: Workspace, _ io: CmdIo, focusFollowsWindow: Bool, failIfNoop: Bool, index: Int = INDEX_BIND_LAST) -> Bool {
     if window.nodeWorkspace == targetWorkspace {
         if !failIfNoop {
-            io.err("Window '\(window.windowId)' already belongs to workspace '\(targetWorkspace.name)'. Tip: use --fail-if-noop to exit with non-zero code")
+            io.err("Window '\(window.windowId)' already belongs to Tab '\(workspaceDisplayName(targetWorkspace.name))'. Tip: use --fail-if-noop to exit with non-zero code")
         }
         return !failIfNoop
     }

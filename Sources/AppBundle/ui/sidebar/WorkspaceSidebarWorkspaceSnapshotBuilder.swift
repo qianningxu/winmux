@@ -41,7 +41,7 @@ private func makeWorkspaceSidebarWorkspaceViewModel(
         monitorName: availableMonitors.count > 1 ? workspaceMonitor.name : nil,
         isFocused: currentFocus.workspace == workspace,
         isVisible: workspace.isVisible,
-        items: await buildWorkspaceSidebarItems(for: workspace, currentFocus: currentFocus),
+        items: [],
     )
 }
 

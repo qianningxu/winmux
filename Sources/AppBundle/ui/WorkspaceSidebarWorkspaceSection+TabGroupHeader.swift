@@ -18,7 +18,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 isFocused: group.isFocused,
                 suppressFocusedStyle: isSearchFiltering,
                 rowHeight: rowHeight,
-                isHovered: hoveredTabGroupId == group.representativeWindowId || selectedSearchTarget == .window(group.representativeWindowId),
+                isHovered: hoveredTabGroupId == group.representativeWindowId,
                 style: .tabGroupHeader,
                 appBundleIds: group.tabs.map(\.appBundleId),
                 appBundlePaths: group.tabs.map(\.appBundlePath),

@@ -148,7 +148,7 @@ import XCTest
     }
 
     @MainActor
-    func testFullscreenActiveTabHidesTabStrip() {
+    func testHardSidebarTabsDisableTopTabStripBehavior() {
         setUpWorkspacesForTests()
         let workspace = Workspace.get(byName: "tabs")
         let tabGroup = workspace.rootTilingContainer
@@ -159,7 +159,7 @@ import XCTest
         active.isFullscreen = true
         active.markAsMostRecentChild()
 
-        XCTAssertTrue(tabGroup.usesWindowTabBehavior)
+        XCTAssertFalse(tabGroup.usesWindowTabBehavior)
         XCTAssertFalse(tabGroup.showsWindowTabs)
         XCTAssertEqual(tabGroup.windowTabBarHeight, 0)
     }
@@ -167,6 +167,7 @@ import XCTest
     @MainActor
     func testFullscreenWindowInTabGroupHidesChromeAndCoversSiblingWindows() async throws {
         setUpWorkspacesForTests()
+        config.windowTabs.enabled = true
         let workspace = Workspace.get(byName: "tabs")
         let root = workspace.rootTilingContainer
         let tabGroup = TilingContainer(parent: root, adaptiveWeight: WEIGHT_AUTO, .v, .tabGroup, index: INDEX_BIND_LAST)

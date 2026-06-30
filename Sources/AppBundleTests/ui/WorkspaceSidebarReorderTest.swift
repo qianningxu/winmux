@@ -280,7 +280,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertEqual(target, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
             projectId: workspaceProjectDefaultId,
             targetWorkspaceName: "second",
-            placement: .before("second")
+            placement: .after("second")
         )))
     }
 

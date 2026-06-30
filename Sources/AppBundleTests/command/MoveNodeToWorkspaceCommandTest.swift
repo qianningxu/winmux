@@ -135,7 +135,7 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
 
         assertEquals(result.exitCode, 0)
         XCTAssertEqual(window.nodeWorkspace?.name, "2")
-        XCTAssertEqual(workspaceDisplayName("2"), "Workspace 2")
+        XCTAssertEqual(workspaceDisplayName("2"), "Tab 2")
     }
 
     func testDirectNumericMoveDoesNotCreateWorkspaceMultipleHopsAway() async throws {
@@ -167,9 +167,9 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
         assertEquals(result.exitCode, 0)
         XCTAssertEqual(window.nodeWorkspace?.name, "2")
         XCTAssertNil(Workspace.existing(byName: "4"))
-        XCTAssertEqual(workspaceDisplayName(first.name), "Workspace 1")
-        XCTAssertEqual(workspaceDisplayName(thirdRaw.name), "Workspace 2")
-        XCTAssertEqual(workspaceDisplayName("2"), "Workspace 3")
+        XCTAssertEqual(workspaceDisplayName(first.name), "Tab 1")
+        XCTAssertEqual(workspaceDisplayName(thirdRaw.name), "Tab 2")
+        XCTAssertEqual(workspaceDisplayName("2"), "Tab 3")
     }
 
     func testDirectNumericMoveDoesNotCreateMultipleHopsAfterBlankIsCollected() async throws {
