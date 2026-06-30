@@ -58,24 +58,24 @@ private struct WorkspaceSidebarCompactTimeDateCard: View {
             let shape = RoundedRectangle(cornerRadius: workspaceSidebarStatusCornerRadius, style: .continuous)
             ZStack(alignment: .bottomLeading) {
                 shape
-                    .fill(Color.white.opacity(0.06))
+                    .fill(winMuxOverlayContrastingFill(darkOpacity: 0.06, lightOpacity: 0.055))
 
                 VStack(alignment: .center, spacing: 4) {
                     Text(components.hour)
-                        .foregroundStyle(Color.white.opacity(0.90))
+                        .foregroundStyle(winMuxOverlayForeground(0.90))
 
                     Text(components.minute)
-                        .foregroundStyle(Color.white.opacity(0.90))
+                        .foregroundStyle(winMuxOverlayForeground(0.90))
 
                     Text(components.second)
-                        .foregroundStyle(Color.white.opacity(0.66))
+                        .foregroundStyle(winMuxOverlayMutedForeground(0.72))
                 }
                 .font(.system(size: 19, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
                 shape
-                    .strokeBorder(Color.white.opacity(0.05), lineWidth: 0.5)
+                    .strokeBorder(winMuxOverlayContrastingFill(darkOpacity: 0.08, lightOpacity: 0.10), lineWidth: 0.5)
             }
             .clipShape(shape)
         }
@@ -105,12 +105,12 @@ private struct WorkspaceSidebarExpandedTimeDateCard: View {
                 Text(date, format: .dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
                     .font(.system(size: 42, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Color.white.opacity(0.90))
+                    .foregroundStyle(winMuxOverlayForeground(0.90))
                     .lineLimit(1)
                 Text(date, format: .dateTime.second(.twoDigits))
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Color.white.opacity(0.34))
+                    .foregroundStyle(winMuxOverlayMutedForeground(0.62))
                     .lineLimit(1)
                     .padding(.top, 9)
             }
@@ -122,7 +122,7 @@ private struct WorkspaceSidebarExpandedTimeDateCard: View {
                     Text(date, format: .dateTime.month(.abbreviated).day())
                 }
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.48))
+                .foregroundStyle(winMuxOverlayMutedForeground(0.76))
                 .lineLimit(1)
             }
         }
@@ -130,10 +130,10 @@ private struct WorkspaceSidebarExpandedTimeDateCard: View {
         .frame(width: sectionWidth, height: 68, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: workspaceSidebarStatusCornerRadius, style: .continuous)
-                .fill(Color.white.opacity(0.06))
+                .fill(winMuxOverlayContrastingFill(darkOpacity: 0.06, lightOpacity: 0.055))
                 .overlay {
                     RoundedRectangle(cornerRadius: workspaceSidebarStatusCornerRadius, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
+                        .strokeBorder(winMuxOverlayContrastingFill(darkOpacity: 0.08, lightOpacity: 0.10), lineWidth: 0.5)
                 }
         )
         .accessibilityElement(children: .combine)

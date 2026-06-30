@@ -111,6 +111,39 @@ extension ConfigTest {
         XCTAssertTrue(updated.contains("[mode.main.binding]"))
     }
 
+    func testUpdateWindowTabLabelConfigAddsReplacesEscapesAndRemoves() {
+        let key = #"com.example.App|Docs "Alpha" \ Main"#
+        let added = updateWindowTabLabelConfig(
+            in: """
+            [window-tabs]
+                enabled = true
+            """,
+            key: key,
+            label: #"Build "One" \ Shell"#,
+        )
+
+        XCTAssertTrue(added.contains("[window-tabs.tab-labels]"))
+        XCTAssertTrue(added.contains(#""com.example.App|Docs \"Alpha\" \\ Main" = "Build \"One\" \\ Shell""#))
+
+        let replaced = updateWindowTabLabelConfig(
+            in: added,
+            key: key,
+            label: "Build Two",
+        )
+
+        XCTAssertTrue(replaced.contains(#""com.example.App|Docs \"Alpha\" \\ Main" = "Build Two""#))
+        XCTAssertFalse(replaced.contains("Build \\\"One\\\""))
+
+        let removed = updateWindowTabLabelConfig(
+            in: replaced,
+            key: key,
+            label: nil,
+        )
+
+        XCTAssertFalse(removed.contains("[window-tabs.tab-labels]"))
+        XCTAssertTrue(removed.contains("[window-tabs]"))
+    }
+
     func testUpdateWorkspaceSidebarMenuBarReserveConfigAddsValueToExistingSection() {
         let updated = updateWorkspaceSidebarMenuBarReserveConfig(
             in: """

@@ -13,6 +13,9 @@ struct ExposeView: View {
     @State private var collapsedGroupFrames: [ExposeCollapsedGroupFrame] = []
     @State private var expandedGroupOriginFrame: CGRect? = nil
     @State private var thumbnails: [UInt32: NSImage] = [:]
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     var body: some View {
         ZStack {
@@ -20,7 +23,7 @@ struct ExposeView: View {
                 .opacity(appeared ? 1 : 0)
                 .ignoresSafeArea()
 
-            Color.black.opacity(appeared ? 0.35 : 0)
+            palette.background(appeared ? (palette.isDark ? 0.35 : 0.22) : 0)
                 .ignoresSafeArea()
                 .onTapGesture {
                     onDismiss()

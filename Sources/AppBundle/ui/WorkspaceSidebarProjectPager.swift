@@ -24,7 +24,9 @@ struct WorkspaceSidebarProjectPager: View {
     @State var projectTrackContentMinX: CGFloat = 0
     @State var projectTrackContentWidth: CGFloat = 0
     @State var projectTrackViewportWidth: CGFloat = 0
+    @Environment(\.colorScheme) var colorScheme
 
+    var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
     var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
     var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }
     var currentIndex: Int? {

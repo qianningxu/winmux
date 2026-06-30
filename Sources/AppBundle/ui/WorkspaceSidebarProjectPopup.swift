@@ -13,6 +13,10 @@ struct WorkspaceSidebarProjectPopup: View {
     var menuWidth: CGFloat? = nil
     var rowHeight: CGFloat = workspaceSidebarDropdownHeight
     var disabledProjectIds: Set<WorkspaceProjectId> = []
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+
     private var rowCount: Int {
         projects.count + (showsCreateAction ? 1 : 0)
     }
@@ -42,15 +46,15 @@ struct WorkspaceSidebarProjectPopup: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(.regularMaterial)
-                    .environment(\.colorScheme, .dark)
+                    .environment(\.colorScheme, palette.materialFallbackColorScheme)
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.white.opacity(0.06))
+                    .fill(palette.contrastingFill(darkOpacity: 0.06, lightOpacity: 0.055))
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.75)
+                    .strokeBorder(palette.contrastingFill(darkOpacity: 0.14, lightOpacity: 0.16), lineWidth: 0.75)
             }
             .compositingGroup()
         }
-        .shadow(color: .black.opacity(0.50), radius: 18, x: 0, y: 8)
+        .shadow(color: palette.shadow(0.50, lightOpacity: 0.22), radius: 18, x: 0, y: 8)
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
@@ -61,7 +65,7 @@ struct WorkspaceSidebarProjectPopup: View {
             HStack(spacing: 8) {
                 Text(project.displayName)
                     .font(.system(size: 12, weight: project.id == selectedProjectId ? .semibold : .medium))
-                    .foregroundStyle(Color.white.opacity(project.id == selectedProjectId ? 0.90 : 0.78))
+                    .foregroundStyle(palette.foreground(project.id == selectedProjectId ? 0.90 : 0.78))
                     .lineLimit(1)
                 Spacer(minLength: 0)
                 checkmark(isVisible: project.id == selectedProjectId)
@@ -81,7 +85,7 @@ struct WorkspaceSidebarProjectPopup: View {
 
     private var divider: some View {
         Rectangle()
-            .fill(Color.white.opacity(0.08))
+            .fill(palette.contrastingFill(darkOpacity: 0.08, lightOpacity: 0.10))
             .frame(height: 0.5)
             .padding(.horizontal, workspaceSidebarDropdownPadding)
             .padding(.vertical, 1)
@@ -98,7 +102,7 @@ struct WorkspaceSidebarProjectPopup: View {
                 Spacer(minLength: 0)
                 checkmark(isVisible: false)
             }
-            .foregroundStyle(Color.white.opacity(0.78))
+            .foregroundStyle(palette.foreground(0.78))
             .modifier(WorkspaceSidebarDropdownMenuRowStyle(isSelected: false, rowHeight: rowHeight))
             .contentShape(Rectangle())
         }

@@ -40,7 +40,7 @@ struct WorkspaceSidebarConfiguration: Equatable {
     static let empty = WorkspaceSidebarConfiguration(
         collapsedWidth: 0,
         expandedWidth: 0,
-        topPadding: 12,
+        topPadding: 8,
         showMonitorSelector: false,
         showsDate: false,
         showsStatusPills: false,

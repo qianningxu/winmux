@@ -52,3 +52,19 @@ func reorderTabInStrip(_ windowId: UInt32, toIndex targetIndex: Int) {
         }
     }
 }
+
+@MainActor
+func renameWindowTabFromTabStrip(_ windowId: UInt32, displayName: String, fallbackWorkspace: String) {
+    guard let token: RunSessionGuard = .isServerEnabled else { return }
+    Task {
+        try await runLightSession(.menuBarButton, token) {
+            guard Window.get(byId: windowId) != nil else {
+                _ = Workspace.existing(byName: fallbackWorkspace)?.focusWorkspace()
+                await updateWindowTabModel()
+                return
+            }
+            try await renameWindowTab(windowId: windowId, displayName: displayName)
+            await updateWindowTabModel()
+        }
+    }
+}

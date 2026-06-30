@@ -132,7 +132,7 @@ extension WorkspaceSidebarView {
             .padding(.leading, leadingInset)
             .padding(.trailing, trailingInset)
             .padding(.top, topPadding)
-            .padding(.bottom, 10)
+            .padding(.bottom, workspaceSidebarMinimumTopPadding)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }

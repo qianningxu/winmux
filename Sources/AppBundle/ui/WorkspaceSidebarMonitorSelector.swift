@@ -23,6 +23,10 @@ struct WorkspaceSidebarMonitorSelector: View {
     var onDeleteProject: (WorkspaceSidebarProjectViewModel) -> Void = { _ in }
 
     @State private var isProjectMenuOpen = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+
     private var projectPopupWidth: CGFloat {
         let names = browsableProjects.map(\.displayName) + ["Other Projects"]
         let maxTextWidth = names.map {
@@ -100,7 +104,7 @@ struct WorkspaceSidebarMonitorSelector: View {
             Text(scope.id == workspaceSidebarFocusedScopeId ? "Focus" : scope.displayName)
                 .font(.system(size: 12.5, weight: isActive ? .semibold : .medium))
                 .lineLimit(1)
-                .foregroundStyle(isActive ? Color.white : Color.white.opacity(0.68))
+                .foregroundStyle(isActive ? palette.foreground(1) : palette.foreground(0.68))
                 .modifier(WorkspaceSidebarDropdownControlStyle(isActive: isActive))
         }
         .buttonStyle(.plain)
@@ -141,12 +145,12 @@ struct WorkspaceSidebarMonitorSelector: View {
             HStack(spacing: 4) {
                 Text(selectedProject?.displayName ?? "Other Projects")
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(isActive ? 0.86 : 0.72))
+                    .foregroundStyle(palette.foreground(isActive ? 0.86 : 0.72))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(isActive ? 0.86 : 0.72))
+                    .foregroundStyle(palette.foreground(isActive ? 0.86 : 0.72))
                     .rotationEffect(.degrees(isProjectMenuOpen ? 180 : 0))
             }
             .modifier(WorkspaceSidebarDropdownControlStyle(isActive: isActive))

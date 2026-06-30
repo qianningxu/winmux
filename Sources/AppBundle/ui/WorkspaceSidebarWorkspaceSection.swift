@@ -36,10 +36,12 @@ struct WorkspaceSidebarWorkspaceSection: View {
     @State var isDropTargeted = false
     @State var isDropSettling = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.colorScheme) var colorScheme
 
     let headerHeight: CGFloat = workspaceSidebarWorkspaceSectionHeaderHeight
     let rowHeight: CGFloat = workspaceSidebarWorkspaceRowHeight
 
+    var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
     var contentWidth: CGFloat { workspaceSidebarContentWidth(expansionProgress, layout: layout) }
     var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
     var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }

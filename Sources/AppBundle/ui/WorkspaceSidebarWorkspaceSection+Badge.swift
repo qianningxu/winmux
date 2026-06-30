@@ -32,8 +32,8 @@ extension WorkspaceSidebarWorkspaceSection {
 
     var workspaceBadgeForeground: Color {
         if isActiveOnTargetMonitor {
-            return Color.white
+            return palette.foreground(1)
         }
-        return Color.white.opacity(0.70)
+        return palette.foreground(0.70)
     }
 }

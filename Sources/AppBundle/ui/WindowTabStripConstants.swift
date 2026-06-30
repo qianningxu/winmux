@@ -4,16 +4,16 @@ import SwiftUI
 
 // MARK: - Constants
 
-let windowTabPreviewCornerRadius: CGFloat = 12
-let windowTabStripContentHorizontalPadding: CGFloat = 3
+let windowTabPreviewCornerRadius: CGFloat = 14
+let windowTabStripContentHorizontalPadding: CGFloat = 5
 let windowTabStripGroupHandleWidth: CGFloat = 26
 let windowTabStripReservedHandleWidth: CGFloat = 24
 let windowTabStripTrailingGroupDragGutterWidth: CGFloat = 28
-let windowTabStripCornerRadius: CGFloat = 12
-let windowTabStripInnerCornerRadius: CGFloat = 7
-let windowTabStripTabSpacing: CGFloat = 4
+let windowTabStripCornerRadius: CGFloat = 14
+let windowTabStripInnerCornerRadius: CGFloat = 9
+let windowTabStripTabSpacing: CGFloat = 6
 let windowTabStripPreferredTabWidth: CGFloat = 240
-let windowTabStripMinimumTabWidth: CGFloat = 132
+let windowTabStripMinimumTabWidth: CGFloat = 128
 let windowTabStripCloseButtonSize: CGFloat = 18
 let windowTabStripCloseButtonReservedWidth: CGFloat = 22
 let windowTabStripCloseButtonTrailingInset: CGFloat = 5

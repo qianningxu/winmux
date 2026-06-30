@@ -69,6 +69,8 @@ extension WorkspaceSidebarView {
             sectionWidth: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration),
             isCompact: isCompact,
         )
+        .fixedSize(horizontal: false, vertical: true)
+        .layoutPriority(1)
         .padding(.leading, leadingInset)
         .padding(.trailing, trailingInset)
         .padding(.top, 4)
@@ -81,15 +83,16 @@ extension WorkspaceSidebarView {
         trailingInset: CGFloat,
     ) -> some View {
         HStack(spacing: 7) {
+            let palette = WinMuxOverlayPalette(colorScheme: colorScheme)
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.66))
+                .foregroundStyle(palette.foreground(0.66))
                 .frame(width: 14)
 
             Text(searchText)
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
-                .foregroundStyle(Color.white.opacity(0.9))
+                .foregroundStyle(palette.foreground(0.9))
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {
@@ -98,7 +101,7 @@ extension WorkspaceSidebarView {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(Color.white.opacity(0.7))
+                    .foregroundStyle(palette.foreground(0.7))
                     .frame(width: 18, height: 18)
                     .contentShape(Rectangle())
             }
@@ -109,11 +112,11 @@ extension WorkspaceSidebarView {
         .frame(width: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration), height: workspaceSidebarSearchHeight)
         .background {
             RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius, style: .continuous)
-                .fill(Color.white.opacity(0.11))
+                .fill(WinMuxOverlayPalette(colorScheme: colorScheme).contrastingFill(darkOpacity: 0.11, lightOpacity: 0.09))
         }
         .overlay {
             RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.6)
+                .strokeBorder(WinMuxOverlayPalette(colorScheme: colorScheme).contrastingFill(darkOpacity: 0.12, lightOpacity: 0.13), lineWidth: 0.6)
         }
         .padding(.leading, leadingInset)
         .padding(.trailing, trailingInset)

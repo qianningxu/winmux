@@ -448,19 +448,22 @@ private struct WorkspacePreviewView: View {
 private struct WorkspacePreviewCard: View {
     let item: WorkspacePreviewItem
     let isSelected: Bool
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(item.displayName)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(0.94))
+                    .foregroundStyle(palette.foreground(0.94))
                     .lineLimit(1)
                 Spacer()
                 if item.isCurrent {
                     Text("Current")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(0.60))
+                        .foregroundStyle(palette.foreground(0.60))
                 }
             }
 
@@ -474,7 +477,7 @@ private struct WorkspacePreviewCard: View {
             let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
             LiquidGlassSurface(
                 shape: shape,
-                tint: Color.white,
+                tint: palette.foreground(1),
                 tintOpacity: isSelected ? 0.04 : 0.02,
                 scrimOpacity: isSelected ? 0.03 : 0.015,
                 highlightOpacity: isSelected ? 0.18 : 0.12,
@@ -484,7 +487,7 @@ private struct WorkspacePreviewCard: View {
                 lineWidth: isSelected ? 1.8 : 0.9,
             )
         }
-        .shadow(color: Color.black.opacity(isSelected ? 0.42 : 0.24), radius: isSelected ? 30 : 18, x: 0, y: 18)
+        .shadow(color: palette.shadow(isSelected ? 0.42 : 0.24, lightOpacity: isSelected ? 0.24 : 0.16), radius: isSelected ? 30 : 18, x: 0, y: 18)
         .animation(.spring(response: 0.22, dampingFraction: 0.85), value: isSelected)
     }
 }
@@ -492,6 +495,9 @@ private struct WorkspacePreviewCard: View {
 private struct WorkspacePreviewLayoutCanvas: View {
     let windows: [WorkspacePreviewWindowItem]
     let workspaceAspectRatio: CGFloat
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     var body: some View {
         GeometryReader { geometry in
@@ -505,7 +511,7 @@ private struct WorkspacePreviewLayoutCanvas: View {
                 if windows.isEmpty {
                     Text("Empty")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.54))
+                        .foregroundStyle(palette.foreground(0.54))
                         .frame(width: geometry.size.width, height: geometry.size.height)
                 } else {
                     ForEach(Array(placedWindows.enumerated()), id: \.element.id) { index, placedWindow in
@@ -532,11 +538,14 @@ struct WorkspacePreviewPlacedWindow: Identifiable {
 private struct WorkspacePreviewWindowTile: View {
     let window: WorkspacePreviewWindowItem
     let showsLabel: Bool
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(Color(red: 0.08, green: 0.09, blue: 0.10))
+                .fill(palette.isDark ? Color(red: 0.08, green: 0.09, blue: 0.10) : Color(red: 0.90, green: 0.91, blue: 0.92))
             if let thumbnail = window.thumbnail {
                 Image(nsImage: thumbnail)
                     .resizable()
@@ -550,25 +559,28 @@ private struct WorkspacePreviewWindowTile: View {
             if showsLabel {
                 Text(window.appName)
                     .font(.system(size: 8, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(0.84))
+                    .foregroundStyle(Color.white.opacity(0.88))
                     .lineLimit(1)
                     .padding(.horizontal, 5)
                     .padding(.vertical, 2)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.black.opacity(0.88))
+                    .background(Color.black.opacity(palette.isDark ? 0.88 : 0.62))
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.32), lineWidth: 0.6)
+                .strokeBorder(palette.contrastingFill(darkOpacity: 0.32, lightOpacity: 0.20), lineWidth: 0.6)
         }
-        .shadow(color: Color.black.opacity(0.24), radius: 5, x: 0, y: 2)
+        .shadow(color: palette.shadow(0.24, lightOpacity: 0.14), radius: 5, x: 0, y: 2)
     }
 }
 
 private struct WorkspacePreviewWindowFallback: View {
     let window: WorkspacePreviewWindowItem
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     var body: some View {
         GeometryReader { geometry in
@@ -594,7 +606,7 @@ private struct WorkspacePreviewWindowFallback: View {
                 } else {
                     Text(workspacePreviewFallbackInitials(for: window))
                         .font(.system(size: max(12, minDimension * 0.34), weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.white.opacity(0.88))
+                        .foregroundStyle(Color.white.opacity(palette.isDark ? 0.88 : 0.92))
                         .minimumScaleFactor(0.6)
                         .lineLimit(1)
                 }

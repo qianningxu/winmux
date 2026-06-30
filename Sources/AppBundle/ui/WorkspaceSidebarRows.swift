@@ -21,10 +21,12 @@ struct WorkspaceSidebarWindowRow: View {
     let appBundleIds: [String?]
     let appBundlePaths: [String?]
     let reservesCloseButtonSpace: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     private var isTabGroupHeader: Bool { style == .tabGroupHeader }
     private var isTabGroupChild: Bool { style == .tabGroupChild }
     private var isActiveRow: Bool { isFocused && !suppressFocusedStyle }
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
     private var rowShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
     }
@@ -41,7 +43,7 @@ struct WorkspaceSidebarWindowRow: View {
             if let badge {
                 Text(badge)
                     .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(isTabGroupHeader ? Color.white.opacity(0.50) : Color.white.opacity(0.38))
+                    .foregroundStyle(palette.foreground(isTabGroupHeader ? 0.50 : 0.38))
             }
             if reservesCloseButtonSpace {
                 Color.clear
@@ -95,12 +97,12 @@ struct WorkspaceSidebarWindowRow: View {
 
     private var rowTextColor: Color {
         if isActiveRow {
-            return Color.white.opacity(isTabGroupHeader ? 0.96 : 1)
+            return palette.foreground(isTabGroupHeader ? 0.96 : 1)
         }
         if isTabGroupChild {
-            return Color.white.opacity(0.58)
+            return palette.foreground(0.58)
         }
-        return Color.white.opacity(0.78)
+        return palette.foreground(0.78)
     }
 
     private var rowIconOpacity: Double {
@@ -110,24 +112,24 @@ struct WorkspaceSidebarWindowRow: View {
     private var rowBackgroundFill: Color {
         if isActiveRow {
             if isTabGroupHeader {
-                return Color.white.opacity(0.14)
+                return palette.contrastingFill(darkOpacity: 0.14, lightOpacity: 0.10)
             }
             if isTabGroupChild {
-                return Color.white.opacity(0.055)
+                return palette.contrastingFill(darkOpacity: 0.055, lightOpacity: 0.045)
             }
-            return Color.white.opacity(0.085)
+            return palette.contrastingFill(darkOpacity: 0.085, lightOpacity: 0.07)
         }
         return Color.clear
     }
 
     private var rowHoverOverlayFill: Color {
         if isTabGroupHeader {
-            return Color.white.opacity(0.04)
+            return palette.contrastingFill(darkOpacity: 0.04, lightOpacity: 0.035)
         }
         if isTabGroupChild {
-            return Color.white.opacity(0.03)
+            return palette.contrastingFill(darkOpacity: 0.03, lightOpacity: 0.025)
         }
-        return Color.white.opacity(0.045)
+        return palette.contrastingFill(darkOpacity: 0.045, lightOpacity: 0.035)
     }
 }
 
@@ -138,6 +140,9 @@ struct WorkspaceSidebarPreviewRow: View {
     let expansionProgress: CGFloat
     let rowHeight: CGFloat
     let expandedContentWidth: CGFloat
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     var body: some View {
         HStack(spacing: 7) {
@@ -153,20 +158,20 @@ struct WorkspaceSidebarPreviewRow: View {
 
             Text(preview.label)
                 .font(.system(size: 11.2, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.82))
+                .foregroundStyle(palette.foreground(0.82))
                 .lineLimit(1)
                 .opacity(max(expansionProgress, 0.12))
             Spacer(minLength: 0)
             if preview.isTabGroup, preview.windowCount > 1, expansionProgress > 0.72 {
                 Text("\(preview.windowCount)")
                     .font(.system(size: 9.5, weight: .bold))
-                    .foregroundStyle(Color.white.opacity(0.68))
+                    .foregroundStyle(palette.foreground(0.68))
                     .monospacedDigit()
                     .padding(.horizontal, 5)
                     .frame(height: 15)
                     .background(
                         Capsule(style: .continuous)
-                            .fill(Color.white.opacity(0.09))
+                            .fill(palette.contrastingFill(darkOpacity: 0.09, lightOpacity: 0.08))
                     )
             }
         }

@@ -42,11 +42,9 @@ on-mode-changed = []
     menu-bar-reserve-height = 28
     project-deletion-action = 'close-windows'
     widgets = [
-        { id = 'time-date', type = 'built-in/time-date', enabled = true, show-date = true },
-        { id = 'toggl-days', type = 'built-in/toggl-days', enabled = true, entries-path = '/Users/side/Documents/now/self/Tracks/data/toggl/entries', days = 7, rotation-group = 'focus', rotation-interval-seconds = 300 },
-        { id = 'toggl-projects', type = 'built-in/toggl-projects', enabled = true, entries-path = '/Users/side/Documents/now/self/Tracks/data/toggl/entries', days = 7 },
-        { id = 'spending-categories', type = 'built-in/spending-categories', enabled = true, entries-path = '/Users/side/Documents/now/self/Tracks/data/spending', days = 30 },
-        { id = 'schedule-heatmap', type = 'built-in/schedule-heatmap', enabled = true, schedule-path = '/Users/side/Documents/now/self/Tracks/data/schedule', toggl-entries-path = '/Users/side/Documents/now/self/Tracks/data/toggl/entries', deviation-path = '/Users/side/Documents/now/self/Record/Deviation', days = 7, rotation-group = 'focus', rotation-interval-seconds = 300 },
+        { id = 'time-date', type = 'built-in/time-date', enabled = false, show-date = true },
+        { id = 'toggl-week-focus', type = 'built-in/toggl-week-focus', enabled = true, entries-path = '/Users/side/Documents/now/self/self_data/data', target-date = '2026-09-13' },
+        { id = 'toggl-weekly-focus', type = 'built-in/toggl-weekly-focus', enabled = true, entries-path = '/Users/side/Documents/now/self/self_data/data', target-date = '2026-09-13' },
     ]
 
 [mode.main.binding]

@@ -25,5 +25,5 @@ func makeWorkspaceSidebarWindowViewModel(
 
 @MainActor
 private func getSidebarWindowTitle(_ window: Window, appName: String) async -> String? {
-    await getCachedWindowTitle(window)?.takeIf { $0 != appName }
+    await tabDisplayTitle(for: window).takeIf { $0 != appName }
 }

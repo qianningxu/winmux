@@ -12,6 +12,8 @@ struct WindowTabStripView: View {
     @State var pendingReorderDrop: WindowTabPendingReorderDrop?
     @State var tabScrollContentMinX: CGFloat = 0
     @State var tabScrollContentMaxX: CGFloat = 0
+    @State var editingTabId: UInt32?
+    @State var editingTabTitle: String = ""
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {

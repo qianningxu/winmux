@@ -4,6 +4,9 @@ struct WorkspaceSidebarInUseOverrideOverlay: View {
     let text: String
     let onOverride: () -> Void
     @State private var isOverrideHovered = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     private var shape: RoundedRectangle {
         RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
@@ -14,16 +17,16 @@ struct WorkspaceSidebarInUseOverrideOverlay: View {
             Color.clear
                 .background(.ultraThinMaterial)
                 .overlay {
-                    shape.fill(Color(nsColor: .systemRed).opacity(0.14))
+                    shape.fill(palette.destructive(0.14))
                 }
                 .clipShape(shape)
 
-            shape.strokeBorder(Color(nsColor: .systemRed).opacity(0.45), lineWidth: 0.8)
+            shape.strokeBorder(palette.destructive(0.45), lineWidth: 0.8)
 
             VStack(spacing: 8) {
                 Text(text)
                     .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.88))
+                    .foregroundStyle(palette.foreground(0.88))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 12)
@@ -38,7 +41,7 @@ struct WorkspaceSidebarInUseOverrideOverlay: View {
                 .buttonStyle(.plain)
                 .background {
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(Color(nsColor: .systemRed).opacity(isOverrideHovered ? 1 : 0.88))
+                        .fill(palette.destructive(isOverrideHovered ? 1 : 0.88))
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 5, style: .continuous)

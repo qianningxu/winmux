@@ -26,6 +26,8 @@ func liquidGlassBackground<S: Shape, Fallback: View>(
 }
 
 struct LiquidGlassSurface<S: Shape>: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let shape: S
     var tint: Color = Color(nsColor: .controlAccentColor)
     var tintOpacity: Double = 0.12
@@ -39,22 +41,23 @@ struct LiquidGlassSurface<S: Shape>: View {
     var usesEvenOddFill: Bool = false
 
     var body: some View {
+        let palette = WinMuxOverlayPalette(colorScheme: colorScheme)
         ZStack {
             liquidGlassBackground(in: shape, isInteractive: isInteractive) {
                 shape.fill(.ultraThinMaterial, style: fillStyle)
-                    .environment(\.colorScheme, .dark)
+                    .environment(\.colorScheme, palette.materialFallbackColorScheme)
             }
             shape
-                .fill(Color.black.opacity(scrimOpacity), style: fillStyle)
+                .fill(palette.background(scrimOpacity), style: fillStyle)
             shape
                 .fill(tint.opacity(tintOpacity), style: fillStyle)
-                .blendMode(.overlay)
+                .blendMode(palette.isDark ? .overlay : .multiply)
             shape
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(highlightOpacity),
-                            Color.white.opacity(highlightOpacity * 0.25),
+                            palette.foreground(highlightOpacity),
+                            palette.foreground(highlightOpacity * 0.25),
                             Color.clear,
                         ],
                         startPoint: .top,
@@ -64,7 +67,7 @@ struct LiquidGlassSurface<S: Shape>: View {
                 )
                 .blendMode(.screen)
             shape
-                .stroke(Color.white.opacity(borderOpacity), lineWidth: lineWidth)
+                .stroke(palette.contrastingFill(darkOpacity: borderOpacity, lightOpacity: borderOpacity * 0.9), lineWidth: lineWidth)
         }
         .compositingGroup()
         .shadow(color: tint.opacity(glowOpacity), radius: glowRadius)

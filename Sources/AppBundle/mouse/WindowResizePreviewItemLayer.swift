@@ -200,7 +200,7 @@ final class WindowResizePreviewItemLayer: CALayer {
         textLayer.string = text
         textLayer.alignmentMode = .center
         textLayer.contentsScale = scale
-        textLayer.foregroundColor = NSColor.white.withAlphaComponent(0.82).cgColor
+        textLayer.foregroundColor = ResizePreviewPalette.fallbackText
         textLayer.font = NSFont.systemFont(ofSize: size * 0.42, weight: .bold)
         textLayer.fontSize = size * 0.42
         disableResizePreviewLayerActions(textLayer)
@@ -211,4 +211,3 @@ final class WindowResizePreviewItemLayer: CALayer {
         (icon?.appName ?? item.appName).first.map { String($0).uppercased() } ?? "W"
     }
 }
-

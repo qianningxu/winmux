@@ -3,6 +3,8 @@ import Common
 import SwiftUI
 
 struct WorkspaceSidebarView: View {
+    @Environment(\.colorScheme) var colorScheme
+
     let snapshot: WorkspaceSidebarSnapshot
     let actions: WorkspaceSidebarActions
     @State var projectSwipeTranslation: CGFloat = 0
@@ -41,16 +43,7 @@ struct WorkspaceSidebarView: View {
             min(1, (snapshot.visibleWidth - collapsedWidth) / max(expandedWidth - collapsedWidth, 1)),
         )
         
-        ZStack(alignment: .leading) {
-            sidebarContent(expansionProgress: expansionProgress)
-                .frame(width: max(snapshot.visibleWidth, 0), alignment: .leading)
-                .mask(alignment: .leading) {
-                    Rectangle()
-                        .frame(width: max(snapshot.visibleWidth, 0))
-                }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(Color.clear)
+        sidebarBody(expansionProgress: expansionProgress, expandedWidth: expandedWidth)
         .onChange(of: snapshot.visibleWidth) { visibleWidth in
             if visibleWidth <= collapsedWidth + 0.5 {
                 resetTransientSidebarState()
@@ -80,7 +73,8 @@ struct WorkspaceSidebarView: View {
             guard snapshot.visibleWidth > collapsedWidth + 0.5,
                   let panel = WorkspaceSidebarPanel.panel(for: snapshot.targetMonitorScopeId)
             else { return }
-            let targetWidth = mode.isSplit ? expandedWidth * 2 : expandedWidth
+            let expandedContentWidth = workspaceSidebarExpandedContentFrameWidth(layout: snapshot.configuration)
+            let targetWidth = mode.isSplit ? expandedContentWidth : expandedWidth
             debugWorkspaceSidebarHoverLog("browseProjectWidthChange panel=\(snapshot.targetMonitorScopeId) project=\(mode.otherProjectId?.rawValue ?? "nil") snapshotWidth=\(snapshot.visibleWidth) target=\(targetWidth) frame=\(panel.frame) mouse=\(NSEvent.mouseLocation)")
             panel.cancelExpansionWork()
             panel.viewModel.isWorkspaceSidebarExpanded = true
@@ -98,8 +92,13 @@ struct WorkspaceSidebarView: View {
             if let renamingProjectId, !snapshot.projects.contains(where: { $0.id == renamingProjectId }) {
                 finishProjectRename(cancelled: true)
             }
-            if let renamingWorkspaceName, !snapshot.workspaces.contains(where: { $0.name == renamingWorkspaceName }) {
-                finishWorkspaceRename(cancelled: true)
+            if let renamingWorkspaceName {
+                let workspaceStillExists = snapshot.workspaces.contains { workspace in
+                    workspace.name == renamingWorkspaceName
+                }
+                if !workspaceStillExists {
+                    finishWorkspaceRename(cancelled: true)
+                }
             }
             cancelWorkspaceReorderDrag()
             isProjectMenuOpen = false
@@ -147,6 +146,24 @@ struct WorkspaceSidebarView: View {
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarDragPointerEndedNotification)) { _ in
             resetProjectEdgeDrag()
         }
+    }
+
+    func sidebarBody(expansionProgress: CGFloat, expandedWidth: CGFloat) -> some View {
+        let metrics = WorkspaceSidebarSideAreaMetrics.standard
+        let visibleWidth = max(snapshot.visibleWidth, 0)
+
+        return ZStack(alignment: .topLeading) {
+            sidebarContent(expansionProgress: expansionProgress)
+                .frame(width: visibleWidth, alignment: .leading)
+                .mask(alignment: .leading) {
+                    Rectangle()
+                        .frame(width: visibleWidth)
+                }
+                .padding(.leading, metrics.outerInset)
+                .padding(.vertical, metrics.outerInset)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(Color.clear)
     }
 
     func beginProjectRename(_ project: WorkspaceSidebarProjectViewModel) {

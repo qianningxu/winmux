@@ -15,7 +15,7 @@ func makeWorkspaceSidebarTabGroupViewModel(
     return WorkspaceSidebarTabGroupViewModel(
         representativeWindowId: representativeWindow.windowId,
         workspaceName: workspaceName,
-        title: sidebarDisplayLabel(for: representativeWindow),
+        title: await tabDisplayTitle(for: representativeWindow),
         windowCount: container.allLeafWindowsRecursive.count,
         isFocused: representativeWindow.moveNode == currentFocus.windowOrNil?.moveNode,
         tabs: tabs,

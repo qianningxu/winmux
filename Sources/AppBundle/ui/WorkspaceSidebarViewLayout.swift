@@ -65,7 +65,7 @@ extension WorkspaceSidebarView {
                 expansionProgress: expansionProgress,
                 leadingInset: leadingInset,
                 trailingInset: trailingInset,
-                topPadding: showsMonitorSelector ? 0 : snapshot.configuration.topPadding,
+                topPadding: 0,
                 visibleWorkspacesByProject: filteredWorkspacesByProject,
                 swipeDirection: projectSwipeDirection,
             )
@@ -93,12 +93,14 @@ extension WorkspaceSidebarView {
                 )
             }
 
-            widgetSection(
-                expansionProgress: expansionProgress,
-                isCompact: isCompact,
-                leadingInset: leadingInset,
-                trailingInset: trailingInset,
-            )
+            if snapshot.configuration.widgets.contains(where: \.enabled) {
+                widgetSection(
+                    expansionProgress: expansionProgress,
+                    isCompact: isCompact,
+                    leadingInset: leadingInset,
+                    trailingInset: trailingInset,
+                )
+            }
         }
         .coordinateSpace(name: "workspaceSidebarContent")
         .onPreferenceChange(WorkspaceSidebarDropTargetPreferenceKey.self) { frames in
@@ -107,26 +109,6 @@ extension WorkspaceSidebarView {
         .onPreferenceChange(WorkspaceSidebarWorkspaceReorderFramePreferenceKey.self) { frames in
             workspaceReorderFrames = frames
         }
-        .background {
-            sidebarSurface(in: sidebarShape)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    NotificationCenter.default.post(name: workspaceSidebarDismissProjectMenusNotification, object: nil)
-                }
-        }
-        .environment(\.colorScheme, .dark)
-        .overlay(alignment: .trailing) {
-            Rectangle()
-                .fill(Color.white.opacity(0.08))
-                .frame(width: 0.5)
-        }
-        .clipShape(sidebarShape)
-        .shadow(
-            color: Color.black.opacity(0.24),
-            radius: 20,
-            x: 3,
-            y: 0
-        )
         .overlay {
             sidebarSwipeCaptureOverlay(expansionProgress: expansionProgress)
         }
@@ -158,3 +140,12 @@ extension WorkspaceSidebarView {
 }
 
 let workspaceSidebarSplitPaneGap: CGFloat = 8
+
+@MainActor
+func workspaceSidebarExpandedContentFrameWidth(layout: WorkspaceSidebarConfiguration) -> CGFloat {
+    let expandedSectionWidth = workspaceSidebarExpandedSectionWidth(layout: layout)
+    return (expandedSectionWidth * 2) +
+        workspaceSidebarSplitPaneGap +
+        workspaceSidebarContentLeadingInset +
+        workspaceSidebarContentTrailingInset
+}

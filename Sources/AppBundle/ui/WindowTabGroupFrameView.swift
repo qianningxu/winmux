@@ -3,6 +3,9 @@ import SwiftUI
 struct WindowTabGroupFrameView: View {
     let strip: WindowTabStripViewModel
     let groupSize: CGSize
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     var body: some View {
         let tabHeight = min(strip.frame.height, groupSize.height)
@@ -18,14 +21,14 @@ struct WindowTabGroupFrameView: View {
                 activeWindowCornerRadius: strip.activeWindowCornerRadius
             )
                 .stroke(mattePanelFill, lineWidth: windowTabGroupFrameStrokeWidth)
-                .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 4)
+                .shadow(color: palette.shadow(0.18, lightOpacity: 0.10), radius: 8, x: 0, y: 4)
 
             Rectangle()
                 .fill(mattePanelFill)
                 .frame(height: tabHeight)
                 .overlay(alignment: .bottom) {
                     Rectangle()
-                        .fill(Color.white.opacity(0.10))
+                        .fill(palette.contrastingFill(darkOpacity: 0.10, lightOpacity: 0.12))
                         .frame(height: 0.5)
                 }
                 .clipShape(UnevenRoundedRectangle(

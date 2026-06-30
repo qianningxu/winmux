@@ -10,19 +10,19 @@ extension WorkspaceSidebarBatterySnapshot {
             case .discharging:
                 return Color(hue: 0.10, saturation: 0.30, brightness: 0.82)
             case .unavailable:
-                return Color.white.opacity(0.45)
+                return winMuxOverlayForeground(0.45)
         }
     }
 }
 
 extension WorkspaceSidebarAudioSnapshot {
     var tintColor: Color {
-        isMuted ? Color.white.opacity(0.45) : Color(hue: 0.38, saturation: 0.28, brightness: 0.78)
+        isMuted ? winMuxOverlayForeground(0.45) : Color(hue: 0.38, saturation: 0.28, brightness: 0.78)
     }
 }
 
 extension WorkspaceSidebarNetworkSnapshot {
     var tintColor: Color {
-        interfaceName == nil ? Color.white.opacity(0.45) : Color(hue: 0.58, saturation: 0.25, brightness: 0.78)
+        interfaceName == nil ? winMuxOverlayForeground(0.45) : Color(hue: 0.58, saturation: 0.25, brightness: 0.78)
     }
 }

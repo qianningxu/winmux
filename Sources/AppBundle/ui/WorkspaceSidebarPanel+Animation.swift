@@ -7,6 +7,7 @@ extension WorkspaceSidebarPanel {
             viewModel.workspaceSidebarVisibleWidth = width
         }
         updateMousePassthrough()
+        scheduleRefreshSession(.globalObserver("workspaceSidebarWidthChanged"), optimisticallyPreLayoutWorkspaces: true)
     }
 
     func expandSidebar(to expandedWidth: CGFloat) {

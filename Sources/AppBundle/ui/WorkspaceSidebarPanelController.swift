@@ -93,6 +93,7 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     }
 
     static func refreshAll() {
+        WorkspaceCanvasBackgroundPanel.refreshAll()
         let activeMonitorScopeIds = Set(workspaceSidebarResolvedPanelMonitors().map { workspaceSidebarMonitorScopeId(for: $0) })
         for monitor in workspaceSidebarResolvedPanelMonitors() {
             let scopeId = workspaceSidebarMonitorScopeId(for: monitor)
@@ -186,5 +187,17 @@ final class WorkspaceSidebarPanel: NSPanelHud {
 final class WorkspaceSidebarHostingView: NSHostingView<WorkspaceSidebarContainerView> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         true
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let panel = window as? WorkspaceSidebarPanel else {
+            return super.hitTest(point)
+        }
+        let pointInWindow = convert(point, to: nil)
+        let pointOnScreen = panel.convertPoint(toScreen: pointInWindow)
+        guard panel.isPointInsideInteractiveRegion(pointOnScreen) else {
+            return nil
+        }
+        return super.hitTest(point)
     }
 }

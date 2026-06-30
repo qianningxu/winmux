@@ -17,6 +17,9 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
 
     @State private var isDropTargeted = false
     @State private var isDropSettling = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     private var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
     private var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }
@@ -84,16 +87,16 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
                 if isCompact {
                     Image(systemName: "plus")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(0.45))
+                        .foregroundStyle(palette.mutedForeground(0.80))
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 } else {
                     HStack(spacing: 6) {
                         Image(systemName: "plus")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.45))
+                            .foregroundStyle(palette.mutedForeground(0.80))
                         Text("New Workspace")
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Color.white.opacity(0.48))
+                            .foregroundStyle(palette.mutedForeground(0.86))
                             .lineLimit(1)
                         Spacer(minLength: 0)
                     }
@@ -107,11 +110,11 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
                 alignment: isCompact ? .center : .leading,
             )
             .background {
-                sectionShape.fill(Color.white.opacity(0.012))
+                sectionShape.fill(palette.contrastingFill(darkOpacity: 0.012, lightOpacity: 0.02))
             }
             .overlay {
                 sectionShape.strokeBorder(
-                    Color.white.opacity(0.10),
+                    palette.border(isDropTargeted ? 0.95 : 0.72),
                     style: StrokeStyle(lineWidth: 0.5, dash: [3, 2.5])
                 )
             }

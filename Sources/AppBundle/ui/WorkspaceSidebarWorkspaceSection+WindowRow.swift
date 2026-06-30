@@ -87,7 +87,7 @@ extension WorkspaceSidebarWorkspaceSection {
         } label: {
             Image(systemName: "xmark")
                 .font(.system(size: 8.5, weight: .bold))
-                .foregroundStyle(Color.white.opacity(0.78))
+                .foregroundStyle(palette.foreground(0.78))
                 .frame(width: workspaceSidebarWindowCloseButtonSize, height: workspaceSidebarWindowCloseButtonSize)
                 .contentShape(Rectangle())
         }

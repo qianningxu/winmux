@@ -6,35 +6,34 @@ final class WorkspaceSidebarWidgetStackTest: XCTestCase {
     func testRotationGroupsKeepFirstPositionAndCollectEnabledMembers() {
         let widgets = [
             widget(id: "time-date", type: .builtInTimeDate),
-            widget(id: "toggl-days", type: .builtInTogglDays, rotationGroup: "focus", rotationIntervalSeconds: 300),
-            widget(id: "spending", type: .builtInSpendingCategories),
-            widget(id: "schedule-heatmap", type: .builtInScheduleHeatmap, rotationGroup: "focus"),
-            widget(id: "toggl-projects", type: .builtInTogglProjects, rotationGroup: "reports", rotationIntervalSeconds: 60),
+            widget(id: "toggl-weekly-focus", type: .builtInTogglWeeklyFocus, rotationGroup: "focus", rotationIntervalSeconds: 300),
+            widget(id: "spending", type: .builtInSpendingCategories, rotationGroup: "focus"),
             widget(id: "custom", type: .plugin, bundle: "CustomWidget.bundle", rotationGroup: "reports", rotationIntervalSeconds: 120),
+            widget(id: "schedule-heatmap", type: .builtInScheduleHeatmap, rotationGroup: "reports"),
         ]
 
         let items = WorkspaceSidebarWidgetStackItem.items(for: widgets)
 
-        assertEquals(items.map(\.id), ["time-date", "rotation-focus", "spending", "rotation-reports"])
+        assertEquals(items.map(\.id), ["time-date", "rotation-focus", "rotation-reports"])
         guard case .rotationGroup(let focusId, let focusWidgets, let focusIntervalSeconds) = items[1] else {
             return XCTFail("Expected focus rotation group")
         }
         assertEquals(focusId, "focus")
-        assertEquals(focusWidgets.map(\.id), ["toggl-days", "schedule-heatmap"])
+        assertEquals(focusWidgets.map(\.id), ["toggl-weekly-focus", "spending"])
         assertEquals(focusIntervalSeconds, 300)
 
-        guard case .rotationGroup(let reportsId, let reportsWidgets, let reportsIntervalSeconds) = items[3] else {
+        guard case .rotationGroup(let reportsId, let reportsWidgets, let reportsIntervalSeconds) = items[2] else {
             return XCTFail("Expected reports rotation group")
         }
         assertEquals(reportsId, "reports")
-        assertEquals(reportsWidgets.map(\.id), ["toggl-projects", "custom"])
-        assertEquals(reportsIntervalSeconds, 60)
+        assertEquals(reportsWidgets.map(\.id), ["custom", "schedule-heatmap"])
+        assertEquals(reportsIntervalSeconds, 120)
     }
 
     func testSingleWidgetRotationGroupRendersAsPlainWidget() {
         let widgets = [
             widget(id: "time-date", type: .builtInTimeDate),
-            widget(id: "toggl-days", type: .builtInTogglDays, rotationGroup: "focus", rotationIntervalSeconds: 300),
+            widget(id: "toggl-weekly-focus", type: .builtInTogglWeeklyFocus, rotationGroup: "focus", rotationIntervalSeconds: 300),
         ]
 
         let items = WorkspaceSidebarWidgetStackItem.items(for: widgets)
@@ -47,7 +46,7 @@ final class WorkspaceSidebarWidgetStackTest: XCTestCase {
 
     func testRotationGroupUsesDefaultIntervalAndReferenceDateSlots() {
         let widgets = [
-            widget(id: "toggl-days", type: .builtInTogglDays, rotationGroup: "focus"),
+            widget(id: "toggl-weekly-focus", type: .builtInTogglWeeklyFocus, rotationGroup: "focus"),
             widget(id: "schedule-heatmap", type: .builtInScheduleHeatmap, rotationGroup: "focus"),
         ]
 
@@ -63,7 +62,7 @@ final class WorkspaceSidebarWidgetStackTest: XCTestCase {
                 intervalSeconds: intervalSeconds,
                 at: Date(timeIntervalSinceReferenceDate: 299),
             )?.id,
-            "toggl-days",
+            "toggl-weekly-focus",
         )
         assertEquals(
             WorkspaceSidebarWidgetStackItem.activeWidget(
@@ -79,13 +78,14 @@ final class WorkspaceSidebarWidgetStackTest: XCTestCase {
                 intervalSeconds: intervalSeconds,
                 at: Date(timeIntervalSinceReferenceDate: 600),
             )?.id,
-            "toggl-days",
+            "toggl-weekly-focus",
         )
     }
 
     private func widget(
         id: String,
         type: WorkspaceSidebarWidgetType,
+        enabled: Bool = true,
         bundle: String? = nil,
         rotationGroup: String? = nil,
         rotationIntervalSeconds: Int? = nil,
@@ -93,7 +93,7 @@ final class WorkspaceSidebarWidgetStackTest: XCTestCase {
         WorkspaceSidebarWidgetConfig(
             id: id,
             type: type,
-            enabled: true,
+            enabled: enabled,
             bundle: bundle,
             rotationGroup: rotationGroup,
             rotationIntervalSeconds: rotationIntervalSeconds,

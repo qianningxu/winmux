@@ -6,7 +6,9 @@ struct WorkspaceSidebarWidgetStack: View {
     let isCompact: Bool
 
     private var enabledWidgets: [WorkspaceSidebarWidgetConfig] {
-        widgets.filter(\.enabled)
+        widgets.filter { widget in
+            widget.enabled && widget.type != .builtInSpendingCategories && widget.type != .builtInScheduleHeatmap
+        }
     }
 
     private var renderItems: [WorkspaceSidebarWidgetStackItem] {
@@ -117,23 +119,21 @@ private struct WorkspaceSidebarWidgetStackItemView: View {
                     isCompact: isCompact,
                     showsDate: widget.showDate,
                 )
-            case .builtInTogglDays:
-                WorkspaceSidebarTogglProjectsWidget(
+            case .builtInTogglWeeklyFocus:
+                WorkspaceSidebarTogglWeeklyFocusWidget(
                     id: widget.id,
                     sectionWidth: sectionWidth,
                     isCompact: isCompact,
                     entriesPath: widget.entriesPath ?? defaultWorkspaceSidebarTogglEntriesPath,
-                    days: widget.days ?? defaultWorkspaceSidebarTogglDays,
-                    breakdown: .days,
+                    targetDate: widget.targetDate ?? defaultWorkspaceSidebarTogglWeeklyFocusTargetDate,
                 )
-            case .builtInTogglProjects:
-                WorkspaceSidebarTogglProjectsWidget(
+            case .builtInTogglWeekFocus:
+                WorkspaceSidebarTogglWeekFocusWidget(
                     id: widget.id,
                     sectionWidth: sectionWidth,
                     isCompact: isCompact,
                     entriesPath: widget.entriesPath ?? defaultWorkspaceSidebarTogglEntriesPath,
-                    days: widget.days ?? defaultWorkspaceSidebarTogglDays,
-                    breakdown: .projects,
+                    targetDate: widget.targetDate ?? defaultWorkspaceSidebarTogglWeeklyFocusTargetDate,
                 )
             case .builtInSpendingCategories:
                 WorkspaceSidebarSpendingCategoriesWidget(

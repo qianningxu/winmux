@@ -102,6 +102,7 @@ struct WorkspaceSidebarWidgetConfig: ConvenienceCopyable, Equatable, Sendable {
     var schedulePath: String? = nil
     var togglEntriesPath: String? = nil
     var deviationPath: String? = nil
+    var targetDate: String? = nil
     var days: Int? = nil
     var rotationGroup: String? = nil
     var rotationIntervalSeconds: Int? = nil
@@ -109,19 +110,20 @@ struct WorkspaceSidebarWidgetConfig: ConvenienceCopyable, Equatable, Sendable {
 
 enum WorkspaceSidebarWidgetType: String, CaseIterable, Sendable {
     case builtInTimeDate = "built-in/time-date"
-    case builtInTogglDays = "built-in/toggl-days"
-    case builtInTogglProjects = "built-in/toggl-projects"
+    case builtInTogglWeeklyFocus = "built-in/toggl-weekly-focus"
+    case builtInTogglWeekFocus = "built-in/toggl-week-focus"
     case builtInSpendingCategories = "built-in/spending-categories"
     case builtInScheduleHeatmap = "built-in/schedule-heatmap"
     case plugin
 }
 
-let defaultWorkspaceSidebarTogglEntriesPath = "/Users/side/Documents/now/self/Tracks/data/toggl/entries"
-let defaultWorkspaceSidebarTogglDays = 7
-let defaultWorkspaceSidebarSpendingEntriesPath = "/Users/side/Documents/now/self/Tracks/data/spending"
-let defaultWorkspaceSidebarSpendingDays = 30
-let defaultWorkspaceSidebarSchedulePath = "/Users/side/Documents/now/self/Tracks/data/schedule"
-let defaultWorkspaceSidebarDeviationPath = "/Users/side/Documents/now/self/Record/Deviation"
+let defaultWorkspaceSidebarDataPath = "/Users/side/Documents/now/self/self_data/data"
+let defaultWorkspaceSidebarTogglEntriesPath = defaultWorkspaceSidebarDataPath
+let defaultWorkspaceSidebarTogglWeeklyFocusTargetDate = "2026-09-13"
+let defaultWorkspaceSidebarSpendingEntriesPath = defaultWorkspaceSidebarDataPath
+let defaultWorkspaceSidebarSpendingDays = 28
+let defaultWorkspaceSidebarSchedulePath = defaultWorkspaceSidebarDataPath
+let defaultWorkspaceSidebarDeviationPath = "/Users/side/Documents/now/self/self_ob"
 let defaultWorkspaceSidebarScheduleHeatmapDays = 7
 let defaultWorkspaceSidebarWidgetRotationIntervalSeconds = 300
 
@@ -135,6 +137,7 @@ enum WorkspaceProjectDeletionAction: String, CaseIterable, Identifiable, Sendabl
 struct WindowTabsConfig: ConvenienceCopyable, Equatable, Sendable {
     var enabled: Bool = true
     var height: Int = 36
+    var tabLabels: [String: String] = [:]
 }
 
 extension WorkspaceSidebarConfig {

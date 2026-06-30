@@ -165,12 +165,12 @@ extension WorkspaceSidebarProjectPager {
             HStack(spacing: 4) {
                 Text(selectedProject?.displayName ?? "Project")
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(isHovered || isProjectMenuOpen ? 0.86 : 0.72))
+                    .foregroundStyle(palette.foreground(isHovered || isProjectMenuOpen ? 0.86 : 0.72))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(isHovered || isProjectMenuOpen ? 0.86 : 0.72))
+                    .foregroundStyle(palette.foreground(isHovered || isProjectMenuOpen ? 0.86 : 0.72))
                     .rotationEffect(.degrees(isProjectMenuOpen ? 180 : 0))
             }
             .modifier(WorkspaceSidebarDropdownControlStyle(isActive: isProjectMenuOpen))
@@ -186,7 +186,7 @@ extension WorkspaceSidebarProjectPager {
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(isHovered ? 0.86 : 0.72))
+                .foregroundStyle(palette.foreground(isHovered ? 0.86 : 0.72))
                 .frame(width: workspaceSidebarDropdownHeight - (workspaceSidebarDropdownPadding * 2))
                 .modifier(WorkspaceSidebarDropdownControlStyle(isActive: false))
         }

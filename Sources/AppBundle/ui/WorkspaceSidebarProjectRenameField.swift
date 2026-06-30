@@ -144,6 +144,9 @@ struct WorkspaceSidebarProjectRenameField: View {
     let onCommit: @MainActor @Sendable () -> Void
     let onCancel: @MainActor @Sendable () -> Void
     @State private var shouldReplaceSelection = true
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     var body: some View {
         WorkspaceSidebarProjectRenameTextField(
@@ -158,7 +161,7 @@ struct WorkspaceSidebarProjectRenameField: View {
             .frame(height: workspaceSidebarDropdownHeight)
             .background {
                 RoundedRectangle(cornerRadius: workspaceSidebarPlateCornerRadius, style: .continuous)
-                    .fill(Color.white.opacity(0.12))
+                    .fill(palette.contrastingFill(darkOpacity: 0.12, lightOpacity: 0.10))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: workspaceSidebarPlateCornerRadius, style: .continuous)

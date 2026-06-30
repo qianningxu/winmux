@@ -61,13 +61,18 @@ final class MonitorTopologyTest: XCTestCase {
         setMonitorsForTests([main, secondary])
         config.workspaceSidebar.enabled = true
         config.workspaceSidebar.collapsedWidth = 54
+        config.workspaceSidebar.width = 240
         config.workspaceSidebar.monitor = [.main]
         config.gaps = .zero
 
-        XCTAssertEqual(main.visibleRectPaddedByOuterGaps.topLeftX, 54)
-        XCTAssertEqual(main.visibleRectPaddedByOuterGaps.width, 1866)
-        XCTAssertEqual(secondary.visibleRectPaddedByOuterGaps.topLeftX, 1974)
-        XCTAssertEqual(secondary.visibleRectPaddedByOuterGaps.width, 1866)
+        XCTAssertEqual(main.visibleRectPaddedByOuterGaps.topLeftX, 70)
+        XCTAssertEqual(main.visibleRectPaddedByOuterGaps.topLeftY, 8)
+        XCTAssertEqual(main.visibleRectPaddedByOuterGaps.width, 1842)
+        XCTAssertEqual(main.visibleRectPaddedByOuterGaps.height, 1064)
+        XCTAssertEqual(secondary.visibleRectPaddedByOuterGaps.topLeftX, 1990)
+        XCTAssertEqual(secondary.visibleRectPaddedByOuterGaps.topLeftY, 8)
+        XCTAssertEqual(secondary.visibleRectPaddedByOuterGaps.width, 1842)
+        XCTAssertEqual(secondary.visibleRectPaddedByOuterGaps.height, 1064)
     }
 
     func testWorkspaceSidebarMainMonitorConfigResolvesAllMonitors() {
@@ -112,12 +117,41 @@ final class MonitorTopologyTest: XCTestCase {
         setMonitorsForTests([main, secondary])
         config.workspaceSidebar.enabled = true
         config.workspaceSidebar.collapsedWidth = 54
+        config.workspaceSidebar.width = 240
         config.workspaceSidebar.monitor = [.sequenceNumber(2)]
         config.gaps = .zero
 
         XCTAssertEqual(main.visibleRectPaddedByOuterGaps.topLeftX, 0)
+        XCTAssertEqual(main.visibleRectPaddedByOuterGaps.topLeftY, 0)
         XCTAssertEqual(main.visibleRectPaddedByOuterGaps.width, 1920)
-        XCTAssertEqual(secondary.visibleRectPaddedByOuterGaps.topLeftX, 1974)
-        XCTAssertEqual(secondary.visibleRectPaddedByOuterGaps.width, 1866)
+        XCTAssertEqual(main.visibleRectPaddedByOuterGaps.height, 1080)
+        XCTAssertEqual(secondary.visibleRectPaddedByOuterGaps.topLeftX, 1990)
+        XCTAssertEqual(secondary.visibleRectPaddedByOuterGaps.topLeftY, 8)
+        XCTAssertEqual(secondary.visibleRectPaddedByOuterGaps.width, 1842)
+        XCTAssertEqual(secondary.visibleRectPaddedByOuterGaps.height, 1064)
     }
+
+    func testWorkspaceSidebarSideAreaPreservesLargerUserGaps() {
+        let main = MonitorTopologyTestMonitor(
+            monitorAppKitNsScreenScreensId: 1,
+            name: "Main",
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            isMain: true,
+        )
+        setMonitorsForTests([main])
+        config.workspaceSidebar.enabled = true
+        config.workspaceSidebar.width = 240
+        config.workspaceSidebar.monitor = [.main]
+        config.gaps = Gaps(
+            inner: .zero,
+            outer: .init(left: 20, bottom: 18, top: 24, right: 30)
+        )
+
+        XCTAssertEqual(main.visibleRectPaddedByOuterGaps.topLeftX, 72)
+        XCTAssertEqual(main.visibleRectPaddedByOuterGaps.topLeftY, 24)
+        XCTAssertEqual(main.visibleRectPaddedByOuterGaps.width, 1818)
+        XCTAssertEqual(main.visibleRectPaddedByOuterGaps.height, 1038)
+    }
+
 }

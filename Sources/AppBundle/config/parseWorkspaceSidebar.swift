@@ -63,6 +63,13 @@ private let workspaceSidebarWidgetParser: [String: any ParserProtocol<WorkspaceS
             .filter(.semantic(backtrace, "Must not be empty")) { !$0.isEmpty }
             .map { Optional($0) }
     },
+    "target-date": Parser(\.targetDate) { raw, backtrace in
+        parseString(raw, backtrace)
+            .filter(.semantic(backtrace, "Must be YYYY-MM-DD")) { rawValue in
+                workspaceSidebarDateFormatter.date(from: rawValue) != nil
+            }
+            .map { Optional($0) }
+    },
     "days": Parser(\.days) { raw, backtrace in
         parseInt(raw, backtrace)
             .filter(.semantic(backtrace, "Must be greater than 0")) { $0 > 0 }
@@ -127,7 +134,10 @@ private func parseWorkspaceSidebarWidgets(
                 if widget.days != nil {
                     errors.append(.semantic(widgetBacktrace + .key("days"), "Only data widgets can specify days"))
                 }
-            case .builtInTogglDays, .builtInTogglProjects:
+                if widget.targetDate != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("target-date"), "Only target-date widgets can specify target-date"))
+                }
+            case .builtInTogglWeeklyFocus, .builtInTogglWeekFocus:
                 if widget.bundle != nil {
                     errors.append(.semantic(widgetBacktrace + .key("bundle"), "Only plugin widgets can specify bundle"))
                 }
@@ -139,6 +149,9 @@ private func parseWorkspaceSidebarWidgets(
                 }
                 if widget.deviationPath != nil {
                     errors.append(.semantic(widgetBacktrace + .key("deviation-path"), "Only schedule heatmap widgets can specify deviation-path"))
+                }
+                if widget.days != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("days"), "Toggl weekly focus uses target-date"))
                 }
             case .builtInSpendingCategories:
                 if widget.bundle != nil {
@@ -153,12 +166,18 @@ private func parseWorkspaceSidebarWidgets(
                 if widget.deviationPath != nil {
                     errors.append(.semantic(widgetBacktrace + .key("deviation-path"), "Only schedule heatmap widgets can specify deviation-path"))
                 }
+                if widget.targetDate != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("target-date"), "Only target-date widgets can specify target-date"))
+                }
             case .builtInScheduleHeatmap:
                 if widget.bundle != nil {
                     errors.append(.semantic(widgetBacktrace + .key("bundle"), "Only plugin widgets can specify bundle"))
                 }
                 if widget.entriesPath != nil {
                     errors.append(.semantic(widgetBacktrace + .key("entries-path"), "Schedule heatmap widgets use toggl-entries-path"))
+                }
+                if widget.targetDate != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("target-date"), "Only target-date widgets can specify target-date"))
                 }
             case .plugin:
                 if widget.bundle?.isEmpty != false {
@@ -180,10 +199,21 @@ private func parseWorkspaceSidebarWidgets(
                 if widget.days != nil {
                     errors.append(.semantic(widgetBacktrace + .key("days"), "Only data widgets can specify days"))
                 }
+                if widget.targetDate != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("target-date"), "Only target-date widgets can specify target-date"))
+                }
         }
         return widget
     }
 }
+
+private let workspaceSidebarDateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.dateFormat = "yyyy-MM-dd"
+    return formatter
+}()
 
 private func parseWorkspaceSidebarWidgetType(
     _ raw: TOMLValueConvertible,

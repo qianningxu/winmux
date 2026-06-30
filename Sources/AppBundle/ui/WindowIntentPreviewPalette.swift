@@ -11,6 +11,6 @@ enum WindowIntentPreviewPalette {
     }
 
     static func gridSymbol(isActive: Bool) -> Color {
-        Color.white.opacity(isActive ? 1.0 : 0.7)
+        winMuxOverlayForeground(isActive ? 1.0 : 0.7)
     }
 }

@@ -31,7 +31,7 @@ struct WindowDropIntentOverlayView: View {
     }
 
     private var cornerRadius: CGFloat {
-        model.cornerRadius ?? min(max(min(model.targetFrame.width, model.targetFrame.height) * 0.018, 10), 14)
+        model.cornerRadius ?? min(max(min(model.targetFrame.width, model.targetFrame.height) * 0.022, 12), 18)
     }
 
     private var localZones: [WindowIntentZone] {

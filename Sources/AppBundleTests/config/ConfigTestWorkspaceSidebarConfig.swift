@@ -83,6 +83,43 @@ extension ConfigTest {
         ])
     }
 
+    func testWorkspaceSidebarDoesNotRequireThemeConfig() {
+        let (parsed, errors) = parseConfig(
+            """
+            [workspace-sidebar]
+                enabled = true
+                menu-bar-reserve-height = 0
+            """,
+        )
+
+        assertEquals(errors, [])
+        XCTAssertTrue(parsed.workspaceSidebar.enabled)
+        XCTAssertEqual(parsed.workspaceSidebar.menuBarReserveHeight, 0)
+    }
+
+    func testParseWindowTabLabels() {
+        let (parsed, errors) = parseConfig(
+            """
+            [window-tabs.tab-labels]
+                "com.example.App|Docs" = "Build"
+            """,
+        )
+
+        assertEquals(errors, [])
+        XCTAssertEqual(parsed.windowTabs.tabLabels, ["com.example.App|Docs": "Build"])
+
+        let (_, labelErrors) = parseConfig(
+            """
+            [window-tabs.tab-labels]
+                "com.example.App|Docs" = 42
+            """,
+        )
+
+        assertEquals(labelErrors.descriptions, [
+            "window-tabs.tab-labels.com.example.App|Docs: Expected type is 'string'. But actual type is 'integer'",
+        ])
+    }
+
     @MainActor
     func testParseWorkspaceSidebarWidgets() {
         let (parsed, errors) = parseConfig(
@@ -90,10 +127,10 @@ extension ConfigTest {
             [workspace-sidebar]
                 widgets = [
                     { id = 'time-date', type = 'built-in/time-date', enabled = true, show-date = false },
-                    { id = 'toggl-days', type = 'built-in/toggl-days', enabled = true, entries-path = '/tmp/toggl/entries', days = 7, rotation-group = 'focus', rotation-interval-seconds = 300 },
-                    { id = 'toggl-projects', type = 'built-in/toggl-projects', enabled = true, entries-path = '/tmp/toggl/entries', days = 7 },
-                    { id = 'spending-categories', type = 'built-in/spending-categories', enabled = true, entries-path = '/tmp/spending', days = 30 },
-                    { id = 'schedule-heatmap', type = 'built-in/schedule-heatmap', enabled = true, schedule-path = '/tmp/schedule', toggl-entries-path = '/tmp/toggl/entries', deviation-path = '/tmp/deviation', days = 7, rotation-group = 'focus', rotation-interval-seconds = 300 },
+                    { id = 'schedule-heatmap', type = 'built-in/schedule-heatmap', enabled = true, schedule-path = '/tmp/schedule', toggl-entries-path = '/tmp/toggl/entries', deviation-path = '/tmp/deviation', days = 7 },
+                    { id = 'toggl-weekly-focus', type = 'built-in/toggl-weekly-focus', enabled = true, entries-path = '/tmp/toggl/entries', target-date = '2026-09-13' },
+                    { id = 'toggl-week-focus', type = 'built-in/toggl-week-focus', enabled = true, entries-path = '/tmp/toggl/entries', target-date = '2026-09-13' },
+                    { id = 'spending-categories', type = 'built-in/spending-categories', enabled = true, entries-path = '/tmp/spending', days = 28, rotation-group = 'focus' },
                     { id = 'custom', type = 'plugin', enabled = false, bundle = 'CustomWidget.bundle' },
                 ]
             """,
@@ -107,32 +144,6 @@ extension ConfigTest {
                 showDate: false,
             ),
             WorkspaceSidebarWidgetConfig(
-                id: "toggl-days",
-                type: .builtInTogglDays,
-                enabled: true,
-                showDate: true,
-                entriesPath: "/tmp/toggl/entries",
-                days: 7,
-                rotationGroup: "focus",
-                rotationIntervalSeconds: 300,
-            ),
-            WorkspaceSidebarWidgetConfig(
-                id: "toggl-projects",
-                type: .builtInTogglProjects,
-                enabled: true,
-                showDate: true,
-                entriesPath: "/tmp/toggl/entries",
-                days: 7,
-            ),
-            WorkspaceSidebarWidgetConfig(
-                id: "spending-categories",
-                type: .builtInSpendingCategories,
-                enabled: true,
-                showDate: true,
-                entriesPath: "/tmp/spending",
-                days: 30,
-            ),
-            WorkspaceSidebarWidgetConfig(
                 id: "schedule-heatmap",
                 type: .builtInScheduleHeatmap,
                 enabled: true,
@@ -141,8 +152,31 @@ extension ConfigTest {
                 togglEntriesPath: "/tmp/toggl/entries",
                 deviationPath: "/tmp/deviation",
                 days: 7,
+            ),
+            WorkspaceSidebarWidgetConfig(
+                id: "toggl-weekly-focus",
+                type: .builtInTogglWeeklyFocus,
+                enabled: true,
+                showDate: true,
+                entriesPath: "/tmp/toggl/entries",
+                targetDate: "2026-09-13",
+            ),
+            WorkspaceSidebarWidgetConfig(
+                id: "toggl-week-focus",
+                type: .builtInTogglWeekFocus,
+                enabled: true,
+                showDate: true,
+                entriesPath: "/tmp/toggl/entries",
+                targetDate: "2026-09-13",
+            ),
+            WorkspaceSidebarWidgetConfig(
+                id: "spending-categories",
+                type: .builtInSpendingCategories,
+                enabled: true,
+                showDate: true,
+                entriesPath: "/tmp/spending",
+                days: 28,
                 rotationGroup: "focus",
-                rotationIntervalSeconds: 300,
             ),
             WorkspaceSidebarWidgetConfig(
                 id: "custom",
@@ -177,24 +211,27 @@ extension ConfigTest {
                     { id = 'time-date', type = 'built-in/time-date', bundle = 'Nope.bundle' },
                     { id = 'time-date', type = 'plugin' },
                     { id = 'unknown', type = 'built-in/nope' },
-                    { id = 'wrong-fields', type = 'plugin', bundle = 'CustomWidget.bundle', entries-path = '/tmp/toggl/entries', schedule-path = '/tmp/schedule', toggl-entries-path = '/tmp/toggl/entries', deviation-path = '/tmp/deviation', days = 7 },
-                    { id = 'bad-days', type = 'built-in/toggl-projects', days = 0 },
+                    { id = 'wrong-fields', type = 'plugin', bundle = 'CustomWidget.bundle', entries-path = '/tmp/toggl/entries', schedule-path = '/tmp/schedule', toggl-entries-path = '/tmp/toggl/entries', deviation-path = '/tmp/deviation', target-date = '2026-09-13', days = 7 },
+                    { id = 'bad-days', type = 'built-in/spending-categories', days = 0 },
                     { id = 'wrong-schedule-fields', type = 'built-in/schedule-heatmap', bundle = 'Nope.bundle', entries-path = '/tmp/toggl/entries' },
+                    { id = 'bad-target-date', type = 'built-in/toggl-weekly-focus', target-date = '13-09-2026' },
                 ]
             """,
         )
         assertEquals(errors.descriptions, [
             "workspace-sidebar.widgets[0].bundle: Only plugin widgets can specify bundle",
             "workspace-sidebar.widgets[1].id: Duplicate widget id 'time-date'",
-            "workspace-sidebar.widgets[2].type: Possible values: built-in/time-date, built-in/toggl-days, built-in/toggl-projects, built-in/spending-categories, built-in/schedule-heatmap, plugin",
+            "workspace-sidebar.widgets[2].type: Possible values: built-in/time-date, built-in/toggl-weekly-focus, built-in/toggl-week-focus, built-in/spending-categories, built-in/schedule-heatmap, plugin",
             "workspace-sidebar.widgets[3].entries-path: Only data widgets can specify entries-path",
             "workspace-sidebar.widgets[3].schedule-path: Only schedule heatmap widgets can specify schedule-path",
             "workspace-sidebar.widgets[3].toggl-entries-path: Only schedule heatmap widgets can specify toggl-entries-path",
             "workspace-sidebar.widgets[3].deviation-path: Only schedule heatmap widgets can specify deviation-path",
             "workspace-sidebar.widgets[3].days: Only data widgets can specify days",
+            "workspace-sidebar.widgets[3].target-date: Only target-date widgets can specify target-date",
             "workspace-sidebar.widgets[4].days: Must be greater than 0",
             "workspace-sidebar.widgets[5].bundle: Only plugin widgets can specify bundle",
             "workspace-sidebar.widgets[5].entries-path: Schedule heatmap widgets use toggl-entries-path",
+            "workspace-sidebar.widgets[6].target-date: Must be YYYY-MM-DD",
         ])
     }
 
@@ -208,10 +245,10 @@ extension ConfigTest {
             [workspace-sidebar]
                 widgets = [
                     { id = 'time-date', type = 'built-in/time-date', enabled = true, show-date = true },
-                    { id = 'toggl-days', type = 'built-in/toggl-days', enabled = true, entries-path = '/tmp/toggl/entries', days = 7, rotation-group = 'focus', rotation-interval-seconds = 300 },
-                    { id = 'toggl-projects', type = 'built-in/toggl-projects', enabled = true, entries-path = '/tmp/toggl/entries', days = 7 },
-                    { id = 'spending-categories', type = 'built-in/spending-categories', enabled = true, entries-path = '/tmp/spending', days = 30 },
-                    { id = 'schedule-heatmap', type = 'built-in/schedule-heatmap', enabled = true, schedule-path = '/tmp/schedule', toggl-entries-path = '/tmp/toggl/entries', deviation-path = '/tmp/deviation', days = 7, rotation-group = 'focus', rotation-interval-seconds = 300 },
+                    { id = 'schedule-heatmap', type = 'built-in/schedule-heatmap', enabled = true, schedule-path = '/tmp/schedule', toggl-entries-path = '/tmp/toggl/entries', deviation-path = '/tmp/deviation', days = 7 },
+                    { id = 'toggl-weekly-focus', type = 'built-in/toggl-weekly-focus', enabled = true, entries-path = '/tmp/toggl/entries', target-date = '2026-09-13' },
+                    { id = 'toggl-week-focus', type = 'built-in/toggl-week-focus', enabled = true, entries-path = '/tmp/toggl/entries', target-date = '2026-09-13' },
+                    { id = 'spending-categories', type = 'built-in/spending-categories', enabled = true, entries-path = '/tmp/spending', days = 28, rotation-group = 'focus' },
                     { id = 'custom', type = 'plugin', enabled = false, bundle = 'CustomWidget.bundle' },
                 ]
             """,
@@ -225,25 +262,29 @@ extension ConfigTest {
         XCTAssertTrue(json.contains("\"workspace-sidebar\""))
         XCTAssertTrue(json.contains("\"widgets\""))
         XCTAssertTrue(json.contains("\"time-date\""))
-        XCTAssertTrue(json.contains("\"toggl-days\""))
-        XCTAssertTrue(json.contains("\"toggl-projects\""))
         XCTAssertTrue(json.contains("\"/tmp/toggl/entries\""))
+        XCTAssertTrue(json.contains("\"toggl-weekly-focus\""))
+        XCTAssertTrue(json.contains("\"toggl-week-focus\""))
         XCTAssertTrue(json.contains("\"spending-categories\""))
         XCTAssertTrue(json.contains("\"/tmp/spending\""))
         XCTAssertTrue(json.contains("\"schedule-heatmap\""))
         XCTAssertTrue(json.contains("\"/tmp/schedule\""))
         XCTAssertTrue(json.contains("\"/tmp/deviation\""))
+        XCTAssertTrue(json.contains("\"target-date\""))
         XCTAssertTrue(json.contains("\"rotation-group\""))
-        XCTAssertTrue(json.contains("\"rotation-interval-seconds\""))
-        XCTAssertTrue(json.contains("\"focus\""))
+        XCTAssertFalse(json.contains("\"rotation-interval-seconds\""))
         XCTAssertTrue(json.contains("\"CustomWidget.bundle\""))
         assertEquals(
             try? configMap.find(keyPath: ["workspace-sidebar", "widgets", "3", "enabled"].slice).get(),
             .scalar(.bool(true)),
         )
         assertEquals(
-            try? configMap.find(keyPath: ["workspace-sidebar", "widgets", "4", "enabled"].slice).get(),
-            .scalar(.bool(true)),
+            try? configMap.find(keyPath: ["workspace-sidebar", "widgets", "2", "target-date"].slice).get(),
+            .scalar(.string("2026-09-13")),
+        )
+        assertEquals(
+            try? configMap.find(keyPath: ["workspace-sidebar", "widgets", "4", "rotation-group"].slice).get(),
+            .scalar(.string("focus")),
         )
         assertEquals(
             try? configMap.find(keyPath: ["workspace-sidebar", "widgets", "5", "enabled"].slice).get(),

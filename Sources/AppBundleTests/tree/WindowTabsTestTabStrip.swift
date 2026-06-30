@@ -209,6 +209,56 @@ import XCTest
         XCTAssertEqual(tabGroup.children.compactMap { ($0 as? Window)?.windowId }, [first.windowId, third.windowId, second.windowId])
     }
 
+    @MainActor
+    func testWindowTabAliasResolutionAndReset() async throws {
+        setUpWorkspacesForTests()
+        let workspace = Workspace.get(byName: "tabs")
+        let window = TestWindow.new(id: 41, parent: workspace.rootTilingContainer)
+        let key = windowTabLabelKey(app: window.app, rawTitle: window.description)
+
+        let fallbackTitle = await tabDisplayTitle(for: window)
+        XCTAssertEqual(fallbackTitle, window.description)
+
+        config.windowTabs.tabLabels[key] = "Persisted"
+        let persistedTitle = await tabDisplayTitle(for: window)
+        XCTAssertEqual(persistedTitle, "Persisted")
+
+        try await renameWindowTab(windowId: window.windowId, displayName: "Session")
+        let sessionTitle = await tabDisplayTitle(for: window)
+        XCTAssertEqual(sessionTitle, "Session")
+        XCTAssertEqual(config.windowTabs.tabLabels[key], "Session")
+
+        try await renameWindowTab(windowId: window.windowId, displayName: "   ")
+        let resetTitle = await tabDisplayTitle(for: window)
+        XCTAssertEqual(resetTitle, window.description)
+        XCTAssertNil(config.windowTabs.tabLabels[key])
+    }
+
+    @MainActor
+    func testWindowTabAliasesAppearInTabStripAndSidebarModels() async throws {
+        setUpWorkspacesForTests()
+        let workspace = Workspace.get(byName: "tabs")
+        let tabGroup = TilingContainer(parent: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, .v, .tabGroup, index: INDEX_BIND_LAST)
+        let first = TestWindow.new(id: 51, parent: tabGroup)
+        _ = TestWindow.new(id: 52, parent: tabGroup)
+        tabGroup.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 0, topLeftY: 0, width: 500, height: 300)
+        XCTAssertTrue(workspace.focusWorkspace())
+        XCTAssertTrue(first.focusWindow())
+
+        try await renameWindowTab(windowId: first.windowId, displayName: "Docs")
+
+        let strips = await buildWindowTabStripViewModelsFromChromeItems()
+        XCTAssertEqual(strips.singleOrNil()?.tabs.first(where: { $0.windowId == first.windowId })?.title, "Docs")
+
+        let sidebarGroup = await makeWorkspaceSidebarTabGroupViewModel(
+            for: tabGroup,
+            workspaceName: workspace.name,
+            currentFocus: focus,
+        )
+        XCTAssertEqual(sidebarGroup?.title, "Docs")
+        XCTAssertEqual(sidebarGroup?.tabs.first?.title, "Docs")
+    }
+
     func testCompositedGroupPreviewOnlyRunsForTabStripOriginatedGroupDrags() {
         XCTAssertTrue(shouldShowCompositedGroupMovePreview(
             subject: .group,
@@ -237,10 +287,15 @@ import XCTest
         XCTAssertEqual(windowTabStripScrollViewportWidth(stripWidth: stripWidth), expectedViewportWidth)
         XCTAssertEqual(windowTabStripAvailableTabsWidth(stripWidth: stripWidth), expectedTabsWidth)
         XCTAssertEqual(windowTabStripTabWidth(stripWidth: stripWidth, count: 1), 240)
-        XCTAssertEqual(windowTabStripTabWidth(stripWidth: stripWidth, count: 2), 132)
+        let twoTabWidth = floor(
+            (
+                expectedTabsWidth - windowTabStripTabSpacing
+            ) / 2
+        )
+        XCTAssertEqual(windowTabStripTabWidth(stripWidth: stripWidth, count: 2), twoTabWidth)
         XCTAssertEqual(windowTabStripTabWidth(stripWidth: stripWidth, count: 3), windowTabStripMinimumTabWidth)
         XCTAssertLessThanOrEqual(
-            CGFloat(2) * windowTabStripTabWidth(stripWidth: stripWidth, count: 2)
+            CGFloat(2) * twoTabWidth
                 + windowTabStripTabSpacing
                 + windowTabStripContentPadding() * 2,
             windowTabStripScrollViewportWidth(stripWidth: stripWidth)

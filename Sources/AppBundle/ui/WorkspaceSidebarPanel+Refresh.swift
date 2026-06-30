@@ -9,6 +9,7 @@ extension WorkspaceSidebarPanel {
         guard let layout = currentSidebarPanelLayout(on: monitor) else {
             stopHoverMonitoring()
             resetHiddenSidebarState()
+            WorkspaceCanvasBackgroundPanel.hideAll()
             return
         }
 

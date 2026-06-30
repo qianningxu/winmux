@@ -1,7 +1,6 @@
 import Foundation
 import SwiftUI
 
-private let scheduleHeatmapThemeColor = Color.white
 private let scheduleHeatmapFulfilledColor = Color(red: 0x7B / 255, green: 0xD8 / 255, blue: 0x8F / 255)
 private let scheduleHeatmapReflectedColor = Color(red: 0xF4 / 255, green: 0xC9 / 255, blue: 0x5D / 255)
 private let scheduleHeatmapUnfulfilledColor = Color(red: 0xE7 / 255, green: 0x6F / 255, blue: 0x6F / 255)
@@ -97,6 +96,19 @@ struct ScheduleHeatmapAggregator: Sendable {
         }
 
         let fileManager = FileManager.default
+        let deviationLookup = makeDeviationLookup(fileManager: fileManager)
+        if let scheduleSqliteURL = SidebarSelfDataStore.sqliteURL(for: scheduleDirectory),
+           let togglSqliteURL = SidebarSelfDataStore.sqliteURL(for: togglEntriesDirectory)
+        {
+            return loadFromSelfData(
+                scheduleSqliteURL: scheduleSqliteURL,
+                togglSqliteURL: togglSqliteURL,
+                deviationLookup: deviationLookup,
+                fileManager: fileManager,
+                now: now,
+            )
+        }
+
         guard Self.directoryExists(scheduleDirectory, fileManager: fileManager) else {
             return ScheduleHeatmapSnapshot(errorMessage: "Can't read schedules")
         }
@@ -126,15 +138,9 @@ struct ScheduleHeatmapAggregator: Sendable {
             return ScheduleHeatmapSnapshot(errorMessage: "Can't read Toggl entries")
         }
 
-        var calendar = Calendar.current
-        calendar.locale = Locale.current
-        let todayStart = calendar.startOfDay(for: now)
-        guard let windowStart = calendar.date(byAdding: .day, value: -(days - 1), to: todayStart) else {
+        let calendar = Self.scheduleCalendar()
+        guard let dayStarts = Self.currentWeekDayStarts(now: now, calendar: calendar) else {
             return ScheduleHeatmapSnapshot(errorMessage: "Invalid schedule window")
-        }
-
-        let dayStarts = (0 ..< days).compactMap { offset in
-            calendar.date(byAdding: .day, value: offset, to: windowStart)
         }
         var cellsByDay = Dictionary(uniqueKeysWithValues: dayStarts.map { ($0, [ScheduleHeatmapCell]()) })
 
@@ -143,7 +149,6 @@ struct ScheduleHeatmapAggregator: Sendable {
         let togglEntries = togglEntryUrls
             .filter { $0.pathExtension == "md" }
             .compactMap { ScheduleHeatmapTogglEntry.parse(url: $0, formatter: togglFormatter, now: now) }
-        let hasDeviationDirectory = Self.directoryExists(deviationDirectory, fileManager: fileManager)
         var scannedScheduleCount = 0
 
         for url in scheduleUrls where url.pathExtension == "md" {
@@ -161,9 +166,7 @@ struct ScheduleHeatmapAggregator: Sendable {
             let status: ScheduleHeatmapStatus
             if coveredSeconds / durationSeconds >= 0.8 {
                 status = .fulfilled
-            } else if hasDeviationDirectory,
-                      fileManager.fileExists(atPath: deviationDirectory.appending(component: "\(schedule.identity).md").path)
-            {
+            } else if deviationLookup.contains(identity: schedule.identity, fileManager: fileManager) {
                 status = .reflected
             } else {
                 status = .unfulfilled
@@ -182,7 +185,7 @@ struct ScheduleHeatmapAggregator: Sendable {
             ))
         }
 
-        let heatmapDays = dayStarts.reversed().map { dayStart in
+        let heatmapDays = dayStarts.map { dayStart in
             ScheduleHeatmapDay(
                 date: dayStart,
                 cells: (cellsByDay[dayStart] ?? []).sorted { lhs, rhs in
@@ -206,9 +209,141 @@ struct ScheduleHeatmapAggregator: Sendable {
         )
     }
 
+    private func loadFromSelfData(
+        scheduleSqliteURL: URL,
+        togglSqliteURL: URL,
+        deviationLookup: ScheduleHeatmapDeviationLookup,
+        fileManager: FileManager,
+        now: Date,
+    ) -> ScheduleHeatmapSnapshot {
+        guard let schedules = SidebarSelfDataStore.loadScheduleBlocks(from: scheduleSqliteURL) else {
+            return ScheduleHeatmapSnapshot(errorMessage: "Can't read schedules")
+        }
+        guard let entries = SidebarSelfDataStore.loadTimeEntries(from: togglSqliteURL, now: now) else {
+            return ScheduleHeatmapSnapshot(errorMessage: "Can't read Toggl entries")
+        }
+
+        return summarize(
+            schedules: schedules.map {
+                ScheduleHeatmapSchedule(
+                    identity: $0.identity,
+                    fileDate: $0.fileDate,
+                    sessionNumber: $0.sessionNumber,
+                    sessionName: $0.sessionName,
+                    from: $0.from,
+                    to: $0.to,
+                    isDone: $0.done,
+                )
+            },
+            togglEntries: entries.map { ScheduleHeatmapTogglEntry(start: $0.start, stop: $0.stop) },
+            deviationLookup: deviationLookup,
+            fileManager: fileManager,
+            now: now,
+        )
+    }
+
+    private func summarize(
+        schedules: [ScheduleHeatmapSchedule],
+        togglEntries: [ScheduleHeatmapTogglEntry],
+        deviationLookup: ScheduleHeatmapDeviationLookup,
+        fileManager: FileManager,
+        now: Date,
+    ) -> ScheduleHeatmapSnapshot {
+        let calendar = Self.scheduleCalendar()
+        guard let dayStarts = Self.currentWeekDayStarts(now: now, calendar: calendar) else {
+            return ScheduleHeatmapSnapshot(errorMessage: "Invalid schedule window")
+        }
+        var cellsByDay = Dictionary(uniqueKeysWithValues: dayStarts.map { ($0, [ScheduleHeatmapCell]()) })
+
+        for schedule in schedules {
+            let dayStart = calendar.startOfDay(for: schedule.fileDate)
+            guard cellsByDay[dayStart] != nil else { continue }
+            guard schedule.to <= now else { continue }
+
+            let coveredSeconds = Self.coveredSeconds(for: schedule, by: togglEntries)
+            let durationSeconds = schedule.to.timeIntervalSince(schedule.from)
+            guard durationSeconds > 0 else { continue }
+
+            let status: ScheduleHeatmapStatus
+            if schedule.isDone || coveredSeconds / durationSeconds >= 0.8 {
+                status = .fulfilled
+            } else if deviationLookup.contains(identity: schedule.identity, fileManager: fileManager) {
+                status = .reflected
+            } else {
+                status = .unfulfilled
+            }
+
+            cellsByDay[dayStart, default: []].append(ScheduleHeatmapCell(
+                identity: schedule.identity,
+                date: dayStart,
+                sessionNumber: schedule.sessionNumber,
+                sessionName: schedule.sessionName,
+                from: schedule.from,
+                to: schedule.to,
+                status: status,
+                coveredSeconds: coveredSeconds,
+                durationSeconds: durationSeconds,
+            ))
+        }
+
+        let heatmapDays = dayStarts.map { dayStart in
+            ScheduleHeatmapDay(
+                date: dayStart,
+                cells: (cellsByDay[dayStart] ?? []).sorted { lhs, rhs in
+                    if lhs.sessionNumber != rhs.sessionNumber {
+                        return lhs.sessionNumber < rhs.sessionNumber
+                    }
+                    return lhs.from < rhs.from
+                },
+            )
+        }
+        let cells = heatmapDays.flatMap(\.cells)
+
+        return ScheduleHeatmapSnapshot(
+            days: heatmapDays,
+            fulfilledCount: cells.filter { $0.status == .fulfilled }.count,
+            reflectedCount: cells.filter { $0.status == .reflected }.count,
+            unfulfilledCount: cells.filter { $0.status == .unfulfilled }.count,
+            scannedScheduleCount: schedules.count,
+            scannedTogglEntryCount: togglEntries.count,
+            errorMessage: nil,
+        )
+    }
+
     private static func directoryExists(_ url: URL, fileManager: FileManager) -> Bool {
         var isDirectory: ObjCBool = false
         return fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue
+    }
+
+    private func makeDeviationLookup(fileManager: FileManager) -> ScheduleHeatmapDeviationLookup {
+        var directories: [URL] = []
+        if Self.directoryExists(deviationDirectory, fileManager: fileManager) {
+            directories.append(deviationDirectory)
+        }
+
+        let nestedDeviationDirectory = deviationDirectory.appending(component: "Deviation", directoryHint: .isDirectory)
+        if Self.directoryExists(nestedDeviationDirectory, fileManager: fileManager) {
+            directories.append(nestedDeviationDirectory)
+        }
+
+        return ScheduleHeatmapDeviationLookup(directories: directories)
+    }
+
+    private static func scheduleCalendar() -> Calendar {
+        var calendar = Calendar(identifier: .iso8601)
+        calendar.timeZone = .current
+        calendar.locale = Locale.current
+        return calendar
+    }
+
+    private static func currentWeekDayStarts(now: Date, calendar: Calendar) -> [Date]? {
+        guard let weekStart = calendar.dateInterval(of: .weekOfYear, for: now)?.start else {
+            return nil
+        }
+        let days = calendar.range(of: .weekday, in: .weekOfYear, for: now)?.count ?? 7
+        return (0 ..< days).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset, to: weekStart)
+        }
     }
 
     private static func coveredSeconds(
@@ -248,6 +383,16 @@ struct ScheduleHeatmapAggregator: Sendable {
     }
 }
 
+private struct ScheduleHeatmapDeviationLookup: Sendable {
+    let directories: [URL]
+
+    func contains(identity: String, fileManager: FileManager) -> Bool {
+        directories.contains { directory in
+            fileManager.fileExists(atPath: directory.appending(component: "\(identity).md").path)
+        }
+    }
+}
+
 private struct ScheduleHeatmapDateInterval {
     let start: Date
     let end: Date
@@ -260,6 +405,7 @@ private struct ScheduleHeatmapSchedule {
     let sessionName: String
     let from: Date
     let to: Date
+    var isDone: Bool = false
 
     static func parse(url: URL, formatters: ScheduleHeatmapScheduleFormatters) -> ScheduleHeatmapSchedule? {
         let identity = url.deletingPathExtension().lastPathComponent
@@ -397,30 +543,34 @@ private struct WorkspaceSidebarCompactScheduleHeatmapCard: View {
     let days: Int
 
     var body: some View {
-        VStack(alignment: .center, spacing: 5) {
-            Image(systemName: "calendar")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(scheduleHeatmapThemeColor.opacity(0.86))
-
+        VStack(alignment: .center, spacing: 7) {
+            ScheduleHeatmapIcon()
+                .frame(width: 18, height: 18)
+                .foregroundStyle(winMuxOverlayForeground(0.78))
+                .padding(6)
+                .background {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(winMuxOverlayContrastingFill(darkOpacity: 0.16, lightOpacity: 0.10))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .strokeBorder(winMuxOverlayContrastingFill(darkOpacity: 0.24, lightOpacity: 0.18), lineWidth: 1)
+                        }
+                }
             if snapshot.errorMessage == nil {
-                ScheduleHeatmapCompactRates(snapshot: snapshot)
-
-                ScheduleHeatmapGrid(
-                    days: snapshot.days,
-                    showsLabels: false,
-                    cellHeight: 4,
-                    columnSpacing: 2,
-                    rowSpacing: 2,
-                )
-                .frame(width: max(0, sectionWidth - 12), height: 34)
+                Text(scheduleHeatmapPercentText(snapshot.fulfilledCount, of: snapshot.totalCount))
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(compactPercentColor.opacity(0.94))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             } else {
                 Text("!")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(0.42))
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(winMuxOverlayForeground(0.90))
                     .lineLimit(1)
             }
         }
-        .frame(width: sectionWidth, height: 92, alignment: .center)
+        .frame(width: sectionWidth, height: 96, alignment: .center)
         .background(WorkspaceSidebarStatusCardBackground())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(accessibilitySummary))
@@ -430,7 +580,20 @@ private struct WorkspaceSidebarCompactScheduleHeatmapCard: View {
         if let errorMessage = snapshot.errorMessage {
             return errorMessage
         }
-        return "Schedule, \(scheduleHeatmapPercentText(snapshot.fulfilledCount, of: snapshot.totalCount)) done, \(scheduleHeatmapPercentText(snapshot.reflectedCount, of: snapshot.totalCount)) reflected, \(scheduleHeatmapPercentText(snapshot.unfulfilledCount, of: snapshot.totalCount)) missed in the last \(days) days"
+        return "Schedule, \(scheduleHeatmapPercentText(snapshot.fulfilledCount, of: snapshot.totalCount)) done, \(scheduleHeatmapPercentText(snapshot.reflectedCount, of: snapshot.totalCount)) reflected, \(scheduleHeatmapPercentText(snapshot.unfulfilledCount, of: snapshot.totalCount)) missed this week"
+    }
+
+    private var compactPercentColor: Color {
+        let ratio = snapshot.totalCount > 0
+            ? Double(snapshot.fulfilledCount) / Double(snapshot.totalCount)
+            : 0
+        if ratio > 0.75 {
+            return scheduleHeatmapFulfilledColor
+        }
+        if ratio >= 0.5 {
+            return scheduleHeatmapReflectedColor
+        }
+        return scheduleHeatmapUnfulfilledColor
     }
 }
 
@@ -442,9 +605,13 @@ private struct WorkspaceSidebarExpandedScheduleHeatmapCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Label("Schedule", systemImage: "calendar")
+                HStack(spacing: 6) {
+                    ScheduleHeatmapIcon()
+                        .frame(width: 13, height: 13)
+                    Text("Schedule")
+                }
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(scheduleHeatmapThemeColor.opacity(0.88))
+                    .foregroundStyle(winMuxOverlayForeground(0.82))
 
                 Spacer(minLength: 8)
 
@@ -456,13 +623,13 @@ private struct WorkspaceSidebarExpandedScheduleHeatmapCard: View {
             if let errorMessage = snapshot.errorMessage {
                 Text(errorMessage)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.58))
+                    .foregroundStyle(winMuxOverlayMutedForeground(0.80))
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if snapshot.totalCount == 0 {
                 Text("No completed sessions")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.52))
+                    .foregroundStyle(winMuxOverlayMutedForeground(0.76))
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 ScheduleHeatmapGrid(
@@ -502,7 +669,7 @@ private struct ScheduleHeatmapGrid: View {
                     if showsLabels {
                         Text(scheduleHeatmapWeekdayText(day.date))
                             .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(Color.white.opacity(0.36))
+                            .foregroundStyle(winMuxOverlayMutedForeground(0.58))
                             .lineLimit(1)
                             .frame(height: 12)
                     }
@@ -531,7 +698,7 @@ private struct ScheduleHeatmapStatusCell: View {
             .fill(color.opacity(0.82))
             .overlay {
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.10), lineWidth: 0.5)
+                    .strokeBorder(winMuxOverlayContrastingFill(darkOpacity: 0.10, lightOpacity: 0.12), lineWidth: 0.5)
             }
             .frame(height: height)
             .help(helpText)
@@ -631,6 +798,33 @@ private struct ScheduleHeatmapInlineRateText: View {
             .foregroundStyle(color.opacity(0.94))
             .lineLimit(1)
             .minimumScaleFactor(0.78)
+    }
+}
+
+private struct ScheduleHeatmapIcon: View {
+    var body: some View {
+        Canvas { context, size in
+            let cellSize = min(size.width, size.height) * 0.22
+            let gap = min(size.width, size.height) * 0.09
+            let originX = (size.width - (cellSize * 3 + gap * 2)) / 2
+            let originY = (size.height - (cellSize * 3 + gap * 2)) / 2
+            let opacities: [Double] = [1.0, 0.72, 0.52, 0.88, 0.64, 0.40, 0.56, 0.36, 0.24]
+
+            for row in 0 ..< 3 {
+                for column in 0 ..< 3 {
+                    let index = row * 3 + column
+                    let rect = CGRect(
+                        x: originX + CGFloat(column) * (cellSize + gap),
+                        y: originY + CGFloat(row) * (cellSize + gap),
+                        width: cellSize,
+                        height: cellSize,
+                    )
+                    let path = Path(roundedRect: rect, cornerRadius: max(1, cellSize * 0.22))
+                    context.opacity = opacities[index]
+                    context.fill(path, with: .foreground)
+                }
+            }
+        }
     }
 }
 

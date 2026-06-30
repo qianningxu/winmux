@@ -25,7 +25,7 @@ public final class TrayMenuModel: ObservableObject {
     @Published var windowTabReentryPreview: WindowTabPendingReorderDrop? = nil
     @Published var isWorkspaceSidebarExpanded: Bool = false
     @Published var workspaceSidebarVisibleWidth: CGFloat = 0
-    @Published var workspaceSidebarTopPadding: CGFloat = 12
+    @Published var workspaceSidebarTopPadding: CGFloat = 8
     @Published var workspaceSidebarHoveredWorkspaceName: String? = nil
     @Published var experimentalUISettings: ExperimentalUISettings = ExperimentalUISettings()
 

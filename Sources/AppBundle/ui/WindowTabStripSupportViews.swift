@@ -31,12 +31,15 @@ struct WindowTabStripScrollContentFramePreferenceKey: PreferenceKey {
 struct WindowTabGroupHandleView: View {
     let windowId: UInt32?
     let workspaceName: String
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     var body: some View {
         VStack(spacing: 2.5) {
             ForEach(0..<2, id: \.self) { _ in
                 Capsule(style: .continuous)
-                    .fill(Color.white.opacity(0.22))
+                    .fill(palette.foreground(0.22))
                     .frame(width: 9, height: 1.5)
             }
         }

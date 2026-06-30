@@ -108,7 +108,7 @@ private func workspaceSidebarSnapshotForTopFilterBar(
         configuration: WorkspaceSidebarConfiguration(
             collapsedWidth: 44,
             expandedWidth: 240,
-            topPadding: 12,
+            topPadding: 8,
             showMonitorSelector: true,
             showsDate: false,
             showsStatusPills: false,
@@ -218,6 +218,10 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertEqual(
             WinMuxPanelLayer.windowChrome.level.rawValue,
             NSWindow.Level.normal.rawValue,
+        )
+        XCTAssertLessThan(
+            WinMuxPanelLayer.workspaceBackground.level.rawValue,
+            WinMuxPanelLayer.windowChrome.level.rawValue,
         )
         XCTAssertLessThan(
             WinMuxPanelLayer.windowChrome.level.rawValue,

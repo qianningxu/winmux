@@ -1,7 +1,10 @@
 import Foundation
 import SwiftUI
 
-private let dollarGreenThemeColor = Color(red: 0x85 / 255, green: 0xBB / 255, blue: 0x65 / 255)
+private let spendingThemeColor = Color(red: 0x68 / 255, green: 0xD1 / 255, blue: 0xC4 / 255)
+private let spendingWeekCount = 4
+private let spendingDaysPerWeek = 7
+private let spendingWeeklyWindowDays = spendingWeekCount * spendingDaysPerWeek
 
 struct WorkspaceSidebarSpendingCategoriesWidget: View {
     let id: String
@@ -19,13 +22,12 @@ struct WorkspaceSidebarSpendingCategoriesWidget: View {
 
             Group {
                 if isCompact {
-                    WorkspaceSidebarCompactSpendingCategoriesCard(
+                    WorkspaceSidebarCompactSpendingWeeksCard(
                         snapshot: snapshot,
                         sectionWidth: sectionWidth,
-                        days: days,
                     )
                 } else {
-                    WorkspaceSidebarExpandedSpendingCategoriesCard(
+                    WorkspaceSidebarExpandedSpendingWeeksCard(
                         snapshot: snapshot,
                         sectionWidth: sectionWidth,
                     )
@@ -36,16 +38,17 @@ struct WorkspaceSidebarSpendingCategoriesWidget: View {
     }
 }
 
-struct SpendingCategorySummary: Equatable, Identifiable, Sendable {
-    let category: String
+struct SpendingWeeklySummary: Equatable, Identifiable, Sendable {
+    let startDate: Date
+    let endDate: Date
     let amount: Double
     let transactionCount: Int
 
-    var id: String { category }
+    var id: Date { startDate }
 }
 
 struct SpendingCategorySnapshot: Equatable, Sendable {
-    var categories: [SpendingCategorySummary] = []
+    var weeks: [SpendingWeeklySummary] = []
     var totalAmount: Double = 0
     var scannedEntryCount: Int = 0
     var transactionCount: Int = 0
@@ -59,6 +62,10 @@ struct SpendingCategoryAggregator: Sendable {
     func load(now: Date = Date()) -> SpendingCategorySnapshot {
         guard days > 0 else {
             return SpendingCategorySnapshot(errorMessage: "Invalid spending window")
+        }
+
+        if let sqliteURL = SidebarSelfDataStore.sqliteURL(for: entriesDirectory) {
+            return loadFromSelfData(sqliteURL: sqliteURL, now: now)
         }
 
         let fileManager = FileManager.default
@@ -79,43 +86,152 @@ struct SpendingCategoryAggregator: Sendable {
         }
 
         let dateFormatters = makeSpendingDateFormatters()
-        let windowStart = now.addingTimeInterval(-Double(days) * 24 * 60 * 60)
-        var totalsByCategory: [String: (amount: Double, transactionCount: Int)] = [:]
+        var calendar = Calendar.current
+        calendar.locale = Locale.current
+        let todayStart = calendar.startOfDay(for: now)
+        guard let windowStart = calendar.date(
+            byAdding: .day,
+            value: -(spendingWeeklyWindowDays - 1),
+            to: todayStart,
+        ) else {
+            return SpendingCategorySnapshot(errorMessage: "Invalid spending window")
+        }
+
+        let chronologicalWeeks = Self.weekWindows(startingAt: windowStart, now: now, calendar: calendar)
+        guard chronologicalWeeks.count == spendingWeekCount else {
+            return SpendingCategorySnapshot(errorMessage: "Invalid spending window")
+        }
+
+        var totalsByWeek = Array(repeating: (amount: Double(0), transactionCount: 0), count: chronologicalWeeks.count)
         var scannedEntryCount = 0
 
         for url in entryUrls where url.pathExtension == "md" {
             guard let entry = SpendingEntry.parse(url: url, dateFormatters: dateFormatters) else { continue }
             scannedEntryCount += 1
             guard entry.created >= windowStart, entry.created <= now else { continue }
+            guard let weekIndex = chronologicalWeeks.firstIndex(where: { $0.contains(entry.created) }) else {
+                continue
+            }
 
-            var total = totalsByCategory[entry.category] ?? (amount: 0, transactionCount: 0)
+            var total = totalsByWeek[weekIndex]
             total.amount += entry.amount
             total.transactionCount += 1
-            totalsByCategory[entry.category] = total
+            totalsByWeek[weekIndex] = total
         }
 
-        let categories = totalsByCategory
-            .map { category, total in
-                SpendingCategorySummary(
-                    category: category,
-                    amount: total.amount,
-                    transactionCount: total.transactionCount,
-                )
-            }
-            .sorted { lhs, rhs in
-                if lhs.amount != rhs.amount {
-                    return lhs.amount > rhs.amount
-                }
-                return lhs.category.localizedStandardCompare(rhs.category) == .orderedAscending
-            }
+        let weeks = chronologicalWeeks.enumerated().reversed().map { index, week in
+            let total = totalsByWeek[index]
+            return SpendingWeeklySummary(
+                startDate: week.startDate,
+                endDate: week.endDate,
+                amount: total.amount,
+                transactionCount: total.transactionCount,
+            )
+        }
 
         return SpendingCategorySnapshot(
-            categories: categories,
-            totalAmount: categories.reduce(0) { $0 + $1.amount },
+            weeks: weeks,
+            totalAmount: weeks.reduce(0) { $0 + $1.amount },
             scannedEntryCount: scannedEntryCount,
-            transactionCount: categories.reduce(0) { $0 + $1.transactionCount },
+            transactionCount: weeks.reduce(0) { $0 + $1.transactionCount },
             errorMessage: nil,
         )
+    }
+
+    private func loadFromSelfData(sqliteURL: URL, now: Date) -> SpendingCategorySnapshot {
+        guard let transactions = SidebarSelfDataStore.loadSpendingTransactions(from: sqliteURL) else {
+            return SpendingCategorySnapshot(errorMessage: "Can't read spending entries")
+        }
+
+        return summarize(
+            entries: transactions.map { SpendingEntry(created: $0.created, amount: $0.amount) },
+            scannedEntryCount: transactions.count,
+            now: now,
+        )
+    }
+
+    private func summarize(entries: [SpendingEntry], scannedEntryCount: Int, now: Date) -> SpendingCategorySnapshot {
+        var calendar = Calendar.current
+        calendar.locale = Locale.current
+        let todayStart = calendar.startOfDay(for: now)
+        guard let windowStart = calendar.date(
+            byAdding: .day,
+            value: -(spendingWeeklyWindowDays - 1),
+            to: todayStart,
+        ) else {
+            return SpendingCategorySnapshot(errorMessage: "Invalid spending window")
+        }
+
+        let chronologicalWeeks = Self.weekWindows(startingAt: windowStart, now: now, calendar: calendar)
+        guard chronologicalWeeks.count == spendingWeekCount else {
+            return SpendingCategorySnapshot(errorMessage: "Invalid spending window")
+        }
+
+        var totalsByWeek = Array(repeating: (amount: Double(0), transactionCount: 0), count: chronologicalWeeks.count)
+        for entry in entries {
+            guard entry.created >= windowStart, entry.created <= now else { continue }
+            guard let weekIndex = chronologicalWeeks.firstIndex(where: { $0.contains(entry.created) }) else {
+                continue
+            }
+
+            var total = totalsByWeek[weekIndex]
+            total.amount += entry.amount
+            total.transactionCount += 1
+            totalsByWeek[weekIndex] = total
+        }
+
+        let weeks = chronologicalWeeks.enumerated().reversed().map { index, week in
+            let total = totalsByWeek[index]
+            return SpendingWeeklySummary(
+                startDate: week.startDate,
+                endDate: week.endDate,
+                amount: total.amount,
+                transactionCount: total.transactionCount,
+            )
+        }
+
+        return SpendingCategorySnapshot(
+            weeks: weeks,
+            totalAmount: weeks.reduce(0) { $0 + $1.amount },
+            scannedEntryCount: scannedEntryCount,
+            transactionCount: weeks.reduce(0) { $0 + $1.transactionCount },
+            errorMessage: nil,
+        )
+    }
+
+    private static func weekWindows(
+        startingAt windowStart: Date,
+        now: Date,
+        calendar: Calendar,
+    ) -> [SpendingWeekWindow] {
+        (0 ..< spendingWeekCount).compactMap { index in
+            guard let startDate = calendar.date(
+                byAdding: .day,
+                value: index * spendingDaysPerWeek,
+                to: windowStart,
+            ),
+                let endDate = calendar.date(
+                    byAdding: .day,
+                    value: spendingDaysPerWeek - 1,
+                    to: startDate,
+                )
+            else {
+                return nil
+            }
+
+            if index == spendingWeekCount - 1 {
+                return SpendingWeekWindow(startDate: startDate, endDate: endDate, endExclusive: nil)
+            }
+
+            guard let endExclusive = calendar.date(
+                byAdding: .day,
+                value: spendingDaysPerWeek,
+                to: startDate,
+            ) else {
+                return nil
+            }
+            return SpendingWeekWindow(startDate: startDate, endDate: endDate, endExclusive: endExclusive)
+        }
     }
 
     private func makeSpendingDateFormatters() -> [ISO8601DateFormatter] {
@@ -129,9 +245,21 @@ struct SpendingCategoryAggregator: Sendable {
     }
 }
 
+private struct SpendingWeekWindow {
+    let startDate: Date
+    let endDate: Date
+    let endExclusive: Date?
+
+    func contains(_ date: Date) -> Bool {
+        guard let endExclusive else {
+            return date >= startDate
+        }
+        return date >= startDate && date < endExclusive
+    }
+}
+
 private struct SpendingEntry {
     let created: Date
-    let category: String
     let amount: Double
 
     static func parse(url: URL, dateFormatters: [ISO8601DateFormatter]) -> SpendingEntry? {
@@ -147,7 +275,6 @@ private struct SpendingEntry {
 
         return SpendingEntry(
             created: created,
-            category: spendingCategoryTitle(fields["category"] ?? ""),
             amount: amount,
         )
     }
@@ -189,16 +316,15 @@ private enum SpendingFrontMatter {
     }
 }
 
-private struct WorkspaceSidebarCompactSpendingCategoriesCard: View {
+private struct WorkspaceSidebarCompactSpendingWeeksCard: View {
     let snapshot: SpendingCategorySnapshot
     let sectionWidth: CGFloat
-    let days: Int
 
     var body: some View {
         VStack(alignment: .center, spacing: 5) {
             Image(systemName: "creditcard")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(dollarGreenThemeColor.opacity(0.86))
+                .foregroundStyle(spendingThemeColor.opacity(0.86))
 
             Text(spendingCurrencyText(snapshot.totalAmount, compact: true))
                 .font(.system(size: 17, weight: .bold, design: .rounded))
@@ -207,7 +333,7 @@ private struct WorkspaceSidebarCompactSpendingCategoriesCard: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
-            Text("\(days)d")
+            Text("\(spendingWeekCount)w")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.42))
                 .lineLimit(1)
@@ -222,16 +348,20 @@ private struct WorkspaceSidebarCompactSpendingCategoriesCard: View {
         if let errorMessage = snapshot.errorMessage {
             return errorMessage
         }
-        return "Spending, \(spendingCurrencyText(snapshot.totalAmount)) in the last \(days) days"
+        return "Spending, \(spendingCurrencyText(snapshot.totalAmount)) in the past \(spendingWeekCount) weeks"
     }
 }
 
-private struct WorkspaceSidebarExpandedSpendingCategoriesCard: View {
+private struct WorkspaceSidebarExpandedSpendingWeeksCard: View {
     let snapshot: SpendingCategorySnapshot
     let sectionWidth: CGFloat
 
-    private var visibleCategories: [SpendingCategorySummary] {
-        Array(snapshot.categories.prefix(3))
+    private var visibleWeeks: [SpendingWeeklySummary] {
+        snapshot.weeks
+    }
+
+    private var maxWeeklyAmount: Double {
+        max(visibleWeeks.map { abs($0.amount) }.max() ?? 0, 1)
     }
 
     var body: some View {
@@ -239,7 +369,7 @@ private struct WorkspaceSidebarExpandedSpendingCategoriesCard: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Label("Spending", systemImage: "creditcard")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(dollarGreenThemeColor.opacity(0.88))
+                    .foregroundStyle(spendingThemeColor.opacity(0.88))
 
                 Spacer(minLength: 8)
 
@@ -257,17 +387,12 @@ private struct WorkspaceSidebarExpandedSpendingCategoriesCard: View {
                     .foregroundStyle(Color.white.opacity(0.58))
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
-            } else if visibleCategories.isEmpty {
-                Text("No entries")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.52))
-                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(visibleCategories) { category in
-                        SpendingCategoryRow(
-                            category: category,
-                            maxAmount: max(snapshot.categories.first?.amount ?? 0, 1),
+                    ForEach(visibleWeeks) { week in
+                        SpendingWeekRow(
+                            week: week,
+                            maxAmount: maxWeeklyAmount,
                         )
                     }
                 }
@@ -282,18 +407,18 @@ private struct WorkspaceSidebarExpandedSpendingCategoriesCard: View {
     }
 }
 
-private struct SpendingCategoryRow: View {
-    let category: SpendingCategorySummary
+private struct SpendingWeekRow: View {
+    let week: SpendingWeeklySummary
     let maxAmount: Double
 
     private var ratio: CGFloat {
-        CGFloat(max(0, min(abs(category.amount) / maxAmount, 1)))
+        CGFloat(max(0, min(abs(week.amount) / maxAmount, 1)))
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(category.category)
+                Text(spendingWeekStartText(week.startDate))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.76))
                     .lineLimit(1)
@@ -301,10 +426,10 @@ private struct SpendingCategoryRow: View {
 
                 Spacer(minLength: 8)
 
-                Text(spendingCurrencyText(category.amount))
+                Text(spendingCurrencyText(week.amount))
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Color.white.opacity(0.64))
+                    .foregroundStyle(Color.white.opacity(week.transactionCount > 0 ? 0.64 : 0.36))
                     .lineLimit(1)
             }
 
@@ -313,26 +438,20 @@ private struct SpendingCategoryRow: View {
                     Capsule()
                         .fill(Color.white.opacity(0.08))
 
-                    Capsule()
-                        .fill(dollarGreenThemeColor.opacity(0.58))
-                        .frame(width: max(3, geometry.size.width * ratio))
+                    if week.transactionCount > 0 {
+                        Capsule()
+                            .fill(spendingThemeColor.opacity(0.58))
+                            .frame(width: max(3, geometry.size.width * ratio))
+                    }
                 }
             }
             .frame(height: 4)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(
+            "\(spendingWeekStartText(week.startDate)), \(spendingCurrencyText(week.amount))",
+        ))
     }
-}
-
-private func spendingCategoryTitle(_ raw: String) -> String {
-    let normalized = raw
-        .replacingOccurrences(of: "_", with: " ")
-        .replacingOccurrences(of: "-", with: " ")
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-
-    guard !normalized.isEmpty else {
-        return "Uncategorized"
-    }
-    return normalized.capitalized
 }
 
 private func spendingCurrencyText(_ amount: Double, compact: Bool = false) -> String {
@@ -354,4 +473,11 @@ private func spendingCurrencyText(_ amount: Double, compact: Bool = false) -> St
         return "\(sign)\(pound)\(String(format: "%.0f", absoluteAmount))"
     }
     return "\(sign)\(pound)\(String(format: "%.2f", absoluteAmount))"
+}
+
+private func spendingWeekStartText(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.locale = Locale.current
+    formatter.dateFormat = "d MMM"
+    return formatter.string(from: date)
 }

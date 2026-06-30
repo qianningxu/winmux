@@ -1,6 +1,7 @@
 import AppKit
 
 enum WinMuxPanelLayer: CaseIterable {
+    case workspaceBackground
     case windowChrome
     case windowIntentPreview
     case overlay
@@ -9,6 +10,8 @@ enum WinMuxPanelLayer: CaseIterable {
 
     var level: NSWindow.Level {
         switch self {
+            case .workspaceBackground:
+                NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue - 1)
             case .windowChrome:
                 .normal
             case .windowIntentPreview:

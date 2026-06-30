@@ -86,6 +86,33 @@ final class WorkspaceSidebarScheduleHeatmapWidgetTest: XCTestCase {
         assertEquals(snapshot.days.flatMap(\.cells).map(\.status), [.reflected, .unfulfilled])
     }
 
+    func testScheduleHeatmapAggregatorFindsDeviationInVaultRootDeviationFolder() throws {
+        let workspace = try makeWorkspace()
+        defer { try? FileManager.default.removeItem(at: workspace.root) }
+
+        let vaultRoot = workspace.root.appending(component: "vault", directoryHint: .isDirectory)
+        let nestedDeviation = vaultRoot.appending(component: "Deviation", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: nestedDeviation, withIntermediateDirectories: true)
+
+        try writeSchedule(
+            workspace.schedule.appending(component: "2026-06-03 Session 1.md"),
+            from: "2026-06-03T10:00",
+            to: "2026-06-03T12:00",
+        )
+        try writeDeviation(nestedDeviation.appending(component: "2026-06-03 Session 1.md"))
+
+        let snapshot = ScheduleHeatmapAggregator(
+            scheduleDirectory: workspace.schedule,
+            togglEntriesDirectory: workspace.toggl,
+            deviationDirectory: vaultRoot,
+            days: 7,
+        ).load(now: try date("2026-06-04 12:00:00"))
+
+        assertNil(snapshot.errorMessage)
+        assertEquals(snapshot.reflectedCount, 1)
+        assertEquals(snapshot.days.flatMap(\.cells).map(\.status), [.reflected])
+    }
+
     func testScheduleHeatmapAggregatorUsesFilenameDateForGridAndFrontMatterForOverlap() throws {
         let workspace = try makeWorkspace()
         defer { try? FileManager.default.removeItem(at: workspace.root) }
@@ -113,6 +140,53 @@ final class WorkspaceSidebarScheduleHeatmapWidgetTest: XCTestCase {
         assertEquals(cell.status, .fulfilled)
         assertEquals(dateKey(cell.date), "2026-06-04")
         assertEquals(dateKey(cell.from), "2026-06-03")
+    }
+
+    func testScheduleHeatmapAggregatorShowsOnlyCurrentWeek() throws {
+        let workspace = try makeWorkspace()
+        defer { try? FileManager.default.removeItem(at: workspace.root) }
+
+        try writeSchedule(
+            workspace.schedule.appending(component: "2026-06-14 Session 1.md"),
+            from: "2026-06-14T10:00",
+            to: "2026-06-14T12:00",
+        )
+        try writeSchedule(
+            workspace.schedule.appending(component: "2026-06-15 Session 1.md"),
+            from: "2026-06-15T10:00",
+            to: "2026-06-15T12:00",
+        )
+        try writeSchedule(
+            workspace.schedule.appending(component: "2026-06-21 Session 1.md"),
+            from: "2026-06-21T10:00",
+            to: "2026-06-21T12:00",
+        )
+        try writeSchedule(
+            workspace.schedule.appending(component: "2026-06-22 Session 1.md"),
+            from: "2026-06-22T10:00",
+            to: "2026-06-22T12:00",
+        )
+
+        let snapshot = ScheduleHeatmapAggregator(
+            scheduleDirectory: workspace.schedule,
+            togglEntriesDirectory: workspace.toggl,
+            deviationDirectory: workspace.deviation,
+            days: 14,
+        ).load(now: try date("2026-06-18 12:00:00"))
+
+        assertEquals(snapshot.days.count, 7)
+        assertEquals(snapshot.days.map { weekday($0.date) }, [
+            "Mon",
+            "Tue",
+            "Wed",
+            "Thu",
+            "Fri",
+            "Sat",
+            "Sun",
+        ])
+        assertEquals(snapshot.days.flatMap(\.cells).map(\.identity), [
+            "2026-06-15 Session 1",
+        ])
     }
 
     func testScheduleHeatmapAggregatorReportsMissingDirectories() throws {
@@ -202,6 +276,12 @@ final class WorkspaceSidebarScheduleHeatmapWidgetTest: XCTestCase {
     private func dateKey(_ date: Date) -> String {
         let formatter = makeDateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    private func weekday(_ date: Date) -> String {
+        let formatter = makeDateFormatter()
+        formatter.dateFormat = "E"
         return formatter.string(from: date)
     }
 

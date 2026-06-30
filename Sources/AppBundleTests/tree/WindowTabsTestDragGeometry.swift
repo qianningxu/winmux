@@ -73,7 +73,7 @@ import XCTest
 
     func testTabGroupOuterTopRadiusMatchesTabStripInsteadOfAppWindow() {
         let topInnerRadius = CGFloat(40)
-        XCTAssertEqual(windowTabGroupOuterCornerRadius(innerCornerRadius: topInnerRadius), 12)
+        XCTAssertEqual(windowTabGroupOuterCornerRadius(innerCornerRadius: topInnerRadius), windowTabStripCornerRadius)
         XCTAssertLessThan(
             windowTabGroupOuterCornerRadius(innerCornerRadius: topInnerRadius),
             topInnerRadius,
