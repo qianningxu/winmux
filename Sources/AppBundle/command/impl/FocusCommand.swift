@@ -39,7 +39,7 @@ struct FocusCommand: Command {
                 }
             case .tabIndex(let tabIndex):
                 guard let windowToFocus = tabWindowToFocus(target, tabIndex) else {
-                    return io.err("Can't find tab with index \(tabIndex) in the current tab group")
+                    return io.err("Can't find composed window with index \(tabIndex) in the active Tab")
                 }
                 return windowToFocus.focusWindow()
             case .dfsRelative(let nextPrev):

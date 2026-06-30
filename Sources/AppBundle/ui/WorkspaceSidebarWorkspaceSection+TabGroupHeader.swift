@@ -13,7 +13,7 @@ extension WorkspaceSidebarWorkspaceSection {
             actions.send(.selectWindow(group.representativeWindowId))
         } label: {
             WorkspaceSidebarWindowRow(
-                title: group.title.isEmpty ? "Tab Group" : group.title,
+                title: group.title.isEmpty ? "Composed Windows" : group.title,
                 badge: group.windowCount > 1 ? "\(group.windowCount)" : nil,
                 isFocused: group.isFocused,
                 suppressFocusedStyle: isSearchFiltering,

@@ -43,7 +43,7 @@ extension WindowTabStripView {
             Button("Close Tab") {
                 closeWindowFromTabStrip(tab.windowId, fallbackWorkspace: tab.workspaceName)
             }
-            Button("Remove Tab From Stack") {
+            Button("Move Window Out") {
                 removeWindowFromTabStrip(tab.windowId, fallbackWorkspace: tab.workspaceName)
             }
         }

@@ -24,7 +24,7 @@ extension WindowResizePreviewItem {
         self.init(
             id: representative?.windowId ?? UInt32(abs(ObjectIdentifier(container).hashValue) % Int(UInt32.max)),
             frame: rect.toAppKitScreenRect.alignedToBackingPixels(),
-            appName: representative?.app.name ?? representative?.app.rawAppBundleId ?? "Tab Group",
+            appName: representative?.app.name ?? representative?.app.rawAppBundleId ?? "Composed Windows",
             icons: icons,
             isTabGroup: true,
             drawsFrameOnly: drawsFrameOnly,

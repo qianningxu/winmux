@@ -24,9 +24,9 @@ enum WorkspaceMutationError: LocalizedError {
     var errorDescription: String? {
         switch self {
             case .workspaceNotFound(let name):
-                "Workspace '\(name)' no longer exists."
+                "Tab '\(name)' no longer exists."
             case .workspaceCannotBeDeleted(let name):
-                "Workspace '\(name)' cannot be deleted."
+                "Tab '\(name)' cannot be deleted."
             case .projectNotFound(let id):
                 "Project '\(id)' no longer exists."
             case .projectCannotBeDeleted(let name):

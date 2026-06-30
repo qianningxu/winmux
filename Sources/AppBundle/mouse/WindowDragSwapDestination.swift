@@ -36,14 +36,14 @@ func swapDestination(
         previewRect.expanded(left: 10, right: 10, top: 10, bottom: 10)
     }
     guard mouseLocation.map(interactionRect.contains) ?? true else { return nil }
-    let isTabGroup = targetNode is TilingContainer
+    let isComposedGroup = targetNode is TilingContainer
     return WindowDragIntentDestination(
         kind: .swap(targetWindowId: targetWindow.windowId),
         previewContainerRect: targetNode.windowDragVisibleRect ?? previewRect,
         previewRect: previewRect,
         interactionRect: interactionRect,
-        title: isTabGroup ? "Swap With Tab Group" : "Swap Positions",
-        subtitle: isTabGroup ? "Drop in the body to move around the whole group" : "Drop in the body to swap these windows",
+        title: isComposedGroup ? "Swap With Composed Windows" : "Swap Positions",
+        subtitle: isComposedGroup ? "Drop in the body to move around the composed layout" : "Drop in the body to swap these windows",
         previewStyle: .swap,
         previewGeometry: .rounded,
         isGroup: subject == .group,

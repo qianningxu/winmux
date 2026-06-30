@@ -7,7 +7,7 @@ extension AgentOperation {
             case .focusWindow(let target):
                 if try await target.resolveWindow() == nil { errors.append("focusWindow: no matching window") }
             case .focusWorkspace(let workspace):
-                if Workspace.existing(byName: workspace) == nil { errors.append("focusWorkspace: workspace '\(workspace)' does not exist") }
+                if Workspace.existing(byName: workspace) == nil { errors.append("focusWorkspace: Tab '\(workspaceDisplayName(workspace))' does not exist") }
             case .moveWindowToWorkspace(let windowId, _, _),
                  .setWinMuxFullscreen(let windowId, _, _),
                  .setFloating(let windowId, _),
@@ -56,7 +56,7 @@ extension AgentOperation {
         for id in tabs where Window.get(byId: id) == nil { errors.append("createTabGroup: window \(id) does not exist") }
         if let activeWindowId, !tabs.contains(activeWindowId) { errors.append("createTabGroup: activeWindowId must be in tabs") }
         if workspace == nil, Window.get(byId: tabs.first ?? 0)?.nodeWorkspace == nil {
-            errors.append("createTabGroup: workspace is required when the first tab has no workspace")
+            errors.append("createTabGroup: Tab is required when the first composed window has no Tab")
         }
         if let tabGroupId {
             context.plannedTabGroups[tabGroupId] = Set(tabs)
