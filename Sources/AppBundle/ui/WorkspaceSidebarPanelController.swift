@@ -113,6 +113,17 @@ final class WorkspaceSidebarPanel: NSPanelHud {
         }
     }
 
+    static func resetPanelStateForTests() {
+        workspaceSidebarDropTargets = []
+        activeInlineTextEditingPanel = nil
+        shared.resetForTests()
+        for panel in panelsByMonitorScopeId.values {
+            panel.resetForTests()
+        }
+        panelsByMonitorScopeId = [:]
+        WorkspaceCanvasBackgroundPanel.hideAll()
+    }
+
     func syncModelFromShared() {
         let visibleWidth = viewModel.workspaceSidebarVisibleWidth
         let isExpanded = viewModel.isWorkspaceSidebarExpanded
@@ -164,6 +175,28 @@ final class WorkspaceSidebarPanel: NSPanelHud {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    private func resetForTests() {
+        stopHoverMonitoring()
+        cancelExpansionWork()
+        endInlineTextEditing()
+        menuTrackingDepth = 0
+        menuTrackingGraceUntil = .distantPast
+        commandExpansionLocksCollapse = false
+        shouldLockNextSidebarSearchExpansion = false
+        bufferedCommandSidebarSearchKeys = []
+        for monitor in commandMouseUnlockMonitors {
+            NSEvent.removeMonitor(monitor)
+        }
+        commandMouseUnlockMonitors = []
+        commandMouseUnlockPoint = nil
+        lastEdgeTrapSample = nil
+        edgeTrapStartedAt = nil
+        edgeTrapSuppressedUntil = 0
+        splitBrowseCollapseSuppressedUntil = .distantPast
+        resetHiddenSidebarState()
+        ignoresMouseEvents = false
+    }
 
     override func becomeKey() {
         super.becomeKey()

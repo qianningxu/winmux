@@ -4,6 +4,47 @@ import XCTest
 
 final class WorkspacePreviewGeometryTest: XCTestCase {
     @MainActor
+    func testPreviewCandidatesUseFocusedMonitorFlatTabList() {
+        setUpWorkspacesForTests()
+        let main = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 1,
+            name: "Main",
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            isMain: true,
+        )
+        let secondary = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 2,
+            name: "Secondary",
+            rect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            isMain: false,
+        )
+        setMonitorsForTests([main, secondary])
+        let mainTab = Workspace.get(byName: "main-tab")
+        mainTab.markAsAutomaticallyNamed()
+        mainTab.seedMonitorIfNeeded(main)
+        _ = TestWindow.new(id: 101, parent: mainTab.rootTilingContainer)
+        let secondaryFirst = Workspace.get(byName: "secondary-first")
+        secondaryFirst.markAsAutomaticallyNamed()
+        secondaryFirst.seedMonitorIfNeeded(secondary)
+        _ = TestWindow.new(id: 102, parent: secondaryFirst.rootTilingContainer)
+        let project = createWorkspaceProject()
+        let secondaryProjectTab = Workspace.get(byName: "secondary-project")
+        secondaryProjectTab.markAsAutomaticallyNamed()
+        secondaryProjectTab.assignProject(project.id)
+        secondaryProjectTab.seedMonitorIfNeeded(secondary)
+        _ = TestWindow.new(id: 103, parent: secondaryProjectTab.rootTilingContainer)
+        XCTAssertTrue(main.setActiveWorkspace(mainTab))
+        XCTAssertTrue(secondary.setActiveWorkspace(secondaryFirst))
+        XCTAssertTrue(secondaryFirst.focusWorkspace())
+
+        let candidates = workspacePreviewCandidateWorkspaces(current: secondaryFirst)
+
+        XCTAssertEqual(candidates.map(\.name), ["secondary-first", "secondary-project"])
+    }
+
+    @MainActor
     func testTabGroupBuildsSingleVisiblePreviewPane() {
         setUpWorkspacesForTests()
         config.windowTabs.enabled = true

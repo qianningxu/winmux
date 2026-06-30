@@ -29,6 +29,8 @@ func setUpWorkspacesForTests() {
     config = defaultConfig
     setMonitorsForTests(nil)
     configUrl = defaultConfigUrl
+    resetTrayMenuModelForTests()
+    WorkspaceSidebarPanel.resetPanelStateForTests()
     resetWorkspaceNameGenerationStateForTests()
     resetCachedWindowTitles()
     resetWindowTabLabelsForTests()
@@ -60,6 +62,31 @@ func setUpWorkspacesForTests() {
     clearPendingWindowDragIntent()
     TestApp.shared.focusedWindow = nil
     TestApp.shared.windows = []
+}
+
+@MainActor
+private func resetTrayMenuModelForTests() {
+    let model = TrayMenuModel.shared
+    model.trayText = ""
+    model.trayItems = []
+    model.isEnabled = true
+    model.workspaces = []
+    model.workspaceSidebarWorkspaces = []
+    model.workspaceSidebarProjects = []
+    model.workspaceSidebarActiveProjectId = workspaceProjectDefaultId
+    model.workspaceSidebarMonitorScopes = []
+    model.workspaceSidebarSelectedMonitorScopeId = workspaceSidebarDefaultScopeId
+    model.workspaceSidebarTargetMonitorScopeId = workspaceSidebarDefaultScopeId
+    model.workspaceSidebarFocusedMonitorScopeId = ""
+    model.workspaceSidebarShowsMonitorSelector = false
+    model.workspaceSidebarDropPreview = nil
+    model.windowTabStrips = []
+    model.windowTabReentryPreview = nil
+    model.isWorkspaceSidebarExpanded = false
+    model.workspaceSidebarVisibleWidth = 0
+    model.workspaceSidebarTopPadding = 8
+    model.workspaceSidebarHoveredWorkspaceName = nil
+    model.experimentalUISettings = ExperimentalUISettings()
 }
 
 extension ParsedCmd {

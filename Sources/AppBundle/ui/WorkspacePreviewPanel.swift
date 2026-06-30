@@ -79,7 +79,7 @@ final class WorkspacePreviewPanel: NSPanelHud {
 
     private func begin(direction: Int) {
         let current = focus.workspace
-        let candidates = orderedUserFacingWorkspaces(in: current.projectId, focusedWorkspace: current)
+        let candidates = workspacePreviewCandidateWorkspaces(current: current)
         guard !candidates.isEmpty else { return }
         items = candidates.map { workspace in
             let workspaceRect = workspacePreviewRect(for: workspace)
@@ -122,6 +122,12 @@ final class WorkspacePreviewPanel: NSPanelHud {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+}
+
+@MainActor
+func workspacePreviewCandidateWorkspaces(current: Workspace) -> [Workspace] {
+    userFacingWorkspaces(orderedWorkspacesForPresentation(), focusedWorkspace: current)
+        .filter { $0.workspaceMonitor.rect.topLeftCorner == current.workspaceMonitor.rect.topLeftCorner }
 }
 
 @MainActor
