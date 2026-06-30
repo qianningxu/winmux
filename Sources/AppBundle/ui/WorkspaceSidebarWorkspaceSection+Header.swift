@@ -16,9 +16,7 @@ extension WorkspaceSidebarWorkspaceSection {
     var header: some View {
         Group {
             if isCompact {
-                workspaceBadge
-                    .frame(width: workspaceSidebarBadgeWidth, height: workspaceSidebarBadgeWidth)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                compactTabBadge
             } else {
                 expandedHeader
             }
@@ -27,6 +25,7 @@ extension WorkspaceSidebarWorkspaceSection {
 
     var expandedHeader: some View {
         HStack(spacing: workspaceSidebarHeaderSpacing) {
+            tabIcon
             if isRenamingWorkspace {
                 WorkspaceSidebarWorkspaceRenameField(
                     text: $renamingWorkspaceText,
@@ -36,15 +35,24 @@ extension WorkspaceSidebarWorkspaceSection {
                 )
                 .layoutPriority(1)
             } else {
-                Text(workspace.displayName)
-                    .font(.system(size: 15, weight: isActiveOnTargetMonitor ? .bold : .semibold))
-                    .foregroundStyle(isActiveOnTargetMonitor ? palette.foreground(1) : palette.foreground(0.85))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .contentShape(Rectangle())
-                    .onTapGesture(count: 2, perform: handleHeaderDoubleClick)
-                    .onTapGesture(count: 1) {}
-                    .layoutPriority(1)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(workspace.displayName)
+                        .font(.system(size: 13.5, weight: isActiveOnTargetMonitor ? .semibold : .medium))
+                        .foregroundStyle(isActiveOnTargetMonitor ? palette.foreground(1) : palette.foreground(0.86))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    if let subtitle = workspace.tabSummary.subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 10.5, weight: .regular))
+                            .foregroundStyle(palette.foreground(0.50))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2, perform: handleHeaderDoubleClick)
+                .onTapGesture(count: 1) {}
+                .layoutPriority(1)
             }
             if let projectContextLabel, let projectContextColor {
                 Text(projectContextLabel)
@@ -62,10 +70,53 @@ extension WorkspaceSidebarWorkspaceSection {
                             .strokeBorder(projectContextColor.opacity(0.24), lineWidth: 0.5)
                     }
             }
+            if workspace.tabSummary.windowCount > 1 {
+                Text("\(workspace.tabSummary.windowCount)")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(palette.foreground(isActiveOnTargetMonitor ? 0.76 : 0.48))
+                    .monospacedDigit()
+                    .padding(.horizontal, 5)
+                    .frame(height: 16)
+                    .background {
+                        Capsule(style: .continuous)
+                            .fill(palette.contrastingFill(darkOpacity: 0.08, lightOpacity: 0.07))
+                    }
+            }
             Spacer(minLength: 0)
         }
         .padding(.leading, workspaceSidebarHeaderRowLeadingPadding)
         .padding(.trailing, workspaceSidebarRowHorizontalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    var compactTabBadge: some View {
+        Group {
+            if workspace.tabSummary.isEmpty {
+                workspaceBadge
+            } else {
+                tabIcon
+            }
+        }
+        .frame(width: workspaceSidebarBadgeWidth, height: workspaceSidebarBadgeWidth)
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    @ViewBuilder
+    var tabIcon: some View {
+        if let icon = appIconImage(
+            bundleIdentifier: workspace.tabSummary.appBundleId,
+            bundlePath: workspace.tabSummary.appBundlePath
+        ) {
+            Image(nsImage: icon)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
+                .cornerRadius(4)
+                .opacity(isActiveOnTargetMonitor ? 1 : 0.88)
+        } else {
+            workspaceBadge
+                .font(.system(size: 12, weight: isActiveOnTargetMonitor ? .bold : .semibold))
+                .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
+        }
     }
 }

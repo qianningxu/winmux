@@ -16,7 +16,7 @@ final class MoveCommandTest: XCTestCase {
         assertEquals(root.layoutDescription, .h_tiles([.window(2), .window(1)]))
     }
 
-    func testMove_swapWithTabGroupTreatsTabGroupAsSingleNode() async throws {
+    func testMoveSwapWithLegacyTabGroupMigratesToSidebarTabsAfterRefresh() async throws {
         let root = Workspace.get(byName: name).rootTilingContainer.apply {
             TilingContainer(parent: $0, adaptiveWeight: 1, .v, .tabGroup, index: INDEX_BIND_LAST).apply {
                 TestWindow.new(id: 1, parent: $0)
@@ -28,14 +28,13 @@ final class MoveCommandTest: XCTestCase {
         try await MoveCommand(args: MoveCmdArgs(rawArgs: [], .left)).run(.defaultEnv, .emptyStdin)
         assertEquals(root.layoutDescription, .h_tiles([
             .window(3),
-            .v_tab_group([
-                .window(1),
-                .window(2),
-            ]),
+            .window(2),
         ]))
+        XCTAssertEqual(Workspace.all.flatMap(\.allLeafWindowsRecursive).map(\.windowId).sorted(), [1, 2, 3])
+        XCTAssertFalse(Workspace.all.contains { workspaceContainsMoveCommandLegacyTabGroup($0) })
     }
 
-    func testMoveOut_tabGroupTreatsTabGroupAsSingleNode() async throws {
+    func testMoveOutLegacyTabGroupMigratesToSidebarTabsAfterRefresh() async throws {
         let workspace = Workspace.get(byName: name)
         workspace.rootTilingContainer.apply {
             TestWindow.new(id: 0, parent: $0)
@@ -51,14 +50,13 @@ final class MoveCommandTest: XCTestCase {
             .workspace([
                 .h_tiles([
                     .window(0),
-                    .v_tab_group([
-                        .window(1),
-                        .window(2),
-                    ]),
+                    .window(2),
                 ]),
             ]),
         )
         assertEquals(result.exitCode, 0)
+        XCTAssertEqual(Workspace.all.flatMap(\.allLeafWindowsRecursive).map(\.windowId).sorted(), [0, 1, 2])
+        XCTAssertFalse(Workspace.all.contains { workspaceContainsMoveCommandLegacyTabGroup($0) })
     }
 
     func testMoveInto_findTopMostContainerWithRightOrientation() async throws {
@@ -323,6 +321,19 @@ final class MoveCommandTest: XCTestCase {
         )
         assertEquals(focus.windowOrNil?.windowId, 1)
     }
+}
+
+@MainActor
+private func workspaceContainsMoveCommandLegacyTabGroup(_ workspace: Workspace) -> Bool {
+    containsMoveCommandLegacyTabGroup(workspace.rootTilingContainer)
+}
+
+@MainActor
+private func containsMoveCommandLegacyTabGroup(_ node: TreeNode) -> Bool {
+    if let container = node as? TilingContainer, container.layout == .tabGroup, container.children.count > 1 {
+        return true
+    }
+    return node.children.contains(where: containsMoveCommandLegacyTabGroup)
 }
 
 extension TreeNode {

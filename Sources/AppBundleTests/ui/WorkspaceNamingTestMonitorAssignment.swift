@@ -234,23 +234,23 @@ extension WorkspaceNamingTest {
         XCTAssertFalse(inactiveWorkspace.isVisible)
     }
 
-    func testMonitorViewportFallbackWorkspaceDoesNotForgetActiveProject() throws {
+    func testMonitorViewportFallbackWorkspaceUsesDefaultProjectWhenProjectsAreHardDisabled() throws {
         let project = createWorkspaceProject()
         let projectWorkspace = try XCTUnwrap(switchWorkspaceProject(project.id, on: mainMonitor))
         XCTAssertTrue(projectWorkspace.isVisible)
 
         let fallback = activateMonitorViewportFallbackWorkspaceForTests(on: mainMonitor)
-        XCTAssertEqual(fallback.projectId, project.id)
-        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), project.id)
+        XCTAssertEqual(fallback.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), workspaceProjectDefaultId)
 
         Workspace.reconcileWorkspaceState()
 
-        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), project.id)
-        XCTAssertEqual(mainMonitor.activeWorkspace.projectId, project.id)
+        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), workspaceProjectDefaultId)
+        XCTAssertEqual(mainMonitor.activeWorkspace.projectId, workspaceProjectDefaultId)
         XCTAssertTrue(userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace).contains(mainMonitor.activeWorkspace))
     }
 
-    func testClosingLastWindowKeepsOneWorkspaceInActiveProject() throws {
+    func testClosingLastWindowKeepsOneWorkspaceInDefaultProjectWhenProjectsAreHardDisabled() throws {
         let defaultWorkspace = Workspace.get(byName: "1")
         defaultWorkspace.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 19, parent: defaultWorkspace.rootTilingContainer)
@@ -263,12 +263,12 @@ extension WorkspaceNamingTest {
         Workspace.reconcileWorkspaceState()
 
         XCTAssertTrue(projectWorkspace.isVisible)
-        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), project.id)
+        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), workspaceProjectDefaultId)
         XCTAssertFalse(workspaceHasSidebarVisibleWindows(projectWorkspace))
         XCTAssertTrue(userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace).contains(projectWorkspace))
         XCTAssertEqual(
             userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace)
-                .filter { $0.projectId == project.id },
+                .filter { $0.isVisible && !workspaceHasSidebarVisibleWindows($0) },
             [projectWorkspace],
         )
     }

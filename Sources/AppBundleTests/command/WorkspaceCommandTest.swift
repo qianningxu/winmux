@@ -249,7 +249,7 @@ final class WorkspaceCommandTest: XCTestCase {
         XCTAssertEqual(workspaceDisplayName("1"), "Workspace 1")
     }
 
-    func testDirectWorkspaceShortcutPrefersActiveProjectDisplayIndex() async throws {
+    func testDirectWorkspaceShortcutUsesGlobalTabDisplayIndexWhenProjectsAreHardDisabled() async throws {
         let defaultWorkspace = Workspace.get(byName: "1")
         defaultWorkspace.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 51, parent: defaultWorkspace.rootTilingContainer)
@@ -262,12 +262,12 @@ final class WorkspaceCommandTest: XCTestCase {
         ).run(.defaultEnv, .emptyStdin)
 
         assertEquals(result.exitCode, 0)
-        XCTAssertTrue(focus.workspace === projectWorkspace)
-        XCTAssertEqual(focus.workspace.projectId, project.id)
+        XCTAssertTrue(focus.workspace === defaultWorkspace)
+        XCTAssertEqual(focus.workspace.projectId, workspaceProjectDefaultId)
         XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Workspace 1")
     }
 
-    func testDirectWorkspaceShortcutCreatesNextWorkspaceInsideActiveProject() async throws {
+    func testDirectWorkspaceShortcutUsesExistingGlobalTabWhenProjectsAreHardDisabled() async throws {
         let defaultWorkspace1 = Workspace.get(byName: "1")
         defaultWorkspace1.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 52, parent: defaultWorkspace1.rootTilingContainer)
@@ -283,12 +283,12 @@ final class WorkspaceCommandTest: XCTestCase {
         ).run(.defaultEnv, .emptyStdin)
 
         assertEquals(result.exitCode, 0)
-        XCTAssertEqual(focus.workspace.projectId, project.id)
-        XCTAssertFalse(focus.workspace === defaultWorkspace2)
+        XCTAssertEqual(focus.workspace.projectId, workspaceProjectDefaultId)
+        XCTAssertTrue(focus.workspace === defaultWorkspace2)
         XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Workspace 2")
     }
 
-    func testWorkspaceNextCreatesWorkspaceInsideActiveProject() async throws {
+    func testWorkspaceNextTraversesGlobalTabsWhenProjectsAreHardDisabled() async throws {
         let defaultWorkspace1 = Workspace.get(byName: "1")
         defaultWorkspace1.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 54, parent: defaultWorkspace1.rootTilingContainer)
@@ -304,9 +304,9 @@ final class WorkspaceCommandTest: XCTestCase {
         ).run(.defaultEnv, .emptyStdin)
 
         assertEquals(result.exitCode, 0)
-        XCTAssertEqual(focus.workspace.projectId, project.id)
+        XCTAssertEqual(focus.workspace.projectId, workspaceProjectDefaultId)
         XCTAssertFalse(focus.workspace === defaultWorkspace2)
-        XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Workspace 2")
+        XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Workspace 3")
     }
 
     func testWorkspaceNextTraversesAllProjectsWhenProjectsDisabled() async throws {

@@ -16,7 +16,7 @@ extension AgentLayoutNode {
                 return window
             case .tabGroup(_, let tabs, let activeWindowId, _):
                 guard !tabs.isEmpty else { return nil }
-                let container = TilingContainer(parent: parent, adaptiveWeight: WEIGHT_AUTO, .v, .tabGroup, index: index)
+                let container = TilingContainer(parent: parent, adaptiveWeight: WEIGHT_AUTO, .v, .tiles, index: index)
                 for tab in tabs {
                     Window.get(byId: tab)?.bind(to: container, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
                 }

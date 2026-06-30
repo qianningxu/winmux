@@ -45,7 +45,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
     var contentWidth: CGFloat { workspaceSidebarContentWidth(expansionProgress, layout: layout) }
     var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
     var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }
-    var showsWindowRows: Bool { expansionProgress >= workspaceSidebarRowsRevealProgress }
+    var showsWindowRows: Bool { false }
     var sectionMinHeight: CGFloat? {
         if !isCompact, allowsWorkspaceActivation, isInUseOnOtherDisplay, workspace.items.isEmpty {
             return workspaceSidebarInUseOverrideEmptySectionMinHeight

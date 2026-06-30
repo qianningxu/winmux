@@ -103,14 +103,14 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
         XCTAssertEqual(forced.workspaceMonitor.rect.topLeftCorner, secondary.rect.topLeftCorner)
     }
 
-    func testNewWorkspaceInheritsSourceProject() async throws {
+    func testNewWorkspaceUsesDefaultProjectWhenProjectsAreHardDisabled() async throws {
         let project = createWorkspaceProject()
         let sourceWorkspace = try XCTUnwrap(switchWorkspaceProject(project.id, on: mainMonitor))
         _ = TestWindow.new(id: 1, parent: sourceWorkspace.rootTilingContainer).focusWindow()
 
         try await MoveNodeToWorkspaceCommand(args: MoveNodeToWorkspaceCmdArgs(workspace: "b")).run(.defaultEnv, .emptyStdin)
 
-        XCTAssertEqual(Workspace.get(byName: "b").projectId, project.id)
+        XCTAssertEqual(Workspace.get(byName: "b").projectId, workspaceProjectDefaultId)
     }
 
     func testNewWorkspaceUsesDefaultProjectWhenProjectsDisabled() async throws {

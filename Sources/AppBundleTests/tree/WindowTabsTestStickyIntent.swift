@@ -83,6 +83,26 @@ import XCTest
     }
 
     @MainActor
+    func testNewTilingWindowDoesNotAutoJoinFocusedLegacyTabGroup() {
+        setUpWorkspacesForTests()
+        let workspace = Workspace.get(byName: "target")
+        let rootTabGroup = workspace.rootTilingContainer
+        rootTabGroup.layout = .tabGroup
+        rootTabGroup.changeOrientation(.v)
+        _ = TestWindow.new(id: 10, parent: rootTabGroup)
+        let focused = TestWindow.new(id: 11, parent: rootTabGroup)
+        XCTAssertTrue(focused.focusWindow())
+        config.autoAddNewWindowsToTabGroup = true
+
+        let binding = bindingDataForNewTilingWindow(workspace, window: nil)
+
+        XCTAssertFalse(binding.parent === rootTabGroup)
+        XCTAssertTrue(binding.parent === workspace.rootTilingContainer)
+        XCTAssertEqual(workspace.rootTilingContainer.layout, .tiles)
+        XCTAssertTrue(workspace.rootTilingContainer.children.first === rootTabGroup)
+    }
+
+    @MainActor
     func testWorkspaceMoveBindingDataWithoutSwapTargetAppendsInsteadOfPrepending() {
         setUpWorkspacesForTests()
         let targetWorkspace = Workspace.get(byName: "target")
@@ -107,21 +127,21 @@ import XCTest
     }
 
     func testStickyWindowDragIntentEnabledForTabInsertAndSwapPreviews() {
-        XCTAssertTrue(shouldUseStickyWindowDragIntent(previewStyle: .tabInsert))
+        XCTAssertFalse(shouldUseStickyWindowDragIntent(previewStyle: .tabInsert))
         XCTAssertTrue(shouldUseStickyWindowDragIntent(previewStyle: .stackSplit))
-        XCTAssertTrue(shouldUseStickyWindowDragIntent(previewStyle: .swap))
+        XCTAssertFalse(shouldUseStickyWindowDragIntent(previewStyle: .swap))
         XCTAssertFalse(shouldUseStickyWindowDragIntent(previewStyle: .workspaceMove))
         XCTAssertFalse(shouldUseStickyWindowDragIntent(previewStyle: .sidebarWorkspaceMove))
     }
 
     @MainActor
-    func testTabInsertWindowDragIntentKindTracksWindowTabsFeatureFlag() {
+    func testTabInsertWindowDragIntentKindIsHardDisabled() {
         config.windowTabs.enabled = true
-        XCTAssertTrue(isWindowDragIntentKindEnabled(.tabStack(targetWindowId: 1)))
+        XCTAssertFalse(isWindowDragIntentKindEnabled(.tabStack(targetWindowId: 1)))
 
         config.windowTabs.enabled = false
         XCTAssertFalse(isWindowDragIntentKindEnabled(.tabStack(targetWindowId: 1)))
-        XCTAssertTrue(isWindowDragIntentKindEnabled(.swap(targetWindowId: 1)))
+        XCTAssertFalse(isWindowDragIntentKindEnabled(.swap(targetWindowId: 1)))
     }
 
     @MainActor
@@ -196,7 +216,7 @@ import XCTest
         target.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 220, topLeftY: 0, width: 200, height: 220)
         let mouseLocation = target.swapDropZoneRect.orDie().center
 
-        XCTAssertTrue(updatePendingWindowDragIntent(sourceWindow: source, mouseLocation: mouseLocation))
+        XCTAssertFalse(updatePendingWindowDragIntent(sourceWindow: source, mouseLocation: mouseLocation))
 
         target.unbindFromParent()
 
@@ -216,7 +236,7 @@ import XCTest
         target.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 220, topLeftY: 0, width: 200, height: 220)
         let mouseLocation = target.swapDropZoneRect.orDie().center
 
-        XCTAssertTrue(updatePendingWindowDragIntent(sourceWindow: source, mouseLocation: mouseLocation))
+        XCTAssertFalse(updatePendingWindowDragIntent(sourceWindow: source, mouseLocation: mouseLocation))
 
         target.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 520, topLeftY: 0, width: 200, height: 220)
 
@@ -288,7 +308,7 @@ import XCTest
         target.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 220, topLeftY: 0, width: 200, height: 220)
         let mouseLocation = target.tabDropInteractionRect.orDie().center
 
-        XCTAssertTrue(updatePendingWindowDragIntent(sourceWindow: source, mouseLocation: mouseLocation))
+        XCTAssertFalse(updatePendingWindowDragIntent(sourceWindow: source, mouseLocation: mouseLocation))
 
         target.unbindFromParent()
 
@@ -310,7 +330,7 @@ import XCTest
         target.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 220, topLeftY: 0, width: 200, height: 220)
         let mouseLocation = target.tabDropInteractionRect.orDie().center
 
-        XCTAssertTrue(updatePendingWindowDragIntent(sourceWindow: source, mouseLocation: mouseLocation))
+        XCTAssertFalse(updatePendingWindowDragIntent(sourceWindow: source, mouseLocation: mouseLocation))
 
         target.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 520, topLeftY: 0, width: 200, height: 220)
 
@@ -332,7 +352,7 @@ import XCTest
         target.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 220, topLeftY: 0, width: 200, height: 220)
         let mouseLocation = target.tabDropInteractionRect.orDie().center
 
-        XCTAssertTrue(updatePendingWindowDragIntent(sourceWindow: source, mouseLocation: mouseLocation))
+        XCTAssertFalse(updatePendingWindowDragIntent(sourceWindow: source, mouseLocation: mouseLocation))
 
         config.windowTabs.enabled = false
 

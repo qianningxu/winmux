@@ -29,14 +29,15 @@ final class ProjectCommandTest: XCTestCase {
         XCTAssertEqual(result.stderr, [projectFeatureDisabledMessage()])
     }
 
-    func testProjectCommandStillWorksWhenProjectsEnabled() async throws {
-        let project = createWorkspaceProject()
+    func testProjectCommandFailsEvenWhenProjectsConfiguredEnabled() async throws {
+        config.enableProjects = true
+        _ = createWorkspaceProject()
 
         let result = try await ProjectCommand(
             args: ProjectCmdArgs(target: .index(2)),
         ).run(.defaultEnv, .emptyStdin)
 
-        assertEquals(result.exitCode, 0)
-        XCTAssertEqual(focus.workspace.projectId, project.id)
+        assertEquals(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, [projectFeatureDisabledMessage()])
     }
 }

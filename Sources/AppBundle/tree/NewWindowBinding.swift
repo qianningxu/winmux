@@ -14,9 +14,6 @@ func unbindAndGetBindingDataForNewWindow(_ windowId: UInt32, _ macApp: MacApp, _
 @MainActor
 func bindingDataForNewTilingWindow(_ workspace: Workspace, window: Window?) -> BindingData {
     window?.unbindFromParent()
-    if let tabGroupBinding = autoAddNewWindowToFocusedTabGroupBinding(workspace) {
-        return tabGroupBinding
-    }
     guard let mruWindow = workspace.mostRecentWindowRecursive,
           let tilingParent = mruWindow.parent as? TilingContainer
     else {
@@ -26,17 +23,6 @@ func bindingDataForNewTilingWindow(_ workspace: Workspace, window: Window?) -> B
         return bindingDataAfterTabGroup(workspace: workspace, tabGroup: tilingParent)
     }
     return BindingData(parent: tilingParent, adaptiveWeight: WEIGHT_AUTO, index: mruWindow.ownIndex.orDie() + 1)
-}
-
-@MainActor
-private func autoAddNewWindowToFocusedTabGroupBinding(_ workspace: Workspace) -> BindingData? {
-    guard config.autoAddNewWindowsToTabGroup,
-          let focusedWindow = focus.windowOrNil,
-          focusedWindow.nodeWorkspace == workspace,
-          let tabGroup = focusedWindow.parent as? TilingContainer,
-          tabGroup.layout == .tabGroup
-    else { return nil }
-    return BindingData(parent: tabGroup, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
 }
 
 @MainActor

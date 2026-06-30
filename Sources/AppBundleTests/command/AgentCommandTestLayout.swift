@@ -3,7 +3,7 @@ import Foundation
 import XCTest
 
 extension AgentCommandTest {
-    func testCreateTabGroupAliasCanBeUsedLaterInSameOperations() async throws {
+    func testCreateTabGroupAliasIsRejectedBeforeFollowUpOperations() async throws {
         let root = Workspace.get(byName: "a").rootTilingContainer
         _ = TestWindow.new(id: 1, parent: root)
         _ = TestWindow.new(id: 2, parent: root)
@@ -38,14 +38,12 @@ extension AgentCommandTest {
 
         let result = try await parseCommand("agent apply --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
 
-        XCTAssertEqual(result.exitCode, 0)
-        let group = try XCTUnwrap(root.allAgentTabGroupsForTests.singleOrNil())
-        XCTAssertEqual(group.agentWindowIdsForTests, [1, 2])
-        XCTAssertTrue(root.children.last === group)
-        XCTAssertEqual(group.getWeight(.h) / root.getWeight(.h), 0.8, accuracy: 0.0001)
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.joined(separator: "\n").contains("createTabGroup is disabled"))
+        XCTAssertTrue(root.allAgentTabGroupsForTests.isEmpty)
     }
 
-    func testDeclarativeWorkspaceLayout() async throws {
+    func testDeclarativeWorkspaceLayoutRejectsTabGroupNodes() async throws {
         let root = Workspace.get(byName: "a").rootTilingContainer
         _ = TestWindow.new(id: 1, parent: root)
         _ = TestWindow.new(id: 2, parent: root)
@@ -75,16 +73,10 @@ extension AgentCommandTest {
             }
             """)
 
-        let result = try await parseCommand("agent apply --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
+        let result = try await parseCommand("agent check --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
 
-        XCTAssertEqual(result.exitCode, 0)
-        let targetRoot = Workspace.get(byName: "coding").rootTilingContainer
-        XCTAssertEqual((targetRoot.children.first as? Window)?.windowId, 1)
-        let group = targetRoot.children.last as? TilingContainer
-        XCTAssertEqual(group?.layout, .tabGroup)
-        XCTAssertEqual(group?.agentWindowIdsForTests, [2, 3])
-        XCTAssertEqual(group?.tabActiveWindow?.windowId, 3)
-        XCTAssertEqual(focus.windowOrNil?.windowId, 3)
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.joined(separator: "\n").contains("tabGroup layout nodes are disabled"))
     }
 
     func testDeclarativeWorkspaceLayoutUsesProportionalSizes() async throws {
@@ -167,7 +159,9 @@ extension AgentCommandTest {
         let result = try await parseCommand("agent check --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.joined(separator: "\n").contains("setWorkspaceLayout 'coding': window 1 appears more than once"))
+        let stderr = result.stderr.joined(separator: "\n")
+        XCTAssertTrue(stderr.contains("tabGroup layout nodes are disabled"))
+        XCTAssertTrue(stderr.contains("setWorkspaceLayout 'coding': window 1 appears more than once"))
     }
 
     func testSetPaneSizeOperationUsesProportionalSize() async throws {

@@ -269,7 +269,7 @@ final class WorkspaceNamingTest: XCTestCase {
         XCTAssertEqual(secondaryWorkspace.projectId, workspaceProjectDefaultId)
     }
 
-    func testProjectsOwnSeparateWorkspaceSetsOnTheSameDisplay() {
+    func testProjectsDoNotOwnSeparateWorkspaceSetsWhenHardDisabled() {
         let defaultWorkspace = Workspace.get(byName: "1")
         defaultWorkspace.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 12, parent: defaultWorkspace.rootTilingContainer)
@@ -282,7 +282,7 @@ final class WorkspaceNamingTest: XCTestCase {
 
         XCTAssertNotEqual(defaultWorkspace.projectId, projectWorkspace.projectId)
         XCTAssertEqual(workspaceDisplayName(defaultWorkspace.name), "Workspace 1")
-        XCTAssertEqual(workspaceDisplayName(projectWorkspace.name), "Workspace 1")
+        XCTAssertEqual(workspaceDisplayName(projectWorkspace.name), "Workspace 2")
     }
 
     func testWorkspaceSidebarRenameUsesDisplayLabelWithoutRenamingWorkspaceIdentity() throws {
@@ -528,18 +528,19 @@ final class WorkspaceNamingTest: XCTestCase {
         XCTAssertEqual(workspaceProjectFallbackForDeletion(excluding: second.id), first.id)
     }
 
-    func testDeletingActiveProjectSwitchesToClosestProject() throws {
+    func testDeletingActiveProjectKeepsDefaultProjectActiveWhenProjectsAreHardDisabled() throws {
         let first = createWorkspaceProject()
         let second = createWorkspaceProject()
         XCTAssertNotNil(switchWorkspaceProject(first.id, on: mainMonitor))
 
         try deleteWorkspaceProject(first.id)
 
-        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), second.id)
+        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), workspaceProjectDefaultId)
         XCTAssertFalse(workspaceProjects().contains { $0.id == first.id })
+        XCTAssertTrue(workspaceProjects().contains { $0.id == second.id })
     }
 
-    func testSameProjectCanStayActiveOnMultipleDisplays() {
+    func testProjectSwitchUsesDefaultActiveProjectOnMultipleDisplaysWhenHardDisabled() {
         let main = WorkspaceNamingTestMonitor(
             monitorAppKitNsScreenScreensId: 1,
             name: "Left",
@@ -563,8 +564,8 @@ final class WorkspaceNamingTest: XCTestCase {
         XCTAssertNotNil(mainWorkspace)
         XCTAssertNotNil(secondaryWorkspace)
         XCTAssertFalse(mainWorkspace === secondaryWorkspace)
-        XCTAssertEqual(activeWorkspaceProjectId(for: main), project.id)
-        XCTAssertEqual(activeWorkspaceProjectId(for: secondary), project.id)
+        XCTAssertEqual(activeWorkspaceProjectId(for: main), workspaceProjectDefaultId)
+        XCTAssertEqual(activeWorkspaceProjectId(for: secondary), workspaceProjectDefaultId)
         XCTAssertEqual(main.activeWorkspace.projectId, project.id)
         XCTAssertEqual(secondary.activeWorkspace.projectId, project.id)
         XCTAssertFalse(main.activeWorkspace === secondary.activeWorkspace)

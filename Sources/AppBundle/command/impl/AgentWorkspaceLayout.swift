@@ -16,6 +16,9 @@ struct AgentWorkspaceLayout: Codable {
 
     @MainActor
     func validate(appendTo errors: inout [String]) async throws {
+        if layout.containsTopTabGroupNode {
+            errors.append("setWorkspaceLayout '\(name)': tabGroup layout nodes are disabled. Tabs are now sidebar workspaces; use split/window nodes instead.")
+        }
         var orderedWindowIds: [UInt32] = []
         layout.collectWindowIds(result: &orderedWindowIds)
         for ref in floating ?? [] {

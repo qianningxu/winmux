@@ -21,14 +21,14 @@ final class AgentCommandTest: XCTestCase {
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("setWinMuxFullscreen"))
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("\"swapPanes\""))
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("All `edit.operations` commands"))
-        XCTAssertTrue(result.stdout.joined(separator: "\n").contains("addWindowToTabGroup"))
+        XCTAssertTrue(result.stdout.joined(separator: "\n").contains("createTabGroup`, `addWindowToTabGroup`, `setActiveTab`"))
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("setPaneSize"))
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("setWorkspaceLayout"))
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("Full layout mode"))
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("Use `0.8` for 80%"))
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("\"axis\": \"vertical\""))
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("replace the entire `edit.operations` array"))
-        XCTAssertTrue(result.stdout.joined(separator: "\n").contains("`windows` is accepted as an alias"))
+        XCTAssertTrue(result.stdout.joined(separator: "\n").contains("Do not create old top-tab groups"))
     }
 
     func testQueryIncludesPanesAndTabGroups() async throws {
@@ -102,7 +102,7 @@ final class AgentCommandTest: XCTestCase {
         XCTAssertEqual(firstWorldId, secondWorldId)
     }
 
-    func testMoveTabGroupToWorkspaceMovesWholeGroup() async throws {
+    func testMoveTabGroupToWorkspaceIsMigratedIntoSidebarTabsAfterApply() async throws {
         let source = Workspace.get(byName: "a")
         let group = TilingContainer(parent: source.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, .v, .tabGroup, index: INDEX_BIND_LAST)
         _ = TestWindow.new(id: 2, parent: group)
@@ -122,10 +122,13 @@ final class AgentCommandTest: XCTestCase {
         let result = try await parseCommand("agent apply --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
 
         XCTAssertEqual(result.exitCode, 0)
-        let targetRoot = Workspace.get(byName: "b").rootTilingContainer
-        let movedGroup = targetRoot.allAgentTabGroupsForTests.singleOrNil()
-        XCTAssertTrue(movedGroup === group)
-        XCTAssertEqual(movedGroup?.agentWindowIdsForTests, [2, 3])
+        XCTAssertFalse(Workspace.all.contains { workspaceContainsAgentTabGroupForTests($0) })
+        let targetWindows = Workspace.all
+            .filter { $0.name == "b" || $0.preferredMonitorPointForTesting == Workspace.get(byName: "b").preferredMonitorPointForTesting }
+            .flatMap(\.allLeafWindowsRecursive)
+            .map(\.windowId)
+            .sorted()
+        XCTAssertEqual(targetWindows, [2, 3])
     }
 
     func testSwapPanesAcceptsPaneIdAliases() async throws {
@@ -197,7 +200,7 @@ final class AgentCommandTest: XCTestCase {
         XCTAssertTrue(editor.noOuterGapsInFullscreen)
     }
 
-    func testCreateTabGroupAcceptsWindowsAliasAndInfersWorkspace() async throws {
+    func testCreateTabGroupIsDisabledForSidebarTabs() async throws {
         let root = Workspace.get(byName: "a").rootTilingContainer
         _ = TestWindow.new(id: 1, parent: root)
         _ = TestWindow.new(id: 2, parent: root)
@@ -221,13 +224,12 @@ final class AgentCommandTest: XCTestCase {
 
         let result = try await parseCommand("agent apply --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
 
-        XCTAssertEqual(result.exitCode, 0)
-        let group = root.allAgentTabGroupsForTests.singleOrNil()
-        XCTAssertEqual(group?.agentWindowIdsForTests, [1, 2, 3])
-        XCTAssertEqual(group?.tabActiveWindow?.windowId, 2)
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.joined(separator: "\n").contains("createTabGroup is disabled"))
+        XCTAssertTrue(root.allAgentTabGroupsForTests.isEmpty)
     }
 
-    func testCreateTabGroupSeedsNewWorkspaceToSourceMonitor() async throws {
+    func testCreateTabGroupDoesNotCreateNewWorkspaceWhenDisabled() async throws {
         let main = TestMonitor(
             monitorAppKitNsScreenScreensId: 1,
             name: "Main",
@@ -265,13 +267,12 @@ final class AgentCommandTest: XCTestCase {
 
         let result = try await parseCommand("agent apply --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
 
-        XCTAssertEqual(result.exitCode, 0)
-        let target = Workspace.get(byName: "tabs")
-        XCTAssertEqual(target.preferredMonitorPointForTesting, secondary.rect.topLeftCorner)
-        XCTAssertEqual(target.workspaceMonitor.rect.topLeftCorner, secondary.rect.topLeftCorner)
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.joined(separator: "\n").contains("createTabGroup is disabled"))
+        XCTAssertNil(Workspace.existing(byName: "tabs"))
     }
 
-    func testCreateTabGroupRejectsDuplicateWindows() async throws {
+    func testCreateTabGroupRejectsDisabledOperationAndDuplicateWindows() async throws {
         let root = Workspace.get(byName: "a").rootTilingContainer
         _ = TestWindow.new(id: 1, parent: root)
         _ = TestWindow.new(id: 2, parent: root)
@@ -290,7 +291,9 @@ final class AgentCommandTest: XCTestCase {
         let result = try await parseCommand("agent check --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.joined(separator: "\n").contains("createTabGroup: window 1 appears more than once"))
+        let stderr = result.stderr.joined(separator: "\n")
+        XCTAssertTrue(stderr.contains("createTabGroup is disabled"))
+        XCTAssertTrue(stderr.contains("createTabGroup: window 1 appears more than once"))
     }
 
 }
@@ -333,4 +336,17 @@ extension TilingContainer {
     var agentWindowIdsForTests: [UInt32] {
         children.compactMap { $0.anyLeafWindowRecursive?.windowId }
     }
+}
+
+@MainActor
+private func workspaceContainsAgentTabGroupForTests(_ workspace: Workspace) -> Bool {
+    containsAgentTabGroupForTests(workspace.rootTilingContainer)
+}
+
+@MainActor
+private func containsAgentTabGroupForTests(_ node: TreeNode) -> Bool {
+    if let container = node as? TilingContainer, container.layout == .tabGroup, container.children.count > 1 {
+        return true
+    }
+    return node.children.contains(where: containsAgentTabGroupForTests)
 }

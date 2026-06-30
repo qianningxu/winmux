@@ -73,4 +73,15 @@ indirect enum AgentLayoutNode: Codable {
                 size
         }
     }
+
+    var containsTopTabGroupNode: Bool {
+        switch self {
+            case .split(_, let children, _):
+                children.contains(where: \.containsTopTabGroupNode)
+            case .window:
+                false
+            case .tabGroup:
+                true
+        }
+    }
 }

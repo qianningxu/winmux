@@ -206,6 +206,28 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
+    func testWorkspaceSidebarTabSummaryUsesManualLabelAndWindowCount() async throws {
+        setUpWorkspacesForTests()
+        let workspace = Workspace.get(byName: "coding")
+        workspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        _ = TestWindow.new(id: 2, parent: workspace.rootTilingContainer).focusWindow()
+
+        let sidebarWorkspaces = await buildWorkspaceSidebarWorkspaceViewModels(
+            currentFocus: focus,
+            workspaceLabels: [workspace.name: "Research"],
+            availableMonitors: sortedMonitors,
+        )
+        let model = try XCTUnwrap(sidebarWorkspaces.first { $0.name == workspace.name })
+
+        XCTAssertEqual(model.displayName, "Research")
+        XCTAssertEqual(model.tabSummary.title, "Research")
+        XCTAssertEqual(model.tabSummary.subtitle, "TestWindow(2)")
+        XCTAssertEqual(model.tabSummary.windowCount, 2)
+        XCTAssertFalse(model.tabSummary.isEmpty)
+    }
+
+    @MainActor
     func testWindowIntentPreviewRendersBelowWorkspaceSidebar() {
         XCTAssertLessThan(
             WindowDropIntentOverlayPanelController.shared.level.rawValue,

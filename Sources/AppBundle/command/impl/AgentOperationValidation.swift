@@ -48,6 +48,7 @@ extension AgentOperation {
         context: inout AgentValidationContext,
         errors: inout [String],
     ) {
+        errors.append("createTabGroup is disabled. Tabs are now sidebar workspaces; use split layout nodes instead.")
         if tabs.count < 2 { errors.append("createTabGroup requires at least two tabs") }
         for id in duplicateAgentWindowIds(in: tabs) {
             errors.append("createTabGroup: window \(id) appears more than once")
@@ -70,6 +71,7 @@ extension AgentOperation {
         context: AgentValidationContext,
         errors: inout [String],
     ) {
+        errors.append("addWindowToTabGroup is disabled. Tabs are now sidebar workspaces; use placePane or setWorkspaceLayout with split nodes instead.")
         if Window.get(byId: windowId) == nil { errors.append("addWindowToTabGroup: window \(windowId) does not exist") }
         if let activeWindowId, Window.get(byId: activeWindowId) == nil { errors.append("addWindowToTabGroup: active window \(activeWindowId) does not exist") }
         if resolveAgentTabGroup(tabGroupId) == nil, context.plannedTabGroups[tabGroupId] == nil {
@@ -84,6 +86,7 @@ extension AgentOperation {
         context: AgentValidationContext,
         errors: inout [String],
     ) {
+        errors.append("setActiveTab is disabled. Tabs are now selected from the sidebar.")
         let isExistingTab = resolveAgentTabGroup(tabGroupId)?.agentTabWindows.contains(where: { $0.windowId == windowId }) == true
         let isPlannedTab = context.plannedTabGroups[tabGroupId]?.contains(windowId) == true
         if !isExistingTab && !isPlannedTab {
