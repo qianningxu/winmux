@@ -296,6 +296,40 @@ final class AgentCommandTest: XCTestCase {
         XCTAssertTrue(stderr.contains("createTabGroup: window 1 appears more than once"))
     }
 
+    func testLegacyTopTabApplyOperationsAreInertWhenValidationIsBypassed() async throws {
+        let root = Workspace.get(byName: "a").rootTilingContainer
+        let first = TestWindow.new(id: 1, parent: root)
+        let second = TestWindow.new(id: 2, parent: root)
+        var context = AgentApplyContext()
+
+        try await AgentOperation
+            .createTabGroup(tabGroupId: "new-tabs", workspace: nil, tabs: [1, 2], activeWindowId: 2)
+            .apply(context: &context)
+
+        XCTAssertTrue(context.tabGroupAliases.isEmpty)
+        XCTAssertTrue(root.allAgentTabGroupsForTests.isEmpty)
+        XCTAssertEqual(root.children.compactMap { ($0 as? Window)?.windowId }, [1, 2])
+        XCTAssertTrue(first.parent === root)
+        XCTAssertTrue(second.parent === root)
+
+        let legacyGroup = TilingContainer(parent: root, adaptiveWeight: WEIGHT_AUTO, .v, .tabGroup, index: INDEX_BIND_LAST)
+        let legacyFirst = TestWindow.new(id: 3, parent: legacyGroup)
+        _ = TestWindow.new(id: 4, parent: legacyGroup)
+        legacyFirst.markAsMostRecentChild()
+        context.tabGroupAliases["legacy"] = legacyGroup
+
+        try await AgentOperation
+            .addWindowToTabGroup(windowId: 1, tabGroupId: "legacy", activeWindowId: 1)
+            .apply(context: &context)
+        try await AgentOperation
+            .setActiveTab(tabGroupId: "legacy", windowId: 4)
+            .apply(context: &context)
+
+        XCTAssertTrue(first.parent === root)
+        XCTAssertEqual(legacyGroup.children.compactMap { ($0 as? Window)?.windowId }, [3, 4])
+        XCTAssertTrue(legacyGroup.mostRecentWindowRecursive === legacyFirst)
+    }
+
 }
 
 

@@ -70,59 +70,31 @@ extension AgentOperation {
 
     @MainActor
     private func applyCreateTabGroup(
-        _ tabGroupId: String?,
-        workspace: String?,
-        tabs: [UInt32],
-        activeWindowId: UInt32?,
-        context: inout AgentApplyContext,
+        _ _: String?,
+        workspace _: String?,
+        tabs _: [UInt32],
+        activeWindowId _: UInt32?,
+        context _: inout AgentApplyContext,
     ) {
-        let windows = tabs.compactMap { Window.get(byId: $0) }
-        guard let first = windows.first else { return }
-        let workspaceName = workspace ?? first.nodeWorkspace?.name ?? focus.workspace.name
-        let targetWorkspace = getAgentTargetWorkspace(named: workspaceName, projectSource: first.nodeWorkspace, monitorSource: first)
-        for window in windows where window.nodeWorkspace != targetWorkspace {
-            _ = agentMoveWindowToWorkspace(window, targetWorkspace, focusFollowsWindow: false)
-        }
-        for window in windows.dropFirst() {
-            createOrAppendWindowTabStack(sourceWindow: window, onto: first)
-        }
-        if let group = first.nearestWindowTabGroup {
-            reorderAgentTabGroup(group, tabs: tabs)
-            if let tabGroupId {
-                context.tabGroupAliases[tabGroupId] = group
-            }
-        }
-        if let activeWindowId {
-            Window.get(byId: activeWindowId)?.markAsMostRecentChild()
-            _ = Window.get(byId: activeWindowId)?.focusWindow()
-        }
+        // Validation rejects this legacy operation. Keep apply inert too, so
+        // bypassed validation cannot recreate old top-tab groups.
     }
 
     @MainActor
     private func applyAddWindowToTabGroup(
-        _ windowId: UInt32,
-        tabGroupId: String,
-        activeWindowId: UInt32?,
-        context: AgentApplyContext,
+        _ _: UInt32,
+        tabGroupId _: String,
+        activeWindowId _: UInt32?,
+        context _: AgentApplyContext,
     ) {
-        guard let window = Window.get(byId: windowId),
-              let group = resolveAgentTabGroup(tabGroupId, context: context),
-              let target = group.agentTabWindows.first
-        else { return }
-        createOrAppendWindowTabStack(sourceWindow: window, onto: target)
-        if let activeWindowId {
-            Window.get(byId: activeWindowId)?.markAsMostRecentChild()
-            _ = Window.get(byId: activeWindowId)?.focusWindow()
-        }
+        // Validation rejects this legacy operation. Keep apply inert too, so
+        // bypassed validation cannot recreate old top-tab groups.
     }
 
     @MainActor
-    private func applySetActiveTab(_ tabGroupId: String, windowId: UInt32, context: AgentApplyContext) {
-        guard let window = Window.get(byId: windowId),
-              resolveAgentTabGroup(tabGroupId, context: context)?.agentTabWindows.contains(where: { $0 == window }) == true
-        else { return }
-        window.markAsMostRecentChild()
-        _ = window.focusWindow()
+    private func applySetActiveTab(_ _: String, windowId _: UInt32, context _: AgentApplyContext) {
+        // Sidebar Tabs are selected by focusing their backing workspace.
+        // Legacy top-tab activation is intentionally disabled.
     }
 
     @MainActor

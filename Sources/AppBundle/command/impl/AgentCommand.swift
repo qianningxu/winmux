@@ -100,9 +100,9 @@ private let agentSkillText = """
 
     For small changes, replace the entire `edit.operations` array. Do not append to old operations unless the user asked for one multi-step batch. Prefer operations for focus, moving one window, swapping, placing one pane, setting WinMux fullscreen, closing, or parking windows.
 
-    For full workspace setup, edit `edit.layout.workspaces`. Use layout mode for requests like "set up my coding workspace" or "organize all windows into workspaces".
+    For full Tab setup, edit `edit.layout.workspaces`. Use layout mode for requests like "set up my coding Tab" or "organize all windows into Tabs".
 
-    WinMux Tabs are sidebar workspaces. A Tab can contain a composed split layout with multiple windows. Do not create old top-tab groups. Use split/window layout nodes to compose multiple windows inside one Tab.
+    WinMux Tabs are managed in the sidebar. A Tab can contain a composed split layout with multiple windows. Do not create old top-tab groups. Use split/window layout nodes to compose multiple windows inside one Tab.
 
     If the user says "all Chrome windows" or "all IDEs", scan every item in `inventory.windows` and include every matching `windowId`. Do not stop after the first match. Existing legacy `inventory.tabGroups` may appear for old state; you may move or resize those panes, but do not create new tab groups.
 
@@ -113,7 +113,7 @@ private let agentSkillText = """
     - Legacy whole tab groups may exist in `inventory.tabGroups`. Use `tabGroupId` only when moving or editing an existing legacy group.
     - Find current layout in `reasoning.panes`, `reasoning.relations`, and `reasoning.rawTrees`.
     - Use `size` and `sizeAxis` from the query file to understand current proportions before resizing.
-    - Never invent a `windowId`, `paneId`, `tabGroupId`, or workspace name if the query file already gives the correct value.
+    - Never invent a `windowId`, `paneId`, `tabGroupId`, or Tab/workspace name if the query file already gives the correct value.
 
     Canonical operation type names are camelCase. Common snake_case aliases are accepted, but prefer the exact schemas below.
 
