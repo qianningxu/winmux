@@ -70,6 +70,7 @@ final class Workspace: TreeNode, NonLeafTreeNodeObject, Hashable, Comparable {
         winMuxWorkspaceState.pruneProjectWorkspaceIndexes()
         repairInvalidVisibleWorkspaceAssignments()
         rearrangeWorkspacesOnMonitors()
+        migrateWorkspaceTabGroupsToWorkspaceTabs()
         pruneEmptyWorkspaces()
         clearOrphanedWorkspaceSidebarLabels()
         ensureVisibleActiveProjectWorkspaces()

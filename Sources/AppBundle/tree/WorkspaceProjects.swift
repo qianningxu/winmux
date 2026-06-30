@@ -3,7 +3,7 @@ import Common
 
 @MainActor
 func projectsAreEnabled() -> Bool {
-    config.enableProjects
+    false
 }
 
 @MainActor

@@ -82,13 +82,13 @@ struct WorkspaceSidebarWorkspaceSection: View {
                     debugWorkspaceSidebarRenameLog("workspaceContextRename workspace=\(workspace.name) displayName=\(workspace.displayName) compact=\(isCompact)")
                     onBeginRenameWorkspace()
                 } label: {
-                    Text("Rename Workspace")
+                    Text("Rename Tab")
                 }
                 Divider()
                 Button(role: .destructive) {
                     actions.send(.deleteWorkspace(workspace.name))
                 } label: {
-                    Text("Delete Workspace")
+                    Text("Delete Tab")
                 }
             }
             .onHover { hover in

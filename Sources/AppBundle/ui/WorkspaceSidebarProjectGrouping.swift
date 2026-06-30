@@ -4,14 +4,19 @@ func workspaceSidebarVisibleWorkspacesByProject(
     workspaces: [WorkspaceSidebarWorkspaceViewModel],
     selectedScopeId: String,
     focusedMonitorScopeId: String,
+    targetMonitorScopeId: String? = nil,
     browsedProjectId: WorkspaceProjectId? = nil,
     projectsEnabled: Bool = true,
 ) -> [WorkspaceProjectId: [WorkspaceSidebarWorkspaceViewModel]] {
     if !projectsEnabled {
+        let resolvedScopeId = workspaceSidebarTabListScopeId(
+            selectedScopeId: selectedScopeId,
+            targetMonitorScopeId: targetMonitorScopeId,
+        )
         return [workspaceProjectDefaultId: workspaces.filter {
             workspaceSidebarWorkspaceMatchesScope(
                 $0,
-                selectedScopeId: selectedScopeId,
+                selectedScopeId: resolvedScopeId,
                 focusedMonitorScopeId: focusedMonitorScopeId,
             )
         }]

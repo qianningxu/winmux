@@ -60,7 +60,7 @@ func runWorkspaceSidebarSession(_ body: @escaping @MainActor () async throws -> 
 @MainActor
 func showWorkspaceSidebarError(_ body: String) {
     MessageModel.shared.message = Message(
-        description: "Workspace Sidebar Error",
+        description: "Tab Sidebar Error",
         body: body,
     )
 }

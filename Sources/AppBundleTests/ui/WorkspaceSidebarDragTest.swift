@@ -166,7 +166,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
-    func testTopFilterBarShowsWhenAnotherProjectExists() {
+    func testTopFilterBarIgnoresProjectsForHardTabMigration() {
         let view = WorkspaceSidebarView(snapshot: workspaceSidebarSnapshotForTopFilterBar(
             projects: [
                 WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Default", colorHex: nil),
@@ -183,7 +183,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
             ],
         ))
 
-        XCTAssertTrue(view.shouldShowTopFilterBar)
+        XCTAssertFalse(view.shouldShowTopFilterBar)
     }
 
     @MainActor

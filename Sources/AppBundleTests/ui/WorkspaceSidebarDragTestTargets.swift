@@ -325,6 +325,47 @@ extension WorkspaceSidebarDragTest {
         XCTAssertNil(grouped["project-b"])
     }
 
+    func testHardTabListDefaultScopeUsesPanelMonitor() {
+        let mainScope = "monitor:0.0"
+        let secondaryScope = "monitor:1920.0"
+        let workspaces = [
+            WorkspaceSidebarWorkspaceViewModel(
+                name: "main-tab",
+                projectId: workspaceProjectDefaultId,
+                displayName: "Main",
+                sidebarLabel: "",
+                isGeneratedName: true,
+                monitorScopeId: mainScope,
+                monitorName: nil,
+                isFocused: true,
+                isVisible: true,
+                items: [],
+            ),
+            WorkspaceSidebarWorkspaceViewModel(
+                name: "secondary-tab",
+                projectId: workspaceProjectDefaultId,
+                displayName: "Secondary",
+                sidebarLabel: "",
+                isGeneratedName: true,
+                monitorScopeId: secondaryScope,
+                monitorName: nil,
+                isFocused: false,
+                isVisible: true,
+                items: [],
+            ),
+        ]
+
+        let grouped = workspaceSidebarVisibleWorkspacesByProject(
+            workspaces: workspaces,
+            selectedScopeId: workspaceSidebarDefaultScopeId,
+            focusedMonitorScopeId: mainScope,
+            targetMonitorScopeId: secondaryScope,
+            projectsEnabled: false,
+        )
+
+        XCTAssertEqual(grouped[workspaceProjectDefaultId]?.map(\.name), ["secondary-tab"])
+    }
+
     func testProjectPagerRendersOnlyCurrentAndSwipeTargetPages() {
         XCTAssertTrue(shouldRenderWorkspaceSidebarProjectPage(index: 1, displayIndex: 1, swipeDirection: nil, projectCount: 4))
         XCTAssertFalse(shouldRenderWorkspaceSidebarProjectPage(index: 0, displayIndex: 1, swipeDirection: nil, projectCount: 4))

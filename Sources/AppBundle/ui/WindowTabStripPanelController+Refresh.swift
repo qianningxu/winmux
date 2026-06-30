@@ -2,18 +2,7 @@ import Foundation
 
 extension WindowTabStripPanelController {
     func refresh() {
-        guard TrayMenuModel.shared.isEnabled, config.windowTabs.enabled else {
-            hideAll()
-            return
-        }
-
-        let strips = windowTabStripsWithTransientResizeApplied(TrayMenuModel.shared.windowTabStrips)
-        let activeIds = Set(strips.map(\.id))
-        if let mouseInteractionChromeMode {
-            refreshSuppressedChrome(mode: mouseInteractionChromeMode, strips: strips, activeIds: activeIds)
-            return
-        }
-        refreshInteractiveChrome(strips: strips, activeIds: activeIds)
+        hideAll()
     }
 
     func windowTabStripsWithTransientResizeApplied(_ strips: [WindowTabStripViewModel]) -> [WindowTabStripViewModel] {

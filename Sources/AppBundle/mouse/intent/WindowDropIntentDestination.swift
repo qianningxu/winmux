@@ -26,33 +26,9 @@ func destinationFromWindowDropIntent(
 
     switch resolution.intent.zone {
         case .tab:
-            guard config.windowTabs.enabled,
-                  isWindowDragIntentKindEnabled(.tabStack(targetWindowId: targetWindow.windowId)),
-                  !shouldSuppressSameTabGroupTabDestination(
-                      sourceWindow: sourceWindow,
-                      targetWindow: targetWindow,
-                      detachOrigin: detachOrigin
-                  )
-            else { return nil }
-            return intentOverlayDestination(WindowDragIntentDestination(
-                kind: .tabStack(targetWindowId: targetWindow.windowId),
-                previewContainerRect: resolution.targetFrame,
-                previewRect: windowDropIntentActivePreviewRect(for: resolution),
-                interactionRect: resolution.targetFrame,
-                title: "Insert Into Tabs",
-                subtitle: "Drop in the top zone to add this window",
-                previewStyle: .tabInsert,
-                previewGeometry: .tabStrip,
-                isGroup: false,
-            ))
+            return nil
         case .middle:
-            guard let destination = swapDestination(
-                sourceWindow: sourceWindow,
-                targetWindow: targetWindow,
-                subject: subject,
-                detachOrigin: detachOrigin,
-            ) else { return nil }
-            return intentOverlayDestination(destination)
+            return nil
         case .left, .right, .top, .bottom:
             guard let position = resolution.intent.zone.stackSplitPosition else { return nil }
             guard let destination = stackSplitDestination(

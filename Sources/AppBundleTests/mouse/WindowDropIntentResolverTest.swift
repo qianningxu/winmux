@@ -2,6 +2,9 @@
 import XCTest
 
 final class WindowDropIntentResolverTest: XCTestCase {
+    @MainActor
+    override func setUp() async throws { setUpWorkspacesForTests() }
+
     func testResolvesTopBandAsTabZone() {
         let resolution = resolve(point: CGPoint(x: 150, y: 115))
         XCTAssertEqual(resolution?.intent.zone, .tab)
@@ -42,6 +45,56 @@ final class WindowDropIntentResolverTest: XCTestCase {
             pointer: CGPoint(x: 99, y: 150),
             targetFrame: frame,
         ))
+    }
+
+    @MainActor
+    func testTopTabAndCenterBodyDropsProduceNoDestination() {
+        let workspace = Workspace.get(byName: "drag")
+        let root = workspace.rootTilingContainer
+        let source = TestWindow.new(id: 1, parent: root)
+        let target = TestWindow.new(id: 2, parent: root)
+        target.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 100, topLeftY: 100, width: 210, height: 210)
+
+        let topResolution = resolve(point: CGPoint(x: 150, y: 115)).orDie()
+        let centerResolution = resolve(point: CGPoint(x: 200, y: 210)).orDie()
+
+        XCTAssertNil(destinationFromWindowDropIntent(
+            topResolution,
+            sourceWindow: source,
+            targetWindow: target,
+            mouseLocation: CGPoint(x: 150, y: 115),
+            subject: .window,
+            detachOrigin: .window,
+        ))
+        XCTAssertNil(destinationFromWindowDropIntent(
+            centerResolution,
+            sourceWindow: source,
+            targetWindow: target,
+            mouseLocation: CGPoint(x: 200, y: 210),
+            subject: .window,
+            detachOrigin: .window,
+        ))
+    }
+
+    @MainActor
+    func testEdgeDropsStillProduceSplitDestinations() {
+        let workspace = Workspace.get(byName: "drag")
+        let root = workspace.rootTilingContainer
+        let source = TestWindow.new(id: 1, parent: root)
+        let target = TestWindow.new(id: 2, parent: root)
+        target.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 100, topLeftY: 100, width: 210, height: 210)
+        let resolution = resolve(point: CGPoint(x: 110, y: 210)).orDie()
+
+        let destination = destinationFromWindowDropIntent(
+            resolution,
+            sourceWindow: source,
+            targetWindow: target,
+            mouseLocation: CGPoint(x: 110, y: 210),
+            subject: .window,
+            detachOrigin: .window,
+        )
+
+        XCTAssertEqual(destination?.kind, .stackSplit(targetWindowId: target.windowId, position: .left))
     }
 
     private func resolve(point: CGPoint) -> WindowDropIntentResolution? {

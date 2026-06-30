@@ -15,15 +15,15 @@ struct LayoutCommand: Command {
         if window.matchesDescription(targetDescription) { return false }
         switch targetDescription {
             case .hTabGroup:
-                return changeTilingLayout(io, targetLayout: .tabGroup, targetOrientation: .h, window: window)
+                return oldTopTabGroupLayoutDisabled(io)
             case .vTabGroup:
-                return changeTilingLayout(io, targetLayout: .tabGroup, targetOrientation: .v, window: window)
+                return oldTopTabGroupLayoutDisabled(io)
             case .h_tiles:
                 return changeTilingLayout(io, targetLayout: .tiles, targetOrientation: .h, window: window)
             case .v_tiles:
                 return changeTilingLayout(io, targetLayout: .tiles, targetOrientation: .v, window: window)
             case .tabGroup:
-                return changeTilingLayout(io, targetLayout: .tabGroup, targetOrientation: nil, window: window)
+                return oldTopTabGroupLayoutDisabled(io)
             case .tiles:
                 return changeTilingLayout(io, targetLayout: .tiles, targetOrientation: nil, window: window)
             case .horizontal:
@@ -51,6 +51,10 @@ struct LayoutCommand: Command {
                 return true
         }
     }
+}
+
+@MainActor private func oldTopTabGroupLayoutDisabled(_ io: CmdIo) -> Bool {
+    io.err("Old top tab-group layout is disabled. Tabs are now managed in the sidebar.")
 }
 
 @MainActor private func changeTilingLayout(_ io: CmdIo, targetLayout: Layout?, targetOrientation: Orientation?, window: Window) -> Bool {

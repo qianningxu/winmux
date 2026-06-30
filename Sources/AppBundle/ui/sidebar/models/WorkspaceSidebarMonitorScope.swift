@@ -66,3 +66,11 @@ func workspaceSidebarWorkspaceMatchesScope(
         focusedMonitorScopeId: focusedMonitorScopeId,
     )
 }
+
+func workspaceSidebarTabListScopeId(
+    selectedScopeId: String,
+    targetMonitorScopeId: String?,
+) -> String {
+    guard selectedScopeId == workspaceSidebarDefaultScopeId else { return selectedScopeId }
+    return targetMonitorScopeId ?? selectedScopeId
+}

@@ -35,6 +35,7 @@ extension WorkspaceSidebarView {
             workspaces: snapshot.workspaces,
             selectedScopeId: snapshot.selectedMonitorScopeId,
             focusedMonitorScopeId: snapshot.focusedMonitorScopeId,
+            targetMonitorScopeId: snapshot.targetMonitorScopeId,
             browsedProjectId: browsedProjectId,
             projectsEnabled: projectsEnabled,
         )
