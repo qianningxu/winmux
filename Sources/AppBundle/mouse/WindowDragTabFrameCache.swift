@@ -2,7 +2,7 @@ import Common
 
 @MainActor
 func expectedTabbedWindowRect(targetWindow: Window, targetRect: Rect) -> Rect {
-    guard config.windowTabs.enabled else { return targetRect }
+    guard legacyWindowTabBehaviorIsEnabled() else { return targetRect }
     let isAlreadyTabbed = (targetWindow.parent as? TilingContainer)?.layout == .tabGroup
     guard !isAlreadyTabbed else { return targetRect }
 

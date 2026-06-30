@@ -164,6 +164,21 @@ import XCTest
         XCTAssertEqual(tabGroup.windowTabBarHeight, 0)
     }
 
+    func testLegacyTopWindowTabsAreHardDisabledOutsideUnitTests() {
+        XCTAssertFalse(legacyWindowTabBehaviorIsEnabledForEnvironment(
+            configEnabled: true,
+            isUnitTestProcess: false,
+        ))
+        XCTAssertFalse(legacyWindowTabBehaviorIsEnabledForEnvironment(
+            configEnabled: false,
+            isUnitTestProcess: false,
+        ))
+        XCTAssertTrue(legacyWindowTabBehaviorIsEnabledForEnvironment(
+            configEnabled: true,
+            isUnitTestProcess: true,
+        ))
+    }
+
     @MainActor
     func testFullscreenWindowInTabGroupHidesChromeAndCoversSiblingWindows() async throws {
         setUpWorkspacesForTests()

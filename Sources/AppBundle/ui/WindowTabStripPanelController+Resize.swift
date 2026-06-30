@@ -23,7 +23,7 @@ extension WindowTabStripPanelController {
 
     func resizingTabGroupStrip(window: Window, activeWindowRect: Rect) -> WindowTabStripViewModel? {
         guard TrayMenuModel.shared.isEnabled,
-              config.windowTabs.enabled,
+              legacyWindowTabBehaviorIsEnabled(),
               let tabGroup = window.nearestWindowTabGroup,
               tabGroup.usesWindowTabBehavior,
               tabGroup.tabActiveWindow == window

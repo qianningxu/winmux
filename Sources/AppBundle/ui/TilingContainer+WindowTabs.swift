@@ -1,9 +1,22 @@
 import AppKit
+import Common
+
+func legacyWindowTabBehaviorIsEnabledForEnvironment(configEnabled: Bool, isUnitTestProcess: Bool) -> Bool {
+    isUnitTestProcess && configEnabled
+}
+
+@MainActor
+func legacyWindowTabBehaviorIsEnabled() -> Bool {
+    legacyWindowTabBehaviorIsEnabledForEnvironment(
+        configEnabled: config.windowTabs.enabled,
+        isUnitTestProcess: isUnitTest,
+    )
+}
 
 extension TilingContainer {
     @MainActor
     var usesWindowTabBehavior: Bool {
-        isWindowTabGroup && config.windowTabs.enabled
+        isWindowTabGroup && legacyWindowTabBehaviorIsEnabled()
     }
 
     @MainActor

@@ -29,7 +29,7 @@ func selfTabGroupTabReentryDestination(
 ) -> WindowDragIntentDestination? {
     guard subject == .window,
           detachOrigin == .tabStrip,
-          config.windowTabs.enabled,
+          legacyWindowTabBehaviorIsEnabled(),
           let sourceParent = sourceWindow.parent as? TilingContainer,
           sourceParent.layout == .tabGroup,
           targetWindow.parent === sourceParent,
