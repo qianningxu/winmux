@@ -6,6 +6,6 @@ struct StackWithCommand: Command {
     /*conforms*/ let shouldResetClosedWindowsCache = true
 
     func run(_ env: CmdEnv, _ io: CmdIo) async throws -> Bool {
-        io.err("Window stacking into old top tab groups is disabled. Use edge split actions inside the active Tab instead.")
+        io.err("Center stacking is disabled. Use left, right, top, or bottom split actions inside the active Tab instead.")
     }
 }

@@ -27,12 +27,12 @@ struct ReorderWorkspaceCommand: Command {
         else {
             return io.err("Tab '\(placement.targetWorkspaceName)' doesn't exist")
         }
-        guard source.projectId == target.projectId else {
+        guard !projectsAreEnabled() || source.projectId == target.projectId else {
             return io.err("Tabs '\(workspaceDisplayName(source.name))' and '\(workspaceDisplayName(target.name))' cannot be reordered together")
         }
         guard reorderWorkspaceForSidebar(
             sourceWorkspaceName: source.name,
-            projectId: source.projectId,
+            projectId: projectsAreEnabled() ? source.projectId : workspaceProjectDefaultId,
             placement: placement
         ) else {
             return io.err("Tab '\(workspaceDisplayName(source.name))' is already in the requested position")

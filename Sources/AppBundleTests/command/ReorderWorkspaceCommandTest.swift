@@ -56,6 +56,36 @@ final class ReorderWorkspaceCommandTest: XCTestCase {
         ])
     }
 
+    func testReorderWorkspaceCommandAllowsLegacyProjectTabsWhenProjectsAreHardDisabled() async throws {
+        let first = focus.workspace
+        first.assignProject(workspaceProjectDefaultId)
+        let project = createWorkspaceProject()
+        let second = Workspace.all.first { $0.projectId == project.id }.orDie()
+        second.markAsAutomaticallyNamed()
+        let third = Workspace.get(byName: "third")
+        third.assignProject(workspaceProjectDefaultId)
+        third.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 4, parent: first.rootTilingContainer)
+        _ = TestWindow.new(id: 5, parent: second.rootTilingContainer)
+        _ = TestWindow.new(id: 6, parent: third.rootTilingContainer)
+        setProjectWorkspaceOrder(workspaceProjectDefaultId, [first, third])
+        setProjectWorkspaceOrder(project.id, [second])
+
+        let result = try await ReorderWorkspaceCommand(
+            args: ReorderWorkspaceCmdArgs(
+                source: .parse(second.name).getOrDie(),
+                beforeTarget: .parse(third.name).getOrDie()
+            )
+        ).run(.defaultEnv, .emptyStdin)
+
+        assertEquals(result.exitCode, 0)
+        XCTAssertEqual(orderedWorkspacesForPresentation().map(\.name), [
+            first.name,
+            second.name,
+            third.name,
+        ])
+    }
+
     private func makeOrderedDefaultWorkspaces() -> (Workspace, Workspace, Workspace) {
         let first = focus.workspace
         let second = Workspace.get(byName: "second")
@@ -71,8 +101,12 @@ final class ReorderWorkspaceCommandTest: XCTestCase {
         for workspace in workspaces {
             workspace.assignProject(workspaceProjectDefaultId)
         }
-        var project = winMuxWorkspaceState.projectsById[workspaceProjectDefaultId].orDie()
+        setProjectWorkspaceOrder(workspaceProjectDefaultId, workspaces)
+    }
+
+    private func setProjectWorkspaceOrder(_ projectId: WorkspaceProjectId, _ workspaces: [Workspace]) {
+        var project = winMuxWorkspaceState.projectsById[projectId].orDie()
         project.workspaceOrder = workspaces.map(\.id)
-        winMuxWorkspaceState.projectsById[workspaceProjectDefaultId] = project
+        winMuxWorkspaceState.projectsById[projectId] = project
     }
 }

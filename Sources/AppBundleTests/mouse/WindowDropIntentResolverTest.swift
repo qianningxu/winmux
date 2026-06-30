@@ -97,6 +97,49 @@ final class WindowDropIntentResolverTest: XCTestCase {
         XCTAssertEqual(destination?.kind, .stackSplit(targetWindowId: target.windowId, position: .left))
     }
 
+    @MainActor
+    func testEdgeDropCopyUsesSplitLanguage() {
+        let workspace = Workspace.get(byName: "drag")
+        let root = workspace.rootTilingContainer
+        let source = TestWindow.new(id: 1, parent: root)
+        let target = TestWindow.new(id: 2, parent: root)
+        target.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 100, topLeftY: 100, width: 210, height: 210)
+        let resolution = resolve(point: CGPoint(x: 110, y: 210)).orDie()
+
+        let destination = destinationFromWindowDropIntent(
+            resolution,
+            sourceWindow: source,
+            targetWindow: target,
+            mouseLocation: CGPoint(x: 110, y: 210),
+            subject: .window,
+            detachOrigin: .window,
+        )
+
+        XCTAssertEqual(destination?.title, "Split Left")
+        XCTAssertEqual(destination?.subtitle, "Drop to split this tile and place the dragged item on the left")
+    }
+
+    @MainActor
+    func testWorkspaceMoveCopySaysTab() {
+        let sourceWorkspace = Workspace.get(byName: "source")
+        let source = TestWindow.new(id: 1, parent: sourceWorkspace.rootTilingContainer)
+        _ = source.focusWindow()
+        let targetWorkspace = Workspace.get(byName: "target")
+        targetWorkspace.markAsAutomaticallyNamed()
+        targetWorkspace.seedMonitorIfNeeded(mainMonitor)
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(targetWorkspace))
+
+        let destination = currentWindowDragIntentDestination(
+            sourceWindow: source,
+            mouseLocation: mainMonitor.visibleRect.center,
+            subject: .window,
+            detachOrigin: .window,
+        )
+
+        XCTAssertEqual(destination?.title, "Move Here")
+        XCTAssertEqual(destination?.subtitle, "Drop to move this item to this Tab")
+    }
+
     private func resolve(point: CGPoint) -> WindowDropIntentResolution? {
         WindowDropIntentResolver().resolve(
             sourceWindowId: 1,

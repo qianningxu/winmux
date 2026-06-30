@@ -16,7 +16,7 @@ final class StackWithCommandTest: XCTestCase {
         let result = try await StackWithCommand(args: StackWithCmdArgs(rawArgs: [], direction: .right)).run(.defaultEnv, .emptyStdin)
 
         assertEquals(result.exitCode, 1)
-        XCTAssertEqual(result.stderr, ["Window stacking into old top tab groups is disabled. Use edge split actions inside the active Tab instead."])
+        XCTAssertEqual(result.stderr, ["Center stacking is disabled. Use left, right, top, or bottom split actions inside the active Tab instead."])
         assertEquals(root.layoutDescription, .h_tiles([
             .window(0),
             .window(1),
@@ -35,7 +35,7 @@ final class StackWithCommandTest: XCTestCase {
         let result = try await StackWithCommand(args: StackWithCmdArgs(rawArgs: [], direction: .left)).run(.defaultEnv, .emptyStdin)
 
         assertEquals(result.exitCode, 1)
-        XCTAssertEqual(result.stderr, ["Window stacking into old top tab groups is disabled. Use edge split actions inside the active Tab instead."])
+        XCTAssertEqual(result.stderr, ["Center stacking is disabled. Use left, right, top, or bottom split actions inside the active Tab instead."])
         XCTAssertEqual(Workspace.all.flatMap(\.allLeafWindowsRecursive).map(\.windowId).sorted(), [0, 1])
         XCTAssertFalse(Workspace.all.contains { workspaceContainsLegacyTabGroup($0) })
     }

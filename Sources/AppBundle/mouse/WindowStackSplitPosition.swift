@@ -22,10 +22,10 @@ enum WindowStackSplitPosition: Equatable {
 
     var title: String {
         switch self {
-            case .left: "Stack Left"
-            case .right: "Stack Right"
-            case .above: "Stack Above"
-            case .below: "Stack Below"
+            case .left: "Split Left"
+            case .right: "Split Right"
+            case .above: "Split Above"
+            case .below: "Split Below"
         }
     }
 
