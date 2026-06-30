@@ -2,6 +2,18 @@ import AppKit
 import Common
 
 @MainActor
+func targetWorkspaceForNewWindow(
+    isStartup: Bool,
+    windowRect: Rect?,
+    focusedWorkspace: Workspace,
+) -> Workspace {
+    if let windowRect {
+        return windowRect.center.monitorApproximation.activeWorkspace
+    }
+    return isStartup ? mainMonitor.activeWorkspace : focusedWorkspace
+}
+
+@MainActor
 func unbindAndGetBindingDataForNewWindow(_ windowId: UInt32, _ macApp: MacApp, _ workspace: Workspace, window: Window?) async throws -> BindingData {
     let windowLevel = getWindowLevel(for: windowId)
     return switch try await macApp.getAxUiElementWindowType(windowId, windowLevel) {

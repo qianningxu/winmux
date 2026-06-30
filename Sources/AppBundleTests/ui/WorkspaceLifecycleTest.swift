@@ -337,6 +337,63 @@ final class WorkspaceLifecycleTest: XCTestCase {
         XCTAssertTrue(projectModels[second.name]?.isVisible == true)
     }
 
+    func testNewWindowWithRectTargetsActiveWorkspaceOnWindowMonitor() {
+        let main = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 1,
+            name: "Main",
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            isMain: true,
+        )
+        let secondary = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 2,
+            name: "Secondary",
+            rect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            isMain: false,
+        )
+        setMonitorsForTests([main, secondary])
+        let focusedWorkspace = Workspace.get(byName: "main-tab")
+        let secondaryActiveWorkspace = Workspace.get(byName: "secondary-tab")
+        XCTAssertTrue(main.setActiveWorkspace(focusedWorkspace))
+        XCTAssertTrue(secondary.setActiveWorkspace(secondaryActiveWorkspace))
+        XCTAssertTrue(focusedWorkspace.focusWorkspace())
+
+        let target = targetWorkspaceForNewWindow(
+            isStartup: false,
+            windowRect: Rect(topLeftX: 2100, topLeftY: 100, width: 800, height: 600),
+            focusedWorkspace: focusedWorkspace,
+        )
+
+        XCTAssertTrue(target === secondaryActiveWorkspace)
+    }
+
+    func testNewWindowWithoutRectKeepsFocusedWorkspaceFallbackOutsideStartup() {
+        let focusedWorkspace = Workspace.get(byName: "focused-tab")
+
+        let target = targetWorkspaceForNewWindow(
+            isStartup: false,
+            windowRect: nil,
+            focusedWorkspace: focusedWorkspace,
+        )
+
+        XCTAssertTrue(target === focusedWorkspace)
+    }
+
+    func testStartupNewWindowWithoutRectTargetsMainMonitorActiveWorkspace() {
+        let startupWorkspace = Workspace.get(byName: "startup-tab")
+        let focusedWorkspace = Workspace.get(byName: "focused-tab")
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(startupWorkspace))
+
+        let target = targetWorkspaceForNewWindow(
+            isStartup: true,
+            windowRect: nil,
+            focusedWorkspace: focusedWorkspace,
+        )
+
+        XCTAssertTrue(target === startupWorkspace)
+    }
+
     private func emptyUserFacingWorkspaces(in projectId: WorkspaceProjectId) -> [Workspace] {
         userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace)
             .filter { $0.projectId == projectId && $0.isOrdinaryEmptySlot }

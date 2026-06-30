@@ -23,12 +23,15 @@ final class MacWindow: Window {
             return existing
         }
         let rect = try await macApp.getAxRect(windowId)
+        let targetWorkspace = targetWorkspaceForNewWindow(
+            isStartup: isStartup,
+            windowRect: rect,
+            focusedWorkspace: focus.workspace,
+        )
         let data = try await unbindAndGetBindingDataForNewWindow(
             windowId,
             macApp,
-            isStartup
-                ? (rect?.center.monitorApproximation ?? mainMonitor).activeWorkspace
-                : focus.workspace,
+            targetWorkspace,
             window: nil,
         )
 
