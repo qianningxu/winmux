@@ -138,10 +138,21 @@ func reorderWorkspaceForSidebar(
     materializePersistedWorkspaceProjects()
     guard let source = Workspace.existing(byName: sourceWorkspaceName),
           let target = Workspace.existing(byName: placement.targetWorkspaceName),
-          source.projectId == projectId,
-          target.projectId == projectId,
           !source.isArchived,
           !target.isArchived
+    else { return false }
+
+    guard projectsAreEnabled() else {
+        guard projectId == workspaceProjectDefaultId else { return false }
+        return reorderWorkspaceForSidebarAcrossPresentationOrder(
+            source: source,
+            target: target,
+            placement: placement
+        )
+    }
+
+    guard source.projectId == projectId,
+          target.projectId == projectId
     else { return false }
 
     let destination: WorkspaceOrderDestination = switch placement {
@@ -149,6 +160,49 @@ func reorderWorkspaceForSidebar(
         case .after(_): .after(target.id)
     }
     return winMuxWorkspaceState.reorderWorkspace(source.id, inProject: projectId, destination: destination)
+}
+
+@MainActor
+private func reorderWorkspaceForSidebarAcrossPresentationOrder(
+    source: Workspace,
+    target: Workspace,
+    placement: WorkspaceReorderPlacement
+) -> Bool {
+    guard source != target else { return false }
+    let ordered = orderedWorkspacesForPresentation()
+    guard ordered.contains(source), ordered.contains(target) else { return false }
+    var reorderedIds = ordered.map(\.id)
+    reorderedIds.removeAll { $0 == source.id }
+    guard let targetIndex = reorderedIds.firstIndex(of: target.id) else { return false }
+    let insertionIndex = switch placement {
+        case .before(_): targetIndex
+        case .after(_): targetIndex + 1
+    }
+    reorderedIds.insert(source.id, at: insertionIndex)
+    guard reorderedIds != ordered.map(\.id) else { return false }
+    source.assignProject(workspaceProjectDefaultId)
+    target.assignProject(workspaceProjectDefaultId)
+    applyPresentationWorkspaceOrder(reorderedIds)
+    return true
+}
+
+@MainActor
+private func applyPresentationWorkspaceOrder(_ orderedIds: [WorkspaceId]) {
+    var remainingIds = orderedIds
+    let projects = winMuxWorkspaceState.projectsById.values.sorted {
+        if $0.id == workspaceProjectDefaultId { return true }
+        if $1.id == workspaceProjectDefaultId { return false }
+        return workspaceProjectOrderPrecedes($0, $1)
+    }
+    for project in projects {
+        var project = project
+        let projectIds = remainingIds.filter {
+            winMuxWorkspaceState.workspaceById[$0]?.projectId == project.id
+        }
+        project.workspaceOrder = projectIds
+        winMuxWorkspaceState.projectsById[project.id] = project
+        remainingIds.removeAll { projectIds.contains($0) }
+    }
 }
 
 @MainActor

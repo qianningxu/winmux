@@ -32,7 +32,7 @@ private func makeWorkspaceSidebarWorkspaceViewModel(
     )
     return WorkspaceSidebarWorkspaceViewModel(
         name: workspace.name,
-        projectId: workspace.projectId,
+        projectId: projectsAreEnabled() ? workspace.projectId : workspaceProjectDefaultId,
         displayName: tabSummary.title,
         sidebarLabel: sidebarLabel,
         isGeneratedName: isSidebarDraftWorkspaceName(workspace.name) || workspace.usesAutomaticDisplayName,

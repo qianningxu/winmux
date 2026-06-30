@@ -586,10 +586,12 @@ func mergeWorkspaceTab(
     guard sourceWorkspaceName != targetWorkspaceName,
           let sourceWorkspace = Workspace.existing(byName: sourceWorkspaceName),
           let targetWorkspace = Workspace.existing(byName: targetWorkspaceName),
-          sourceWorkspace.projectId == targetWorkspace.projectId,
           !sourceWorkspace.isArchived,
           !targetWorkspace.isArchived
     else { return false }
+    guard !projectsAreEnabled() || sourceWorkspace.projectId == targetWorkspace.projectId else {
+        return false
+    }
     if let sourceMonitor = sourceWorkspace.visibleMonitor,
        let targetMonitor = targetWorkspace.visibleMonitor,
        sourceMonitor.rect.topLeftCorner != targetMonitor.rect.topLeftCorner
@@ -616,6 +618,9 @@ func mergeWorkspaceTab(
         _ = setFocus(to: targetWorkspace.toLiveFocus())
     }
     _ = targetWorkspace.focusWorkspace()
+    if !projectsAreEnabled(), targetWorkspace.projectId != workspaceProjectDefaultId {
+        targetWorkspace.assignProject(workspaceProjectDefaultId)
+    }
     removeWorkspaceFromRegistry(sourceWorkspace)
     checkWorkspaceHierarchyInvariants()
     return true
@@ -630,7 +635,8 @@ private func mergeWorkspaceTilingContent(
     let sourceRoot = sourceWorkspace.rootTilingContainer
     guard !sourceRoot.children.isEmpty else { return }
     let targetRoot = workspaceSiblingInsertionRoot(targetWorkspace, orientation: position.orientation)
-    sourceRoot.bind(
+    let movedNode = sourceRoot.children.singleOrNil() ?? sourceRoot
+    movedNode.bind(
         to: targetRoot,
         adaptiveWeight: WEIGHT_AUTO,
         index: position.isPositive ? INDEX_BIND_LAST : 0

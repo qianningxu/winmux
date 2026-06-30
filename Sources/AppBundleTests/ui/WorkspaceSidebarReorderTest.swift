@@ -87,21 +87,22 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ])
     }
 
-    func testReorderWorkspaceRejectsCrossProjectTarget() {
+    func testReorderWorkspaceAllowsLegacyProjectTargetInFlatTabList() {
         let (first, second, third) = makeOrderedDefaultWorkspaces()
         let project = createWorkspaceProject()
-        let otherProjectWorkspace = createBlankWorkspace(projectId: project.id, monitor: mainMonitor)
+        let otherProjectWorkspace = Workspace.all.first { $0.projectId == project.id }.orDie()
 
-        XCTAssertFalse(reorderWorkspaceForSidebar(
+        XCTAssertTrue(reorderWorkspaceForSidebar(
             sourceWorkspaceName: first.name,
             projectId: workspaceProjectDefaultId,
             placement: .before(otherProjectWorkspace.name)
         ))
 
-        XCTAssertEqual(projectWorkspaces(projectId: workspaceProjectDefaultId).map(\.name), [
-            first.name,
+        XCTAssertEqual(orderedWorkspacesForPresentation().map(\.name), [
             second.name,
             third.name,
+            first.name,
+            otherProjectWorkspace.name,
         ])
     }
 
@@ -135,6 +136,37 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             first.name,
             third.name,
             second.name,
+        ])
+    }
+
+    func testReorderWorkspaceUsesFlatPresentationOrderAcrossLegacyProjects() {
+        let first = focus.workspace
+        first.assignProject(workspaceProjectDefaultId)
+        let project = createWorkspaceProject()
+        let second = Workspace.all.first { $0.projectId == project.id }.orDie()
+        second.markAsAutomaticallyNamed()
+        let third = Workspace.get(byName: "third")
+        third.assignProject(workspaceProjectDefaultId)
+        third.markAsAutomaticallyNamed()
+        setProjectWorkspaceOrder(workspaceProjectDefaultId, [first, third])
+        setProjectWorkspaceOrder(project.id, [second])
+
+        XCTAssertEqual(orderedWorkspacesForPresentation().map(\.name), [
+            first.name,
+            third.name,
+            second.name,
+        ])
+
+        XCTAssertTrue(reorderWorkspaceForSidebar(
+            sourceWorkspaceName: second.name,
+            projectId: workspaceProjectDefaultId,
+            placement: .before(third.name)
+        ))
+
+        XCTAssertEqual(orderedWorkspacesForPresentation().map(\.name), [
+            first.name,
+            second.name,
+            third.name,
         ])
     }
 
@@ -317,6 +349,34 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertEqual(focus.workspace, target)
     }
 
+    func testMergeWorkspaceTabCombinesFlatTabsAcrossLegacyProjects() {
+        let project = createWorkspaceProject()
+        let source = Workspace.get(byName: "source")
+        source.markAsAutomaticallyNamed()
+        source.assignProject(project.id)
+        source.rootTilingContainer.apply {
+            TestWindow.new(id: 1, parent: $0)
+        }
+        let target = Workspace.get(byName: "target")
+        target.markAsAutomaticallyNamed()
+        target.assignProject(workspaceProjectDefaultId)
+        target.rootTilingContainer.apply {
+            TestWindow.new(id: 2, parent: $0)
+        }
+
+        XCTAssertTrue(mergeWorkspaceTab(
+            sourceWorkspaceName: source.name,
+            targetWorkspaceName: target.name,
+            position: .right
+        ))
+
+        XCTAssertNil(Workspace.existing(byName: source.name))
+        XCTAssertEqual(target.rootTilingContainer.layoutDescription, .h_tiles([
+            .window(2),
+            .window(1),
+        ]))
+    }
+
     func testMergeWorkspaceTabRejectsVisibleTabsOnDifferentDisplays() {
         let main = WorkspaceSidebarDragTestMonitor(
             monitorAppKitNsScreenScreensId: 1,
@@ -413,9 +473,13 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         for workspace in workspaces {
             workspace.assignProject(workspaceProjectDefaultId)
         }
-        var project = winMuxWorkspaceState.projectsById[workspaceProjectDefaultId].orDie()
+        setProjectWorkspaceOrder(workspaceProjectDefaultId, workspaces)
+    }
+
+    private func setProjectWorkspaceOrder(_ projectId: WorkspaceProjectId, _ workspaces: [Workspace]) {
+        var project = winMuxWorkspaceState.projectsById[projectId].orDie()
         project.workspaceOrder = workspaces.map(\.id)
-        winMuxWorkspaceState.projectsById[workspaceProjectDefaultId] = project
+        winMuxWorkspaceState.projectsById[projectId] = project
     }
 
     private func reorderFrame(

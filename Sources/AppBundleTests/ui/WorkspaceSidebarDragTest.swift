@@ -203,7 +203,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
-    func testWorkspaceSidebarSnapshotIncludesEmptyWorkspaceInBrowsedProject() async {
+    func testWorkspaceSidebarSnapshotFlattensLegacyProjectTabsIntoDefaultList() async {
         setUpWorkspacesForTests()
         let project = createWorkspaceProject()
         let projectWorkspaceNames = Set(Workspace.all.filter { $0.projectId == project.id }.map(\.name))
@@ -216,9 +216,10 @@ final class WorkspaceSidebarDragTest: XCTestCase {
             workspaceLabels: [:],
             availableMonitors: sortedMonitors,
         )
-        let sidebarProjectWorkspaceNames = Set(sidebarWorkspaces.filter { $0.projectId == project.id }.map(\.name))
+        let flattenedProjectWorkspaceNames = Set(sidebarWorkspaces.filter { projectWorkspaceNames.contains($0.name) }.map(\.name))
 
-        XCTAssertEqual(sidebarProjectWorkspaceNames, projectWorkspaceNames)
+        XCTAssertEqual(flattenedProjectWorkspaceNames, projectWorkspaceNames)
+        XCTAssertTrue(sidebarWorkspaces.allSatisfy { $0.projectId == workspaceProjectDefaultId })
     }
 
     @MainActor
