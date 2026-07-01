@@ -29,6 +29,7 @@ struct WorkspaceSidebarView: View {
     @State var showsPinnedActiveWorkspaceForBrowsedProject = true
     @State var workspaceReorderFrames: [WorkspaceSidebarWorkspaceReorderFrame] = []
     @State var workspaceReorderDrag: WorkspaceSidebarWorkspaceReorderDragState? = nil
+    @State var tabGroupExpansionOverrides: [WorkspaceProjectId: Bool] = [:]
 
     init(snapshot: WorkspaceSidebarSnapshot, actions: WorkspaceSidebarActions = WorkspaceSidebarActions()) {
         self.snapshot = snapshot
@@ -164,6 +165,15 @@ struct WorkspaceSidebarView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(Color.clear)
+    }
+
+    func isTabGroupExpanded(_ projectId: WorkspaceProjectId) -> Bool {
+        tabGroupExpansionOverrides[projectId] ?? workspaceSidebarTabGroupIsExpanded(projectId)
+    }
+
+    func setTabGroupExpanded(_ projectId: WorkspaceProjectId, _ isExpanded: Bool) {
+        tabGroupExpansionOverrides[projectId] = isExpanded
+        setWorkspaceSidebarTabGroupExpanded(projectId, isExpanded: isExpanded)
     }
 
     func beginProjectRename(_ project: WorkspaceSidebarProjectViewModel) {

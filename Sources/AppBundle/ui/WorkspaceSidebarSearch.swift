@@ -25,7 +25,9 @@ private func workspaceSidebarFilteredWorkspace(
     projectName: String?,
     terms: [String],
 ) -> WorkspaceSidebarWorkspaceViewModel? {
-    if workspaceSidebarWorkspaceMatchesSearch(workspace, projectName: projectName, terms: terms) {
+    let topLevelMatch = workspaceSidebarWorkspaceMatchesSearch(workspace, projectName: projectName, terms: terms)
+    let matchingItems = workspace.items.compactMap { workspaceSidebarFilteredItem($0, terms: terms) }
+    if topLevelMatch || !matchingItems.isEmpty {
         return WorkspaceSidebarWorkspaceViewModel(
             name: workspace.name,
             projectId: workspace.projectId,
@@ -37,10 +39,49 @@ private func workspaceSidebarFilteredWorkspace(
             monitorName: workspace.monitorName,
             isFocused: workspace.isFocused,
             isVisible: workspace.isVisible,
-            items: [],
+            items: matchingItems.isEmpty ? workspace.items : matchingItems,
         )
     }
     return nil
+}
+
+private func workspaceSidebarFilteredItem(
+    _ item: WorkspaceSidebarItemViewModel,
+    terms: [String],
+) -> WorkspaceSidebarItemViewModel? {
+    switch item.kind {
+        case .window(let window):
+            return workspaceSidebarWindowMatchesSearch(window, terms: terms)
+                ? item
+                : nil
+        case .tabGroup(var group):
+            let matchingTabs = group.tabs.filter {
+                workspaceSidebarWindowMatchesSearch($0, terms: terms)
+            }
+            if !matchingTabs.isEmpty {
+                group.searchVisibleTabs = matchingTabs
+                return WorkspaceSidebarItemViewModel(kind: .tabGroup(group))
+            }
+            return workspaceSidebarSearchTextMatches([group.title], terms: terms)
+                ? item
+                : nil
+    }
+}
+
+private func workspaceSidebarWindowMatchesSearch(
+    _ window: WorkspaceSidebarWindowViewModel,
+    terms: [String],
+) -> Bool {
+    workspaceSidebarSearchTextMatches(
+        [
+            window.title,
+            window.appName,
+            window.appBundleId,
+            window.appBundlePath,
+            window.workspaceName,
+        ],
+        terms: terms,
+    )
 }
 
 private func workspaceSidebarSearchTerms(_ query: String) -> [String] {

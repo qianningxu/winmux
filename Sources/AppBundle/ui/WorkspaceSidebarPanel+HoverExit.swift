@@ -5,6 +5,10 @@ extension WorkspaceSidebarPanel {
         debugWorkspaceSidebarHoverLog("handleHoverExit panel=\(monitorScopeId) visible=\(viewModel.workspaceSidebarVisibleWidth) collapsed=\(collapsedWidth) expanded=\(viewModel.isWorkspaceSidebarExpanded) suppressActive=\(Date() < splitBrowseCollapseSuppressedUntil) mouse=\(NSEvent.mouseLocation)")
         pendingExpand?.cancel()
         pendingExpand = nil
+        guard !viewModel.isWorkspaceSidebarPinnedExpanded else {
+            expandSidebar(to: CGFloat(config.workspaceSidebar.width))
+            return
+        }
         guard Date() >= splitBrowseCollapseSuppressedUntil else {
             debugWorkspaceSidebarHoverLog("handleHoverExit suppressed panel=\(monitorScopeId)")
             return
@@ -34,6 +38,10 @@ extension WorkspaceSidebarPanel {
                 debugWorkspaceSidebarHoverLog("collapseFire suppressed panel=\(self.monitorScopeId)")
                 return
             }
+            guard !self.viewModel.isWorkspaceSidebarPinnedExpanded else {
+                self.expandSidebar(to: CGFloat(config.workspaceSidebar.width))
+                return
+            }
             let inside = self.isMouseInsideHoverRegion()
             let locked = self.shouldLockExpansionForSidebarDrag()
             guard !inside, !locked else {
@@ -54,6 +62,10 @@ extension WorkspaceSidebarPanel {
             self.pendingCollapseFinalize = nil
             debugWorkspaceSidebarHoverLog("collapseFinalize panel=\(self.monitorScopeId) visible=\(self.viewModel.workspaceSidebarVisibleWidth) mouse=\(NSEvent.mouseLocation) suppressActive=\(Date() < self.splitBrowseCollapseSuppressedUntil)")
             guard Date() >= self.splitBrowseCollapseSuppressedUntil else { return }
+            guard !self.viewModel.isWorkspaceSidebarPinnedExpanded else {
+                self.expandSidebar(to: CGFloat(config.workspaceSidebar.width))
+                return
+            }
             let inside = self.isMouseInsideHoverRegion()
             let locked = self.shouldLockExpansionForSidebarDrag()
             guard !inside, !locked else {

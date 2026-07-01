@@ -10,6 +10,17 @@ func openWorkspaceSidebarFromCommand() {
         ?? WorkspaceSidebarPanel.visiblePanels.first
         ?? WorkspaceSidebarPanel.shared
     if panel.viewModel.isWorkspaceSidebarExpanded || panel.inlineTextEditingActive {
+        if panel.viewModel.isWorkspaceSidebarPinnedExpanded {
+            panel.beginInlineTextEditing(
+                locksExpansion: false,
+                cancelsOnPointerExit: false,
+                onCancel: {
+                    panel.endInlineTextEditing()
+                },
+                onKeyDown: { _ in },
+            )
+            return
+        }
         closeWorkspaceSidebarFromCommand(panel)
         return
     }
@@ -59,6 +70,10 @@ func closeWorkspaceSidebarFromCommand(_ panel: WorkspaceSidebarPanel) {
     panel.shouldLockNextSidebarSearchExpansion = false
     panel.bufferedCommandSidebarSearchKeys = []
     removeWorkspaceSidebarCommandMouseUnlockMonitor(panel)
+    guard !panel.viewModel.isWorkspaceSidebarPinnedExpanded else {
+        panel.expandSidebar(to: CGFloat(config.workspaceSidebar.width))
+        return
+    }
     panel.animateVisibleSidebarWidth(CGFloat(config.workspaceSidebar.collapsedWidth), animation: .easeInOut(duration: panel.animationDuration))
     panel.viewModel.isWorkspaceSidebarExpanded = false
     panel.updateMousePassthrough()

@@ -35,7 +35,7 @@ on-mode-changed = []
 [workspace-sidebar]
     enabled = true
     collapsed-width = 44
-    width = 240
+    width = 212
     # Omit monitor to show an independent sidebar on every display.
     # Legacy monitor = 'main' is also treated as all displays for this sidebar.
     # Use monitor = 1, 'secondary', 2, or a list to restrict it.

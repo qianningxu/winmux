@@ -46,6 +46,13 @@ extension WorkspaceSidebarView {
         )
 
         return VStack(alignment: .leading, spacing: 0) {
+            sidebarTopBar(
+                expansionProgress: expansionProgress,
+                isCompact: isCompact,
+                leadingInset: leadingInset,
+                trailingInset: trailingInset,
+            )
+
             if showsMonitorSelector {
                 monitorSelectorSection(
                     expansionProgress: expansionProgress,

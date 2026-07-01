@@ -9,6 +9,7 @@ struct WorkspaceSidebarSnapshot: Equatable {
     var targetMonitorScopeId: String
     var focusedMonitorScopeId: String
     var visibleWidth: CGFloat
+    var isPinnedExpanded: Bool
     var hoveredWorkspaceName: String?
     var dropPreview: WorkspaceSidebarDropPreviewViewModel?
     var configuration: WorkspaceSidebarConfiguration
@@ -22,6 +23,7 @@ struct WorkspaceSidebarSnapshot: Equatable {
         targetMonitorScopeId: workspaceSidebarDefaultScopeId,
         focusedMonitorScopeId: "",
         visibleWidth: 0,
+        isPinnedExpanded: false,
         hoveredWorkspaceName: nil,
         dropPreview: nil,
         configuration: .empty,
@@ -55,6 +57,7 @@ enum WorkspaceSidebarAction: Equatable {
     case closeWindow(UInt32)
     case selectProject(WorkspaceProjectId)
     case createProject
+    case createTabGroup
     case renameProject(WorkspaceProjectId, displayName: String)
     case setProjectColor(WorkspaceProjectId, colorHex: String?)
     case deleteProject(WorkspaceProjectId)
@@ -64,6 +67,7 @@ enum WorkspaceSidebarAction: Equatable {
     case deleteWorkspace(String)
     case reorderWorkspace(String, projectId: WorkspaceProjectId, placement: WorkspaceReorderPlacement)
     case mergeWorkspace(String, intoWorkspace: String, position: WindowStackSplitPosition)
+    case setPinnedExpanded(Bool)
     case moveWindow(UInt32, toWorkspace: String)
     case moveTabGroup(UInt32, toWorkspace: String)
     case moveWindowToNewWorkspace(UInt32, projectId: WorkspaceProjectId, monitorScopeId: String)

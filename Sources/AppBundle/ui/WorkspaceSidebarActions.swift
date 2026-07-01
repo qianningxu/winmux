@@ -66,6 +66,25 @@ func showWorkspaceSidebarError(_ body: String) {
 }
 
 @MainActor
+func setWorkspaceSidebarPinnedExpanded(
+    _ isPinned: Bool,
+    viewModel: TrayMenuModel = TrayMenuModel.shared,
+) {
+    setWorkspaceSidebarPinnedExpandedPreference(isPinned)
+    viewModel.isWorkspaceSidebarPinnedExpanded = isPinned
+    for panel in WorkspaceSidebarPanel.visiblePanels {
+        panel.viewModel.isWorkspaceSidebarPinnedExpanded = isPinned
+        panel.cancelExpansionWork()
+        if isPinned {
+            panel.expandSidebar(to: CGFloat(config.workspaceSidebar.width))
+        } else {
+            panel.updateHoverStateFromMousePosition()
+        }
+    }
+    WorkspaceSidebarPanel.refreshAll()
+}
+
+@MainActor
 func sidebarWorkspaceTargetMonitor(fallbackWindow: Window? = nil, fallbackPoint: CGPoint? = nil) -> Monitor {
     workspaceSidebarTargetMonitor(
         selectedMonitor: selectedWorkspaceSidebarMonitorScope(),
@@ -469,6 +488,26 @@ func createWorkspaceSidebarProject(
 }
 
 @MainActor
+func createWorkspaceSidebarTabGroup(
+    viewModel: TrayMenuModel = TrayMenuModel.shared,
+) {
+    runWorkspaceSidebarSession {
+        let project = createWorkspaceProject()
+        try renameWorkspaceProject(project.id, displayName: workspaceSidebarDefaultTabGroupName(project))
+        setWorkspaceSidebarTabGroupExpanded(project.id, isExpanded: true)
+        viewModel.workspaceSidebarActiveProjectId = workspaceProjectDefaultId
+        await updateWorkspaceSidebarModel()
+    }
+}
+
+private func workspaceSidebarDefaultTabGroupName(_ project: WorkspaceProject) -> String {
+    if project.name.hasPrefix("Project ") {
+        return "Group \(project.name.dropFirst("Project ".count))"
+    }
+    return project.name
+}
+
+@MainActor
 func renameWorkspaceSidebarProject(_ projectId: WorkspaceProjectId, displayName: String) {
     runWorkspaceSidebarSession {
         try renameWorkspaceProject(projectId, displayName: displayName)
@@ -574,6 +613,41 @@ func mergeWorkspaceFromSidebar(
         ) else { return }
         await updateWorkspaceSidebarModel()
     }
+}
+
+@MainActor
+func mergeWorkspaceIntoActiveViewFromSidebarIfPossible(
+    sourceWorkspaceName: String,
+    pointer: CGPoint,
+    position: WindowStackSplitPosition = .right
+) {
+    runWorkspaceSidebarSession {
+        guard mergeWorkspaceIntoActiveViewFromSidebar(
+            sourceWorkspaceName: sourceWorkspaceName,
+            pointer: pointer,
+            position: position
+        ) else { return }
+        await updateWorkspaceSidebarModel()
+    }
+}
+
+@MainActor
+@discardableResult
+func mergeWorkspaceIntoActiveViewFromSidebar(
+    sourceWorkspaceName: String,
+    pointer: CGPoint,
+    position: WindowStackSplitPosition = .right
+) -> Bool {
+    guard let sourceWorkspace = Workspace.existing(byName: sourceWorkspaceName) else { return false }
+    guard WorkspaceSidebarPanel.panel(containing: pointer) == nil else { return false }
+    let monitor = pointer.monitorApproximation
+    let targetWorkspace = monitor.activeWorkspace
+    guard targetWorkspace != sourceWorkspace else { return false }
+    return mergeWorkspaceTab(
+        sourceWorkspaceName: sourceWorkspaceName,
+        targetWorkspaceName: targetWorkspace.name,
+        position: position,
+    )
 }
 
 @MainActor

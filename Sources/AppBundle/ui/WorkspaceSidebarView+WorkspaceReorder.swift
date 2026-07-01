@@ -198,7 +198,13 @@ extension WorkspaceSidebarView {
             frames: workspaceReorderFrames
         ) ?? workspaceReorderDrag?.target
         workspaceReorderDrag = nil
-        guard let target else { return }
+        guard let target else {
+            mergeWorkspaceIntoActiveViewFromSidebarIfPossible(
+                sourceWorkspaceName: workspace.name,
+                pointer: pointer
+            )
+            return
+        }
         switch target {
             case .reorder(let reorderTarget):
                 guard reorderTarget.projectId == projectId else { return }

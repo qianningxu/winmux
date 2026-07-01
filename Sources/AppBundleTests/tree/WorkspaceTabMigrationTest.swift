@@ -63,6 +63,6 @@ final class WorkspaceTabMigrationTest: XCTestCase {
         config.enableProjects = true
 
         XCTAssertFalse(projectsAreEnabled())
-        XCTAssertEqual(buildWorkspaceSidebarProjectViewModels(), [])
+        XCTAssertEqual(buildWorkspaceSidebarProjectViewModels().map(\.id), [workspaceProjectDefaultId])
     }
 }

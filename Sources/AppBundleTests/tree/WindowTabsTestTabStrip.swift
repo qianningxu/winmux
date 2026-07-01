@@ -258,7 +258,7 @@ import XCTest
         )
         let sidebarTab = try XCTUnwrap(sidebarTabs.first { $0.name == workspace.name })
         XCTAssertEqual(sidebarTab.tabSummary.title, "Docs")
-        XCTAssertEqual(sidebarTab.items, [])
+        XCTAssertEqual(sidebarTab.items.map(\.id), ["group:51"])
     }
 
     func testCompositedGroupPreviewOnlyRunsForTabStripOriginatedGroupDrags() {

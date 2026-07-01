@@ -80,7 +80,7 @@ struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var enabled: Bool = false
     var enableFocus: Bool = false
     var collapsedWidth: Int = 44
-    var width: Int = 240
+    var width: Int = 212
     var monitor: [MonitorDescription] = []
     var showStatusPills: Bool = true
     var showDate: Bool = true

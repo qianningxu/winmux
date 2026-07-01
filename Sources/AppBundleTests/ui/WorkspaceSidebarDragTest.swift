@@ -119,6 +119,7 @@ private func workspaceSidebarSnapshotForTopFilterBar(
         targetMonitorScopeId: workspaceSidebarDefaultScopeId,
         focusedMonitorScopeId: "",
         visibleWidth: 240,
+        isPinnedExpanded: false,
         hoveredWorkspaceName: nil,
         dropPreview: nil,
         configuration: WorkspaceSidebarConfiguration(
@@ -203,7 +204,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
-    func testWorkspaceSidebarSnapshotFlattensLegacyProjectTabsIntoDefaultList() async {
+    func testWorkspaceSidebarSnapshotKeepsLegacyProjectIdsForTabGroups() async {
         setUpWorkspacesForTests()
         let project = createWorkspaceProject()
         let projectWorkspaceNames = Set(Workspace.all.filter { $0.projectId == project.id }.map(\.name))
@@ -219,7 +220,71 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         let flattenedProjectWorkspaceNames = Set(sidebarWorkspaces.filter { projectWorkspaceNames.contains($0.name) }.map(\.name))
 
         XCTAssertEqual(flattenedProjectWorkspaceNames, projectWorkspaceNames)
-        XCTAssertTrue(sidebarWorkspaces.allSatisfy { $0.projectId == workspaceProjectDefaultId })
+        XCTAssertTrue(sidebarWorkspaces.contains { $0.projectId == project.id })
+    }
+
+    @MainActor
+    func testTabGroupFolderSectionsKeepDefaultTabsFlatAndGroupProjectTabs() {
+        let projectId = WorkspaceProjectId("project-1")
+        var workspaces = makeWorkspaceSidebarSearchFixture()
+        let grouped = WorkspaceSidebarWorkspaceViewModel(
+            name: "grouped",
+            projectId: projectId,
+            displayName: "Grouped",
+            sidebarLabel: "Grouped",
+            isGeneratedName: false,
+            tabSummary: .empty,
+            monitorScopeId: workspaceSidebarDefaultScopeId,
+            monitorName: nil,
+            isFocused: false,
+            isVisible: false,
+            items: [],
+        )
+        workspaces.append(grouped)
+
+        let sections = workspaceSidebarTabGroupFolderSections(
+            projectId: workspaceProjectDefaultId,
+            workspaces: workspaces,
+            projects: [
+                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Tabs", colorHex: nil),
+                WorkspaceSidebarProjectViewModel(id: projectId, displayName: "Client", colorHex: nil),
+            ],
+        )
+
+        XCTAssertEqual(sections.map(\.project.id), [workspaceProjectDefaultId, projectId])
+        XCTAssertTrue(sections[0].isDefault)
+        XCTAssertEqual(sections[0].workspaces.map(\.name), ["coding", "research"])
+        XCTAssertEqual(sections[1].project.displayName, "Client")
+        XCTAssertEqual(sections[1].workspaces.map(\.name), ["grouped"])
+    }
+
+    @MainActor
+    func testSidebarPinnedExpandedPreferenceRoundTrips() {
+        resetWorkspaceSidebarUIPreferencesForTests()
+
+        XCTAssertFalse(workspaceSidebarPinnedExpandedPreference())
+
+        setWorkspaceSidebarPinnedExpandedPreference(true)
+        XCTAssertTrue(workspaceSidebarPinnedExpandedPreference())
+        XCTAssertTrue(TrayMenuModel.shared.isWorkspaceSidebarPinnedExpanded)
+
+        setWorkspaceSidebarPinnedExpandedPreference(false)
+        XCTAssertFalse(workspaceSidebarPinnedExpandedPreference())
+        XCTAssertFalse(TrayMenuModel.shared.isWorkspaceSidebarPinnedExpanded)
+    }
+
+    @MainActor
+    func testTabGroupExpansionPreferenceRoundTrips() {
+        resetWorkspaceSidebarUIPreferencesForTests()
+        let projectId = WorkspaceProjectId("project-1")
+
+        XCTAssertTrue(workspaceSidebarTabGroupIsExpanded(projectId))
+
+        setWorkspaceSidebarTabGroupExpanded(projectId, isExpanded: false)
+        XCTAssertFalse(workspaceSidebarTabGroupIsExpanded(projectId))
+
+        setWorkspaceSidebarTabGroupExpanded(projectId, isExpanded: true)
+        XCTAssertTrue(workspaceSidebarTabGroupIsExpanded(projectId))
     }
 
     @MainActor
@@ -413,7 +478,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
             query: "release",
         )[workspaceProjectDefaultId] ?? []
         XCTAssertEqual(titleResults.map(\.name), ["coding"])
-        XCTAssertEqual(titleResults.first?.items, [])
+        XCTAssertEqual(titleResults.first?.items.map(\.id), ["window:101"])
 
         let appResults = workspaceSidebarFilteredWorkspacesByProject(
             [workspaceProjectDefaultId: workspaces],
@@ -421,7 +486,12 @@ final class WorkspaceSidebarDragTest: XCTestCase {
             query: "safari",
         )[workspaceProjectDefaultId] ?? []
         XCTAssertEqual(appResults.map(\.name), ["research"])
-        XCTAssertEqual(appResults.first?.items, [])
+        XCTAssertEqual(appResults.first?.items.map(\.id), ["group:201"])
+        if case .tabGroup(let group) = appResults.first?.items.first?.kind {
+            XCTAssertEqual(group.searchVisibleTabs?.map(\.windowId), [202])
+        } else {
+            XCTFail("Expected matching tab group")
+        }
         XCTAssertEqual(workspaceSidebarSearchSelections(workspaces: appResults), [.workspace("research")])
     }
 
@@ -435,7 +505,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         )[workspaceProjectDefaultId] ?? []
 
         XCTAssertEqual(results.map(\.name), ["coding"])
-        XCTAssertEqual(results.first?.items, [])
+        XCTAssertEqual(results.first?.items.map(\.id), ["window:101", "window:102"])
         XCTAssertEqual(workspaceSidebarSearchSelections(workspaces: results), [.workspace("coding")])
     }
 

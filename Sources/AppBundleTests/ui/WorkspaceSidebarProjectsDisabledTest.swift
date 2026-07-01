@@ -5,10 +5,13 @@ import XCTest
 final class WorkspaceSidebarProjectsDisabledTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
 
-    func testProjectViewModelsAreHiddenWhenProjectsDisabled() {
-        _ = createWorkspaceProject()
+    func testProjectViewModelsBackTabGroupsWhenProjectsDisabled() {
+        let project = createWorkspaceProject()
         config.enableProjects = false
 
-        XCTAssertEqual(buildWorkspaceSidebarProjectViewModels(), [])
+        XCTAssertEqual(buildWorkspaceSidebarProjectViewModels().map(\.id), [
+            workspaceProjectDefaultId,
+            project.id,
+        ])
     }
 }

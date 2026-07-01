@@ -32,7 +32,7 @@ private func makeWorkspaceSidebarWorkspaceViewModel(
     )
     return WorkspaceSidebarWorkspaceViewModel(
         name: workspace.name,
-        projectId: projectsAreEnabled() ? workspace.projectId : workspaceProjectDefaultId,
+        projectId: workspace.projectId,
         displayName: tabSummary.title,
         sidebarLabel: sidebarLabel,
         isGeneratedName: isSidebarDraftWorkspaceName(workspace.name) || workspace.usesAutomaticDisplayName,
@@ -41,7 +41,7 @@ private func makeWorkspaceSidebarWorkspaceViewModel(
         monitorName: availableMonitors.count > 1 ? workspaceMonitor.name : nil,
         isFocused: currentFocus.workspace == workspace,
         isVisible: workspace.isVisible,
-        items: [],
+        items: await buildWorkspaceSidebarItems(for: workspace, currentFocus: currentFocus),
     )
 }
 

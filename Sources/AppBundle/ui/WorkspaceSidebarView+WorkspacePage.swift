@@ -72,22 +72,42 @@ extension WorkspaceSidebarView {
                         projectContextColor: projectColor(snapshot.activeProjectId)
                     )
                 }
-                ForEach(workspaces) { workspace in
-                    if showsWorkspaceReorderIndicator(before: workspace, projectId: projectId) {
-                        workspaceReorderIndicator(expansionProgress: expansionProgress)
-                    }
-                    workspaceSection(
-                        workspace: workspace,
-                        expansionProgress: expansionProgress,
-                        emitsDropTarget: true,
-                        allowsWorkspaceActivation: allowsActivation ?? allowsWorkspaceActivation(projectId: projectId),
-                        isPinnedActiveWorkspace: false,
-                        isInteractive: isInteractive,
-                        projectContextLabel: browsedProjectId != nil && projectId != snapshot.activeProjectId ? projectName(projectId) : nil,
-                        projectContextColor: browsedProjectId != nil && projectId != snapshot.activeProjectId ? projectColor(projectId) : nil
-                    )
-                    if showsWorkspaceReorderIndicator(after: workspace, projectId: projectId) {
-                        workspaceReorderIndicator(expansionProgress: expansionProgress)
+                ForEach(tabGroupSections(projectId: projectId, workspaces: workspaces)) { section in
+                    if section.isDefault {
+                        workspaceList(
+                            workspaces: section.workspaces,
+                            projectId: projectId,
+                            expansionProgress: expansionProgress,
+                            isInteractive: isInteractive,
+                            allowsActivation: allowsActivation,
+                        )
+                    } else if expansionProgress >= workspaceSidebarRowsRevealProgress {
+                        WorkspaceSidebarTabGroupFolder(
+                            section: section,
+                            expansionProgress: expansionProgress,
+                            layout: snapshot.configuration,
+                            isExpanded: isTabGroupExpanded(section.project.id),
+                            onToggle: {
+                                setTabGroupExpanded(section.project.id, !isTabGroupExpanded(section.project.id))
+                            },
+                            content: {
+                                workspaceList(
+                                    workspaces: section.workspaces,
+                                    projectId: section.project.id,
+                                    expansionProgress: expansionProgress,
+                                    isInteractive: isInteractive,
+                                    allowsActivation: allowsActivation,
+                                )
+                            }
+                        )
+                    } else {
+                        workspaceList(
+                            workspaces: section.workspaces,
+                            projectId: section.project.id,
+                            expansionProgress: expansionProgress,
+                            isInteractive: isInteractive,
+                            allowsActivation: allowsActivation,
+                        )
                     }
                 }
                 if showsCreateWorkspace && workspaceSidebarShowsCreateWorkspace(selectedScopeId: snapshot.selectedMonitorScopeId) {
@@ -135,6 +155,34 @@ extension WorkspaceSidebarView {
             .padding(.bottom, workspaceSidebarMinimumTopPadding)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    @ViewBuilder
+    private func workspaceList(
+        workspaces: [WorkspaceSidebarWorkspaceViewModel],
+        projectId: WorkspaceProjectId,
+        expansionProgress: CGFloat,
+        isInteractive: Bool,
+        allowsActivation: Bool?
+    ) -> some View {
+        ForEach(workspaces) { workspace in
+            if showsWorkspaceReorderIndicator(before: workspace, projectId: projectId) {
+                workspaceReorderIndicator(expansionProgress: expansionProgress)
+            }
+            workspaceSection(
+                workspace: workspace,
+                expansionProgress: expansionProgress,
+                emitsDropTarget: true,
+                allowsWorkspaceActivation: allowsActivation ?? allowsWorkspaceActivation(projectId: projectId),
+                isPinnedActiveWorkspace: false,
+                isInteractive: isInteractive,
+                projectContextLabel: browsedProjectId != nil && projectId != snapshot.activeProjectId ? projectName(projectId) : nil,
+                projectContextColor: browsedProjectId != nil && projectId != snapshot.activeProjectId ? projectColor(projectId) : nil
+            )
+            if showsWorkspaceReorderIndicator(after: workspace, projectId: projectId) {
+                workspaceReorderIndicator(expansionProgress: expansionProgress)
+            }
+        }
     }
 
     func splitWorkspacePage(
@@ -263,6 +311,17 @@ extension WorkspaceSidebarView {
 
     private func projectColor(_ projectId: WorkspaceProjectId) -> Color {
         workspaceSidebarProjectColor(projectId: projectId, configuredHex: projectColorHex(projectId))
+    }
+
+    private func tabGroupSections(
+        projectId: WorkspaceProjectId,
+        workspaces: [WorkspaceSidebarWorkspaceViewModel]
+    ) -> [WorkspaceSidebarTabGroupFolderSection] {
+        workspaceSidebarTabGroupFolderSections(
+            projectId: projectId,
+            workspaces: workspaces,
+            projects: snapshot.projects,
+        )
     }
 
     private func pinnedActiveWorkspace(

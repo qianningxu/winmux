@@ -24,7 +24,9 @@ extension WorkspaceSidebarPanel {
         pendingCollapse = nil
         pendingCollapseFinalize?.cancel()
         pendingCollapseFinalize = nil
-        expandSidebar(to: CGFloat(config.workspaceSidebar.width))
+        if !viewModel.isWorkspaceSidebarPinnedExpanded {
+            expandSidebar(to: CGFloat(config.workspaceSidebar.width))
+        }
     }
 
     func endMenuTrackingIfNeeded() {

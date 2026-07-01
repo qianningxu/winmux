@@ -377,6 +377,37 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ]))
     }
 
+    func testMergeWorkspaceIntoActiveViewFromSidebarUsesPointerMonitorActiveTab() {
+        let source = Workspace.get(byName: "source")
+        source.markAsAutomaticallyNamed()
+        source.assignProject(workspaceProjectDefaultId)
+        source.rootTilingContainer.apply {
+            TestWindow.new(id: 1, parent: $0)
+        }
+        let target = Workspace.get(byName: "target")
+        target.markAsAutomaticallyNamed()
+        target.assignProject(workspaceProjectDefaultId)
+        target.rootTilingContainer.apply {
+            TestWindow.new(id: 2, parent: $0)
+        }
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(target))
+        XCTAssertTrue(target.focusWorkspace())
+
+        XCTAssertTrue(mergeWorkspaceIntoActiveViewFromSidebar(
+            sourceWorkspaceName: source.name,
+            pointer: CGPoint(
+                x: mainMonitor.rect.topLeftX + (mainMonitor.rect.width / 2),
+                y: mainMonitor.rect.topLeftY + (mainMonitor.rect.height / 2)
+            )
+        ))
+
+        XCTAssertNil(Workspace.existing(byName: source.name))
+        XCTAssertEqual(target.rootTilingContainer.layoutDescription, .h_tiles([
+            .window(2),
+            .window(1),
+        ]))
+    }
+
     func testMergeWorkspaceTabRejectsVisibleTabsOnDifferentDisplays() {
         let main = WorkspaceSidebarDragTestMonitor(
             monitorAppKitNsScreenScreensId: 1,

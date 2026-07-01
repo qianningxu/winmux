@@ -31,6 +31,7 @@ func setUpWorkspacesForTests() {
     configUrl = defaultConfigUrl
     resetTrayMenuModelForTests()
     WorkspaceSidebarPanel.resetPanelStateForTests()
+    resetWorkspaceSidebarUIPreferencesForTests()
     resetWorkspaceNameGenerationStateForTests()
     resetCachedWindowTitles()
     resetWindowTabLabelsForTests()
@@ -83,6 +84,7 @@ private func resetTrayMenuModelForTests() {
     model.windowTabStrips = []
     model.windowTabReentryPreview = nil
     model.isWorkspaceSidebarExpanded = false
+    model.isWorkspaceSidebarPinnedExpanded = false
     model.workspaceSidebarVisibleWidth = 0
     model.workspaceSidebarTopPadding = 8
     model.workspaceSidebarHoveredWorkspaceName = nil

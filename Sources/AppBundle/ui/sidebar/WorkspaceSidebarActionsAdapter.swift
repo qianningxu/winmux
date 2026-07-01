@@ -58,6 +58,8 @@ func handleWorkspaceSidebarAction(
         case .createProject:
             guard projectsAreEnabled() else { return }
             createWorkspaceSidebarProject(viewModel: viewModel, targetMonitorScopeId: targetMonitorScopeId)
+        case .createTabGroup:
+            createWorkspaceSidebarTabGroup(viewModel: viewModel)
         case .renameProject(let projectId, let displayName):
             guard projectsAreEnabled() else { return }
             renameWorkspaceSidebarProject(projectId, displayName: displayName)
@@ -85,6 +87,8 @@ func handleWorkspaceSidebarAction(
             reorderWorkspaceFromSidebar(name, projectId: projectId, placement: placement)
         case .mergeWorkspace(let sourceName, let targetName, let position):
             mergeWorkspaceFromSidebar(sourceWorkspaceName: sourceName, targetWorkspaceName: targetName, position: position)
+        case .setPinnedExpanded(let isPinned):
+            setWorkspaceSidebarPinnedExpanded(isPinned, viewModel: viewModel)
         case .moveWindow(let windowId, let workspaceName):
             moveWindowFromSidebar(windowId, toWorkspace: workspaceName)
         case .moveTabGroup(let windowId, let workspaceName):

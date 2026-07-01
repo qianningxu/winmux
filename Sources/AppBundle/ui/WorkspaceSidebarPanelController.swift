@@ -127,6 +127,7 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     func syncModelFromShared() {
         let visibleWidth = viewModel.workspaceSidebarVisibleWidth
         let isExpanded = viewModel.isWorkspaceSidebarExpanded
+        let isPinnedExpanded = viewModel.isWorkspaceSidebarPinnedExpanded
         viewModel.trayText = TrayMenuModel.shared.trayText
         viewModel.trayItems = TrayMenuModel.shared.trayItems
         viewModel.isEnabled = TrayMenuModel.shared.isEnabled
@@ -146,6 +147,7 @@ final class WorkspaceSidebarPanel: NSPanelHud {
         viewModel.experimentalUISettings = TrayMenuModel.shared.experimentalUISettings
         viewModel.workspaceSidebarVisibleWidth = visibleWidth
         viewModel.isWorkspaceSidebarExpanded = isExpanded
+        viewModel.isWorkspaceSidebarPinnedExpanded = isPinnedExpanded
     }
 
     private func resolvedLocalActiveProjectId() -> WorkspaceProjectId {

@@ -21,6 +21,12 @@ extension WorkspaceSidebarPanel {
                 ? layout.expandedWidth
                 : layout.collapsedWidth
         }
+        if viewModel.isWorkspaceSidebarPinnedExpanded &&
+            viewModel.workspaceSidebarVisibleWidth < layout.expandedWidth - 0.5
+        {
+            viewModel.isWorkspaceSidebarExpanded = true
+            viewModel.workspaceSidebarVisibleWidth = layout.expandedWidth
+        }
         updateMousePassthrough()
         startHoverMonitoring()
         orderFrontRegardless()
