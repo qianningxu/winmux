@@ -11,49 +11,20 @@ func openWorkspaceSidebarFromCommand() {
         ?? WorkspaceSidebarPanel.shared
     if panel.viewModel.isWorkspaceSidebarExpanded || panel.inlineTextEditingActive {
         if panel.viewModel.isWorkspaceSidebarPinnedExpanded {
-            panel.beginInlineTextEditing(
-                locksExpansion: false,
-                cancelsOnPointerExit: false,
-                onCancel: {
-                    panel.endInlineTextEditing()
-                },
-                onKeyDown: { _ in },
-            )
+            panel.commandExpansionLocksCollapse = false
+            panel.shouldLockNextSidebarSearchExpansion = false
+            panel.bufferedCommandSidebarSearchKeys = []
+            removeWorkspaceSidebarCommandMouseUnlockMonitor(panel)
             return
         }
         closeWorkspaceSidebarFromCommand(panel)
         return
     }
     panel.commandExpansionLocksCollapse = true
-    panel.shouldLockNextSidebarSearchExpansion = true
+    panel.shouldLockNextSidebarSearchExpansion = false
     panel.bufferedCommandSidebarSearchKeys = []
     installWorkspaceSidebarCommandMouseUnlockMonitor(panel)
     panel.expandSidebar(to: CGFloat(config.workspaceSidebar.width))
-    panel.beginInlineTextEditing(
-        locksExpansion: true,
-        cancelsOnPointerExit: false,
-        onCancel: {
-            closeWorkspaceSidebarFromCommand(panel)
-        },
-        onKeyDown: { key in
-            switch key {
-                case .cancel:
-                    closeWorkspaceSidebarFromCommand(panel)
-                case .ignored:
-                    break
-                default:
-                    panel.bufferedCommandSidebarSearchKeys.append(key)
-                    NotificationCenter.default.post(
-                        name: workspaceSidebarCommandSearchKeyNotification,
-                        object: panel,
-                        userInfo: [
-                            workspaceSidebarCommandSearchPanelUserInfoKey: panel,
-                            workspaceSidebarCommandSearchKeyUserInfoKey: key,
-                        ]
-                    )
-            }
-        },
-    )
 }
 
 @MainActor

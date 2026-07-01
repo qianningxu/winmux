@@ -273,8 +273,8 @@ extension WorkspaceSidebarView {
             onCancelRenameWorkspace: {
                 finishWorkspaceRename(cancelled: true)
             },
-            selectedSearchTarget: searchText.isEmpty ? nil : selectedSearchTarget,
-            isSearchFiltering: !searchText.isEmpty,
+            selectedSearchTarget: isSidebarSearchFiltering ? selectedSearchTarget : nil,
+            isSearchFiltering: isSidebarSearchFiltering,
             isWorkspaceReorderEnabled: isWorkspaceReorderEnabled(
                 workspace: workspace,
                 expansionProgress: expansionProgress,

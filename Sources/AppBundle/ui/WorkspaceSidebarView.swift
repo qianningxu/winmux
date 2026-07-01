@@ -54,7 +54,6 @@ struct WorkspaceSidebarView: View {
             }
             if visibleWidth >= expandedWidth - 0.5 {
                 isSidebarExpanding = false
-                beginSidebarSearchIfNeeded()
             }
         }
         .onChange(of: snapshot.activeProjectId) { projectId in
@@ -122,10 +121,7 @@ struct WorkspaceSidebarView: View {
             guard notificationPanel(from: notification)?.monitorScopeId == snapshot.targetMonitorScopeId else { return }
             isSidebarCollapsing = false
             isSidebarExpanding = true
-            let panel = notificationPanel(from: notification)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
-                beginSidebarSearchIfNeeded(panel: panel)
-            }
+            finishSidebarSearch(clearText: true)
         }
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarCommandSearchKeyNotification)) { notification in
             guard let panel = notificationPanel(from: notification),
@@ -224,6 +220,10 @@ struct WorkspaceSidebarView: View {
     }
 
     func beginSidebarSearchIfNeeded(panel: WorkspaceSidebarPanel? = nil) {
+        guard workspaceSidebarSearchIsEnabled else {
+            finishSidebarSearch(clearText: true)
+            return
+        }
         guard renamingProjectId == nil, renamingWorkspaceName == nil, !isSearchEditing else { return }
         guard snapshot.visibleWidth > snapshot.configuration.collapsedWidth + 0.5 || isSidebarExpanding else { return }
         let editingPanel = panel ?? currentPanel() ?? WorkspaceSidebarPanel.shared
@@ -231,6 +231,12 @@ struct WorkspaceSidebarView: View {
     }
 
     func adoptCommandSidebarSearchIfNeeded(panel editingPanel: WorkspaceSidebarPanel) {
+        guard workspaceSidebarSearchIsEnabled else {
+            editingPanel.shouldLockNextSidebarSearchExpansion = false
+            editingPanel.bufferedCommandSidebarSearchKeys = []
+            finishSidebarSearch(clearText: true)
+            return
+        }
         guard renamingProjectId == nil, renamingWorkspaceName == nil else { return }
         if !isSearchEditing {
             isSearchEditing = true
@@ -270,6 +276,10 @@ struct WorkspaceSidebarView: View {
     }
 
     func handleSidebarSearchKey(_ key: WorkspaceSidebarInlineTextKey) {
+        guard workspaceSidebarSearchIsEnabled else {
+            finishSidebarSearch(clearText: true)
+            return
+        }
         switch key {
             case .text(let inserted):
                 searchText += inserted
@@ -350,7 +360,7 @@ struct WorkspaceSidebarView: View {
         let filteredWorkspacesByProject = workspaceSidebarFilteredWorkspacesByProject(
             visibleWorkspacesByProject,
             projects: snapshot.projects,
-            query: searchText,
+            query: sidebarSearchQuery,
         )
         let projectId: WorkspaceProjectId
         if let index = projectPagerDisplayIndex, snapshot.projects.indices.contains(index) {
@@ -365,6 +375,14 @@ struct WorkspaceSidebarView: View {
 extension WorkspaceSidebarView {
     var browsedProjectId: WorkspaceProjectId? {
         browseMode.otherProjectId
+    }
+
+    var sidebarSearchQuery: String {
+        workspaceSidebarEffectiveSearchQuery(searchText)
+    }
+
+    var isSidebarSearchFiltering: Bool {
+        !sidebarSearchQuery.isEmpty
     }
 }
 

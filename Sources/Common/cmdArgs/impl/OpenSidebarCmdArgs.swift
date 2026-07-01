@@ -7,7 +7,7 @@ public struct OpenSidebarCmdArgs: CmdArgs {
         help: """
         USAGE: open-sidebar
 
-        Opens the workspace sidebar and arms type-to-search.
+        Opens or toggles the workspace sidebar.
         """,
         flags: [:],
         posArgs: [],

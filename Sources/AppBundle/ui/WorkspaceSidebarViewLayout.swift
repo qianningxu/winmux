@@ -42,7 +42,7 @@ extension WorkspaceSidebarView {
         let filteredWorkspacesByProject = workspaceSidebarFilteredWorkspacesByProject(
             visibleWorkspacesByProject,
             projects: snapshot.projects,
-            query: searchText,
+            query: sidebarSearchQuery,
         )
 
         return VStack(alignment: .leading, spacing: 0) {
@@ -61,7 +61,7 @@ extension WorkspaceSidebarView {
                 )
             }
 
-            if !isCompact, !searchText.isEmpty {
+            if !isCompact, isSidebarSearchFiltering {
                 sidebarSearchSection(
                     expansionProgress: expansionProgress,
                     leadingInset: leadingInset,

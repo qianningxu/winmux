@@ -50,10 +50,16 @@ extension WorkspaceSidebarView {
         return Button {
             actions.send(.setPinnedExpanded(!isPinned))
         } label: {
-            Image(systemName: isPinned ? "pin.fill" : "pin")
+            Image(systemName: "sidebar.leading")
                 .font(.system(size: isCompact ? 11 : 12, weight: .semibold))
                 .foregroundStyle(isPinned ? Color.accentColor.opacity(0.95) : palette.foreground(0.68))
                 .frame(width: isCompact ? workspaceSidebarBadgeWidth : 26, height: isCompact ? workspaceSidebarBadgeWidth : 26)
+                .background {
+                    if isPinned {
+                        RoundedRectangle(cornerRadius: isCompact ? 7 : 8, style: .continuous)
+                            .fill(Color.accentColor.opacity(0.13))
+                    }
+                }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -66,8 +72,8 @@ extension WorkspaceSidebarView {
         return Button {
             actions.send(.createTabGroup)
         } label: {
-            Image(systemName: "folder.badge.plus")
-                .font(.system(size: isCompact ? 10.5 : 12, weight: .semibold))
+            Image(systemName: "plus")
+                .font(.system(size: isCompact ? 11 : 12.5, weight: .semibold))
                 .foregroundStyle(palette.foreground(0.68))
                 .frame(width: isCompact ? workspaceSidebarBadgeWidth : 26, height: isCompact ? workspaceSidebarBadgeWidth : 26)
                 .contentShape(Rectangle())

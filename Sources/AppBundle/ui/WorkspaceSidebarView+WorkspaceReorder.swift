@@ -9,7 +9,7 @@ extension WorkspaceSidebarView {
     ) -> Bool {
         workspaceSidebarWorkspaceReorderIsEnabled(
             isCompact: expansionProgress < workspaceSidebarRowsRevealProgress,
-            isSearchFiltering: !searchText.isEmpty,
+            isSearchFiltering: isSidebarSearchFiltering,
             isRenamingWorkspace: renamingWorkspaceName != nil || renamingProjectId != nil,
             isPinnedActiveWorkspace: isPinnedActiveWorkspace,
             isInteractive: isInteractive

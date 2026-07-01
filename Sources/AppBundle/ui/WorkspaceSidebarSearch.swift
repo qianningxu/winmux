@@ -1,5 +1,11 @@
 import Foundation
 
+let workspaceSidebarSearchIsEnabled = false
+
+func workspaceSidebarEffectiveSearchQuery(_ query: String) -> String {
+    workspaceSidebarSearchIsEnabled ? query : ""
+}
+
 func workspaceSidebarFilteredWorkspacesByProject(
     _ workspacesByProject: [WorkspaceProjectId: [WorkspaceSidebarWorkspaceViewModel]],
     projects: [WorkspaceSidebarProjectViewModel],

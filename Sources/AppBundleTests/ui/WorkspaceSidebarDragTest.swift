@@ -509,6 +509,21 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertEqual(workspaceSidebarSearchSelections(workspaces: results), [.workspace("coding")])
     }
 
+    func testWorkspaceSidebarSearchIsDisabledForSidebarEntryPoints() {
+        let workspaces = makeWorkspaceSidebarSearchFixture()
+
+        XCTAssertFalse(workspaceSidebarSearchIsEnabled)
+        XCTAssertEqual(workspaceSidebarEffectiveSearchQuery("safari"), "")
+
+        let results = workspaceSidebarFilteredWorkspacesByProject(
+            [workspaceProjectDefaultId: workspaces],
+            projects: [],
+            query: workspaceSidebarEffectiveSearchQuery("safari"),
+        )[workspaceProjectDefaultId] ?? []
+
+        XCTAssertEqual(results.map(\.name), ["coding", "research"])
+    }
+
     func testWorkspaceSidebarInlineTextDeletesLastWord() {
         XCTAssertEqual("release notes".deletingLastWord(), "release ")
         XCTAssertEqual("release notes   ".deletingLastWord(), "release ")
