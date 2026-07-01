@@ -79,9 +79,16 @@ typealias MonitorKey = MonitorViewportId
 
 struct WorkspaceScope: Hashable, Sendable {
     let projectId: WorkspaceProjectId
+    let monitorViewportId: MonitorViewportId?
 
-    init(projectId: WorkspaceProjectId) {
+    init(projectId: WorkspaceProjectId, monitorViewportId: MonitorViewportId? = nil) {
         self.projectId = projectId
+        self.monitorViewportId = monitorViewportId
+    }
+
+    @MainActor
+    init(projectId: WorkspaceProjectId, monitor: Monitor) {
+        self.init(projectId: projectId, monitorViewportId: MonitorViewportId(monitor))
     }
 }
 

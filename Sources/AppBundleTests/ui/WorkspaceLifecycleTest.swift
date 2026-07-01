@@ -60,6 +60,41 @@ final class WorkspaceLifecycleTest: XCTestCase {
         XCTAssertNil(Workspace.existing(byName: "3"))
     }
 
+    func testAdjacentBlankWorkspaceCreationDoesNotReuseOtherMonitorEmptyTab() {
+        let main = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 1,
+            name: "Main",
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            isMain: true,
+        )
+        let secondary = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 2,
+            name: "Secondary",
+            rect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            isMain: false,
+        )
+        setMonitorsForTests([main])
+        let mainOccupied = Workspace.get(byName: "main")
+        mainOccupied.markAsAutomaticallyNamed()
+        mainOccupied.seedMonitorIfNeeded(main)
+        _ = TestWindow.new(id: 24, parent: mainOccupied.rootTilingContainer)
+        XCTAssertTrue(main.setActiveWorkspace(mainOccupied))
+        Workspace.reconcileWorkspaceState()
+        setMonitorsForTests([main, secondary])
+        let secondaryBlank = Workspace.get(byName: "secondary-blank")
+        secondaryBlank.markAsTransientBlank()
+        secondaryBlank.seedMonitorIfNeeded(secondary)
+        XCTAssertTrue(secondary.setActiveWorkspace(secondaryBlank))
+
+        let mainBlank = getOrCreateAdjacentBlankWorkspace(projectId: workspaceProjectDefaultId, monitor: main)
+
+        XCTAssertFalse(mainBlank === secondaryBlank)
+        XCTAssertEqual(mainBlank.workspaceMonitor.rect.topLeftCorner, main.rect.topLeftCorner)
+        XCTAssertTrue(secondary.activeWorkspace === secondaryBlank)
+    }
+
     func testSidebarDragReusesRawAdjacentNameAfterUnfocusedBlankIsCollected() async throws {
         let sourceWorkspace = Workspace.get(byName: "1")
         sourceWorkspace.markAsAutomaticallyNamed()

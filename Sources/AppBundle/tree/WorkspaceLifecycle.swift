@@ -42,10 +42,10 @@ func createBlankWorkspace(projectId: WorkspaceProjectId, monitor: Monitor) -> Wo
 
 @MainActor
 func getOrCreateAdjacentBlankWorkspace(projectId: WorkspaceProjectId, monitor: Monitor) -> Workspace {
-    let scope = WorkspaceScope(projectId: projectId)
+    let scope = WorkspaceScope(projectId: projectId, monitor: monitor)
     if let workspaceId = retainedEmptyWorkspaceId(in: scope),
        let workspace = winMuxWorkspaceState.workspaceById[workspaceId],
-       isValidAssignment(workspace: workspace, screen: monitor.rect.topLeftCorner)
+       workspaceIsAvailableForMonitor(workspace, monitor: monitor)
     {
         return workspace
     }
@@ -198,7 +198,7 @@ func workspaceShouldSurviveReconciliation(
     retainedEmptyWorkspaceIds: [WorkspaceScope: WorkspaceId],
 ) -> Bool {
     guard !workspace.isArchived else { return false }
-    let scope = WorkspaceScope(projectId: workspace.projectId)
+    let scope = WorkspaceScope(projectId: workspace.projectId, monitor: workspace.workspaceMonitor)
     let isReplaceableVisibleRename = workspace.isVisible &&
         workspace.isOrdinaryEmptySlot &&
         workspaceHasSidebarDisplayNameOverride(workspace.name)
@@ -214,8 +214,12 @@ func replacementWorkspaceForPrunedWorkspace(
     _ workspace: Workspace,
     retainedEmptyWorkspaceIds: [WorkspaceScope: WorkspaceId],
 ) -> Workspace? {
-    let scope = WorkspaceScope(projectId: workspace.projectId)
-    if let retainedWorkspaceId = retainedEmptyWorkspaceIds[scope],
+    let scope = WorkspaceScope(projectId: workspace.projectId, monitor: workspace.workspaceMonitor)
+    let isReplaceableVisibleRename = workspace.isVisible &&
+        workspace.isOrdinaryEmptySlot &&
+        workspaceHasSidebarDisplayNameOverride(workspace.name)
+    if !isReplaceableVisibleRename,
+       let retainedWorkspaceId = retainedEmptyWorkspaceIds[scope],
        retainedWorkspaceId != workspace.id,
        let retainedWorkspace = winMuxWorkspaceState.workspaceById[retainedWorkspaceId],
        workspaceIsAvailableForMonitor(retainedWorkspace, monitor: workspace.workspaceMonitor)

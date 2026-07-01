@@ -1,15 +1,25 @@
 @MainActor
 func workspaceIsRetainedEmptySlot(_ workspace: Workspace) -> Bool {
-    retainedEmptyWorkspaceIdsByScope()[WorkspaceScope(projectId: workspace.projectId)] == workspace.id
+    retainedEmptyWorkspaceIdsByScope()[workspaceRetentionScope(workspace)] == workspace.id
 }
 
 @MainActor
 func retainedEmptyWorkspaceIdsByScope() -> [WorkspaceScope: WorkspaceId] {
-    let scopes = Set(Workspace.all.filter { !$0.isArchived }.map { WorkspaceScope(projectId: $0.projectId) })
+    let scopes = Set(Workspace.all.filter { !$0.isArchived }.map {
+        workspaceRetentionScope($0)
+    })
     return Dictionary(
         uniqueKeysWithValues: scopes.compactMap { scope in
             retainedEmptyWorkspaceId(in: scope).map { (scope, $0) }
         },
+    )
+}
+
+@MainActor
+private func workspaceRetentionScope(_ workspace: Workspace) -> WorkspaceScope {
+    WorkspaceScope(
+        projectId: workspace.projectId,
+        monitorViewportId: workspace.workspaceMonitorViewportIdForOrdering,
     )
 }
 

@@ -43,7 +43,7 @@ func getOrCreateFallbackWorkspace(
     monitor: Monitor,
     excluding excludedWorkspace: Workspace?,
 ) -> Workspace {
-    let scope = WorkspaceScope(projectId: projectId)
+    let scope = WorkspaceScope(projectId: projectId, monitor: monitor)
     if let workspaceId = retainedEmptyWorkspaceId(in: scope),
        let workspace = winMuxWorkspaceState.workspaceById[workspaceId],
        workspace != excludedWorkspace,
@@ -85,6 +85,13 @@ func projectWorkspaces(projectId: WorkspaceProjectId) -> [Workspace] {
 @MainActor
 func orderedWorkspaces(in scope: WorkspaceScope) -> [Workspace] {
     projectWorkspaces(projectId: scope.projectId)
+        .filter { workspace in
+            guard let monitorViewportId = scope.monitorViewportId else { return true }
+            guard let workspaceMonitorViewportId = workspace.workspaceMonitorViewportIdForOrdering else {
+                return true
+            }
+            return workspaceMonitorViewportId == monitorViewportId
+        }
         .filter { !$0.isArchived }
 }
 

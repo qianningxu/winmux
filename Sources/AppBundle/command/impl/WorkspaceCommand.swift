@@ -146,7 +146,11 @@ private func resolveRelativeWorkspaceCandidates(current: Workspace, stdin: Strin
     if projectsAreEnabled() {
         return orderedUserFacingWorkspaces(in: current.projectId, focusedWorkspace: current)
     }
-    return userFacingWorkspaces(orderedWorkspacesForPresentation(), focusedWorkspace: current)
+    return monitorScopedAutomaticDisplayWorkspaces(
+        projectId: workspaceProjectDefaultId,
+        monitor: current.workspaceMonitor,
+        focusedWorkspace: current,
+    )
 }
 
 @MainActor

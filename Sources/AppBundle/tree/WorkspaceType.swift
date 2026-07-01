@@ -164,6 +164,22 @@ extension Workspace {
     }
 
     @MainActor
+    var workspaceMonitorViewportIdForOrdering: MonitorViewportId? {
+        if let viewportId = winMuxWorkspaceState.monitorViewportsById.first(where: { _, viewport in
+            viewport.activeWorkspaceId == id
+        })?.key {
+            return viewportId
+        }
+        if let forceAssignedMonitor {
+            return MonitorViewportId(forceAssignedMonitor)
+        }
+        if let preferredMonitorPoint {
+            return MonitorViewportId(topLeftCorner: preferredMonitorPoint.monitorApproximation.rect.topLeftCorner)
+        }
+        return nil
+    }
+
+    @MainActor
     var preferredMonitorPointForTesting: CGPoint? {
         visibleMonitor?.rect.topLeftCorner ?? forceAssignedMonitor?.rect.topLeftCorner ?? preferredMonitorPoint
     }
