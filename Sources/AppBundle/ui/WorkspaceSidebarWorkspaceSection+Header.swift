@@ -50,8 +50,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     }
                 }
                 .contentShape(Rectangle())
-                .onTapGesture(count: 2, perform: handleHeaderDoubleClick)
-                .onTapGesture(count: 1) {}
+                .simultaneousGesture(TapGesture(count: 2).onEnded(handleHeaderDoubleClick))
                 .layoutPriority(1)
             }
             if let projectContextLabel, let projectContextColor {

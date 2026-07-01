@@ -37,14 +37,24 @@ extension WorkspaceSidebarWorkspaceSection {
 
     @ViewBuilder
     var headerSlot: some View {
-        header
-            .frame(height: headerHeight)
-            .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
-            .contentShape(Rectangle())
-            .modifier(WorkspaceSidebarWorkspaceReorderGestureModifier(
-                isEnabled: isWorkspaceReorderEnabled,
-                onChanged: onWorkspaceReorderDragChanged,
-                onEnded: onWorkspaceReorderDragEnded
-            ))
+        if isCompact {
+            header
+                .frame(height: headerHeight)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .contentShape(Rectangle())
+                .modifier(WorkspaceSidebarWorkspaceReorderGestureModifier(
+                    isEnabled: isWorkspaceReorderEnabled,
+                    onChanged: onWorkspaceReorderDragChanged,
+                    onEnded: onWorkspaceReorderDragEnded
+                ))
+        } else {
+            headerButton
+                .frame(height: headerHeight)
+                .modifier(WorkspaceSidebarWorkspaceReorderGestureModifier(
+                    isEnabled: isWorkspaceReorderEnabled,
+                    onChanged: onWorkspaceReorderDragChanged,
+                    onEnded: onWorkspaceReorderDragEnded
+                ))
+        }
     }
 }
