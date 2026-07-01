@@ -66,15 +66,15 @@ extension WorkspaceSidebarView {
 }
 
 private func sidebarGlassTint(for palette: WinMuxOverlayPalette) -> Color {
-    palette.isDark ? palette.muted() : palette.card()
+    palette.gray100()
 }
 
 private func sidebarGlassTintOpacity(for palette: WinMuxOverlayPalette) -> Double {
-    palette.isDark ? 0.16 : 0.22
+    palette.isDark ? 0.20 : 0.18
 }
 
 private func sidebarGlassScrimOpacity(for palette: WinMuxOverlayPalette) -> Double {
-    palette.isDark ? 0.42 : 0.46
+    palette.isDark ? 0.38 : 0.36
 }
 
 private func sidebarGlassHighlightPeak(for palette: WinMuxOverlayPalette) -> Double {
@@ -86,5 +86,5 @@ private func sidebarGlassBorderOpacity(for palette: WinMuxOverlayPalette) -> Dou
 }
 
 private func sideAreaBackground(for palette: WinMuxOverlayPalette) -> Color {
-    workspaceCanvasBackground(for: palette)
+    palette.gray100()
 }

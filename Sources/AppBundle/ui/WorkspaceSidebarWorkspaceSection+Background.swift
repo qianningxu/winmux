@@ -24,11 +24,13 @@ extension WorkspaceSidebarWorkspaceSection {
             return palette.destructive(isHovered ? 0.54 : 0.36)
         }
         if isActiveOnTargetMonitor || isPinnedActiveWorkspace {
-            let activeTint = isFromOtherDisplay ? palette.otherDisplay() : workspaceSidebarActiveWorkspaceTint
-            return activeTint.opacity(isHovered ? 0.46 : 0.34)
+            return palette.border(isHovered ? 0.92 : 0.72)
         }
         if isFromOtherDisplay {
             return palette.otherDisplay(isHovered ? 0.32 : 0.22)
+        }
+        if !isHovered {
+            return Color.clear
         }
         return palette.border(isHovered ? 0.92 : 0.68)
     }
@@ -56,13 +58,10 @@ extension WorkspaceSidebarWorkspaceSection {
             return palette.destructive(isHovered ? hoveredRedOpacity : redOpacity)
         }
         if isPinnedActiveWorkspace {
-            return workspaceSidebarActiveWorkspaceTint.opacity(isHovered ? 0.12 : 0.075)
+            return palette.selectedSurface()
         }
-        let activeTint = isFromOtherDisplay ? palette.otherDisplay() : workspaceSidebarActiveWorkspaceTint
         if isActiveOnTargetMonitor {
-            let compactOpacity: Double = workspace.isFocused ? 0.24 : 0.14
-            let expandedOpacity: Double = workspace.isFocused ? 0.12 : 0.07
-            return activeTint.opacity(isCompact ? compactOpacity : expandedOpacity)
+            return palette.selectedSurface()
         }
         if isFromOtherDisplay {
             return palette.otherDisplay(isHovered ? 0.10 : 0.05)
@@ -70,7 +69,7 @@ extension WorkspaceSidebarWorkspaceSection {
         if isHovered {
             return palette.contrastingFill(darkOpacity: 0.045, lightOpacity: 0.04)
         }
-        return palette.contrastingFill(darkOpacity: 0.015, lightOpacity: 0.025)
+        return Color.clear
     }
 
     var compactFocusOpacity: Double {

@@ -76,6 +76,10 @@ struct WinMuxOverlayPalette {
         colorToken(.muted)
     }
 
+    var gray100BaseNSColor: NSColor {
+        colorToken(.gray100)
+    }
+
     var borderBaseNSColor: NSColor {
         colorToken(.border)
     }
@@ -122,6 +126,22 @@ struct WinMuxOverlayPalette {
 
     func muted(_ opacity: Double = 1) -> Color {
         Color(nsColor: mutedNSColor(opacity: CGFloat(opacity)))
+    }
+
+    func gray100NSColor(opacity: CGFloat = 1) -> NSColor {
+        gray100BaseNSColor.withAlphaComponent(opacity)
+    }
+
+    func gray100(_ opacity: Double = 1) -> Color {
+        Color(nsColor: gray100NSColor(opacity: CGFloat(opacity)))
+    }
+
+    func selectedSurfaceNSColor(opacity: CGFloat = 1) -> NSColor {
+        cardBaseNSColor.withAlphaComponent(opacity)
+    }
+
+    func selectedSurface(_ opacity: Double = 1) -> Color {
+        Color(nsColor: selectedSurfaceNSColor(opacity: CGFloat(opacity)))
     }
 
     func borderNSColor(opacity: CGFloat = 1) -> NSColor {
@@ -219,6 +239,7 @@ private enum GeistOverlayColorToken {
     case background
     case foreground
     case card
+    case gray100
     case muted
     case mutedForeground
     case border
@@ -235,6 +256,8 @@ private enum GeistOverlayColorToken {
                 return GeistCSSColor.gray1000.nsColor(theme: theme)
             case .card:
                 return GeistCSSColor.background100.nsColor(theme: theme)
+            case .gray100:
+                return GeistCSSColor.gray100.nsColor(theme: theme)
             case .muted:
                 return GeistCSSColor.gray100.nsColor(theme: theme)
             case .mutedForeground:

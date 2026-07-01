@@ -112,7 +112,7 @@ struct WorkspaceCanvasBackgroundView: View {
 }
 
 func workspaceCanvasBackground(for palette: WinMuxOverlayPalette) -> Color {
-    palette.canvasBackground()
+    palette.gray100()
 }
 
 @MainActor

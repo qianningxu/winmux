@@ -113,7 +113,13 @@ struct WorkspaceSidebarTabGroupFolder<Content: View>: View {
                 .frame(width: sectionWidth, height: 28, alignment: .leading)
                 .background {
                     RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
-                        .fill(palette.contrastingFill(darkOpacity: 0.055, lightOpacity: 0.05))
+                        .fill(isExpanded ? palette.selectedSurface() : Color.clear)
+                }
+                .overlay {
+                    if isExpanded {
+                        RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
+                            .strokeBorder(palette.border(0.62), lineWidth: 0.5)
+                    }
                 }
             }
             .buttonStyle(.plain)

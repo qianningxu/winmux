@@ -110,13 +110,15 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
                 alignment: isCompact ? .center : .leading,
             )
             .background {
-                sectionShape.fill(palette.contrastingFill(darkOpacity: 0.012, lightOpacity: 0.02))
+                sectionShape.fill(isDropTargeted ? palette.contrastingFill(darkOpacity: 0.05, lightOpacity: 0.04) : Color.clear)
             }
             .overlay {
-                sectionShape.strokeBorder(
-                    palette.border(isDropTargeted ? 0.95 : 0.72),
-                    style: StrokeStyle(lineWidth: 0.5, dash: [3, 2.5])
-                )
+                if isDropTargeted {
+                    sectionShape.strokeBorder(
+                        palette.border(0.95),
+                        style: StrokeStyle(lineWidth: 0.5, dash: [3, 2.5])
+                    )
+                }
             }
             .contentShape(Rectangle())
         }

@@ -49,7 +49,7 @@ struct WorkspaceSidebarDropPreviewView: View {
         }
         .padding(.vertical, 4)
         .padding(.horizontal, workspaceSidebarSectionInnerHorizontalInset)
-        .background(sectionShape.fill(palette.contrastingFill(darkOpacity: 0.015, lightOpacity: 0.025)))
+        .background(sectionShape.fill(palette.selectedSurface(0.88)))
         .overlay {
             sectionShape.strokeBorder(
                 Color.accentColor.opacity(0.35),
@@ -113,7 +113,7 @@ struct WorkspaceSidebarDropPreviewView: View {
         .padding(.vertical, 1)
         .frame(height: rowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowShape.fill(palette.contrastingFill(darkOpacity: 0.085, lightOpacity: 0.07)))
+        .background(rowShape.fill(palette.selectedSurface(0.82)))
     }
 
     private func singleWindowRow(
@@ -140,6 +140,6 @@ struct WorkspaceSidebarDropPreviewView: View {
         .padding(.vertical, 1)
         .frame(height: rowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowShape.fill(palette.contrastingFill(darkOpacity: 0.06, lightOpacity: 0.055)))
+        .background(rowShape.fill(palette.selectedSurface(0.72)))
     }
 }

@@ -25,6 +25,7 @@ final class WinMuxOverlayPaletteTest: XCTestCase {
 
         assertGray(light.backgroundBaseNSColor, 0.98)
         assertGray(light.cardBaseNSColor, 1.00)
+        assertGray(light.gray100BaseNSColor, 0.95)
         assertGray(light.mutedBaseNSColor, 0.95)
         assertGray(light.borderBaseNSColor, 0.92)
         assertGray(light.foregroundBaseNSColor, 0.09)
@@ -32,6 +33,7 @@ final class WinMuxOverlayPaletteTest: XCTestCase {
 
         assertHex(dark.backgroundBaseNSColor, 0x000000)
         assertHex(dark.cardBaseNSColor, 0x0A0A0A)
+        assertHex(dark.gray100BaseNSColor, 0x1A1A1A)
         assertHex(dark.mutedBaseNSColor, 0x1A1A1A)
         assertHex(dark.borderBaseNSColor, 0x333333)
         assertHex(dark.foregroundBaseNSColor, 0xEDEDED)
@@ -42,10 +44,12 @@ final class WinMuxOverlayPaletteTest: XCTestCase {
         let light = WinMuxOverlayPalette(theme: .light)
         let dark = WinMuxOverlayPalette(theme: .dark)
 
-        assertGray(light.canvasBackgroundNSColor, 0.92)
-        assertHex(dark.canvasBackgroundNSColor, 0x1F1F1F)
+        assertGray(light.gray100BaseNSColor, 0.95)
+        assertHex(dark.gray100BaseNSColor, 0x1A1A1A)
         XCTAssertLessThan(relativeLuminance(light.canvasBackgroundNSColor), relativeLuminance(light.cardBaseNSColor))
         XCTAssertGreaterThan(relativeLuminance(dark.canvasBackgroundNSColor), relativeLuminance(dark.cardBaseNSColor))
+        XCTAssertLessThan(relativeLuminance(light.gray100BaseNSColor), relativeLuminance(light.cardBaseNSColor))
+        XCTAssertGreaterThan(relativeLuminance(dark.gray100BaseNSColor), relativeLuminance(dark.cardBaseNSColor))
     }
 
     func testPaletteUsesGeistSemanticAccentTokens() {
