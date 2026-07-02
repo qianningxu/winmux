@@ -79,7 +79,6 @@ struct WorkspaceSidebarWorkspaceSection: View {
             .padding(.horizontal, workspaceSidebarSectionInnerHorizontalInset)
             .frame(width: sectionWidth, alignment: .leading)
             .frame(minHeight: sectionMinHeight, alignment: .top)
-            .frame(maxWidth: .infinity, alignment: .leading)
             .clipped()
             .opacity(compactFocusOpacity)
             .contentShape(Rectangle())

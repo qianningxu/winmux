@@ -190,6 +190,40 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertTrue(view.shouldShowTopFilterBar)
     }
 
+    @MainActor
+    func testNormalSidebarContentFrameWidthIgnoresStaleWideVisibleWidth() {
+        let layout = WorkspaceSidebarConfiguration(
+            collapsedWidth: 44,
+            expandedWidth: 240,
+            topPadding: 8,
+            showMonitorSelector: true,
+            showsDate: false,
+            showsStatusPills: false,
+            widgets: [],
+        )
+        let snapshot = WorkspaceSidebarSnapshot(
+            workspaces: [],
+            projects: [
+                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Default", colorHex: nil),
+            ],
+            activeProjectId: workspaceProjectDefaultId,
+            monitorScopes: [],
+            selectedMonitorScopeId: workspaceSidebarDefaultScopeId,
+            targetMonitorScopeId: workspaceSidebarDefaultScopeId,
+            focusedMonitorScopeId: "",
+            visibleWidth: 480,
+            isPinnedExpanded: false,
+            hoveredWorkspaceName: nil,
+            dropPreview: nil,
+            configuration: layout,
+        )
+        let view = WorkspaceSidebarView(snapshot: snapshot)
+        let frameWidth = view.workspaceSidebarContentFrameWidth(expansionProgress: 1)
+
+        XCTAssertEqual(frameWidth, workspaceSidebarExpandedSectionWidth(layout: layout))
+        XCTAssertLessThan(frameWidth, snapshot.visibleWidth)
+    }
+
     func testSidebarTabRowsShareVisualMetricsAcrossNestingLevels() {
         XCTAssertEqual(workspaceSidebarWorkspaceSectionHeaderHeight, workspaceSidebarTabRowHeight)
         XCTAssertEqual(workspaceSidebarNestedTabRowHeight, workspaceSidebarTabRowHeight)

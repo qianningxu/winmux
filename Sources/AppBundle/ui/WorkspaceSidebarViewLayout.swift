@@ -142,7 +142,10 @@ extension WorkspaceSidebarView {
 
     func workspaceSidebarContentFrameWidth(expansionProgress: CGFloat) -> CGFloat {
         guard projectsAreEnabled(), browsedProjectId != nil else {
-            return max(snapshot.visibleWidth, 0)
+            return workspaceSidebarNormalContentFrameWidth(
+                expansionProgress: expansionProgress,
+                layout: snapshot.configuration
+            )
         }
         return workspaceSidebarSplitSectionWidth(expansionProgress: expansionProgress) +
             workspaceSidebarContentLeadingInset +
@@ -151,6 +154,17 @@ extension WorkspaceSidebarView {
 }
 
 let workspaceSidebarSplitPaneGap: CGFloat = 8
+
+@MainActor
+func workspaceSidebarNormalContentFrameWidth(
+    expansionProgress: CGFloat,
+    layout: WorkspaceSidebarConfiguration
+) -> CGFloat {
+    let isCompact = expansionProgress < workspaceSidebarRowsRevealProgress
+    return workspaceSidebarSectionWidth(expansionProgress, layout: layout) +
+        workspaceSidebarOuterLeadingPadding(isCompact: isCompact) +
+        workspaceSidebarOuterTrailingPadding(isCompact: isCompact)
+}
 
 @MainActor
 func workspaceSidebarExpandedContentFrameWidth(layout: WorkspaceSidebarConfiguration) -> CGFloat {

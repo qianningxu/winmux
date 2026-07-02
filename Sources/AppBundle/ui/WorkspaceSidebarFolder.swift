@@ -271,7 +271,7 @@ struct WorkspaceSidebarFolder<Content: View>: View {
             return palette.gray200(palette.isDark ? 0.84 : 0.92)
         }
         if isHovered || isHeaderHovered {
-            return palette.gray300(palette.isDark ? 0.38 : 0.54)
+            return palette.gray500(palette.isDark ? 0.44 : 0.52)
         }
         return Color.clear
     }
@@ -301,7 +301,7 @@ struct WorkspaceSidebarFolder<Content: View>: View {
             return palette.gray200(palette.isDark ? 0.58 : 0.70)
         }
         if isHovered || isHeaderHovered {
-            return palette.gray200(palette.isDark ? 0.46 : 0.58)
+            return palette.gray300(palette.isDark ? 0.54 : 0.66)
         }
         if showsFolderContent {
             return palette.gray100(palette.isDark ? 0.50 : 0.72)

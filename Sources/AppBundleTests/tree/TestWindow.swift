@@ -31,7 +31,9 @@ final class TestWindow: Window, CustomStringConvertible {
     }
 
     override func closeAxWindow() {
+        let workspaceToClose = workspaceToCloseAfterClosingLastWindow(self)
         unbindFromParent()
+        closeWorkspaceIfEmptiedByLastWindowClosure(workspaceToClose)
     }
 
     override var title: String {

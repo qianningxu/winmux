@@ -91,6 +91,7 @@ final class MacWindow: Window {
             return
         }
         if !skipClosedWindowsCache { cacheClosedWindowIfNeeded() }
+        let workspaceToClose = workspaceToCloseAfterClosingLastWindow(self)
         let parent = unbindFromParent().parent
         let deadWindowWorkspace = parent.nodeWorkspace
         let currentFocus = focus
@@ -126,6 +127,7 @@ final class MacWindow: Window {
                     break // Don't switch back on popup destruction
             }
         }
+        closeWorkspaceIfEmptiedByLastWindowClosure(workspaceToClose)
     }
 
     @MainActor override var title: String { get async throws { try await macApp.getAxTitle(windowId) ?? "" } }

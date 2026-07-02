@@ -162,6 +162,67 @@ func removeWorkspaceFromRegistry(_ workspace: Workspace) {
 }
 
 @MainActor
+func workspaceToCloseAfterClosingLastWindow(_ window: Window) -> Workspace? {
+    guard let workspace = lifecycleWorkspace(for: window), !workspace.isConfiguredPersistent else {
+        return nil
+    }
+    let windows = lifecycleWindows(in: workspace)
+    return windows.count == 1 && windows.singleOrNil() === window ? workspace : nil
+}
+
+@MainActor
+private func lifecycleWorkspace(for window: Window) -> Workspace? {
+    if let workspace = window.nodeWorkspace {
+        return workspace
+    }
+    if case .macos(_, let prevWorkspaceName) = window.layoutReason {
+        return prevWorkspaceName.flatMap(Workspace.existing(byName:))
+    }
+    return nil
+}
+
+@MainActor
+private func lifecycleWindows(in workspace: Workspace) -> [Window] {
+    var seenWindowIds: Set<UInt32> = []
+    return (workspace.allLeafWindowsRecursive + workspaceOwnedMinimizedWindows(workspace)).filter {
+        seenWindowIds.insert($0.windowId).inserted
+    }
+}
+
+@MainActor
+func closeWorkspaceIfEmptiedByLastWindowClosure(_ workspace: Workspace?) {
+    guard let workspace,
+          winMuxWorkspaceState.workspaceById[workspace.id] === workspace,
+          !workspace.isConfiguredPersistent,
+          !workspaceHasLifecycleWindows(workspace)
+    else {
+        return
+    }
+
+    let retainedEmptyWorkspaceIds = retainedEmptyWorkspaceIdsByScope()
+    let replacement = replacementWorkspaceForPrunedWorkspace(
+        workspace,
+        retainedEmptyWorkspaceIds: retainedEmptyWorkspaceIds,
+        excludingWorkspaceIds: [workspace.id]
+    )
+    if workspace.isVisible, let replacement {
+        check(
+            workspace.workspaceMonitor.setActiveWorkspace(replacement),
+            "Can't replace closed empty workspace '\(workspace.name)' with '\(replacement.name)'",
+        )
+    }
+    if focus.workspace == workspace {
+        let focusReplacement = replacement ?? focusReplacementForPrunedWorkspace(workspace)
+        if let focusReplacement {
+            _ = setFocus(to: focusReplacement.toLiveFocus())
+        }
+    }
+    removeWorkspaceFromRegistry(workspace)
+    pruneEmptyWorkspaceTabGroups()
+    checkWorkspaceHierarchyInvariants()
+}
+
+@MainActor
 func pruneEmptyWorkspaces() {
     let retainedEmptyWorkspaceIds = retainedEmptyWorkspaceIdsByScope()
     let focusedWorkspaceBeforePrune = focus.workspace

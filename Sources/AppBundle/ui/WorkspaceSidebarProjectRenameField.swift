@@ -33,7 +33,7 @@ struct WorkspaceSidebarProjectRenameTextField: NSViewRepresentable {
         field.isBezeled = false
         field.drawsBackground = false
         field.focusRingType = .none
-        field.textColor = .white
+        field.textColor = WinMuxOverlayPalette.current.foregroundNSColor(opacity: 0.92)
         field.font = font
         field.lineBreakMode = .byTruncatingTail
         field.usesSingleLineMode = true
@@ -51,6 +51,7 @@ struct WorkspaceSidebarProjectRenameTextField: NSViewRepresentable {
         if field.stringValue != text {
             field.stringValue = text
         }
+        field.textColor = WinMuxOverlayPalette.current.foregroundNSColor(opacity: 0.92)
         field.font = font
         field.delegate = context.coordinator
         DispatchQueue.main.async {

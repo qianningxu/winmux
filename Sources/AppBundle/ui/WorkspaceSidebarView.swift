@@ -47,6 +47,9 @@ struct WorkspaceSidebarView: View {
         )
         
         sidebarBody(expansionProgress: expansionProgress, expandedWidth: expandedWidth)
+        .onAppear {
+            normalizeActiveSidebarWidthIfNeeded(expandedWidth: expandedWidth)
+        }
         .onChange(of: snapshot.visibleWidth) { visibleWidth in
             if visibleWidth <= collapsedWidth + 0.5 {
                 resetTransientSidebarState()
@@ -57,6 +60,7 @@ struct WorkspaceSidebarView: View {
             if visibleWidth >= expandedWidth - 0.5 {
                 isSidebarExpanding = false
             }
+            normalizeActiveSidebarWidthIfNeeded(visibleWidth: visibleWidth, expandedWidth: expandedWidth)
         }
         .onChange(of: snapshot.activeProjectId) { projectId in
             debugWorkspaceSidebarProjectLog(
@@ -172,6 +176,22 @@ struct WorkspaceSidebarView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(Color.clear)
+    }
+
+    func normalizeActiveSidebarWidthIfNeeded(
+        visibleWidth: CGFloat? = nil,
+        expandedWidth: CGFloat
+    ) {
+        guard !browseMode.isSplit else { return }
+        let currentWidth = visibleWidth ?? snapshot.visibleWidth
+        guard currentWidth > expandedWidth + 0.5 else { return }
+        guard let panel = currentPanel() else { return }
+        panel.cancelExpansionWork()
+        panel.viewModel.isWorkspaceSidebarExpanded = true
+        panel.animateVisibleSidebarWidth(
+            expandedWidth,
+            animation: .easeInOut(duration: panel.animationDuration)
+        )
     }
 
     func isFolderExpanded(_ projectId: WorkspaceProjectId) -> Bool {

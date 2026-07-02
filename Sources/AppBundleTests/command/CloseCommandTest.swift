@@ -35,4 +35,31 @@ final class CloseCommandTest: XCTestCase {
         assertEquals(focus.windowOrNil?.windowId, 1)
         assertEquals(focus.workspace.rootTilingContainer.children.count, 1)
     }
+
+    func testClosingOnlyWindowDeletesTab() async throws {
+        let survivingWorkspace = focus.workspace
+        survivingWorkspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 3, parent: survivingWorkspace.rootTilingContainer)
+        let closingWorkspace = Workspace.get(byName: "2")
+        closingWorkspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 4, parent: closingWorkspace.rootTilingContainer).focusWindow()
+
+        try await CloseCommand(args: CloseCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
+
+        XCTAssertNil(Workspace.existing(byName: closingWorkspace.name))
+        XCTAssertTrue(focus.workspace === survivingWorkspace)
+        XCTAssertEqual(focus.windowOrNil?.windowId, 3)
+    }
+
+    func testClosingOnlyWindowKeepsPersistentTab() async throws {
+        let workspace = focus.workspace
+        config.persistentWorkspaces = [workspace.name]
+        _ = TestWindow.new(id: 5, parent: workspace.rootTilingContainer).focusWindow()
+
+        try await CloseCommand(args: CloseCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
+
+        XCTAssertTrue(Workspace.existing(byName: workspace.name) === workspace)
+        XCTAssertTrue(workspace.isEffectivelyEmpty)
+        XCTAssertTrue(focus.workspace === workspace)
+    }
 }
