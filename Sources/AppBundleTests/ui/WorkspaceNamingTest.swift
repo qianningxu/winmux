@@ -100,10 +100,25 @@ final class WorkspaceNamingTest: XCTestCase {
         )
 
         let viewModel = viewModels.first { $0.name == workspace.name }
-        XCTAssertEqual(viewModel?.tabSummary.title, "TestWindow(222)")
-        XCTAssertEqual(viewModel?.displayName, "TestWindow(222)")
-        XCTAssertEqual(viewModel?.tabSummary.subtitle, "2 windows")
+        XCTAssertEqual(viewModel?.tabSummary.title, "bobko.WinMux.test-app & 1 other")
+        XCTAssertEqual(viewModel?.displayName, "bobko.WinMux.test-app & 1 other")
+        XCTAssertNil(viewModel?.tabSummary.subtitle)
         XCTAssertEqual(viewModel?.tabSummary.windowCount, 2)
+    }
+
+    func testComposedTabTitleSummarizesApps() {
+        XCTAssertEqual(
+            workspaceSidebarComposedTabTitle(appNames: ["Xcode", "Safari"]),
+            "Xcode & Safari"
+        )
+        XCTAssertEqual(
+            workspaceSidebarComposedTabTitle(appNames: ["Xcode", "Safari", "Notes"]),
+            "Xcode & 2 others"
+        )
+        XCTAssertEqual(
+            workspaceSidebarComposedTabTitle(appNames: ["Safari", "Safari"]),
+            "Safari & 1 other"
+        )
     }
 
     func testSidebarManualTabRenameOverridesFocusedWindowTitle() async {

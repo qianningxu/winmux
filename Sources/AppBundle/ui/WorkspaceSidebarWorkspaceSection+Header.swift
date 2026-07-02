@@ -86,10 +86,6 @@ extension WorkspaceSidebarWorkspaceSection {
         .background {
             headerRowShape
                 .fill(headerRowBackgroundFill)
-            if isHovered && !isHeaderRowHighlighted {
-                headerRowShape
-                    .fill(palette.contrastingFill(darkOpacity: 0.035, lightOpacity: 0.03))
-            }
         }
         .overlay {
             if isHeaderRowHighlighted {
@@ -136,7 +132,13 @@ extension WorkspaceSidebarWorkspaceSection {
     }
 
     var headerRowBackgroundFill: Color {
-        isHeaderRowHighlighted ? palette.selectedSurface() : Color.clear
+        if isHeaderRowHighlighted {
+            return palette.selectedSurface()
+        }
+        if isHovered {
+            return palette.gray100()
+        }
+        return Color.clear
     }
 
     var headerCloseTargetWindow: WorkspaceSidebarWindowViewModel? {

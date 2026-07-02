@@ -63,19 +63,20 @@ private func makeWorkspaceSidebarTabSummaryViewModel(
     } else {
         windowTitle = nil
     }
-    let automaticTitle = windowTitle ?? appName ?? workspaceDisplayName(workspace.name)
+    let composedTitle = workspaceSidebarComposedTabTitle(
+        appNames: orderedWorkspaceSidebarComposedTabWindows(
+            windows,
+            representativeWindow: representativeWindow,
+        ).map(workspaceSidebarAppName)
+    )
+    let automaticTitle = windows.count > 1
+        ? (composedTitle ?? appName ?? windowTitle ?? workspaceDisplayName(workspace.name))
+        : (windowTitle ?? appName ?? workspaceDisplayName(workspace.name))
     let manualTitle = sidebarLabel.trimmingCharacters(in: .whitespacesAndNewlines).takeIf { !$0.isEmpty }
     let title = manualTitle ?? automaticTitle
-    let automaticSubtitle = manualTitle == nil
+    let subtitle = manualTitle == nil
         ? nil
         : automaticTitle.takeIf { $0 != title && $0 != appName }
-    let windowCountSubtitle = windows.count > 1
-        ? "\(windows.count) windows"
-        : nil
-    let subtitle = [automaticSubtitle, windowCountSubtitle]
-        .compactMap { $0 }
-        .joined(separator: " - ")
-        .takeIf { !$0.isEmpty }
     return WorkspaceSidebarTabSummaryViewModel(
         title: title,
         subtitle: subtitle,
@@ -84,6 +85,31 @@ private func makeWorkspaceSidebarTabSummaryViewModel(
         windowCount: windows.count,
         isEmpty: windows.isEmpty,
     )
+}
+
+func workspaceSidebarComposedTabTitle(appNames: [String]) -> String? {
+    guard let firstAppName = appNames.first else { return nil }
+    guard appNames.count > 1 else { return firstAppName }
+    if appNames.count == 2,
+       let secondAppName = appNames.dropFirst().first,
+       secondAppName != firstAppName
+    {
+        return "\(firstAppName) & \(secondAppName)"
+    }
+    let otherCount = appNames.count - 1
+    return "\(firstAppName) & \(otherCount) other\(otherCount == 1 ? "" : "s")"
+}
+
+private func orderedWorkspaceSidebarComposedTabWindows(
+    _ windows: [Window],
+    representativeWindow: Window?
+) -> [Window] {
+    guard let representativeWindow, windows.contains(representativeWindow) else { return windows }
+    return [representativeWindow] + windows.filter { $0 != representativeWindow }
+}
+
+private func workspaceSidebarAppName(_ window: Window) -> String {
+    window.app.name ?? window.app.rawAppBundleId ?? "Window"
 }
 
 func visibleWorkspaceNamesForSidebar(

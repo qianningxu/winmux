@@ -372,7 +372,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
-    func testWorkspaceSidebarTabSummaryUsesManualLabelAndWindowCount() async throws {
+    func testWorkspaceSidebarTabSummaryUsesManualLabelAndComposedAppSubtitle() async throws {
         setUpWorkspacesForTests()
         let workspace = Workspace.get(byName: "coding")
         workspace.markAsAutomaticallyNamed()
@@ -388,7 +388,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
 
         XCTAssertEqual(model.displayName, "Research")
         XCTAssertEqual(model.tabSummary.title, "Research")
-        XCTAssertEqual(model.tabSummary.subtitle, "TestWindow(2) - 2 windows")
+        XCTAssertEqual(model.tabSummary.subtitle, "bobko.WinMux.test-app & 1 other")
         XCTAssertEqual(model.tabSummary.windowCount, 2)
         XCTAssertFalse(model.tabSummary.isEmpty)
     }
@@ -410,7 +410,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         var model = try XCTUnwrap(sidebarWorkspaces.first { $0.name == workspace.name })
 
         XCTAssertEqual(model.tabSummary.title, "Research")
-        XCTAssertEqual(model.tabSummary.subtitle, "TestWindow(1) - 2 windows")
+        XCTAssertEqual(model.tabSummary.subtitle, "bobko.WinMux.test-app & 1 other")
 
         _ = second.focusWindow()
         sidebarWorkspaces = await buildWorkspaceSidebarWorkspaceViewModels(
@@ -421,12 +421,12 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         model = try XCTUnwrap(sidebarWorkspaces.first { $0.name == workspace.name })
 
         XCTAssertEqual(model.tabSummary.title, "Research")
-        XCTAssertEqual(model.tabSummary.subtitle, "TestWindow(2) - 2 windows")
+        XCTAssertEqual(model.tabSummary.subtitle, "bobko.WinMux.test-app & 1 other")
         XCTAssertEqual(model.tabSummary.windowCount, 2)
     }
 
     @MainActor
-    func testWorkspaceSidebarComposedTabSummaryShowsWindowCountWithoutManualLabel() async throws {
+    func testWorkspaceSidebarComposedTabSummaryUsesAppNamesWithoutManualLabel() async throws {
         setUpWorkspacesForTests()
         let workspace = Workspace.get(byName: "coding")
         workspace.markAsAutomaticallyNamed()
@@ -440,13 +440,13 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         )
         let model = try XCTUnwrap(sidebarWorkspaces.first { $0.name == workspace.name })
 
-        XCTAssertEqual(model.tabSummary.title, "TestWindow(2)")
-        XCTAssertEqual(model.tabSummary.subtitle, "2 windows")
+        XCTAssertEqual(model.tabSummary.title, "bobko.WinMux.test-app & 1 other")
+        XCTAssertNil(model.tabSummary.subtitle)
         XCTAssertEqual(model.tabSummary.windowCount, 2)
     }
 
     @MainActor
-    func testWorkspaceSidebarTabSummaryUsesFocusedWindowTitleAsAutomaticTitle() async throws {
+    func testWorkspaceSidebarComposedTabSummaryUsesRepresentativeAppAndOtherCount() async throws {
         setUpWorkspacesForTests()
         let workspace = Workspace.get(byName: "coding")
         workspace.markAsAutomaticallyNamed()
@@ -461,8 +461,8 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         )
         let model = try XCTUnwrap(sidebarWorkspaces.first { $0.name == workspace.name })
 
-        XCTAssertEqual(model.tabSummary.title, "TestWindow(3)")
-        XCTAssertEqual(model.tabSummary.subtitle, "3 windows")
+        XCTAssertEqual(model.tabSummary.title, "bobko.WinMux.test-app & 2 others")
+        XCTAssertNil(model.tabSummary.subtitle)
         XCTAssertEqual(model.tabSummary.windowCount, 3)
     }
 

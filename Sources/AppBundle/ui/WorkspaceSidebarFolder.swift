@@ -145,6 +145,7 @@ struct WorkspaceSidebarFolder<Content: View>: View {
                 }
             }
         }
+        .padding(.vertical, showsFolderContent ? 4 : 0)
         .frame(width: sectionWidth, alignment: .leading)
         .background {
             GeometryReader { geometry in
@@ -172,7 +173,7 @@ struct WorkspaceSidebarFolder<Content: View>: View {
                 .fill(folderBlockFill)
         }
         .overlay {
-            if isFolderInteractionActive {
+            if showsFolderContent || isFolderInteractionActive {
                 RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
                     .strokeBorder(folderBlockBorder, lineWidth: isFolderTargeted ? 0.9 : 0.7)
             }
@@ -261,7 +262,7 @@ struct WorkspaceSidebarFolder<Content: View>: View {
             return palette.gray200(palette.isDark ? 0.84 : 0.92)
         }
         if isHovered || isHeaderHovered {
-            return palette.gray100(palette.isDark ? 0.74 : 0.84)
+            return palette.gray100(palette.isDark ? 0.64 : 0.72)
         }
         return Color.clear
     }
@@ -290,8 +291,11 @@ struct WorkspaceSidebarFolder<Content: View>: View {
         if isFolderTargeted {
             return palette.gray200(palette.isDark ? 0.58 : 0.70)
         }
+        if showsFolderContent {
+            return palette.gray100(palette.isDark ? 0.50 : 0.72)
+        }
         if isHovered || isHeaderHovered {
-            return palette.gray100(palette.isDark ? 0.36 : 0.46)
+            return palette.gray100(palette.isDark ? 0.32 : 0.42)
         }
         return Color.clear
     }

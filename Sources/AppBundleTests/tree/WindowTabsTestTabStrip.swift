@@ -235,7 +235,7 @@ import XCTest
     }
 
     @MainActor
-    func testWindowTabAliasesAppearInTabStripAndFlatSidebarTabSummary() async throws {
+    func testWindowTabAliasesStayInTabStripWhileSidebarSummarizesComposedTab() async throws {
         setUpWorkspacesForTests()
         config.windowTabs.enabled = true
         let workspace = Workspace.get(byName: "tabs")
@@ -257,7 +257,7 @@ import XCTest
             availableMonitors: [mainMonitor],
         )
         let sidebarTab = try XCTUnwrap(sidebarTabs.first { $0.name == workspace.name })
-        XCTAssertEqual(sidebarTab.tabSummary.title, "Docs")
+        XCTAssertEqual(sidebarTab.tabSummary.title, "bobko.WinMux.test-app & 1 other")
         XCTAssertEqual(sidebarTab.items.map(\.id), ["group:51"])
     }
 
