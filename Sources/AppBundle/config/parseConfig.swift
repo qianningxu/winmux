@@ -37,7 +37,10 @@ func readConfig(forceConfigUrl: URL? = nil) -> Result<(Config, URL), String> {
 
 private let keyMappingConfigRootKey = "key-mapping"
 private let modeConfigRootKey = "mode"
-private let persistentWorkspacesKey = "persistent-workspaces"
+private let persistentTabsKey = "persistent-tabs"
+private let legacyPersistentWorkspacesKey = "persistent-workspaces"
+private let tabToMonitorForceAssignmentKey = "tab-to-monitor-force-assignment"
+private let legacyWorkspaceToMonitorForceAssignmentKey = "workspace-to-monitor-force-assignment"
 
 // For every new config option you add, think:
 // 1. Does it make sense to have different value
@@ -64,22 +67,26 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     "enable-projects": Parser(\.enableProjects, parseBool),
     "automatically-unhide-macos-hidden-apps": Parser(\.automaticallyUnhideMacosHiddenApps, parseBool),
     "shortcuts-preset": Parser(\.shortcutsPreset, parseShortcutsPreset),
-    "tab-group-padding": Parser(\.tabGroupPadding, parseInt),
-    persistentWorkspacesKey: Parser(\.persistentWorkspaces, parsePersistentWorkspaces),
+    "folder-padding": Parser(\.tabGroupPadding, parseInt),
+    persistentTabsKey: Parser(\.persistentWorkspaces, parsePersistentTabs),
+    legacyPersistentWorkspacesKey: Parser(\.persistentWorkspaces, parsePersistentTabs),
     "exec-on-workspace-change": Parser(\.execOnWorkspaceChange, parseArrayOfStrings),
     "exec": Parser(\.execConfig, parseExecConfig),
 
     keyMappingConfigRootKey: Parser(\.keyMapping, skipParsing(Config().keyMapping)), // Parsed manually
     modeConfigRootKey: Parser(\.modes, skipParsing(Config().modes)), // Parsed manually
 
-    "auto-add-new-windows-to-tab-group": Parser(\.autoAddNewWindowsToTabGroup, parseBool),
+    "auto-add-new-windows-to-folder": Parser(\.autoAddNewWindowsToTabGroup, parseBool),
     "gaps": Parser(\.gaps, parseGaps),
     "workspace-sidebar": Parser(\.workspaceSidebar, parseWorkspaceSidebar),
     "window-tabs": Parser(\.windowTabs, parseWindowTabs),
-    "workspace-to-monitor-force-assignment": Parser(\.workspaceToMonitorForceAssignment, parseWorkspaceToMonitorAssignment),
+    tabToMonitorForceAssignmentKey: Parser(\.workspaceToMonitorForceAssignment, parseWorkspaceToMonitorAssignment),
+    legacyWorkspaceToMonitorForceAssignmentKey: Parser(\.workspaceToMonitorForceAssignment, parseWorkspaceToMonitorAssignment),
     "on-window-detected": Parser(\.onWindowDetected, parseOnWindowDetectedArray),
 
     // Deprecated
+    "tab-group-padding": Parser(\.tabGroupPadding, parseInt),
+    "auto-add-new-windows-to-tab-group": Parser(\.autoAddNewWindowsToTabGroup, parseBool),
     "non-empty-workspaces-root-containers-layout-on-startup": Parser(\._nonEmptyWorkspacesRootContainersLayoutOnStartup, parseStartupRootContainerLayout),
     "indent-for-nested-containers-with-the-same-orientation": Parser(\._indentForNestedContainersWithTheSameOrientation, parseIndentForNestedContainersWithTheSameOrientation),
 ]
@@ -154,10 +161,24 @@ func parseCommandOrCommands(_ raw: TOMLValueConvertible) -> Parsed<[any Command]
     if shouldValidateMainMode && !config.modes.keys.contains(mainModeId) {
         errors += [.semantic(.rootKey(modeConfigRootKey), "Please specify '\(mainModeId)' mode")]
     }
+    if rawTable.contains(key: persistentTabsKey), rawTable.contains(key: legacyPersistentWorkspacesKey) {
+        errors += [.semantic(
+            .rootKey(persistentTabsKey),
+            "Use either '\(persistentTabsKey)' or legacy '\(legacyPersistentWorkspacesKey)', not both"
+        )]
+    }
+    if rawTable.contains(key: tabToMonitorForceAssignmentKey),
+       rawTable.contains(key: legacyWorkspaceToMonitorForceAssignmentKey)
+    {
+        errors += [.semantic(
+            .rootKey(tabToMonitorForceAssignmentKey),
+            "Use either '\(tabToMonitorForceAssignmentKey)' or legacy '\(legacyWorkspaceToMonitorForceAssignmentKey)', not both"
+        )]
+    }
 
     if config.configVersion <= 1 {
-        if rawTable.contains(key: persistentWorkspacesKey) {
-            errors += [.semantic(.rootKey(persistentWorkspacesKey), "This config option is only available since 'config-version = 2'")]
+        for key in [persistentTabsKey, legacyPersistentWorkspacesKey] where rawTable.contains(key: key) {
+            errors += [.semantic(.rootKey(key), "This config option is only available since 'config-version = 2'")]
         }
         config.persistentWorkspaces = (config.modes.values.lazy
             .flatMap { (mode: Mode) -> [HotkeyBinding] in Array(mode.bindings.values) }
@@ -187,6 +208,7 @@ func parseCommandOrCommands(_ raw: TOMLValueConvertible) -> Parsed<[any Command]
             )]
         }
     }
+    config.enableProjects = false
     return (config, errors)
 }
 
@@ -264,11 +286,11 @@ private func skipParsing<T: Sendable>(_ value: T) -> @Sendable (_ raw: TOMLValue
     { _, _ in .success(value) }
 }
 
-private func parsePersistentWorkspaces(_ raw: TOMLValueConvertible, _ backtrace: TomlBacktrace) -> ParsedToml<OrderedSet<String>> {
+private func parsePersistentTabs(_ raw: TOMLValueConvertible, _ backtrace: TomlBacktrace) -> ParsedToml<OrderedSet<String>> {
     parseArrayOfStrings(raw, backtrace)
         .flatMap { arr in
             let set = arr.toOrderedSet()
-            return set.count == arr.count ? .success(set) : .failure(.semantic(backtrace, "Contains duplicated workspace names"))
+            return set.count == arr.count ? .success(set) : .failure(.semantic(backtrace, "Contains duplicated tab names"))
         }
 }
 

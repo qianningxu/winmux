@@ -16,7 +16,7 @@ extension AgentOperation {
                 if Window.get(byId: windowId) == nil { errors.append("Window \(windowId) does not exist") }
             case .moveTabGroupToWorkspace(let tabGroupId, _, _):
                 if resolveAgentTabGroup(tabGroupId) == nil, context.plannedTabGroups[tabGroupId] == nil {
-                    errors.append("Tab group '\(tabGroupId)' does not exist")
+                    errors.append("Folder '\(tabGroupId)' does not exist")
                 }
             case .swapPanes(let a, let b):
                 if !a.canResolve(in: context) { errors.append("swapPanes: first pane does not exist") }
@@ -48,15 +48,15 @@ extension AgentOperation {
         context: inout AgentValidationContext,
         errors: inout [String],
     ) {
-        errors.append("createTabGroup is disabled. Tabs are now managed in the sidebar; use split layout nodes instead.")
-        if tabs.count < 2 { errors.append("createTabGroup requires at least two tabs") }
+        errors.append("Folder creation through legacy JSON is disabled. Create folders in the sidebar; use split layout nodes to compose windows inside a Tab.")
+        if tabs.count < 2 { errors.append("Legacy folder JSON requires at least two tabs") }
         for id in duplicateAgentWindowIds(in: tabs) {
-            errors.append("createTabGroup: window \(id) appears more than once")
+            errors.append("Legacy folder JSON: window \(id) appears more than once")
         }
-        for id in tabs where Window.get(byId: id) == nil { errors.append("createTabGroup: window \(id) does not exist") }
-        if let activeWindowId, !tabs.contains(activeWindowId) { errors.append("createTabGroup: activeWindowId must be in tabs") }
+        for id in tabs where Window.get(byId: id) == nil { errors.append("Legacy folder JSON: window \(id) does not exist") }
+        if let activeWindowId, !tabs.contains(activeWindowId) { errors.append("Legacy folder JSON: activeWindowId must be in tabs") }
         if workspace == nil, Window.get(byId: tabs.first ?? 0)?.nodeWorkspace == nil {
-            errors.append("createTabGroup: Tab is required when the first composed window has no Tab")
+            errors.append("Legacy folder JSON: Tab is required when the first composed window has no Tab")
         }
         if let tabGroupId {
             context.plannedTabGroups[tabGroupId] = Set(tabs)
@@ -71,11 +71,11 @@ extension AgentOperation {
         context: AgentValidationContext,
         errors: inout [String],
     ) {
-        errors.append("addWindowToTabGroup is disabled. Tabs are now managed in the sidebar; use placePane or setWorkspaceLayout with split nodes instead.")
-        if Window.get(byId: windowId) == nil { errors.append("addWindowToTabGroup: window \(windowId) does not exist") }
-        if let activeWindowId, Window.get(byId: activeWindowId) == nil { errors.append("addWindowToTabGroup: active window \(activeWindowId) does not exist") }
+        errors.append("Adding windows through legacy folder JSON is disabled. Tabs and folders are now managed in the sidebar; use placePane or setTabLayout with split nodes instead.")
+        if Window.get(byId: windowId) == nil { errors.append("Legacy folder JSON: window \(windowId) does not exist") }
+        if let activeWindowId, Window.get(byId: activeWindowId) == nil { errors.append("Legacy folder JSON: active window \(activeWindowId) does not exist") }
         if resolveAgentTabGroup(tabGroupId) == nil, context.plannedTabGroups[tabGroupId] == nil {
-            errors.append("addWindowToTabGroup: tab group '\(tabGroupId)' does not exist")
+            errors.append("Legacy folder JSON: folder '\(tabGroupId)' does not exist")
         }
     }
 
@@ -86,11 +86,11 @@ extension AgentOperation {
         context: AgentValidationContext,
         errors: inout [String],
     ) {
-        errors.append("setActiveTab is disabled. Tabs are now selected from the sidebar.")
+        errors.append("Legacy folder activation is disabled. Tabs are now selected from the sidebar.")
         let isExistingTab = resolveAgentTabGroup(tabGroupId)?.agentTabWindows.contains(where: { $0.windowId == windowId }) == true
         let isPlannedTab = context.plannedTabGroups[tabGroupId]?.contains(windowId) == true
         if !isExistingTab && !isPlannedTab {
-            errors.append("setActiveTab: window \(windowId) is not in tab group '\(tabGroupId)'")
+            errors.append("Legacy folder JSON: window \(windowId) is not in folder '\(tabGroupId)'")
         }
     }
 

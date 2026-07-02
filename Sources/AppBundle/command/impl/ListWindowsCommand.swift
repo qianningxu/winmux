@@ -54,7 +54,7 @@ struct ListWindowsCommand: Command {
 
             return windowInfos.map { FormatObject.window(window: $0.window, title: $0.title) }.writeFormattedOutput(
                 to: io,
-                format: args.format,
+                format: args.json ? args.jsonFormat : args.format,
                 json: args.json,
                 ignoreRightPaddingVar: args._format.isEmpty,
             )

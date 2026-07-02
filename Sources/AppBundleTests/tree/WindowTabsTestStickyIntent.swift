@@ -159,6 +159,40 @@ import XCTest
     }
 
     @MainActor
+    func testLegacyWindowTabPanelRefreshEntrypointsCannotCreatePanels() {
+        setUpWorkspacesForTests()
+        let owner = NSObject()
+        let strip = WindowTabStripViewModel(
+            id: ObjectIdentifier(owner),
+            workspaceName: "tabs",
+            frame: CGRect(x: 100, y: 280, width: 300, height: 28),
+            groupFrame: CGRect(x: 100, y: 100, width: 300, height: 208),
+            activeWindowId: 1,
+            activeWindowCornerRadius: 12,
+            tabs: [],
+            occludingFloatingWindowFrames: []
+        )
+
+        WindowTabStripPanelController.shared.refreshInteractiveChrome(
+            strips: [strip],
+            activeIds: [strip.id]
+        )
+        WindowTabStripPanelController.shared.refreshSuppressedChrome(
+            mode: .frameOnly,
+            strips: [strip],
+            activeIds: [strip.id]
+        )
+        WindowTabStripPanelController.shared.refreshFrameOnlyChrome(
+            strips: [strip],
+            activeIds: [strip.id]
+        )
+        WindowTabStripPanelController.shared.updateInteractivePanelForResizingStrip(strip)
+
+        XCTAssertTrue(WindowTabStripPanelController.shared.visualPanels.isEmpty)
+        XCTAssertTrue(WindowTabStripPanelController.shared.stripPanels.isEmpty)
+    }
+
+    @MainActor
     func testBeginWindowMoveSessionPreservesAnchorRectAcrossRepeatedCallbacks() {
         setUpWorkspacesForTests()
         cancelManipulatedWithMouseState()
@@ -374,7 +408,7 @@ import XCTest
     }
 
     @MainActor
-    func testDetachedTabStillOffersTabReentryHint() {
+    func testDetachedTopStripTabReentryHintIsDisabledForSidebarTabs() {
         setUpWorkspacesForTests()
         clearPendingWindowDragIntent()
         let previousWindowTabs = config.windowTabs.enabled
@@ -393,14 +427,82 @@ import XCTest
         source.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 0, topLeftY: 34, width: 420, height: 246)
         target.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 0, topLeftY: 34, width: 420, height: 246)
 
-        XCTAssertTrue(updatePendingWindowDragIntent(
+        XCTAssertFalse(updatePendingWindowDragIntent(
             sourceWindow: source,
             mouseLocation: tabGroup.windowTabDropInteractionRect.orDie().center,
             subject: .window,
             detachOrigin: .tabStrip,
         ))
 
-        XCTAssertEqual(debugPendingWindowDragIntentSummary()?.kind, .reorderTab(windowId: source.windowId, targetIndex: 0))
+        XCTAssertNil(debugPendingWindowDragIntentSummary())
+    }
+
+    @MainActor
+    func testInjectedOldTabStackIntentCannotApply() {
+        setUpWorkspacesForTests()
+        clearPendingWindowDragIntent()
+        defer { clearPendingWindowDragIntent() }
+
+        let workspace = Workspace.get(byName: "tabs")
+        XCTAssertTrue(workspace.focusWorkspace())
+        let root = workspace.rootTilingContainer
+        let source = TestWindow.new(id: 1, parent: root)
+        let target = TestWindow.new(id: 2, parent: root)
+        let interactionRect = Rect(topLeftX: 0, topLeftY: 0, width: 420, height: 240)
+        source.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 0, topLeftY: 0, width: 200, height: 240)
+        target.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 220, topLeftY: 0, width: 200, height: 240)
+        MousePointerTracker.shared.note(point: interactionRect.center)
+        let layoutBeforeDrop = root.layoutDescription
+
+        pendingWindowDragIntent = PendingWindowDragIntent(
+            sourceWindowId: source.windowId,
+            sourceSubject: .window,
+            kind: .tabStack(targetWindowId: target.windowId),
+            previewRect: interactionRect,
+            interactionRect: interactionRect,
+            title: "Insert Into Tabs",
+            subtitle: "Drop in the top zone to add this window",
+            previewStyle: .tabInsert,
+            previewGeometry: .tabStrip,
+            isGroup: false,
+            isPointerSettled: true
+        )
+
+        XCTAssertFalse(applyPendingWindowDragIntentIfPossible())
+        assertEquals(root.layoutDescription, layoutBeforeDrop)
+        XCTAssertNil(debugPendingWindowDragIntentSummary())
+    }
+
+    @MainActor
+    func testSetPendingWindowDragIntentRejectsOldTabStackKind() {
+        setUpWorkspacesForTests()
+        clearPendingWindowDragIntent()
+        defer { clearPendingWindowDragIntent() }
+
+        let workspace = Workspace.get(byName: "tabs")
+        let root = workspace.rootTilingContainer
+        let source = TestWindow.new(id: 1, parent: root)
+        let target = TestWindow.new(id: 2, parent: root)
+        let interactionRect = Rect(topLeftX: 0, topLeftY: 0, width: 420, height: 240)
+        MousePointerTracker.shared.note(point: interactionRect.center)
+
+        XCTAssertFalse(setPendingWindowDragIntent(
+            sourceWindowId: source.windowId,
+            sourceSubject: .window,
+            detachOrigin: .window,
+            destination: WindowDragIntentDestination(
+                kind: .tabStack(targetWindowId: target.windowId),
+                previewContainerRect: interactionRect,
+                previewRect: interactionRect,
+                interactionRect: interactionRect,
+                title: "Insert Into Tabs",
+                subtitle: "Drop in the top zone to add this window",
+                previewStyle: .tabInsert,
+                previewGeometry: .tabStrip,
+                isGroup: false
+            ),
+        ))
+        XCTAssertNil(debugPendingWindowDragIntentSummary())
     }
 
     @MainActor

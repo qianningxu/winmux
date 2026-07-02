@@ -133,6 +133,41 @@ extension TreeNodeTest {
         XCTAssertFalse(floating.noOuterGapsInFullscreen)
     }
 
+    func testRestoreFrozenWorldMigratesLegacyTopTabGroupIntoSidebarTabs() async throws {
+        let workspace = Workspace.get(byName: "restore-tabs")
+        workspace.markAsAutomaticallyNamed()
+        let tabGroup = TilingContainer(parent: workspace.rootTilingContainer, adaptiveWeight: 1, .h, .tabGroup, index: 0)
+        let first = TestWindow.new(id: 141, parent: tabGroup, adaptiveWeight: 1)
+        let active = TestWindow.new(id: 142, parent: tabGroup, adaptiveWeight: 1)
+        active.markAsMostRecentChild()
+        let frozenWorld = FrozenWorld(
+            workspaces: [FrozenWorkspace(workspace)],
+            monitors: monitors.map(FrozenMonitor.init),
+            windowIds: [first.windowId, active.windowId],
+        )
+        guard case .container(let frozenTabGroup) = frozenWorld.workspaces[0].rootTilingNode.children[0] else {
+            return XCTFail("Expected frozen legacy tab group")
+        }
+        XCTAssertEqual(frozenTabGroup.layout, .tabGroup)
+        XCTAssertEqual(frozenTabGroup.children.count, 2)
+        first.bind(to: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+        active.bind(to: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+        _ = tabGroup.bind(to: NilTreeNode.instance, adaptiveWeight: WEIGHT_DOESNT_MATTER, index: INDEX_BIND_LAST)
+        XCTAssertFalse(workspace.rootTilingContainer.allTabbedContainersRecursive.contains { $0.layout == .tabGroup })
+
+        let didRestore = try await restoreFrozenWorldIfNeeded(frozenWorld, newlyDetectedWindow: first)
+
+        XCTAssertTrue(didRestore)
+        XCTAssertFalse(Workspace.all.contains { workspace in
+            workspace.rootTilingContainer.allTabbedContainersRecursive.contains { $0.layout == .tabGroup && $0.children.count > 1 }
+        })
+        XCTAssertTrue(active.nodeWorkspace === workspace)
+        XCTAssertTrue(first.nodeWorkspace !== workspace)
+        XCTAssertEqual(first.nodeWorkspace?.rootTilingContainer.children, [first])
+        XCTAssertEqual(workspace.rootTilingContainer.children, [active])
+        XCTAssertEqual(workspace.rootTilingContainer.layout, .tiles)
+    }
+
     func testRestoreFrozenWorldIfNeededRetilesRestoredMinimizedWindowAfterNativeUnminimize() async throws {
         let workspace = Workspace.get(byName: "restore")
         let window = TestWindow.new(id: 43, parent: workspace.rootTilingContainer)

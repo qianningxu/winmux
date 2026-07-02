@@ -8,10 +8,21 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
 
     func testParse() {
         testParseCommandSucc("move-node-to-workspace next", MoveNodeToWorkspaceCmdArgs(target: .relative(.next)))
+        testParseCommandSucc("move-node-to-tab next", MoveNodeToWorkspaceCmdArgs(target: .relative(.next)))
         assertEquals(parseCommand("move-node-to-workspace --fail-if-noop next").errorOrNil, "--fail-if-noop is incompatible with (next|prev)")
         assertEquals(parseCommand("move-node-to-workspace --stdin foo").errorOrNil, "--stdin and --no-stdin require using (next|prev) argument")
         testParseCommandSucc("move-node-to-workspace --stdin next", MoveNodeToWorkspaceCmdArgs(target: .relative(.next)).copy(\.explicitStdinFlag, true))
         testParseCommandSucc("move-node-to-workspace --no-stdin next", MoveNodeToWorkspaceCmdArgs(target: .relative(.next)).copy(\.explicitStdinFlag, false))
+    }
+
+    func testHelpIsTabFirstWhileKeepingWorkspaceCompatibility() {
+        guard case .help(let help) = parseCommand("move-node-to-workspace --help") else {
+            XCTFail("Expected help")
+            return
+        }
+
+        XCTAssertTrue(help.contains("USAGE: move-node-to-tab"))
+        XCTAssertFalse(help.contains("OR: move-node-to-workspace"))
     }
 
     func testSimple() async throws {
@@ -136,6 +147,76 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
         assertEquals(result.exitCode, 0)
         XCTAssertEqual(window.nodeWorkspace?.name, "2")
         XCTAssertEqual(workspaceDisplayName("2"), "Tab 2")
+    }
+
+    func testDirectNumericMoveFromGroupedTabCreatesDefaultFlatTab() async throws {
+        let defaultWorkspace = Workspace.get(byName: "1")
+        defaultWorkspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 21, parent: defaultWorkspace.rootTilingContainer)
+
+        let groupProject = createWorkspaceProject()
+        let groupedWorkspace = Workspace.get(byName: "grouped")
+        groupedWorkspace.markAsAutomaticallyNamed()
+        groupedWorkspace.assignProject(groupProject.id)
+        groupedWorkspace.seedMonitorIfNeeded(defaultWorkspace.workspaceMonitor)
+        let window = TestWindow.new(id: 22, parent: groupedWorkspace.rootTilingContainer)
+        _ = window.focusWindow()
+
+        let result = try await MoveNodeToWorkspaceCommand(args: MoveNodeToWorkspaceCmdArgs(workspace: "2"))
+            .run(.defaultEnv, .emptyStdin)
+
+        assertEquals(result.exitCode, 0)
+        XCTAssertEqual(window.nodeWorkspace?.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(workspaceDisplayName(window.nodeWorkspace?.name ?? ""), "Tab 2")
+    }
+
+    func testDirectNumericMoveUsesSourceMonitorLocalTabDisplayIndexWhenProjectsAreHardDisabled() async throws {
+        let main = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 1,
+            name: "Main",
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            isMain: true,
+        )
+        let secondary = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 2,
+            name: "Secondary",
+            rect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            isMain: false,
+        )
+        setMonitorsForTests([main, secondary])
+        defer { setMonitorsForTests(nil) }
+
+        let mainFirst = Workspace.get(byName: "main-first")
+        mainFirst.markAsAutomaticallyNamed()
+        mainFirst.seedMonitorIfNeeded(main)
+        let movedWindow = TestWindow.new(id: 23, parent: mainFirst.rootTilingContainer)
+        let mainSecond = Workspace.get(byName: "main-second")
+        mainSecond.markAsAutomaticallyNamed()
+        mainSecond.seedMonitorIfNeeded(main)
+        _ = TestWindow.new(id: 24, parent: mainSecond.rootTilingContainer)
+        let secondaryFirst = Workspace.get(byName: "secondary-first")
+        secondaryFirst.markAsAutomaticallyNamed()
+        secondaryFirst.seedMonitorIfNeeded(secondary)
+        _ = TestWindow.new(id: 25, parent: secondaryFirst.rootTilingContainer)
+        let secondarySecond = Workspace.get(byName: "secondary-second")
+        secondarySecond.markAsAutomaticallyNamed()
+        secondarySecond.seedMonitorIfNeeded(secondary)
+        let secondaryWindow = TestWindow.new(id: 26, parent: secondarySecond.rootTilingContainer)
+        XCTAssertTrue(main.setActiveWorkspace(mainFirst))
+        XCTAssertTrue(secondary.setActiveWorkspace(secondaryFirst))
+        XCTAssertTrue(movedWindow.focusWindow())
+
+        let result = try await MoveNodeToWorkspaceCommand(args: MoveNodeToWorkspaceCmdArgs(workspace: "2"))
+            .run(.defaultEnv, .emptyStdin)
+
+        assertEquals(result.exitCode, 0)
+        XCTAssertTrue(movedWindow.nodeWorkspace === mainSecond)
+        XCTAssertTrue(secondaryWindow.nodeWorkspace === secondarySecond)
+        XCTAssertEqual(movedWindow.nodeWorkspace?.workspaceMonitor.rect.topLeftCorner, main.rect.topLeftCorner)
+        XCTAssertEqual(scopedAutomaticDisplayWorkspaces(current: mainFirst), [mainFirst, mainSecond])
+        XCTAssertEqual(scopedAutomaticDisplayWorkspaces(current: secondaryFirst), [secondaryFirst, secondarySecond])
     }
 
     func testDirectNumericMoveDoesNotCreateWorkspaceMultipleHopsAway() async throws {

@@ -124,7 +124,7 @@ func parseFocusCmdArgs(_ args: StrArrSlice) -> ParsedCmd<FocusCmdArgs> {
         .filter("--tab-index is incompatible with other options") {
             $0.tabIndex == nil || $0 == FocusCmdArgs(rawArgs: args, tabIndex: $0.tabIndex.orDie())
         }
-        .filter("(dfs-next|dfs-prev|tab-next|tab-prev) only supports --boundaries workspace") {
+        .filter("(dfs-next|dfs-prev|tab-next|tab-prev) only supports the current Tab boundary (--boundaries workspace legacy token)") {
             $0.target.requiresWorkspaceBoundaries.implies($0.boundaries == .workspace)
         }
 }

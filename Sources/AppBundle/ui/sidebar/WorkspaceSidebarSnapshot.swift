@@ -57,7 +57,7 @@ enum WorkspaceSidebarAction: Equatable {
     case closeWindow(UInt32)
     case selectProject(WorkspaceProjectId)
     case createProject
-    case createTabGroup
+    case createFolder
     case renameProject(WorkspaceProjectId, displayName: String)
     case setProjectColor(WorkspaceProjectId, colorHex: String?)
     case deleteProject(WorkspaceProjectId)
@@ -66,7 +66,8 @@ enum WorkspaceSidebarAction: Equatable {
     case renameWorkspace(String, displayName: String)
     case deleteWorkspace(String)
     case reorderWorkspace(String, projectId: WorkspaceProjectId, placement: WorkspaceReorderPlacement)
-    case mergeWorkspace(String, intoWorkspace: String, position: WindowStackSplitPosition)
+    case createFolderFromWorkspaces(String, withWorkspace: String)
+    case moveWorkspaceToFolder(String, projectId: WorkspaceProjectId)
     case setPinnedExpanded(Bool)
     case moveWindow(UInt32, toWorkspace: String)
     case moveTabGroup(UInt32, toWorkspace: String)

@@ -21,146 +21,82 @@ extension WorkspaceSidebarView {
             workspaceReorderDrag?.projectId == workspace.projectId
     }
 
-    func workspaceReorderInsertionPlacement(
-        for workspace: WorkspaceSidebarWorkspaceViewModel,
+    func workspaceListEntries(
+        workspaces: [WorkspaceSidebarWorkspaceViewModel],
         projectId: WorkspaceProjectId
-    ) -> WorkspaceReorderPlacement? {
-        guard let target = workspaceReorderDrag?.target,
-              case .reorder(let reorderTarget) = target,
-              reorderTarget.projectId == projectId,
-              reorderTarget.targetWorkspaceName == workspace.name
-        else { return nil }
-        return reorderTarget.placement
-    }
-
-    func workspaceMergePosition(
-        for workspace: WorkspaceSidebarWorkspaceViewModel,
-        projectId: WorkspaceProjectId
-    ) -> WindowStackSplitPosition? {
-        guard let target = workspaceReorderDrag?.target,
-              case .merge(let mergeTarget) = target,
-              mergeTarget.projectId == projectId,
-              mergeTarget.targetWorkspaceName == workspace.name
-        else { return nil }
-        return mergeTarget.position
-    }
-
-    func isWorkspaceMergeTarget(_ workspace: WorkspaceSidebarWorkspaceViewModel) -> Bool {
-        workspaceMergePosition(for: workspace, projectId: workspace.projectId) != nil
-    }
-
-    func workspaceMergePreviewTitle(_ workspace: WorkspaceSidebarWorkspaceViewModel) -> String? {
-        guard let position = workspaceMergePosition(for: workspace, projectId: workspace.projectId) else { return nil }
-        return switch position {
-            case .left: "Merge Left"
-            case .right: "Merge Right"
-            case .above: "Merge Above"
-            case .below: "Merge Below"
-        }
-    }
-
-    func workspaceMergePreviewSubtitle(_ workspace: WorkspaceSidebarWorkspaceViewModel) -> String? {
-        guard let position = workspaceMergePosition(for: workspace, projectId: workspace.projectId) else { return nil }
-        return switch position {
-            case .left: "Release to merge this Tab on the left"
-            case .right: "Release to merge this Tab on the right"
-            case .above: "Release to merge this Tab above"
-            case .below: "Release to merge this Tab below"
-        }
-    }
-
-    func workspaceMergePreviewIsPositive(_ workspace: WorkspaceSidebarWorkspaceViewModel) -> Bool {
-        workspaceMergePosition(for: workspace, projectId: workspace.projectId)?.isPositive == true
-    }
-
-    func workspaceMergePreviewAlignment(_ workspace: WorkspaceSidebarWorkspaceViewModel) -> Alignment {
-        guard let position = workspaceMergePosition(for: workspace, projectId: workspace.projectId) else {
-            return .center
-        }
-        return switch position {
-            case .left: .leading
-            case .right: .trailing
-            case .above: .top
-            case .below: .bottom
-        }
-    }
-
-    func workspaceMergePreviewTextPadding(_ workspace: WorkspaceSidebarWorkspaceViewModel) -> EdgeInsets {
-        guard let position = workspaceMergePosition(for: workspace, projectId: workspace.projectId) else {
-            return EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0)
-        }
-        let horizontalPadding: CGFloat = 9
-        let verticalPadding: CGFloat = 6
-        return switch position {
-            case .left:
-                EdgeInsets(top: verticalPadding, leading: horizontalPadding, bottom: verticalPadding, trailing: 0)
-            case .right:
-                EdgeInsets(top: verticalPadding, leading: 0, bottom: verticalPadding, trailing: horizontalPadding)
-            case .above:
-                EdgeInsets(top: verticalPadding, leading: horizontalPadding, bottom: 0, trailing: horizontalPadding)
-            case .below:
-                EdgeInsets(top: 0, leading: horizontalPadding, bottom: verticalPadding, trailing: horizontalPadding)
-        }
-    }
-
-    func workspaceMergePreviewText(_ workspace: WorkspaceSidebarWorkspaceViewModel) -> some View {
-        VStack(alignment: workspaceMergePreviewIsPositive(workspace) ? .trailing : .leading, spacing: 2) {
-            if let title = workspaceMergePreviewTitle(workspace) {
-                Text(title)
-                    .font(.system(size: 10.5, weight: .semibold))
-                    .lineLimit(1)
-            }
-            if let subtitle = workspaceMergePreviewSubtitle(workspace) {
-                Text(subtitle)
-                    .font(.system(size: 8.5, weight: .medium))
-                    .lineLimit(1)
-                    .opacity(0.74)
-            }
-        }
-        .padding(workspaceMergePreviewTextPadding(workspace))
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: workspaceMergePreviewAlignment(workspace))
-    }
-
-    func workspaceMergePreviewOverlay(_ workspace: WorkspaceSidebarWorkspaceViewModel) -> some View {
-        ZStack(alignment: workspaceMergePreviewAlignment(workspace)) {
-            RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
-                .strokeBorder(Color.accentColor.opacity(0.52), lineWidth: 1)
-                .background {
-                    RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
-                        .fill(Color.accentColor.opacity(0.11))
-                }
-            workspaceMergePreviewText(workspace)
-                .foregroundStyle(Color.accentColor.opacity(0.95))
-        }
-        .allowsHitTesting(false)
-    }
-
-    func showsWorkspaceReorderIndicator(
-        before workspace: WorkspaceSidebarWorkspaceViewModel,
-        projectId: WorkspaceProjectId
-    ) -> Bool {
-        guard let placement = workspaceReorderInsertionPlacement(for: workspace, projectId: projectId) else { return false }
-        if case .before(let targetName) = placement {
-            return targetName == workspace.name
-        }
-        return false
-    }
-
-    func showsWorkspaceReorderIndicator(
-        after workspace: WorkspaceSidebarWorkspaceViewModel,
-        projectId: WorkspaceProjectId
-    ) -> Bool {
-        guard let placement = workspaceReorderInsertionPlacement(for: workspace, projectId: projectId) else { return false }
-        if case .after(let targetName) = placement {
-            return targetName == workspace.name
-        }
-        return false
-    }
-
-    func workspaceReorderIndicator(expansionProgress: CGFloat) -> some View {
-        WorkspaceSidebarWorkspaceReorderIndicator(
-            width: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration)
+    ) -> [WorkspaceSidebarWorkspaceListEntry] {
+        workspaceSidebarWorkspaceListEntries(
+            workspaces: workspaces,
+            projectId: projectId,
+            sourceWorkspaceName: workspaceReorderDrag?.sourceWorkspaceName,
+            sourceWorkspace: workspaceReorderPreviewWorkspace(),
+            target: workspaceReorderDrag?.target
         )
+    }
+
+    func isWorkspaceFolderDropTarget(_ projectId: WorkspaceProjectId) -> Bool {
+        guard let target = workspaceReorderDrag?.target,
+              case .moveToFolder(let folderTarget) = target
+        else { return false }
+        return folderTarget.projectId == projectId
+    }
+
+    func isWorkspaceFolderInteractionTarget(_ projectId: WorkspaceProjectId) -> Bool {
+        guard let target = workspaceReorderDrag?.target else { return false }
+        switch target {
+            case .moveToFolder(let folderTarget):
+                return folderTarget.projectId == projectId
+            case .reorder(let reorderTarget):
+                return reorderTarget.projectId == projectId
+            case .createFolder:
+                return false
+        }
+    }
+
+    func isProjectReorderDropTarget(_ projectId: WorkspaceProjectId) -> Bool {
+        workspaceSidebarProjectFrameIsVisibleDropTarget(
+            projectId: projectId,
+            sourceProjectId: workspaceReorderDrag?.projectId
+        )
+    }
+
+    func isWorkspaceProjectPreviewTarget(_ projectId: WorkspaceProjectId) -> Bool {
+        workspaceSidebarIsProjectPreviewTarget(
+            projectId: projectId,
+            sourceWorkspaceName: workspaceReorderDrag?.sourceWorkspaceName,
+            sourceWorkspace: workspaceReorderPreviewWorkspace(),
+            target: workspaceReorderDrag?.target
+        )
+    }
+
+    func workspaceReorderPlaceholder(
+        expansionProgress: CGFloat,
+        nestedContentIndent: CGFloat = 0
+    ) -> some View {
+        WorkspaceSidebarWorkspaceReorderPlaceholder(
+            width: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration),
+            nestedContentIndent: nestedContentIndent,
+            previewWorkspace: workspaceReorderPreviewWorkspace()
+        )
+    }
+
+    func workspaceFolderPreview(
+        targetWorkspace: WorkspaceSidebarWorkspaceViewModel,
+        sourceWorkspace: WorkspaceSidebarWorkspaceViewModel,
+        expansionProgress: CGFloat,
+        nestedContentIndent: CGFloat = 0
+    ) -> some View {
+        WorkspaceSidebarWorkspaceFolderPreview(
+            sourceWorkspace: sourceWorkspace,
+            targetWorkspace: targetWorkspace,
+            width: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration),
+            nestedContentIndent: nestedContentIndent
+        )
+    }
+
+    func workspaceReorderPreviewWorkspace() -> WorkspaceSidebarWorkspaceViewModel? {
+        guard let sourceWorkspaceName = workspaceReorderDrag?.sourceWorkspaceName else { return nil }
+        return snapshot.workspaces.first { $0.name == sourceWorkspaceName }
     }
 
     func updateWorkspaceReorderDrag(
@@ -174,9 +110,15 @@ extension WorkspaceSidebarView {
         }
         let target = workspaceSidebarWorkspaceDragTarget(
             sourceWorkspaceName: workspace.name,
-            projectId: projectId,
+            sourceProjectId: projectId,
             pointer: pointer,
-            frames: workspaceReorderFrames
+            workspaceFrames: workspaceReorderFrames,
+            folderFrames: folderReorderFrames
+        )
+        updateWorkspaceCanvasDropIntentOverlay(
+            sourceWorkspaceName: workspace.name,
+            screenPoint: MousePointerTracker.shared.currentSample.point,
+            hasSidebarTarget: target != nil
         )
         workspaceReorderDrag = WorkspaceSidebarWorkspaceReorderDragState(
             sourceWorkspaceName: workspace.name,
@@ -193,39 +135,75 @@ extension WorkspaceSidebarView {
     ) {
         let target = workspaceSidebarWorkspaceDragTarget(
             sourceWorkspaceName: workspace.name,
-            projectId: projectId,
+            sourceProjectId: projectId,
             pointer: pointer,
-            frames: workspaceReorderFrames
+            workspaceFrames: workspaceReorderFrames,
+            folderFrames: folderReorderFrames
         ) ?? workspaceReorderDrag?.target
         workspaceReorderDrag = nil
+        WindowDropIntentOverlayPanelController.shared.hide()
         guard let target else {
+            let screenPoint = MousePointerTracker.shared.currentSample.point
+            guard let dropIntent = workspaceCanvasDropIntent(
+                sourceWorkspaceName: workspace.name,
+                screenPoint: screenPoint
+            ) else { return }
             mergeWorkspaceIntoActiveViewFromSidebarIfPossible(
                 sourceWorkspaceName: workspace.name,
-                pointer: pointer
+                pointer: screenPoint,
+                position: dropIntent.position
             )
             return
         }
-        switch target {
-            case .reorder(let reorderTarget):
-                guard reorderTarget.projectId == projectId else { return }
-                actions.send(.reorderWorkspace(
-                    workspace.name,
-                    projectId: projectId,
-                    placement: reorderTarget.placement
-                ))
-            case .merge(let mergeTarget):
-                guard mergeTarget.projectId == projectId,
-                      mergeTarget.sourceWorkspaceName == workspace.name
-                else { return }
-                actions.send(.mergeWorkspace(
-                    mergeTarget.sourceWorkspaceName,
-                    intoWorkspace: mergeTarget.targetWorkspaceName,
-                    position: mergeTarget.position
-                ))
-        }
+        guard let action = workspaceSidebarWorkspaceDragFinishAction(
+            sourceWorkspaceName: workspace.name,
+            target: target
+        ) else { return }
+        actions.send(action)
     }
 
     func cancelWorkspaceReorderDrag() {
         workspaceReorderDrag = nil
+        WindowDropIntentOverlayPanelController.shared.hide()
+    }
+
+    func updateWorkspaceCanvasDropIntentOverlay(
+        sourceWorkspaceName: String,
+        screenPoint: CGPoint,
+        hasSidebarTarget: Bool
+    ) {
+        guard !hasSidebarTarget,
+              let dropIntent = workspaceCanvasDropIntent(
+                sourceWorkspaceName: sourceWorkspaceName,
+                screenPoint: screenPoint
+              )
+        else {
+            WindowDropIntentOverlayPanelController.shared.hide()
+            return
+        }
+        WindowDropIntentOverlayPanelController.shared.show(dropIntent.overlay)
+    }
+
+    func workspaceCanvasDropIntent(
+        sourceWorkspaceName: String,
+        screenPoint: CGPoint
+    ) -> (position: WindowStackSplitPosition, overlay: WindowDropIntentOverlayModel)? {
+        guard WorkspaceSidebarPanel.panel(containing: screenPoint) == nil,
+              let sourceWorkspace = Workspace.existing(byName: sourceWorkspaceName)
+        else { return nil }
+        let targetWorkspace = screenPoint.monitorApproximation.activeWorkspace
+        guard targetWorkspace != sourceWorkspace else { return nil }
+        let workspaceRect = targetWorkspace.workspaceMonitor.visibleRectPaddedByOuterGaps
+        guard let zone = WindowIntentZoneBuilder.zone(at: screenPoint, in: workspaceRect),
+              let position = zone.stackSplitPosition
+        else { return nil }
+        return (
+            position,
+            WindowDropIntentOverlayModel(
+                targetFrame: workspaceRect,
+                activeZone: zone,
+                cornerRadius: nil
+            )
+        )
     }
 }

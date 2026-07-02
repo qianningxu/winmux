@@ -28,7 +28,7 @@ struct WorkspaceSidebarMonitorSelector: View {
     private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     private var projectPopupWidth: CGFloat {
-        let names = browsableProjects.map(\.displayName) + ["Other Projects"]
+        let names = browsableProjects.map(\.displayName) + ["Other Folders"]
         let maxTextWidth = names.map {
             ($0 as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium)]).width
         }.max() ?? 0
@@ -143,7 +143,7 @@ struct WorkspaceSidebarMonitorSelector: View {
             isProjectMenuOpen.toggle()
         } label: {
             HStack(spacing: 4) {
-                Text(selectedProject?.displayName ?? "Other Projects")
+                Text(selectedProject?.displayName ?? "Other Folders")
                     .font(.system(size: 12.5, weight: .medium))
                     .foregroundStyle(palette.foreground(isActive ? 0.86 : 0.72))
                     .lineLimit(1)
@@ -162,7 +162,7 @@ struct WorkspaceSidebarMonitorSelector: View {
                 .offset(y: workspaceSidebarDropdownHeight + workspaceSidebarSectionGap)
         }
         .zIndex(isProjectMenuOpen ? 200 : 0)
-        .help("Browse another project")
+        .help("Browse another folder")
         )
     }
 

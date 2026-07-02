@@ -44,7 +44,10 @@ extension WorkspaceSidebarView {
 
     func sidebarSwipeCaptureOverlay(expansionProgress: CGFloat) -> some View {
         WorkspaceSidebarProjectSwipeScrollCapture(
-            isEnabled: !snapshot.projects.isEmpty,
+            isEnabled: workspaceSidebarProjectSwipeCaptureIsEnabled(
+                projectsEnabled: projectsAreEnabled(),
+                projectCount: snapshot.projects.count
+            ),
             onChanged: { horizontalTranslation, verticalTranslation in
                 handleProjectSwipeChanged(
                     horizontalTranslation: horizontalTranslation,
@@ -65,8 +68,12 @@ extension WorkspaceSidebarView {
     }
 }
 
+func workspaceSidebarProjectSwipeCaptureIsEnabled(projectsEnabled: Bool, projectCount: Int) -> Bool {
+    projectsEnabled && projectCount > 0
+}
+
 private func sidebarGlassTint(for palette: WinMuxOverlayPalette) -> Color {
-    palette.gray100()
+    palette.muted()
 }
 
 private func sidebarGlassTintOpacity(for palette: WinMuxOverlayPalette) -> Double {
@@ -86,5 +93,5 @@ private func sidebarGlassBorderOpacity(for palette: WinMuxOverlayPalette) -> Dou
 }
 
 private func sideAreaBackground(for palette: WinMuxOverlayPalette) -> Color {
-    palette.gray100()
+    palette.muted()
 }

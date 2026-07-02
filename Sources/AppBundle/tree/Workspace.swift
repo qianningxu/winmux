@@ -28,15 +28,15 @@ enum WorkspaceMutationError: LocalizedError {
             case .workspaceCannotBeDeleted(let name):
                 "Tab '\(name)' cannot be deleted."
             case .projectNotFound(let id):
-                "Project '\(id)' no longer exists."
+                "Folder '\(id)' no longer exists."
             case .projectCannotBeDeleted(let name):
-                "Project '\(name)' cannot be deleted."
+                "Folder '\(name)' cannot be deleted."
             case .projectCloseBlocked(let name, let count):
-                "Project '\(name)' was not deleted because \(count) window\(count == 1 ? "" : "s") stayed open."
+                "Folder '\(name)' was not deleted because \(count) window\(count == 1 ? "" : "s") stayed open."
             case .emptyName:
                 "Name cannot be empty."
             case .duplicateProjectName(let name):
-                "A project named '\(name)' already exists."
+                "A folder named '\(name)' already exists."
         }
     }
 }

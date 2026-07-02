@@ -15,7 +15,7 @@ extension WorkspaceSidebarWorkspaceSection {
 
     var sectionBorderColor: Color {
         if isDropTarget {
-            return palette.attention(0.46)
+            return palette.border(palette.isDark ? 0.86 : 0.92)
         }
         if isSearchSelectedWorkspace {
             return palette.border(0.95)
@@ -23,31 +23,34 @@ extension WorkspaceSidebarWorkspaceSection {
         if allowsWorkspaceActivation && isInUseOnOtherDisplay {
             return palette.destructive(isHovered ? 0.54 : 0.36)
         }
-        if isActiveOnTargetMonitor || isPinnedActiveWorkspace {
+        if isVisuallyActiveOnTargetMonitor && showsWindowRows {
+            return Color.clear
+        }
+        if (isVisuallyActiveOnTargetMonitor || isPinnedActiveWorkspace) && !showsWindowRows {
+            return Color.clear
+        }
+        if isVisuallyActiveOnTargetMonitor || isPinnedActiveWorkspace {
             return palette.border(isHovered ? 0.92 : 0.72)
         }
         if isFromOtherDisplay {
             return palette.otherDisplay(isHovered ? 0.32 : 0.22)
         }
-        if !isHovered {
-            return Color.clear
-        }
-        return palette.border(isHovered ? 0.92 : 0.68)
+        return Color.clear
     }
 
     var sectionBorderStyle: StrokeStyle {
         if isPinnedActiveWorkspace && !isSearchFiltering {
             return StrokeStyle(lineWidth: 1, dash: [5, 4])
         }
-        return StrokeStyle(lineWidth: isHovered || isActiveOnTargetMonitor || isDropTarget ? 0.75 : 0.6)
+        return StrokeStyle(lineWidth: isHovered || isVisuallyActiveOnTargetMonitor || isDropTarget ? 0.75 : 0.6)
     }
 
     var sectionBackgroundFill: Color {
         if isDropTarget {
-            return Color.accentColor.opacity(0.12)
+            return palette.gray200(palette.isDark ? 0.78 : 0.66)
         }
         if isSearchSelectedWorkspace {
-            return palette.contrastingFill(darkOpacity: 0.105, lightOpacity: 0.09)
+            return palette.card()
         }
         if isSearchFiltering {
             return palette.contrastingFill(darkOpacity: isHovered ? 0.045 : 0.015, lightOpacity: isHovered ? 0.04 : 0.025)
@@ -58,16 +61,16 @@ extension WorkspaceSidebarWorkspaceSection {
             return palette.destructive(isHovered ? hoveredRedOpacity : redOpacity)
         }
         if isPinnedActiveWorkspace {
-            return palette.selectedSurface()
+            return Color.clear
         }
-        if isActiveOnTargetMonitor {
-            return palette.selectedSurface()
+        if isVisuallyActiveOnTargetMonitor && showsWindowRows {
+            return Color.clear
+        }
+        if isVisuallyActiveOnTargetMonitor && nestedContentIndent <= 0 {
+            return Color.clear
         }
         if isFromOtherDisplay {
             return palette.otherDisplay(isHovered ? 0.10 : 0.05)
-        }
-        if isHovered {
-            return palette.contrastingFill(darkOpacity: 0.045, lightOpacity: 0.04)
         }
         return Color.clear
     }

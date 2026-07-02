@@ -9,10 +9,10 @@ public struct ProjectCmdArgs: CmdArgs {
             "--wrap-around": optionalTrueBoolFlag(\._wrapAround),
             "--fail-if-noop": trueBoolFlag(\.failIfNoop),
         ],
-        posArgs: [newMandatoryPosArgParser(\.target, parseProjectTarget, placeholder: projectTargetPlaceholder)],
+        posArgs: [ArgParser(\.target, parseOptionalProjectTarget)],
     )
 
-    public var target: Lateinit<ProjectTarget> = .uninitialized
+    public var target: Lateinit<ProjectTarget> = .initialized(.index(1))
     public var _wrapAround: Bool?
     public var failIfNoop: Bool = false
 }
@@ -39,7 +39,7 @@ public enum ProjectTarget: Equatable, Sendable {
     }
 }
 
-let projectTargetPlaceholder = "(<project-index>|next|prev)"
+let projectTargetPlaceholder = "(legacy-folder-index|next|prev)"
 
 func parseProjectTarget(i: PosArgParserInput) -> ParsedCliArgs<ProjectTarget> {
     switch i.arg {
@@ -47,8 +47,12 @@ func parseProjectTarget(i: PosArgParserInput) -> ParsedCliArgs<ProjectTarget> {
         case "prev": return ParsedCliArgs<ProjectTarget>.succ(.relative(.prev), advanceBy: 1)
         default:
             guard let index = Int(i.arg), index > 0 else {
-                return .fail("Can't parse project target '\(i.arg)'. Expected \(projectTargetPlaceholder)", advanceBy: 1)
+                return .fail("Can't parse legacy folder target '\(i.arg)'. Expected \(projectTargetPlaceholder)", advanceBy: 1)
             }
             return ParsedCliArgs<ProjectTarget>.succ(.index(index), advanceBy: 1)
     }
+}
+
+private func parseOptionalProjectTarget(i: PosArgParserInput) -> ParsedCliArgs<Lateinit<ProjectTarget>> {
+    parseProjectTarget(i: i).map { .initialized($0) }
 }

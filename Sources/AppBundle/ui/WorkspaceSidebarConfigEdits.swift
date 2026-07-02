@@ -2,7 +2,8 @@ import Foundation
 
 private let workspaceSidebarSectionHeader = "[workspace-sidebar]"
 private let workspaceSidebarMenuBarReserveKey = "menu-bar-reserve-height"
-private let workspaceSidebarProjectDeletionActionKey = "project-deletion-action"
+private let workspaceSidebarFolderDeletionActionKey = "folder-deletion-action"
+private let workspaceSidebarLegacyProjectDeletionActionKey = "project-deletion-action"
 
 func updateWorkspaceSidebarMenuBarReserveConfig(
     in configText: String,
@@ -21,7 +22,8 @@ func updateWorkspaceSidebarProjectDeletionActionConfig(
 ) -> String {
     updateWorkspaceSidebarScalarConfig(
         in: configText,
-        key: workspaceSidebarProjectDeletionActionKey,
+        key: workspaceSidebarFolderDeletionActionKey,
+        legacyKeys: [workspaceSidebarLegacyProjectDeletionActionKey],
         renderedValue: "'\(action.rawValue)'",
     )
 }
@@ -29,6 +31,7 @@ func updateWorkspaceSidebarProjectDeletionActionConfig(
 private func updateWorkspaceSidebarScalarConfig(
     in configText: String,
     key: String,
+    legacyKeys: Set<String> = [],
     renderedValue: String,
 ) -> String {
     let lines = configText.components(separatedBy: "\n")
@@ -53,7 +56,9 @@ private func updateWorkspaceSidebarScalarConfig(
 
     var resultLines = lines
     for lineIndex in (sectionIndex + 1)..<sectionEnd {
-        guard workspaceSidebarConfigKey(in: resultLines[lineIndex]) == key else { continue }
+        guard workspaceSidebarConfigKey(in: resultLines[lineIndex]).map({ $0 == key || legacyKeys.contains($0) }) == true else {
+            continue
+        }
         let indentation = String(resultLines[lineIndex].prefix(while: { $0.isWhitespace }))
         let trailingComment = trailingTomlComment(in: resultLines[lineIndex]).map { " " + $0 } ?? ""
         resultLines[lineIndex] = "\(indentation)\(key) = \(renderedValue)\(trailingComment)"
@@ -95,7 +100,8 @@ func updateWorkspaceSidebarLabelConfig(
 ) -> String {
     updateTomlKeyValueSectionConfig(
         in: configText,
-        sectionHeader: "[workspace-sidebar.workspace-labels]",
+        sectionHeader: "[workspace-sidebar.tab-labels]",
+        legacySectionHeaders: ["[workspace-sidebar.workspace-labels]"],
         key: workspaceName,
         value: label,
     )
@@ -108,7 +114,8 @@ func updateWorkspaceSidebarProjectLabelConfig(
 ) -> String {
     updateTomlKeyValueSectionConfig(
         in: configText,
-        sectionHeader: "[workspace-sidebar.project-labels]",
+        sectionHeader: "[workspace-sidebar.folder-labels]",
+        legacySectionHeaders: ["[workspace-sidebar.project-labels]"],
         key: projectId,
         value: label,
     )
@@ -121,7 +128,8 @@ func updateWorkspaceSidebarProjectColorConfig(
 ) -> String {
     updateTomlKeyValueSectionConfig(
         in: configText,
-        sectionHeader: "[workspace-sidebar.project-colors]",
+        sectionHeader: "[workspace-sidebar.folder-colors]",
+        legacySectionHeaders: ["[workspace-sidebar.project-colors]"],
         key: projectId,
         value: colorHex,
     )
@@ -143,11 +151,13 @@ func updateWindowTabLabelConfig(
 private func updateTomlKeyValueSectionConfig(
     in configText: String,
     sectionHeader: String,
+    legacySectionHeaders: Set<String> = [],
     key: String,
     value: String?,
 ) -> String {
     let lines = configText.components(separatedBy: "\n")
-    guard let sectionIndex = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == sectionHeader }) else {
+    let sectionHeaders = legacySectionHeaders.union([sectionHeader])
+    guard let sectionIndex = lines.firstIndex(where: { sectionHeaders.contains($0.trimmingCharacters(in: .whitespaces)) }) else {
         guard let value else { return configText }
         var result = configText
         if !result.isEmpty, !result.hasSuffix("\n") {
@@ -168,7 +178,7 @@ private func updateTomlKeyValueSectionConfig(
         }) ?? lines.endIndex
 
     var resultLines = Array(lines[..<sectionIndex])
-    resultLines.append(lines[sectionIndex])
+    resultLines.append(sectionHeader)
 
     var wroteValue = false
     var bodyLines: [String] = []

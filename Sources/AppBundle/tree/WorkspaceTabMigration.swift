@@ -27,9 +27,35 @@ private func migrateTabGroups(in container: TilingContainer, sourceWorkspace: Wo
     for child in container.children.compactMap({ $0 as? TilingContainer }) {
         didMigrate = migrateTabGroups(in: child, sourceWorkspace: sourceWorkspace) || didMigrate
     }
-    guard container.layout == .tabGroup, container.children.count > 1 else { return didMigrate }
+    guard container.layout == .tabGroup else { return didMigrate }
+    guard container.children.count > 1 else {
+        normalizeLegacySingleTabGroupShell(container)
+        return true
+    }
     splitTabGroupIntoWorkspaceTabs(container, sourceWorkspace: sourceWorkspace)
     return true
+}
+
+@MainActor
+private func normalizeLegacySingleTabGroupShell(_ tabGroup: TilingContainer) {
+    guard tabGroup.layout == .tabGroup else { return }
+    if tabGroup.isRootContainer {
+        tabGroup.layout = .tiles
+        return
+    }
+    guard tabGroup.children.count == 1,
+          let onlyChild = tabGroup.children.first,
+          let parent = tabGroup.parent
+    else {
+        tabGroup.layout = .tiles
+        return
+    }
+    onlyChild.bind(
+        to: parent,
+        adaptiveWeight: tabGroup.getWeight(tabGroup.orientation),
+        index: tabGroup.ownIndex ?? INDEX_BIND_LAST
+    )
+    _ = tabGroup.bind(to: NilTreeNode.instance, adaptiveWeight: WEIGHT_DOESNT_MATTER, index: INDEX_BIND_LAST)
 }
 
 @MainActor
@@ -45,14 +71,20 @@ private func splitTabGroupIntoWorkspaceTabs(_ tabGroup: TilingContainer, sourceW
     let targetMonitor = sourceWorkspace.workspaceMonitor
     let tabGroupParent = tabGroup.parent as? TilingContainer
     let tabGroupIndex = tabGroup.ownIndex ?? INDEX_BIND_LAST
+    var migratedWorkspaceOrder: [Workspace] = []
 
-    for child in tabChildren where child !== activeChild {
-        let workspace = createMigratedWorkspaceTab(
-            sourceWorkspace: sourceWorkspace,
-            projectId: insertionProjectId,
-            monitor: targetMonitor,
-        )
-        child.bind(to: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+    for child in tabChildren {
+        if child === activeChild {
+            migratedWorkspaceOrder.append(sourceWorkspace)
+        } else {
+            let workspace = createMigratedWorkspaceTab(
+                sourceWorkspace: sourceWorkspace,
+                projectId: insertionProjectId,
+                monitor: targetMonitor,
+            )
+            migratedWorkspaceOrder.append(workspace)
+            child.bind(to: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+        }
     }
 
     if tabGroup.isRootContainer {
@@ -69,6 +101,7 @@ private func splitTabGroupIntoWorkspaceTabs(_ tabGroup: TilingContainer, sourceW
             previousIndex: tabGroupIndex,
         )
     }
+    reorderMigratedWorkspaceTabs(migratedWorkspaceOrder, projectId: insertionProjectId)
 }
 
 @MainActor
@@ -96,10 +129,20 @@ private func normalizeSingleChildContainerAroundMigratedTab(
     previousIndex: Int,
 ) {
     guard let parent,
+          !parent.isRootContainer,
           parent.children.count == 1,
           let onlyChild = parent.children.first,
           let grandParent = parent.parent
     else { return }
     onlyChild.bind(to: grandParent, adaptiveWeight: parent.getWeight(parent.orientation), index: previousIndex)
     _ = parent.bind(to: NilTreeNode.instance, adaptiveWeight: WEIGHT_DOESNT_MATTER, index: INDEX_BIND_LAST)
+}
+
+@MainActor
+private func reorderMigratedWorkspaceTabs(_ workspaces: [Workspace], projectId: WorkspaceProjectId) {
+    let workspaceIds = workspaces.map(\.id)
+    let anchor = winMuxWorkspaceState.projectsById[projectId]?.workspaceOrder.first {
+        !workspaceIds.contains($0)
+    }
+    winMuxWorkspaceState.reorderWorkspaces(workspaceIds, inProject: projectId, before: anchor)
 }

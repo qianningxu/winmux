@@ -14,11 +14,7 @@ extension WindowTabStripPanelController {
     }
 
     func updateInteractivePanelForResizingStrip(_ strip: WindowTabStripViewModel) {
-        if mouseInteractionChromeMode != nil {
-            orderOutIfVisible(stripPanels[strip.id])
-        } else {
-            stripPanel(for: strip.id).update(with: strip)
-        }
+        hideAll()
     }
 
     func resizingTabGroupStrip(window: Window, activeWindowRect: Rect) -> WindowTabStripViewModel? {

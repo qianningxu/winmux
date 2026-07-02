@@ -6,7 +6,11 @@ public struct ServerEvent: Codable, Sendable {
     // periphery:ignore - false positive unused warning. The var properties are serialized to JSON
     private var windowId: UInt32?
     // periphery:ignore - false positive unused warning. The var properties are serialized to JSON
+    private var tab: String?
+    // periphery:ignore - false positive unused warning. The var properties are serialized to JSON
     private var workspace: String?
+    // periphery:ignore - false positive unused warning. The var properties are serialized to JSON
+    private var prevTab: String?
     // periphery:ignore - false positive unused warning. The var properties are serialized to JSON
     private var prevWorkspace: String?
     // periphery:ignore - false positive unused warning. The var properties are serialized to JSON
@@ -20,26 +24,53 @@ public struct ServerEvent: Codable, Sendable {
     // periphery:ignore - false positive unused warning. The var properties are serialized to JSON
     private var binding: String?
 
-    public var eventType: ServerEventType { _event }
+    public var eventType: ServerEventType { _event.canonical }
 
+    @MainActor
     public static func focusChanged(windowId: UInt32?, workspace: String) -> ServerEvent {
-        ServerEvent(_event: .focusChanged, windowId: windowId, workspace: workspace)
+        ServerEvent(_event: .focusChanged, windowId: windowId, tab: workspaceDisplayName(workspace), workspace: workspace)
     }
 
+    @MainActor
     public static func focusedMonitorChanged(workspace: String, monitorId_oneBased: Int) -> ServerEvent {
-        ServerEvent(_event: .focusedMonitorChanged, workspace: workspace, monitorId: monitorId_oneBased)
+        ServerEvent(
+            _event: .focusedMonitorChanged,
+            tab: workspaceDisplayName(workspace),
+            workspace: workspace,
+            monitorId: monitorId_oneBased,
+        )
     }
 
+    @MainActor
+    public static func tabChanged(workspace: String, prevWorkspace: String) -> ServerEvent {
+        ServerEvent(
+            _event: .tabChanged,
+            tab: workspaceDisplayName(workspace),
+            workspace: workspace,
+            prevTab: workspaceDisplayName(prevWorkspace),
+            prevWorkspace: prevWorkspace,
+        )
+    }
+
+    @MainActor
     public static func workspaceChanged(workspace: String, prevWorkspace: String) -> ServerEvent {
-        ServerEvent(_event: .workspaceChanged, workspace: workspace, prevWorkspace: prevWorkspace)
+        tabChanged(workspace: workspace, prevWorkspace: prevWorkspace)
     }
 
     public static func modeChanged(mode: String?) -> ServerEvent {
         ServerEvent(_event: .modeChanged, mode: mode)
     }
 
+    @MainActor
     public static func windowDetected(windowId: UInt32, workspace: String?, appBundleId: String?, appName: String?) -> ServerEvent {
-        ServerEvent(_event: .windowDetected, windowId: windowId, workspace: workspace, appBundleId: appBundleId, appName: appName)
+        ServerEvent(
+            _event: .windowDetected,
+            windowId: windowId,
+            tab: workspace.map { workspaceDisplayName($0) },
+            workspace: workspace,
+            appBundleId: appBundleId,
+            appName: appName,
+        )
     }
 
     public static func bindingTriggered(mode: String, binding: String) -> ServerEvent {

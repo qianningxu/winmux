@@ -43,13 +43,21 @@ func destinationFromWindowDropIntent(
 }
 
 func windowDropIntentActivePreviewRect(for resolution: WindowDropIntentResolution) -> Rect {
-    resolution.zones.first { $0.zone == resolution.intent.zone }?.frame ?? resolution.targetFrame
+    if let position = resolution.intent.zone.stackSplitPosition,
+       let splitPreviewRect = resolution.targetFrame.stackSplitPreviewRect(position: position)
+    {
+        return splitPreviewRect
+    }
+    return resolution.zones.first { $0.zone == resolution.intent.zone }?.frame ?? resolution.targetFrame
 }
 
 func windowDropIntentPreviewZones(for resolution: WindowDropIntentResolution) -> [WindowDragIntentPreviewZone] {
-    resolution.zones.map { zone in
-        WindowDragIntentPreviewZone(
-            rect: zone.frame,
+    resolution.zones.filter { $0.zone.stackSplitPosition != nil }.map { zone in
+        let previewRect = zone.zone.stackSplitPosition
+            .flatMap { resolution.targetFrame.stackSplitPreviewRect(position: $0) }
+            ?? zone.frame
+        return WindowDragIntentPreviewZone(
+            rect: previewRect,
             style: zone.zone.previewStyle,
             geometry: zone.zone.previewGeometry,
             isActive: zone.zone == resolution.intent.zone

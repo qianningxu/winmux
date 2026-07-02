@@ -28,8 +28,10 @@ struct WorkspaceSidebarView: View {
     @State var lastProjectEdgeDragSwitchAt: Date = .distantPast
     @State var showsPinnedActiveWorkspaceForBrowsedProject = true
     @State var workspaceReorderFrames: [WorkspaceSidebarWorkspaceReorderFrame] = []
+    @State var folderReorderFrames: [WorkspaceSidebarFolderReorderFrame] = []
     @State var workspaceReorderDrag: WorkspaceSidebarWorkspaceReorderDragState? = nil
-    @State var tabGroupExpansionOverrides: [WorkspaceProjectId: Bool] = [:]
+    @State var folderExpansionOverrides: [WorkspaceProjectId: Bool] = [:]
+    @State var pendingWorkspaceActivation: WorkspaceSidebarPendingActivation? = nil
 
     init(snapshot: WorkspaceSidebarSnapshot, actions: WorkspaceSidebarActions = WorkspaceSidebarActions()) {
         self.snapshot = snapshot
@@ -63,10 +65,17 @@ struct WorkspaceSidebarView: View {
             browseMode = .activeProject
             showsPinnedActiveWorkspaceForBrowsedProject = true
             activeInUseOverrideWorkspaceName = nil
+            pendingWorkspaceActivation = nil
             cancelWorkspaceReorderDrag()
             finishProjectRename(cancelled: true)
             finishSidebarSearch(clearText: true)
             resetProjectSwipeWithoutAnimation()
+        }
+        .onChange(of: snapshot.targetMonitorScopeId) { _ in
+            pendingWorkspaceActivation = nil
+        }
+        .onChange(of: snapshot.workspaces) { _ in
+            reconcilePendingWorkspaceActivation()
         }
         .onChange(of: browseMode) { mode in
             cancelWorkspaceReorderDrag()
@@ -163,13 +172,13 @@ struct WorkspaceSidebarView: View {
         .background(Color.clear)
     }
 
-    func isTabGroupExpanded(_ projectId: WorkspaceProjectId) -> Bool {
-        tabGroupExpansionOverrides[projectId] ?? workspaceSidebarTabGroupIsExpanded(projectId)
+    func isFolderExpanded(_ projectId: WorkspaceProjectId) -> Bool {
+        folderExpansionOverrides[projectId] ?? workspaceSidebarFolderIsExpanded(projectId)
     }
 
-    func setTabGroupExpanded(_ projectId: WorkspaceProjectId, _ isExpanded: Bool) {
-        tabGroupExpansionOverrides[projectId] = isExpanded
-        setWorkspaceSidebarTabGroupExpanded(projectId, isExpanded: isExpanded)
+    func setFolderExpanded(_ projectId: WorkspaceProjectId, _ isExpanded: Bool) {
+        folderExpansionOverrides[projectId] = isExpanded
+        setWorkspaceSidebarFolderExpanded(projectId, isExpanded: isExpanded)
     }
 
     func beginProjectRename(_ project: WorkspaceSidebarProjectViewModel) {
@@ -337,6 +346,7 @@ struct WorkspaceSidebarView: View {
         let panel = searchEditingPanel ?? WorkspaceSidebarPanel.shared
         switch selectedSearchTarget {
             case .workspace(let workspaceName):
+                beginPendingWorkspaceActivation(workspaceName)
                 actions.send(.selectWorkspace(workspaceName))
         }
         finishSidebarSearch(clearText: true)

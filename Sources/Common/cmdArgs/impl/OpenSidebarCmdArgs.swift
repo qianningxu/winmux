@@ -7,7 +7,7 @@ public struct OpenSidebarCmdArgs: CmdArgs {
         help: """
         USAGE: open-sidebar
 
-        Opens or toggles the workspace sidebar.
+        Opens or toggles the Tab sidebar.
         """,
         flags: [:],
         posArgs: [],

@@ -104,8 +104,8 @@ func inferWorkspaceShortcutState(
     defaultSwitchModifiers: NSEvent.ModifierFlags = defaultWorkspaceSwitchModifiers,
     defaultMoveModifiers: NSEvent.ModifierFlags = defaultWorkspaceMoveModifiers,
 ) -> WorkspaceShortcutState {
-    let switchCommands = Dictionary(uniqueKeysWithValues: workspaceNumbers.map { ($0, workspaceCommand($0, kind: .switchTo)) })
-    let moveCommands = Dictionary(uniqueKeysWithValues: workspaceNumbers.map { ($0, workspaceCommand($0, kind: .moveTo)) })
+    let switchCommands = workspaceShortcutCommandAliases(workspaceNumbers: workspaceNumbers, kind: .switchTo)
+    let moveCommands = workspaceShortcutCommandAliases(workspaceNumbers: workspaceNumbers, kind: .moveTo)
 
     var actualSwitchNotations: [String: String] = [:]
     var actualMoveNotations: [String: String] = [:]
@@ -113,13 +113,13 @@ func inferWorkspaceShortcutState(
     var moveModifierFrequencies: [NSEvent.ModifierFlags.RawValue: Int] = [:]
 
     for (notation, command) in entries {
-        if let workspaceName = switchCommands.first(where: { $0.value == command })?.key {
+        if let workspaceName = switchCommands[command] {
             actualSwitchNotations[workspaceName] = notation
             if let modifiers = matchingWorkspacePatternModifiers(notation: notation, workspaceName: workspaceName) {
                 switchModifierFrequencies[modifiers.rawValue, default: 0] += 1
             }
         }
-        if let workspaceName = moveCommands.first(where: { $0.value == command })?.key {
+        if let workspaceName = moveCommands[command] {
             actualMoveNotations[workspaceName] = notation
             if let modifiers = matchingWorkspacePatternModifiers(notation: notation, workspaceName: workspaceName) {
                 moveModifierFrequencies[modifiers.rawValue, default: 0] += 1
@@ -176,9 +176,9 @@ func shortcutSettingsWorkspaceNumbers() -> [String] {
 func workspaceCommand(_ workspaceName: String, kind: ShortcutSettingsModel.WorkspaceShortcutKind) -> String {
     switch kind {
         case .switchTo:
-            "workspace \(quoteCommandArgument(workspaceName))"
+            "tab \(quoteCommandArgument(workspaceName))"
         case .moveTo:
-            "move-node-to-workspace \(quoteCommandArgument(workspaceName))"
+            "move-node-to-tab \(quoteCommandArgument(workspaceName))"
     }
 }
 
@@ -186,14 +186,33 @@ func parseWorkspaceCommandTarget(
     _ command: String,
     kind: ShortcutSettingsModel.WorkspaceShortcutKind
 ) -> String? {
-    let prefix: String = switch kind {
-        case .switchTo: "workspace "
-        case .moveTo: "move-node-to-workspace "
+    for prefix in workspaceShortcutCommandPrefixes(kind: kind) {
+        guard command.hasPrefix(prefix) else { continue }
+        return String(command.dropFirst(prefix.count))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
     }
-    guard command.hasPrefix(prefix) else { return nil }
-    return String(command.dropFirst(prefix.count))
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-        .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+    return nil
+}
+
+func workspaceShortcutCommandAliases(
+    workspaceNumbers: [String],
+    kind: ShortcutSettingsModel.WorkspaceShortcutKind,
+) -> [String: String] {
+    workspaceNumbers.reduce(into: [:]) { result, workspaceName in
+        for prefix in workspaceShortcutCommandPrefixes(kind: kind) {
+            result[prefix + quoteCommandArgument(workspaceName)] = workspaceName
+        }
+    }
+}
+
+private func workspaceShortcutCommandPrefixes(kind: ShortcutSettingsModel.WorkspaceShortcutKind) -> [String] {
+    switch kind {
+        case .switchTo:
+            ["tab ", "workspace "]
+        case .moveTo:
+            ["move-node-to-tab ", "move-node-to-workspace "]
+    }
 }
 
 private func matchingWorkspacePatternModifiers(notation: String, workspaceName: String) -> NSEvent.ModifierFlags? {

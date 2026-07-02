@@ -6,6 +6,9 @@ struct LayoutCommand: Command {
     /*conforms*/ let shouldResetClosedWindowsCache = true
 
     func run(_ env: CmdEnv, _ io: CmdIo) async throws -> Bool {
+        if args.toggleBetween.val.contains(where: \.isOldTopTabGroupLayout) {
+            return oldTopTabGroupLayoutDisabled(io)
+        }
         guard let target = args.resolveTargetOrReportError(env, io) else { return false }
         guard let window = target.windowOrNil else {
             return io.err(noWindowIsFocused)
@@ -54,7 +57,7 @@ struct LayoutCommand: Command {
 }
 
 @MainActor private func oldTopTabGroupLayoutDisabled(_ io: CmdIo) -> Bool {
-    io.err("Old top tab-group layout is disabled. Tabs are now managed in the sidebar.")
+    io.err("Legacy folder layout is disabled. Tabs and folders are now managed in the sidebar.")
 }
 
 @MainActor private func changeTilingLayout(_ io: CmdIo, targetLayout: Layout?, targetOrientation: Orientation?, window: Window) -> Bool {

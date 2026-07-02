@@ -58,10 +58,10 @@ func handleWorkspaceSidebarAction(
         case .createProject:
             guard projectsAreEnabled() else { return }
             createWorkspaceSidebarProject(viewModel: viewModel, targetMonitorScopeId: targetMonitorScopeId)
-        case .createTabGroup:
-            createWorkspaceSidebarTabGroup(viewModel: viewModel)
+        case .createFolder:
+            createWorkspaceSidebarFolder(viewModel: viewModel)
         case .renameProject(let projectId, let displayName):
-            guard projectsAreEnabled() else { return }
+            guard workspaceSidebarFolderMutationIsEnabled(projectId) else { return }
             renameWorkspaceSidebarProject(projectId, displayName: displayName)
         case .setProjectColor(let projectId, let colorHex):
             guard projectsAreEnabled() else { return }
@@ -69,7 +69,7 @@ func handleWorkspaceSidebarAction(
                 setWorkspaceSidebarProjectColor(project, colorHex: colorHex)
             }
         case .deleteProject(let projectId):
-            guard projectsAreEnabled() else { return }
+            guard workspaceSidebarFolderMutationIsEnabled(projectId) else { return }
             if let project = workspaceSidebarProjectViewModel(projectId) {
                 deleteWorkspaceSidebarProject(project, viewModel: viewModel)
             }
@@ -85,8 +85,10 @@ func handleWorkspaceSidebarAction(
             }
         case .reorderWorkspace(let name, let projectId, let placement):
             reorderWorkspaceFromSidebar(name, projectId: projectId, placement: placement)
-        case .mergeWorkspace(let sourceName, let targetName, let position):
-            mergeWorkspaceFromSidebar(sourceWorkspaceName: sourceName, targetWorkspaceName: targetName, position: position)
+        case .createFolderFromWorkspaces(let sourceName, let targetName):
+            createFolderFromWorkspacesFromSidebar(sourceWorkspaceName: sourceName, targetWorkspaceName: targetName)
+        case .moveWorkspaceToFolder(let workspaceName, let projectId):
+            moveWorkspaceToFolderFromSidebar(workspaceName, projectId: projectId)
         case .setPinnedExpanded(let isPinned):
             setWorkspaceSidebarPinnedExpanded(isPinned, viewModel: viewModel)
         case .moveWindow(let windowId, let workspaceName):
@@ -114,4 +116,9 @@ private func workspaceSidebarProjectViewModel(_ id: WorkspaceProjectId) -> Works
 @MainActor
 private func workspaceSidebarWorkspaceViewModel(_ name: String) -> WorkspaceSidebarWorkspaceViewModel? {
     TrayMenuModel.shared.workspaceSidebarWorkspaces.first { $0.name == name }
+}
+
+@MainActor
+func workspaceSidebarFolderMutationIsEnabled(_ projectId: WorkspaceProjectId) -> Bool {
+    projectsAreEnabled() || canDeleteWorkspaceProject(projectId)
 }

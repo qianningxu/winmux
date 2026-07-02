@@ -30,6 +30,7 @@ extension Workspace {
         AgentPaneInfo(
             paneId: "pane-\(window.windowId)",
             kind: .window,
+            tab: workspaceDisplayName(name),
             workspace: name,
             windowId: window.windowId,
             tabGroupId: nil,
@@ -51,10 +52,11 @@ extension Workspace {
         return AgentPaneInfo(
             paneId: agentPaneIdForTabGroup(tabGroupId: tabGroupId),
             kind: .tabGroup,
+            tab: workspaceDisplayName(name),
             workspace: name,
             windowId: nil,
             tabGroupId: tabGroupId,
-            label: "Tab Group \(container.agentTabWindows.map(\.windowId))",
+            label: "Folder \(container.agentTabWindows.map(\.windowId))",
             size: container.agentSizeRatio,
             sizeAxis: container.agentSizeAxis,
             frame: (container.lastAppliedLayoutPhysicalRect ?? container.lastAppliedLayoutVirtualRect).map(AgentRect.init),

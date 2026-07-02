@@ -4,7 +4,7 @@ extension WorkspaceSidebarWorkspaceSection {
     @ViewBuilder
     var windowRows: some View {
         if showsWindowRows, !workspace.items.isEmpty {
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: workspaceSidebarNestedRowSpacing) {
                 ForEach(workspace.items) { item in
                     workspaceItemView(item)
                 }
@@ -17,7 +17,12 @@ extension WorkspaceSidebarWorkspaceSection {
     func workspaceItemView(_ item: WorkspaceSidebarItemViewModel) -> some View {
         switch item.kind {
             case .window(let window):
-                workspaceWindowButton(window, allowsDrag: true)
+                workspaceWindowButton(
+                    window,
+                    allowsDrag: true,
+                    leadingHitInset: workspaceSidebarTabGroupChildLeadingIndent,
+                    rowHeightOverride: workspaceSidebarNestedTabRowHeight,
+                )
             case .tabGroup(let group):
                 workspaceTabGroupView(group)
         }
@@ -26,7 +31,7 @@ extension WorkspaceSidebarWorkspaceSection {
     @ViewBuilder
     var dropPreviewRow: some View {
         if dragPreview?.targetWorkspaceName == workspace.name {
-            WorkspaceSidebarDropPreviewView(preview: dragPreview.orDie(), rowHeight: rowHeight)
+            WorkspaceSidebarDropPreviewView(preview: dragPreview.orDie(), rowHeight: workspaceSidebarTabRowHeight)
             .transition(.asymmetric(
                 insertion: .move(edge: .top).combined(with: .scale(scale: 0.96, anchor: .top)).combined(with: .opacity),
                 removal: .identity,

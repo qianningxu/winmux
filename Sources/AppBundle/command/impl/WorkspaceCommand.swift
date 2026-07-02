@@ -89,8 +89,18 @@ private func createNextTransientBlankWorkspaceIfAllowed(
     usesStdin: Bool,
 ) -> Workspace? {
     guard isNext, !wrapAround, !usesStdin else { return nil }
-    let nextWorkspaceIndex = scopedAutomaticDisplayWorkspaces(current: current).count + 1
-    return createAdjacentTransientBlankWorkspaceIfAllowed(named: String(nextWorkspaceIndex), from: current)
+    let projectId = projectsAreEnabled() ? current.projectId : workspaceProjectDefaultId
+    let nextWorkspaceIndex = monitorScopedAutomaticDisplayWorkspacesInExactProject(
+        projectId: projectId,
+        monitor: current.workspaceMonitor,
+        focusedWorkspace: current,
+    ).count + 1
+    return createAdjacentTransientBlankWorkspaceIfAllowed(
+        named: String(nextWorkspaceIndex),
+        projectId: projectId,
+        monitor: current.workspaceMonitor,
+        focusedWorkspace: current,
+    )
 }
 
 @MainActor

@@ -72,6 +72,7 @@ final class Workspace: TreeNode, NonLeafTreeNodeObject, Hashable, Comparable {
         rearrangeWorkspacesOnMonitors()
         migrateWorkspaceTabGroupsToWorkspaceTabs()
         pruneEmptyWorkspaces()
+        pruneEmptyWorkspaceTabGroups()
         clearOrphanedWorkspaceSidebarLabels()
         ensureVisibleActiveProjectWorkspaces()
         checkWorkspaceHierarchyInvariants(requireActiveMonitorViewports: true)

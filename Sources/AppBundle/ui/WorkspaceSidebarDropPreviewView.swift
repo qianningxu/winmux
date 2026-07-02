@@ -34,10 +34,6 @@ struct WorkspaceSidebarDropPreviewView: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
-                Text("\(preview.windowCount)")
-                    .font(.system(size: 12, weight: .medium))
-                    .monospacedDigit()
-                    .foregroundStyle(palette.foreground(0.35))
             }
             .padding(.leading, workspaceSidebarHeaderRowLeadingPadding)
             .padding(.trailing, workspaceSidebarRowHorizontalPadding)
@@ -49,13 +45,14 @@ struct WorkspaceSidebarDropPreviewView: View {
         }
         .padding(.vertical, 4)
         .padding(.horizontal, workspaceSidebarSectionInnerHorizontalInset)
-        .background(sectionShape.fill(palette.selectedSurface(0.88)))
+        .background(sectionShape.fill(palette.gray100(palette.isDark ? 0.90 : 1)))
         .overlay {
             sectionShape.strokeBorder(
-                Color.accentColor.opacity(0.35),
-                style: StrokeStyle(lineWidth: 1, dash: [5, 3])
+                palette.border(palette.isDark ? 0.82 : 0.92),
+                lineWidth: 0.8
             )
         }
+        .shadow(color: palette.shadow(0.10, lightOpacity: 0.035), radius: 4, x: 0, y: 1)
         .contentShape(Rectangle())
         .allowsHitTesting(false)
     }
@@ -71,7 +68,7 @@ struct WorkspaceSidebarDropPreviewView: View {
                         appBundleIdentifier: tab.appBundleIdentifier,
                         appBundlePath: tab.appBundlePath
                     )
-                    .padding(.leading, 14)
+                    .padding(.leading, workspaceSidebarTabGroupChildLeadingIndent)
                 }
             }
         } else {
@@ -105,15 +102,12 @@ struct WorkspaceSidebarDropPreviewView: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 0)
-            Text("\(preview.windowCount)")
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundStyle(palette.foreground(0.50))
         }
         .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
         .padding(.vertical, 1)
         .frame(height: rowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowShape.fill(palette.selectedSurface(0.82)))
+        .background(rowShape.fill(palette.gray200(palette.isDark ? 0.84 : 0.92)))
     }
 
     private func singleWindowRow(
@@ -140,6 +134,6 @@ struct WorkspaceSidebarDropPreviewView: View {
         .padding(.vertical, 1)
         .frame(height: rowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowShape.fill(palette.selectedSurface(0.72)))
+        .background(rowShape.fill(palette.gray100(palette.isDark ? 0.72 : 0.84)))
     }
 }

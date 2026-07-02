@@ -4,6 +4,12 @@ import CoreGraphics
 import XCTest
 
 @MainActor extension WindowTabsTest {
+    func testStartupSmartLayoutDoesNotCreateLegacyTopTabGroups() {
+        XCTAssertEqual(startupRootContainerLayoutForHardSidebarTabs(childCount: 0), .tiles)
+        XCTAssertEqual(startupRootContainerLayoutForHardSidebarTabs(childCount: 4), .tiles)
+        XCTAssertEqual(startupRootContainerLayoutForHardSidebarTabs(childCount: 12), .tiles)
+    }
+
     func testMovedObsIgnoresSidebarManagedDragSession() {
         XCTAssertTrue(shouldIgnoreMovedObsForManagedWindowDragSession(
             observedWindowId: 10,
@@ -177,6 +183,40 @@ import XCTest
             configEnabled: true,
             isUnitTestProcess: true,
         ))
+    }
+
+    @MainActor
+    func testUpdateWindowTabModelClearsStaleTopTabChromeForHardSidebarTabs() async {
+        setUpWorkspacesForTests()
+        config.windowTabs.enabled = false
+        let owner = NSObject()
+        let strip = WindowTabStripViewModel(
+            id: ObjectIdentifier(owner),
+            workspaceName: "tabs",
+            frame: CGRect(x: 100, y: 280, width: 300, height: 28),
+            groupFrame: CGRect(x: 100, y: 100, width: 300, height: 208),
+            activeWindowId: 1,
+            activeWindowCornerRadius: 12,
+            tabs: [],
+            occludingFloatingWindowFrames: []
+        )
+        TrayMenuModel.shared.windowTabStrips = [strip]
+        WindowTabStripPanelController.shared.transientResizeTabGroupId = strip.id
+        WindowTabStripPanelController.shared.transientResizeTabGroupStrip = strip
+        WindowTabStripPanelController.shared.mouseInteractionChromeMode = .frameOnly
+        WindowTabStripPanelController.shared.hiddenPassiveTabGroupChromeIds = [strip.id]
+        _ = WindowTabStripPanelController.shared.visualPanel(for: strip.id)
+        _ = WindowTabStripPanelController.shared.stripPanel(for: strip.id)
+
+        await updateWindowTabModel()
+
+        XCTAssertTrue(TrayMenuModel.shared.windowTabStrips.isEmpty)
+        XCTAssertNil(WindowTabStripPanelController.shared.transientResizeTabGroupId)
+        XCTAssertNil(WindowTabStripPanelController.shared.transientResizeTabGroupStrip)
+        XCTAssertNil(WindowTabStripPanelController.shared.mouseInteractionChromeMode)
+        XCTAssertTrue(WindowTabStripPanelController.shared.hiddenPassiveTabGroupChromeIds.isEmpty)
+        XCTAssertTrue(WindowTabStripPanelController.shared.visualPanels.isEmpty)
+        XCTAssertTrue(WindowTabStripPanelController.shared.stripPanels.isEmpty)
     }
 
     @MainActor

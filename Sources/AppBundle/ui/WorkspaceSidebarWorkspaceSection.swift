@@ -14,8 +14,10 @@ struct WorkspaceSidebarWorkspaceSection: View {
     let allowsWorkspaceActivation: Bool
     let isPinnedActiveWorkspace: Bool
     let isActiveOnTargetMonitor: Bool
+    let isPendingActivationOnTargetMonitor: Bool
     let projectContextLabel: String?
     let projectContextColor: Color?
+    let nestedContentIndent: CGFloat
     @Binding var renamingWorkspaceName: String?
     @Binding var renamingWorkspaceText: String
     let onBeginRenameWorkspace: @MainActor () -> Void
@@ -25,11 +27,10 @@ struct WorkspaceSidebarWorkspaceSection: View {
     let isSearchFiltering: Bool
     let isWorkspaceReorderEnabled: Bool
     let isWorkspaceReorderSource: Bool
-    let isWorkspaceMergeTarget: Bool
-    let workspaceMergePreviewOverlay: AnyView?
     let onWorkspaceReorderDragChanged: (CGPoint) -> Void
     let onWorkspaceReorderDragEnded: (CGPoint) -> Void
     @Binding var activeInUseOverrideWorkspaceName: String?
+    let onBeginWorkspaceActivation: @MainActor (String) -> Void
     let actions: WorkspaceSidebarActions
 
     @State var isHovered = false
@@ -59,6 +60,9 @@ struct WorkspaceSidebarWorkspaceSection: View {
     var isShowingInUseOverlay: Bool { activeInUseOverrideWorkspaceName == workspace.name }
     var isSearchSelectedWorkspace: Bool { selectedSearchTarget == .workspace(workspace.name) }
     var isRenamingWorkspace: Bool { renamingWorkspaceName == workspace.name }
+    var isVisuallyActiveOnTargetMonitor: Bool {
+        isActiveOnTargetMonitor || isPendingActivationOnTargetMonitor
+    }
     var inUseOverrideText: String {
         if let monitorName = workspace.monitorName, !monitorName.isEmpty {
             return "In use on \(monitorName)"
@@ -71,13 +75,13 @@ struct WorkspaceSidebarWorkspaceSection: View {
 
     var body: some View {
         interactiveSectionContent
-            .padding(.vertical, isCompact ? 3 : 4)
+            .padding(.vertical, isCompact ? 3 : 0)
             .padding(.horizontal, workspaceSidebarSectionInnerHorizontalInset)
             .frame(width: sectionWidth, alignment: .leading)
             .frame(minHeight: sectionMinHeight, alignment: .top)
             .frame(maxWidth: .infinity, alignment: .leading)
             .clipped()
-            .opacity(compactFocusOpacity * (isWorkspaceReorderSource ? 0.58 : 1))
+            .opacity(compactFocusOpacity * (isWorkspaceReorderSource ? 0.16 : 1))
             .contentShape(Rectangle())
             .contextMenu {
                 Button {
@@ -113,12 +117,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
             .animation(reduceMotion ? workspaceSidebarReducedMotionHoverAnimation : workspaceSidebarHoverAnimation, value: hoveredTabGroupId)
             .animation(reduceMotion ? workspaceSidebarReducedMotionHoverAnimation : workspaceSidebarHoverAnimation, value: isOnFocusedMonitor)
             .background {
-                ZStack {
-                    sectionBackground
-                if !isCompact && allowsWorkspaceActivation {
-                    sectionActivationButton
-                }
-                }
+                sectionBackground
             }
             .overlay(alignment: .center) {
                 inUseOverrideOverlay
@@ -126,16 +125,11 @@ struct WorkspaceSidebarWorkspaceSection: View {
                     .allowsHitTesting(allowsWorkspaceActivation && isShowingInUseOverlay)
                     .zIndex(5)
             }
-            .overlay {
-                if let workspaceMergePreviewOverlay {
-                    workspaceMergePreviewOverlay
-                        .opacity(isWorkspaceMergeTarget ? 1 : 0)
-                        .zIndex(4)
-                }
-            }
             .shadow(
-                color: isDropTarget ? Color.accentColor.opacity(0.18) : .clear,
-                radius: isDropTarget ? 12 : 0
+                color: isDropTarget ? palette.shadow(0.12, lightOpacity: 0.045) : .clear,
+                radius: isDropTarget ? 5 : 0,
+                x: 0,
+                y: isDropTarget ? 2 : 0
             )
             .background {
                 GeometryReader { geometry in

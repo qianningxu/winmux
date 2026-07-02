@@ -48,8 +48,18 @@ private func createNextTransientBlankWorkspaceForMoveIfAllowed(
     usesStdin: Bool,
 ) -> Workspace? {
     guard isNext, !wrapAround, !usesStdin else { return nil }
-    let nextWorkspaceIndex = scopedAutomaticDisplayWorkspaces(current: current).count + 1
-    return createAdjacentTransientBlankWorkspaceIfAllowed(named: String(nextWorkspaceIndex), from: current)
+    let projectId = projectsAreEnabled() ? current.projectId : workspaceProjectDefaultId
+    let nextWorkspaceIndex = monitorScopedAutomaticDisplayWorkspacesInExactProject(
+        projectId: projectId,
+        monitor: current.workspaceMonitor,
+        focusedWorkspace: current,
+    ).count + 1
+    return createAdjacentTransientBlankWorkspaceIfAllowed(
+        named: String(nextWorkspaceIndex),
+        projectId: projectId,
+        monitor: current.workspaceMonitor,
+        focusedWorkspace: current,
+    )
 }
 
 @MainActor
@@ -59,10 +69,21 @@ private func resolveMoveTargetWorkspace(
     sourceMonitor: Monitor,
 ) -> Workspace? {
     if let targetIndex = parsePositiveWorkspaceDisplayIndex(workspaceName) {
-        if let workspace = scopedAutomaticDisplayWorkspaces(current: sourceWorkspace).getOrNil(atIndex: targetIndex - 1) {
+        let defaultProjectId = workspaceProjectDefaultId
+        let automaticDisplayWorkspaces = monitorScopedAutomaticDisplayWorkspacesInExactProject(
+            projectId: defaultProjectId,
+            monitor: sourceMonitor,
+            focusedWorkspace: sourceWorkspace,
+        )
+        if let workspace = automaticDisplayWorkspaces.getOrNil(atIndex: targetIndex - 1) {
             return workspace
         }
-        return createAdjacentTransientBlankWorkspaceIfAllowed(named: workspaceName, from: sourceWorkspace)
+        return createAdjacentTransientBlankWorkspaceIfAllowed(
+            named: workspaceName,
+            projectId: defaultProjectId,
+            monitor: sourceMonitor,
+            focusedWorkspace: sourceWorkspace,
+        )
     }
 
     let existedBefore = Workspace.existing(byName: workspaceName) != nil

@@ -60,14 +60,14 @@ struct WorkspaceSidebarProjectPager: View {
     var footerSpacing: CGFloat { isCompact ? 2 : 8 }
     var projectCreateButtonWidth: CGFloat { workspaceSidebarDropdownHeight }
     var projectPopupWidth: CGFloat {
-        let names = projects.map(\.displayName) + ["Project"]
+        let names = projects.map(\.displayName) + ["Folder"]
         let maxTextWidth = names.map {
             ($0 as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium)]).width
         }.max() ?? 0
         return max(ceil(maxTextWidth) + 50, projectMenuWidth)
     }
     var projectMenuWidth: CGFloat {
-        let selectedProjectName = selectedProject?.displayName ?? "Project"
+        let selectedProjectName = selectedProject?.displayName ?? "Folder"
         let textWidth = (selectedProjectName as NSString).size(
             withAttributes: [.font: NSFont.systemFont(ofSize: 11.5, weight: .medium)],
         ).width
@@ -115,7 +115,7 @@ struct WorkspaceSidebarProjectPager: View {
         .padding(.horizontal, isCompact ? 2 : 0)
         .frame(width: sectionWidth, height: pagerHeight, alignment: .bottom)
         .contextMenu {
-            Button("New Project") {
+            Button("New Folder") {
                 onCreateProject()
             }
         }

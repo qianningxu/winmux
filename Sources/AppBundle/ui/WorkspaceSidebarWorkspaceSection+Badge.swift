@@ -3,7 +3,7 @@ import SwiftUI
 extension WorkspaceSidebarWorkspaceSection {
     var workspaceBadge: some View {
         Text(workspaceBadgeText)
-            .font(.system(size: 18, weight: isActiveOnTargetMonitor ? .bold : .semibold))
+            .font(.system(size: 18, weight: isVisuallyActiveOnTargetMonitor ? .bold : .semibold))
             .monospacedDigit()
             .foregroundStyle(workspaceBadgeForeground)
             .lineLimit(1)
@@ -31,7 +31,7 @@ extension WorkspaceSidebarWorkspaceSection {
     }
 
     var workspaceBadgeForeground: Color {
-        if isActiveOnTargetMonitor {
+        if isVisuallyActiveOnTargetMonitor {
             return palette.foreground(1)
         }
         return palette.foreground(0.70)

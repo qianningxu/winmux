@@ -5,11 +5,13 @@ import XCTest
 final class ListWorkspacesTest: XCTestCase {
     func testParse() {
         assertNotNil(parseCommand("list-workspaces --all").cmdOrNil)
+        assertNotNil(parseCommand("list-tabs --all").cmdOrNil)
         assertNil(parseCommand("list-workspaces --all --visible").cmdOrNil)
         assertNil(parseCommand("list-workspaces --focused --visible").cmdOrNil)
         assertNil(parseCommand("list-workspaces --focused --all").cmdOrNil)
         assertNil(parseCommand("list-workspaces --visible").cmdOrNil)
         assertNotNil(parseCommand("list-workspaces --visible --monitor 2").cmdOrNil)
+        assertNotNil(parseCommand("list-tabs --visible --monitor 2").cmdOrNil)
         assertNotNil(parseCommand("list-workspaces --monitor focused").cmdOrNil)
         assertNil(parseCommand("list-workspaces --focused --monitor 2").cmdOrNil)
         assertNotNil(parseCommand("list-workspaces --all --format %{workspace}").cmdOrNil)
@@ -24,7 +26,8 @@ final class ListWorkspacesTest: XCTestCase {
             return
         }
 
-        XCTAssertTrue(help.contains("list-workspaces"))
+        XCTAssertTrue(help.contains("USAGE: list-tabs"))
+        XCTAssertFalse(help.contains("list-workspaces"))
         XCTAssertFalse(help.contains("<workspace-name>"))
     }
 
@@ -83,5 +86,44 @@ final class ListWorkspacesTest: XCTestCase {
         XCTAssertTrue(workspaceSucceeded)
         XCTAssertEqual(tabIo.stdout.filter { $0 != "setUpWorkspacesForTests" }, ["Tab 1"])
         XCTAssertEqual(workspaceIo.stdout.filter { $0 != "setUpWorkspacesForTests" }, ["10"])
+    }
+
+    @MainActor
+    func testListTabsDefaultJsonIsTabFirstAndKeepsLegacyWorkspaceKey() async throws {
+        setUpWorkspacesForTests()
+        let workspace = Workspace.get(byName: "10")
+        workspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+
+        let io = CmdIo(stdin: .emptyStdin)
+        let command = parseCommand("list-tabs --all --json").cmdOrDie
+        let succeeded = try await command.run(.defaultEnv, io)
+
+        XCTAssertTrue(succeeded)
+        let objects = try JSONSerialization.jsonObject(
+            with: Data(io.stdout.joined(separator: "\n").utf8)
+        ) as? [[String: Any]]
+        let tab = try XCTUnwrap(objects?.first { ($0["workspace"] as? String) == "10" })
+        XCTAssertEqual(tab["tab"] as? String, "Tab 1")
+        XCTAssertEqual(tab["workspace"] as? String, "10")
+    }
+
+    @MainActor
+    func testListTabsExplicitJsonFormatDoesNotAddLegacyWorkspaceKey() async throws {
+        setUpWorkspacesForTests()
+        let workspace = Workspace.get(byName: "10")
+        workspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+
+        let io = CmdIo(stdin: .emptyStdin)
+        let command = parseCommand("list-tabs --all --json --format %{tab}").cmdOrDie
+        let succeeded = try await command.run(.defaultEnv, io)
+
+        XCTAssertTrue(succeeded)
+        let objects = try JSONSerialization.jsonObject(
+            with: Data(io.stdout.joined(separator: "\n").utf8)
+        ) as? [[String: Any]]
+        let tab = try XCTUnwrap(objects?.first { ($0["tab"] as? String) == "Tab 1" })
+        XCTAssertEqual(Set(tab.keys), ["tab"])
     }
 }

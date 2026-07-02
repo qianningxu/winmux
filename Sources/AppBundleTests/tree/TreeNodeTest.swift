@@ -87,7 +87,7 @@ final class TreeNodeTest: XCTestCase {
         XCTAssertTrue(workspace.rootTilingContainer.children.singleOrNil() is TestWindow)
     }
 
-    func testReconcileWorkspaceStateKeepsOnlyEmptyWorkspaceInProject() {
+    func testReconcileWorkspaceStateDissolvesEmptyTabGroupProject() {
         let project = createWorkspaceProject()
         let workspace = Workspace.get(byName: "draft")
         workspace.markAsSidebarManaged()
@@ -95,7 +95,8 @@ final class TreeNodeTest: XCTestCase {
 
         Workspace.reconcileWorkspaceState()
 
-        XCTAssertTrue(Workspace.all.contains(workspace))
+        XCTAssertFalse(Workspace.all.contains(workspace))
+        XCTAssertNil(winMuxWorkspaceState.projectsById[project.id])
     }
 
     func testReconcileWorkspaceStateKeepsPersistentEmptyWorkspace() {

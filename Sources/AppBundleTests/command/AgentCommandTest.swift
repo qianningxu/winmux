@@ -23,12 +23,45 @@ final class AgentCommandTest: XCTestCase {
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("All `edit.operations` commands"))
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("createTabGroup`, `addWindowToTabGroup`, `setActiveTab`"))
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("setPaneSize"))
-        XCTAssertTrue(result.stdout.joined(separator: "\n").contains("setWorkspaceLayout"))
+        XCTAssertTrue(result.stdout.joined(separator: "\n").contains("setTabLayout"))
+        XCTAssertTrue(result.stdout.joined(separator: "\n").contains("focusTab"))
+        XCTAssertTrue(result.stdout.joined(separator: "\n").contains("moveWindowToTab"))
+        XCTAssertTrue(result.stdout.joined(separator: "\n").contains("edit.layout.tabs"))
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("Full layout mode"))
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("Use `0.8` for 80%"))
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("\"axis\": \"vertical\""))
         XCTAssertTrue(result.stdout.joined(separator: "\n").contains("replace the entire `edit.operations` array"))
-        XCTAssertTrue(result.stdout.joined(separator: "\n").contains("Do not create old top-tab groups"))
+        XCTAssertTrue(result.stdout.joined(separator: "\n").contains("Do not create old top folders or sidebar folders"))
+    }
+
+    func testAgentAcceptsTabNamedOperationAliases() async throws {
+        let source = Workspace.get(byName: "a")
+        let target = Workspace.get(byName: "b")
+        target.seedMonitorIfNeeded(mainMonitor)
+        let parked = Workspace.get(byName: "parked")
+        parked.seedMonitorIfNeeded(mainMonitor)
+        _ = TestWindow.new(id: 1, parent: source.rootTilingContainer)
+        _ = TestWindow.new(id: 2, parent: source.rootTilingContainer)
+
+        let path = try writeAgentJson("""
+            {
+              "schemaVersion": 1,
+              "edit": {
+                "operations": [
+                  { "type": "moveWindowToTab", "windowId": 1, "tab": "b", "focus": true },
+                  { "type": "focusTab", "tab": "b" },
+                  { "type": "parkWindow", "pane": { "windowId": 2 }, "tab": "parked" }
+                ]
+              }
+            }
+            """)
+
+        let result = try await parseCommand("agent apply --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(target.allLeafWindowsRecursive.map(\.windowId), [1])
+        XCTAssertEqual(parked.allLeafWindowsRecursive.map(\.windowId), [2])
+        XCTAssertTrue(focus.workspace === target)
     }
 
     func testQueryIncludesPanesAndTabGroups() async throws {
@@ -49,6 +82,45 @@ final class AgentCommandTest: XCTestCase {
         XCTAssertTrue(out.contains("\"sizeAxis\" : \"horizontal\""))
         XCTAssertTrue(out.contains("\"operations\" : ["))
         XCTAssertTrue(out.contains("\"worldId\" : "))
+    }
+
+    func testQueryExposesTabAliasesBesideLegacyWorkspaceFields() async throws {
+        let workspace = Workspace.get(byName: "10")
+        workspace.markAsAutomaticallyNamed()
+        let root = workspace.rootTilingContainer
+        _ = TestWindow.new(id: 1, parent: root)
+        _ = TestWindow.new(id: 2, parent: root)
+
+        let result = try await parseCommand("agent query").cmdOrDie.run(.defaultEnv, .emptyStdin)
+
+        XCTAssertEqual(result.exitCode, 0)
+        let data = Data(result.stdout.joined(separator: "\n").utf8)
+        let object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+        let inventory = try XCTUnwrap(object["inventory"] as? [String: Any])
+        let tabs = try XCTUnwrap(inventory["tabs"] as? [[String: Any]])
+        let workspaces = try XCTUnwrap(inventory["workspaces"] as? [[String: Any]])
+        let expectedTabName = workspaceDisplayName(workspace.name)
+        let tab = try XCTUnwrap(tabs.first { ($0["name"] as? String) == "10" })
+        XCTAssertEqual(tab["tab"] as? String, expectedTabName)
+        XCTAssertEqual(tab["displayName"] as? String, expectedTabName)
+        XCTAssertEqual(tab["name"] as? String, "10")
+        XCTAssertEqual(workspaces.count, tabs.count)
+
+        let windows = try XCTUnwrap(inventory["windows"] as? [[String: Any]])
+        let window = try XCTUnwrap(windows.first { ($0["windowId"] as? Int) == 1 })
+        XCTAssertEqual(window["tab"] as? String, expectedTabName)
+        XCTAssertEqual(window["workspace"] as? String, "10")
+
+        let reasoning = try XCTUnwrap(object["reasoning"] as? [String: Any])
+        let panes = try XCTUnwrap(reasoning["panes"] as? [[String: Any]])
+        let pane = try XCTUnwrap(panes.first { ($0["paneId"] as? String) == "pane-1" })
+        XCTAssertEqual(pane["tab"] as? String, expectedTabName)
+        XCTAssertEqual(pane["workspace"] as? String, "10")
+        let rawTrees = try XCTUnwrap(reasoning["rawTrees"] as? [[String: Any]])
+        let rawTree = try XCTUnwrap(rawTrees.first { ($0["workspace"] as? String) == "10" })
+        XCTAssertEqual(rawTree["tab"] as? String, expectedTabName)
     }
 
     func testCheckRejectsStaleWorldId() async throws {
@@ -225,7 +297,7 @@ final class AgentCommandTest: XCTestCase {
         let result = try await parseCommand("agent apply --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.joined(separator: "\n").contains("createTabGroup is disabled"))
+        XCTAssertTrue(result.stderr.joined(separator: "\n").contains("Folder creation through legacy JSON is disabled"))
         XCTAssertTrue(root.allAgentTabGroupsForTests.isEmpty)
     }
 
@@ -268,7 +340,7 @@ final class AgentCommandTest: XCTestCase {
         let result = try await parseCommand("agent apply --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.joined(separator: "\n").contains("createTabGroup is disabled"))
+        XCTAssertTrue(result.stderr.joined(separator: "\n").contains("Folder creation through legacy JSON is disabled"))
         XCTAssertNil(Workspace.existing(byName: "tabs"))
     }
 
@@ -292,8 +364,34 @@ final class AgentCommandTest: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 1)
         let stderr = result.stderr.joined(separator: "\n")
-        XCTAssertTrue(stderr.contains("createTabGroup is disabled"))
-        XCTAssertTrue(stderr.contains("createTabGroup: window 1 appears more than once"))
+        XCTAssertTrue(stderr.contains("Folder creation through legacy JSON is disabled"))
+        XCTAssertTrue(stderr.contains("Legacy folder JSON: window 1 appears more than once"))
+    }
+
+    func testAddWindowToLegacyFolderGuidesTowardTabLayout() async throws {
+        let root = Workspace.get(byName: "a").rootTilingContainer
+        let legacyFolder = TilingContainer(parent: root, adaptiveWeight: WEIGHT_AUTO, .v, .tabGroup, index: INDEX_BIND_LAST)
+        _ = TestWindow.new(id: 1, parent: legacyFolder)
+        _ = TestWindow.new(id: 2, parent: root)
+
+        let path = try writeAgentJson("""
+            {
+              "schemaVersion": 1,
+              "edit": {
+                "operations": [
+                  { "type": "addWindowToTabGroup", "windowId": 2, "tabGroupId": "tabgroup-1" }
+                ]
+              }
+            }
+            """)
+
+        let result = try await parseCommand("agent check --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
+
+        let stderr = result.stderr.joined(separator: "\n")
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(stderr.contains("Adding windows through legacy folder JSON is disabled"))
+        XCTAssertTrue(stderr.contains("use placePane or setTabLayout with split nodes instead"))
+        XCTAssertFalse(stderr.contains("setWorkspaceLayout"))
     }
 
     func testLegacyTopTabApplyOperationsAreInertWhenValidationIsBypassed() async throws {

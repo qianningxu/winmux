@@ -34,6 +34,7 @@ extension WorkspaceSidebarView {
         browseMode = .activeProject
         showsPinnedActiveWorkspaceForBrowsedProject = true
         activeInUseOverrideWorkspaceName = nil
+        pendingWorkspaceActivation = nil
         isProjectMenuOpen = false
         isSidebarCollapsing = false
         isSidebarExpanding = false

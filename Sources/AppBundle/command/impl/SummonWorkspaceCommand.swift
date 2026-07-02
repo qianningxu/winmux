@@ -21,7 +21,7 @@ struct SummonWorkspaceCommand: Command {
         if activateWorkspaceOnMonitorPreservingSourceViewport(workspace, targetMonitor: monitor) {
             return workspace.focusWorkspace()
         } else {
-            return io.err("Can't move Tab '\(workspaceDisplayName(workspace.name))' to monitor '\(monitor.name)'. workspace-to-monitor-force-assignment doesn't allow it")
+            return io.err("Can't move Tab '\(workspaceDisplayName(workspace.name))' to monitor '\(monitor.name)'. tab-to-monitor-force-assignment doesn't allow it")
         }
     }
 }

@@ -41,12 +41,6 @@ struct WindowDragCursorProxyView: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 0)
-            if let preview, preview.windowCount > 1 {
-                Text("\(preview.windowCount)")
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(palette.foreground(0.54))
-                    .monospacedDigit()
-            }
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 4)

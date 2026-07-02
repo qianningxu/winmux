@@ -43,11 +43,11 @@ final class FocusCommandTest: XCTestCase {
         )
         assertEquals(
             parseCommand("focus --boundaries all-monitors-outer-frame dfs-next").errorOrNil,
-            "(dfs-next|dfs-prev|tab-next|tab-prev) only supports --boundaries workspace",
+            "(dfs-next|dfs-prev|tab-next|tab-prev) only supports the current Tab boundary (--boundaries workspace legacy token)",
         )
         assertEquals(
             parseCommand("focus --boundaries all-monitors-outer-frame tab-next").errorOrNil,
-            "(dfs-next|dfs-prev|tab-next|tab-prev) only supports --boundaries workspace",
+            "(dfs-next|dfs-prev|tab-next|tab-prev) only supports the current Tab boundary (--boundaries workspace legacy token)",
         )
 
         assertEquals(
@@ -261,81 +261,102 @@ final class FocusCommandTest: XCTestCase {
         assertEquals(focus.windowOrNil?.windowId, 1)
     }
 
-    func testFocusTabRelativeStaysInsideCurrentTabGroup() async throws {
+    func testFocusTabRelativeStaysInsideActiveTabComposedLayout() async throws {
         let workspace = Workspace.get(byName: name)
         let root = workspace.rootTilingContainer
-        var middleTab: Window!
-        var lastTab: Window!
+        var middleWindow: Window!
+        var lastWindow: Window!
         root.apply {
             TestWindow.new(id: 1, parent: $0)
-            TilingContainer(parent: $0, adaptiveWeight: 1, .v, .tabGroup, index: INDEX_BIND_LAST).apply {
+            TilingContainer.newVTiles(parent: $0, adaptiveWeight: 1, index: INDEX_BIND_LAST).apply {
                 TestWindow.new(id: 2, parent: $0)
-                middleTab = TestWindow.new(id: 3, parent: $0)
-                lastTab = TestWindow.new(id: 4, parent: $0)
+                middleWindow = TestWindow.new(id: 3, parent: $0)
+                lastWindow = TestWindow.new(id: 4, parent: $0)
             }
             TestWindow.new(id: 5, parent: $0)
         }
 
-        XCTAssertTrue(middleTab.focusWindow())
+        XCTAssertTrue(middleWindow.focusWindow())
 
         try await FocusCommand.new(tabRelative: .tabNext).run(.defaultEnv, .emptyStdin)
-        XCTAssertEqual(focus.windowOrNil?.windowId, lastTab.windowId)
+        XCTAssertEqual(focus.windowOrNil?.windowId, lastWindow.windowId)
     }
 
-    func testFocusTabRelativeWrapsInsideCurrentTabGroup() async throws {
+    func testFocusTabRelativeWrapsInsideActiveTabComposedLayout() async throws {
         let workspace = Workspace.get(byName: name)
         let root = workspace.rootTilingContainer
-        var firstTab: Window!
-        var lastTab: Window!
+        var firstWindow: Window!
+        var lastWindow: Window!
         root.apply {
-            TilingContainer(parent: $0, adaptiveWeight: 1, .v, .tabGroup, index: INDEX_BIND_LAST).apply {
-                firstTab = TestWindow.new(id: 1, parent: $0)
+            TilingContainer.newVTiles(parent: $0, adaptiveWeight: 1, index: INDEX_BIND_LAST).apply {
+                firstWindow = TestWindow.new(id: 1, parent: $0)
                 TestWindow.new(id: 2, parent: $0)
-                lastTab = TestWindow.new(id: 3, parent: $0)
+                lastWindow = TestWindow.new(id: 3, parent: $0)
             }
         }
 
-        XCTAssertTrue(lastTab.focusWindow())
+        XCTAssertTrue(lastWindow.focusWindow())
 
         var args = FocusCmdArgs(rawArgs: [], targetArg: .tabRelative(.tabNext))
         args.rawBoundariesAction = .wrapAroundTheWorkspace
         let exitCode = try await FocusCommand(args: args).run(.defaultEnv, .emptyStdin).exitCode
         XCTAssertEqual(exitCode, 0)
-        XCTAssertEqual(focus.windowOrNil?.windowId, firstTab.windowId)
+        XCTAssertEqual(focus.windowOrNil?.windowId, firstWindow.windowId)
     }
 
-    func testFocusTabRelativeFailsOutsideTabGroupWhenRequested() async throws {
+    func testFocusTabRelativeFailsAtActiveTabBoundaryWhenRequested() async throws {
         Workspace.get(byName: name).rootTilingContainer.apply {
-            XCTAssertTrue(TestWindow.new(id: 1, parent: $0).focusWindow())
+            TestWindow.new(id: 1, parent: $0)
             TestWindow.new(id: 2, parent: $0)
         }
+        XCTAssertTrue(Window.get(byId: 2).orDie().focusWindow())
 
         var args = FocusCmdArgs(rawArgs: [], targetArg: .tabRelative(.tabNext))
         args.rawBoundariesAction = .fail
 
         let exitCode = try await FocusCommand(args: args).run(.defaultEnv, .emptyStdin).exitCode
         XCTAssertEqual(exitCode, 1)
-        XCTAssertEqual(focus.windowOrNil?.windowId, 1)
+        XCTAssertEqual(focus.windowOrNil?.windowId, 2)
     }
 
-    func testFocusTabIndexTargetsSpecificTabInsideCurrentGroup() async throws {
+    func testFocusTabIndexTargetsSpecificComposedWindowInsideActiveTab() async throws {
         let workspace = Workspace.get(byName: name)
         let root = workspace.rootTilingContainer
-        var firstTab: Window!
-        var secondTab: Window!
+        var firstWindow: Window!
+        var secondWindow: Window!
         root.apply {
-            TilingContainer(parent: $0, adaptiveWeight: 1, .v, .tabGroup, index: INDEX_BIND_LAST).apply {
-                firstTab = TestWindow.new(id: 1, parent: $0)
-                secondTab = TestWindow.new(id: 2, parent: $0)
+            TilingContainer.newVTiles(parent: $0, adaptiveWeight: 1, index: INDEX_BIND_LAST).apply {
+                firstWindow = TestWindow.new(id: 1, parent: $0)
+                secondWindow = TestWindow.new(id: 2, parent: $0)
                 _ = TestWindow.new(id: 3, parent: $0)
             }
         }
 
-        XCTAssertTrue(firstTab.focusWindow())
+        XCTAssertTrue(firstWindow.focusWindow())
 
         let exitCode = try await FocusCommand(args: FocusCmdArgs(rawArgs: [], tabIndex: 2)).run(.defaultEnv, .emptyStdin).exitCode
         XCTAssertEqual(exitCode, 0)
-        XCTAssertEqual(focus.windowOrNil?.windowId, secondTab.windowId)
+        XCTAssertEqual(focus.windowOrNil?.windowId, secondWindow.windowId)
+    }
+
+    func testFocusTabRelativeIgnoresLegacyTabGroupScope() async throws {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        var legacySecondWindow: Window!
+        var nextComposedWindow: Window!
+        root.apply {
+            TestWindow.new(id: 1, parent: $0)
+            TilingContainer(parent: $0, adaptiveWeight: 1, .v, .tabGroup, index: INDEX_BIND_LAST).apply {
+                TestWindow.new(id: 2, parent: $0)
+                legacySecondWindow = TestWindow.new(id: 3, parent: $0)
+            }
+            nextComposedWindow = TestWindow.new(id: 4, parent: $0)
+        }
+
+        XCTAssertTrue(legacySecondWindow.focusWindow())
+
+        try await FocusCommand.new(tabRelative: .tabNext).run(.defaultEnv, .emptyStdin)
+        XCTAssertEqual(focus.windowOrNil?.windowId, nextComposedWindow.windowId)
     }
 }
 

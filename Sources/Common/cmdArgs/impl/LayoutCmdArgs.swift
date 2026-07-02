@@ -18,6 +18,16 @@ public struct LayoutCmdArgs: CmdArgs {
         self.toggleBetween = .initialized(toggleBetween)
     }
 
+    public var description: String {
+        var args = [Self.info.kind.rawValue]
+        if let windowId {
+            args.append("--window-id")
+            args.append(String(windowId))
+        }
+        args.append(contentsOf: toggleBetween.val.map(\.rawValue))
+        return args.joinArgs()
+    }
+
     public enum LayoutDescription: String, CaseIterable, Equatable, Sendable {
         case tabGroup = "tab-group"
         case tiles
@@ -27,6 +37,16 @@ public struct LayoutCmdArgs: CmdArgs {
         case h_tiles, v_tiles
         case tiling, floating
     }
+
+    public static let enabledLayoutLiteral = [
+        LayoutDescription.h_tiles.rawValue,
+        LayoutDescription.v_tiles.rawValue,
+        LayoutDescription.tiles.rawValue,
+        LayoutDescription.horizontal.rawValue,
+        LayoutDescription.vertical.rawValue,
+        LayoutDescription.tiling.rawValue,
+        LayoutDescription.floating.rawValue,
+    ].joinedCliArgs
 }
 
 private func parseToggleBetween(input: PosArgParserInput) -> ParsedCliArgs<[LayoutCmdArgs.LayoutDescription]> {
@@ -39,7 +59,7 @@ private func parseToggleBetween(input: PosArgParserInput) -> ParsedCliArgs<[Layo
             result.append(layout)
         } else {
             return .fail(
-                "Can't parse '\(arg)'\nPossible values: \(LayoutCmdArgs.LayoutDescription.unionLiteral)",
+                "Can't parse '\(arg)'\nPossible values: \(LayoutCmdArgs.enabledLayoutLiteral)",
                 advanceBy: i + 1,
             )
         }
@@ -51,13 +71,32 @@ private func parseToggleBetween(input: PosArgParserInput) -> ParsedCliArgs<[Layo
 
 func parseLayoutCmdArgs(_ args: StrArrSlice) -> ParsedCmd<LayoutCmdArgs> {
     parseSpecificCmdArgs(LayoutCmdArgs(rawArgs: args), args).map {
-        check(!$0.toggleBetween.val.isEmpty)
-        return $0
+        let normalizedLayouts = dropDisabledOldTopTabGroupLayoutsWhenMixed(withEnabledLayouts: $0.toggleBetween.val)
+        check(!normalizedLayouts.isEmpty)
+        return $0.copy(\.toggleBetween, .initialized(normalizedLayouts))
     }
+}
+
+private func dropDisabledOldTopTabGroupLayoutsWhenMixed(
+    withEnabledLayouts layouts: [LayoutCmdArgs.LayoutDescription]
+) -> [LayoutCmdArgs.LayoutDescription] {
+    let enabledLayouts = layouts.filter { !$0.isOldTopTabGroupLayout }
+    return enabledLayouts.isEmpty ? layouts : enabledLayouts
 }
 
 extension String {
     fileprivate func parseLayoutDescription() -> LayoutCmdArgs.LayoutDescription? {
         LayoutCmdArgs.LayoutDescription(rawValue: self)
+    }
+}
+
+extension LayoutCmdArgs.LayoutDescription {
+    public var isOldTopTabGroupLayout: Bool {
+        switch self {
+            case .tabGroup, .hTabGroup, .vTabGroup:
+                true
+            case .tiles, .horizontal, .vertical, .h_tiles, .v_tiles, .tiling, .floating:
+                false
+        }
     }
 }

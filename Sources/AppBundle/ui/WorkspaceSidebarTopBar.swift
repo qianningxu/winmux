@@ -25,13 +25,13 @@ extension WorkspaceSidebarView {
 
     func expandedSidebarTopBar(expansionProgress: CGFloat) -> some View {
         let palette = WinMuxOverlayPalette(colorScheme: colorScheme)
-        return HStack(spacing: 6) {
-            Text("Tabs")
+        return HStack(alignment: .top, spacing: 6) {
+            Text("WinMux")
                 .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(palette.foreground(0.82))
                 .lineLimit(1)
+                .frame(height: 26, alignment: .center)
             Spacer(minLength: 0)
-            sidebarNewTabGroupButton(isCompact: false)
             sidebarPinButton(expansionProgress: expansionProgress, isCompact: false)
         }
         .padding(.leading, 8)
@@ -52,12 +52,16 @@ extension WorkspaceSidebarView {
         } label: {
             Image(systemName: "sidebar.leading")
                 .font(.system(size: isCompact ? 11 : 12, weight: .semibold))
-                .foregroundStyle(isPinned ? Color.accentColor.opacity(0.95) : palette.foreground(0.68))
+                .foregroundStyle(isPinned ? palette.foreground(0.88) : palette.foreground(0.68))
                 .frame(width: isCompact ? workspaceSidebarBadgeWidth : 26, height: isCompact ? workspaceSidebarBadgeWidth : 26)
                 .background {
                     if isPinned {
                         RoundedRectangle(cornerRadius: isCompact ? 7 : 8, style: .continuous)
-                            .fill(Color.accentColor.opacity(0.13))
+                            .fill(palette.gray100(palette.isDark ? 0.20 : 0.95))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: isCompact ? 7 : 8, style: .continuous)
+                                    .strokeBorder(palette.border(palette.isDark ? 0.55 : 0.78), lineWidth: 0.8)
+                            }
                     }
                 }
                 .contentShape(Rectangle())
@@ -67,10 +71,10 @@ extension WorkspaceSidebarView {
         .accessibilityLabel(isPinned ? "Unpin sidebar" : "Keep sidebar expanded")
     }
 
-    func sidebarNewTabGroupButton(isCompact: Bool) -> some View {
+    func sidebarNewTabButton(isCompact: Bool) -> some View {
         let palette = WinMuxOverlayPalette(colorScheme: colorScheme)
         return Button {
-            actions.send(.createTabGroup)
+            actions.send(sidebarNewTabAction())
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: isCompact ? 11 : 12.5, weight: .semibold))
@@ -79,7 +83,18 @@ extension WorkspaceSidebarView {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("New tab group")
-        .accessibilityLabel("New tab group")
+        .help("New Tab")
+        .accessibilityLabel("New Tab")
+    }
+
+    func sidebarNewTabAction() -> WorkspaceSidebarAction {
+        .createWorkspace(
+            projectId: snapshot.activeProjectId,
+            monitorScopeId: workspaceSidebarWorkspaceCreateScope(
+                selectedScopeId: snapshot.selectedMonitorScopeId,
+                targetMonitorScopeId: snapshot.targetMonitorScopeId,
+                focusedScopeId: snapshot.focusedMonitorScopeId,
+            )
+        )
     }
 }

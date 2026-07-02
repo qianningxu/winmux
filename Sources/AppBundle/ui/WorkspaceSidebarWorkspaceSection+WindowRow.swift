@@ -6,9 +6,12 @@ extension WorkspaceSidebarWorkspaceSection {
         allowsDrag: Bool,
         subject: WindowDragSubject = .window,
         leadingHitInset: CGFloat = 0,
+        rowHeightOverride: CGFloat? = nil,
     ) -> some View {
         let isPointerHovered = hoveredWindowId == window.windowId
         let isRowHovered = isPointerHovered
+        let resolvedRowHeight = rowHeightOverride ?? rowHeight
+        let rowStyle: WorkspaceSidebarWindowRow.Style = leadingHitInset > 0 ? .tabGroupChild : .window
         return ZStack(alignment: .trailing) {
             Button {
                 guard allowsWorkspaceActivation else { return }
@@ -18,6 +21,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     return
                 }
                 activeInUseOverrideWorkspaceName = nil
+                onBeginWorkspaceActivation(workspace.name)
                 actions.send(.selectWindow(window.windowId))
             } label: {
                 WorkspaceSidebarWindowRow(
@@ -25,39 +29,26 @@ extension WorkspaceSidebarWorkspaceSection {
                     badge: nil,
                     isFocused: window.isFocused,
                     suppressFocusedStyle: isSearchFiltering,
-                    rowHeight: rowHeight,
+                    rowHeight: resolvedRowHeight,
                     isHovered: isRowHovered,
-                    style: leadingHitInset > 0 ? .tabGroupChild : .window,
+                    style: rowStyle,
                     appBundleIds: [window.appBundleId],
                     appBundlePaths: [window.appBundlePath],
                     reservesCloseButtonSpace: true,
+                    leadingContentInset: 0,
                 )
-                .padding(.leading, leadingHitInset)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .padding(.leading, leadingHitInset)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
-            .modifier(WorkspaceSidebarOptionalDragModifier(
-                isEnabled: allowsDrag,
-                onChanged: { pointer in
-                    if subject == .group {
-                        actions.tabGroupDragChanged(window.windowId, pointer)
-                    } else {
-                        actions.windowDragChanged(window.windowId, pointer)
-                    }
-                },
-                onEnded: { pointer in
-                    if subject == .group {
-                        actions.tabGroupDragEnded(window.windowId, pointer)
-                    } else {
-                        actions.windowDragEnded(window.windowId, pointer)
-                    }
-                },
-            ))
             .workspaceSidebarDrag(enabled: allowsDrag) {
-                WorkspaceSidebarDragPayload.window(window.windowId).itemProvider
+                let payload: WorkspaceSidebarDragPayload = subject == .group
+                    ? .tabGroup(window.windowId)
+                    : .window(window.windowId)
+                return payload.itemProvider
             }
 
             if isPointerHovered {
@@ -68,6 +59,23 @@ extension WorkspaceSidebarWorkspaceSection {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+        .modifier(WorkspaceSidebarOptionalDragModifier(
+            isEnabled: allowsDrag,
+            onChanged: { pointer in
+                if subject == .group {
+                    actions.tabGroupDragChanged(window.windowId, pointer)
+                } else {
+                    actions.windowDragChanged(window.windowId, pointer)
+                }
+            },
+            onEnded: { pointer in
+                if subject == .group {
+                    actions.tabGroupDragEnded(window.windowId, pointer)
+                } else {
+                    actions.windowDragEnded(window.windowId, pointer)
+                }
+            },
+        ))
         .onHover { hover in
             hoveredWindowId = nextWorkspaceSidebarHoveredWindowId(
                 currentHoveredWindowId: hoveredWindowId,
@@ -79,7 +87,7 @@ extension WorkspaceSidebarWorkspaceSection {
         .animation(.spring(response: 0.2, dampingFraction: 0.78), value: activeSidebarDragSourceWindowId == window.windowId)
     }
 
-    private func workspaceWindowCloseButton(
+    func workspaceWindowCloseButton(
         _ window: WorkspaceSidebarWindowViewModel,
     ) -> some View {
         Button {

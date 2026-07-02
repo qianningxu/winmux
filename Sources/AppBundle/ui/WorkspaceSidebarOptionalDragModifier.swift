@@ -9,7 +9,7 @@ struct WorkspaceSidebarOptionalDragModifier: ViewModifier {
     func body(content: Content) -> some View {
         if isEnabled {
             content.highPriorityGesture(
-                DragGesture(minimumDistance: 4, coordinateSpace: .global)
+                DragGesture(minimumDistance: workspaceSidebarDragStartDistance, coordinateSpace: .global)
                     .onChanged { _ in
                         if !isDragging {
                             isDragging = true

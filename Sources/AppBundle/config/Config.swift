@@ -43,7 +43,7 @@ struct Config: ConvenienceCopyable {
     var defaultRootContainerOrientation: DefaultContainerOrientation = .auto
     var startAtLogin: Bool = false
     var autoReloadConfig: Bool = false
-    var enableProjects: Bool = true
+    var enableProjects: Bool = false
     var automaticallyUnhideMacosHiddenApps: Bool = false
     var shortcutsPreset: ShortcutsPreset = .none
     var tabGroupPadding: Int = 30

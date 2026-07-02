@@ -31,6 +31,7 @@ final class ConfigTest: XCTestCase {
         assertEquals(i3Config.execConfig, defaultConfig.execConfig)
         assertEquals(i3Config.enableNormalizationFlattenContainers, false)
         assertEquals(i3Config.enableNormalizationOppositeOrientationForNestedContainers, false)
+        XCTAssertFalse(i3Config.enableProjects)
     }
 
     func testParseDefaultConfig() throws {
@@ -44,9 +45,20 @@ final class ConfigTest: XCTestCase {
     func testParseEnableProjects() {
         let (parsed, errors) = parseConfig(
             """
-            enable-projects = false
+            enable-projects = true
             """,
         )
+        assertEquals(errors, [])
+        XCTAssertFalse(parsed.enableProjects)
+    }
+
+    func testEnableProjectsDefaultsOffForMissingLegacyKey() {
+        let (parsed, errors) = parseConfig(
+            """
+            config-version = 2
+            """,
+        )
+
         assertEquals(errors, [])
         XCTAssertFalse(parsed.enableProjects)
     }
@@ -58,6 +70,28 @@ final class ConfigTest: XCTestCase {
             """,
         )
         assertEquals(errors.descriptions, ["enable-projects: Expected type is 'bool'. But actual type is 'string'"])
+    }
+
+    func testParseFolderConfigKeysAndLegacyTabGroupAliases() {
+        let (folderConfig, folderErrors) = parseConfig(
+            """
+            folder-padding = 18
+            auto-add-new-windows-to-folder = true
+            """,
+        )
+        assertEquals(folderErrors, [])
+        XCTAssertEqual(folderConfig.tabGroupPadding, 18)
+        XCTAssertTrue(folderConfig.autoAddNewWindowsToTabGroup)
+
+        let (legacyConfig, legacyErrors) = parseConfig(
+            """
+            tab-group-padding = 21
+            auto-add-new-windows-to-tab-group = true
+            """,
+        )
+        assertEquals(legacyErrors, [])
+        XCTAssertEqual(legacyConfig.tabGroupPadding, 21)
+        XCTAssertTrue(legacyConfig.autoAddNewWindowsToTabGroup)
     }
 
     func testConfigVersionOutOfBounds() {
@@ -78,23 +112,59 @@ final class ConfigTest: XCTestCase {
         assertEquals(errors.descriptions, ["exec-on-workspace-change[1]: Expected type is \'string\'. But actual type is \'integer\'"])
     }
 
-    func testDuplicatedPersistentWorkspaces() {
+    func testParsePersistentTabs() {
+        let (config, errors) = parseConfig(
+            """
+            config-version = 2
+            persistent-tabs = ['a', 'b']
+            """,
+        )
+
+        assertEquals(errors.descriptions, [])
+        assertEquals(config.persistentWorkspaces.sorted(), ["a", "b"])
+    }
+
+    func testDuplicatedPersistentTabs() {
         let (_, errors) = parseConfig(
             """
             config-version = 2
-            persistent-workspaces = ['a', 'a']
+            persistent-tabs = ['a', 'a']
             """,
         )
-        assertEquals(errors.descriptions, ["persistent-workspaces: Contains duplicated workspace names"])
+        assertEquals(errors.descriptions, ["persistent-tabs: Contains duplicated tab names"])
     }
 
-    func testPersistentWorkspacesAreAvailableOnlySinceVersion2() {
+    func testPersistentTabsAreAvailableOnlySinceVersion2() {
         let (_, errors) = parseConfig(
             """
-            persistent-workspaces = ['a']
+            persistent-tabs = ['a']
             """,
         )
-        assertEquals(errors.descriptions, ["persistent-workspaces: This config option is only available since \'config-version = 2\'"])
+        assertEquals(errors.descriptions, ["persistent-tabs: This config option is only available since \'config-version = 2\'"])
+    }
+
+    func testLegacyPersistentWorkspacesAliasStillParses() {
+        let (config, errors) = parseConfig(
+            """
+            config-version = 2
+            persistent-workspaces = ['legacy-a', 'legacy-b']
+            """,
+        )
+
+        assertEquals(errors.descriptions, [])
+        assertEquals(config.persistentWorkspaces.sorted(), ["legacy-a", "legacy-b"])
+    }
+
+    func testPersistentTabsAndLegacyPersistentWorkspacesCannotBothBeSet() {
+        let (_, errors) = parseConfig(
+            """
+            config-version = 2
+            persistent-tabs = ['a']
+            persistent-workspaces = ['b']
+            """,
+        )
+
+        assertEquals(errors.descriptions, ["persistent-tabs: Use either 'persistent-tabs' or legacy 'persistent-workspaces', not both"])
     }
 
     func testQueryCantBeUsedInConfig() {
@@ -291,10 +361,13 @@ final class ConfigTest: XCTestCase {
                 alt-2 = 'workspace 2'
                 alt-3 = ['workspace 3']
                 alt-4 = ['workspace 4', 'focus left']
+
+            [tab-to-monitor-force-assignment]
+                monitor_tab = 'main'
             """,
         )
         assertEquals(errors.descriptions, [])
-        assertEquals(config.persistentWorkspaces.sorted(), ["1", "2", "3", "4"])
+        assertEquals(config.persistentWorkspaces.sorted(), ["1", "2", "3", "4", "monitor_tab"])
     }
 
     func testUnknownTopLevelKeyParseError() {
@@ -348,21 +421,80 @@ final class ConfigTest: XCTestCase {
 
     func testMoveWorkspaceToMonitorCommandParsing() {
         XCTAssertTrue(parseCommand("move-workspace-to-monitor --wrap-around next").cmdOrNil is MoveWorkspaceToMonitorCommand)
+        XCTAssertTrue(parseCommand("move-tab-to-monitor --tab 1 --wrap-around next").cmdOrNil is MoveWorkspaceToMonitorCommand)
         XCTAssertTrue(parseCommand("move-workspace-to-display --wrap-around next").cmdOrNil is MoveWorkspaceToMonitorCommand)
     }
 
     func testParseTiles() {
-        let command = parseCommand("layout tiles h_tiles v_tiles tab-group h_tab_group v_tab_group").cmdOrNil
+        let command = parseCommand("layout tiles h_tiles v_tiles").cmdOrNil
         guard let command = command as? LayoutCommand else {
             XCTFail("Expected layout command")
             return
         }
-        assertEquals(command.args.toggleBetween.val, [.tiles, .h_tiles, .v_tiles, .tabGroup, .hTabGroup, .vTabGroup])
+        assertEquals(command.args.toggleBetween.val, [.tiles, .h_tiles, .v_tiles])
+
+        let legacyCommand = parseCommand("layout tab-group horizontal vertical").cmdOrNil as? LayoutCommand
+        XCTAssertEqual(legacyCommand?.args.toggleBetween.val, [.horizontal, .vertical])
+        let legacyOrientationCommand = parseCommand("layout h_tab_group").cmdOrNil as? LayoutCommand
+        XCTAssertEqual(legacyOrientationCommand?.args.toggleBetween.val, [.hTabGroup])
 
         guard case .help = parseCommand("layout tiles -h") else {
             XCTFail()
             return
         }
+    }
+
+    func testLegacyTabGroupLayoutBindingParsesForStartupCompatibility() {
+        let (parsedConfig, errors) = parseConfig(
+            """
+            [mode.main.binding]
+                alt-comma = 'layout tab-group horizontal vertical'
+            """
+        )
+
+        XCTAssertEqual(errors.descriptions, [])
+        let command = parsedConfig.modes["main"]?.bindings.values.first?.commands.prettyDescription
+        XCTAssertEqual(command, "layout horizontal vertical")
+    }
+
+    func testMigratedLayoutBindingParsesHorizontalAndVerticalAlternates() {
+        let (_, errors) = parseConfig(
+            """
+            [mode.main.binding]
+                alt-slash = 'layout tiles horizontal vertical'
+            """
+        )
+
+        XCTAssertEqual(errors.descriptions, [])
+    }
+
+    func testMixedLegacyTabGroupLayoutCommandDropsDisabledTabGroupAlternative() async throws {
+        setUpWorkspacesForTests()
+        let root = focus.workspace.rootTilingContainer
+        TestWindow.new(id: 1, parent: root)
+        let command = parseCommand("layout tab-group horizontal vertical").cmdOrNil as? LayoutCommand
+        let io = CmdIo(stdin: .emptyStdin)
+
+        let result = try await command.orDie().run(.defaultEnv, io)
+
+        XCTAssertTrue(result)
+        XCTAssertEqual(io.stderr, [])
+        XCTAssertEqual(root.orientation, .v)
+        XCTAssertEqual(root.layout, .tiles)
+    }
+
+    func testPureLegacyTabGroupLayoutCommandIsDisabledAtRuntime() async throws {
+        setUpWorkspacesForTests()
+        TestWindow.new(id: 1, parent: focus.workspace.rootTilingContainer)
+        let command = parseCommand("layout tab-group").cmdOrNil as? LayoutCommand
+        let io = CmdIo(stdin: .emptyStdin)
+
+        let result = try await command.orDie().run(.defaultEnv, io)
+
+        XCTAssertFalse(result)
+        XCTAssertEqual(io.stderr, [
+            "Legacy folder layout is disabled. Tabs and folders are now managed in the sidebar."
+        ])
     }
 
     func testSplitCommandAndFlattenContainersNormalization() {
@@ -387,10 +519,10 @@ final class ConfigTest: XCTestCase {
         )
     }
 
-    func testParseWorkspaceToMonitorAssignment() {
+    func testParseTabToMonitorAssignment() {
         let (parsed, errors) = parseConfig(
             """
-            [workspace-to-monitor-force-assignment]
+            [tab-to-monitor-force-assignment]
                 workspace_name_1 = 1                            # Sequence number of the monitor (from left to right, 1-based indexing)
                 workspace_name_2 = 'main'                       # main monitor
                 workspace_name_3 = 'secondary'                  # non-main monitor (in case when there are only two monitors)
@@ -419,10 +551,40 @@ final class ConfigTest: XCTestCase {
             ],
         )
         assertEquals([
-            "workspace-to-monitor-force-assignment.w7[0]: Empty string is an illegal monitor description",
-            "workspace-to-monitor-force-assignment.w8: Monitor sequence numbers uses 1-based indexing. Values less than 1 are illegal",
+            "tab-to-monitor-force-assignment.w7[0]: Empty string is an illegal monitor description",
+            "tab-to-monitor-force-assignment.w8: Monitor sequence numbers uses 1-based indexing. Values less than 1 are illegal",
         ], errors.descriptions)
         assertEquals([:], defaultConfig.workspaceToMonitorForceAssignment)
+    }
+
+    func testLegacyWorkspaceToMonitorAssignmentAliasStillParses() {
+        let (parsed, errors) = parseConfig(
+            """
+            [workspace-to-monitor-force-assignment]
+                legacy = 'main'
+            """,
+        )
+
+        assertEquals(errors.descriptions, [])
+        assertEquals(parsed.workspaceToMonitorForceAssignment, [
+            "legacy": [.main],
+        ])
+    }
+
+    func testTabAndLegacyWorkspaceToMonitorAssignmentCannotBothBeSet() {
+        let (_, errors) = parseConfig(
+            """
+            [tab-to-monitor-force-assignment]
+                tab = 'main'
+
+            [workspace-to-monitor-force-assignment]
+                legacy = 'secondary'
+            """,
+        )
+
+        assertEquals(errors.descriptions, [
+            "tab-to-monitor-force-assignment: Use either 'tab-to-monitor-force-assignment' or legacy 'workspace-to-monitor-force-assignment', not both",
+        ])
     }
 
 }

@@ -8,6 +8,18 @@ final class SummonWorkspaceCommandTest: XCTestCase {
 
     func testParse() {
         assertEquals(parseCommand("summon-workspace").errorOrNil, "ERROR: Argument '<tab>' is mandatory")
+        assertEquals(parseCommand("summon-tab").errorOrNil, "ERROR: Argument '<tab>' is mandatory")
+        assertNotNil(parseCommand("summon-tab 2").cmdOrNil)
+    }
+
+    func testHelpIsTabFirstWhileKeepingWorkspaceCompatibility() {
+        guard case .help(let help) = parseCommand("summon-workspace --help") else {
+            XCTFail("Expected help")
+            return
+        }
+
+        XCTAssertTrue(help.contains("USAGE: summon-tab"))
+        XCTAssertFalse(help.contains("OR: summon-workspace"))
     }
 
     func testSummonDoesNotCreateMissingWorkspace() async throws {

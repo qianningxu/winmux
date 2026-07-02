@@ -32,7 +32,7 @@ struct ExposeStackCard: View {
                     .offset(x: 6, y: 6)
             }
 
-            Text(group.items[safe: activeIndex]?.title ?? group.items.first?.title ?? "Group")
+            Text(group.items[safe: activeIndex]?.title ?? group.items.first?.title ?? "Folder")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.white.opacity(hov ? 0.95 : 0.6))
                 .lineLimit(1)

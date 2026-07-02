@@ -4,7 +4,7 @@ import CoreGraphics
 import XCTest
 
 @MainActor extension WindowTabsTest {
-    func testCrossWorkspaceMoveHintStillWorks() {
+    func testCrossWorkspaceCenterBodyDropIsDisabled() {
         setUpWorkspacesForTests()
         clearPendingWindowDragIntent()
         let main = WindowTabsTestMonitor(
@@ -34,14 +34,14 @@ import XCTest
         XCTAssertTrue(secondary.setActiveWorkspace(targetWorkspace))
         let mouseLocation = targetWorkspace.workspaceMonitor.visibleRectPaddedByOuterGaps.center
 
-        XCTAssertTrue(updatePendingWindowDragIntent(
+        XCTAssertFalse(updatePendingWindowDragIntent(
             sourceWindow: source,
             mouseLocation: mouseLocation,
             subject: .window,
             detachOrigin: .window,
         ))
 
-        XCTAssertEqual(debugPendingWindowDragIntentSummary()?.kind, .moveToWorkspace(workspaceName: targetWorkspace.name))
+        XCTAssertNil(debugPendingWindowDragIntentSummary())
     }
 
     @MainActor

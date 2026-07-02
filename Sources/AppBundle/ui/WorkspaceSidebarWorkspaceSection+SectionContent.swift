@@ -17,16 +17,8 @@ extension WorkspaceSidebarWorkspaceSection {
         }
     }
 
-    var sectionActivationButton: some View {
-        Button(action: handleSectionClick) {
-            Color.clear.contentShape(sectionShape)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(workspace.displayName)
-    }
-
     var sectionContent: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: workspaceSidebarNestedRowSpacing) {
             headerSlot
                 .frame(height: headerHeight)
                 .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
@@ -48,13 +40,29 @@ extension WorkspaceSidebarWorkspaceSection {
                     onEnded: onWorkspaceReorderDragEnded
                 ))
         } else {
+            expandedHeaderSlot
+        }
+    }
+
+    var expandedHeaderSlot: some View {
+        ZStack(alignment: .trailing) {
             headerButton
                 .frame(height: headerHeight)
-                .modifier(WorkspaceSidebarWorkspaceReorderGestureModifier(
-                    isEnabled: isWorkspaceReorderEnabled,
-                    onChanged: onWorkspaceReorderDragChanged,
-                    onEnded: onWorkspaceReorderDragEnded
-                ))
+
+            if isHeaderCloseButtonVisible, let target = headerCloseTargetWindow {
+                workspaceWindowCloseButton(target)
+                    .padding(.trailing, workspaceSidebarWindowCloseButtonTrailingInset)
+                    .transition(.opacity)
+                    .zIndex(2)
+            }
         }
+        .frame(height: headerHeight)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .modifier(WorkspaceSidebarWorkspaceReorderGestureModifier(
+            isEnabled: isWorkspaceReorderEnabled,
+            onChanged: onWorkspaceReorderDragChanged,
+            onEnded: onWorkspaceReorderDragEnded
+        ))
     }
 }

@@ -15,16 +15,16 @@ extension ConfigTest {
                 show-status-pills = false
                 show-date = false
                 menu-bar-reserve-height = 30
-                project-deletion-action = 'move-windows-to-fallback'
+                folder-deletion-action = 'move-windows-to-fallback'
 
-            [workspace-sidebar.workspace-labels]
+            [workspace-sidebar.tab-labels]
                 1 = 'Code'
                 2 = 'Web'
 
-            [workspace-sidebar.project-labels]
+            [workspace-sidebar.folder-labels]
                 default = 'Personal'
 
-            [workspace-sidebar.project-colors]
+            [workspace-sidebar.folder-colors]
                 default = '#ff8844'
             """,
         )
@@ -64,23 +64,55 @@ extension ConfigTest {
 
         let (_, colorErrors) = parseConfig(
             """
-            [workspace-sidebar.project-colors]
+            [workspace-sidebar.folder-colors]
                 default = 'not-a-color'
             """,
         )
         assertEquals(colorErrors.descriptions, [
-            "workspace-sidebar.project-colors.default: Must be a hex color like '#RRGGBB'",
+            "workspace-sidebar.folder-colors.default: Must be a hex color like '#RRGGBB'",
         ])
 
         let (_, actionErrors) = parseConfig(
             """
             [workspace-sidebar]
-                project-deletion-action = 'explode'
+                folder-deletion-action = 'explode'
             """,
         )
         assertEquals(actionErrors.descriptions, [
-            "workspace-sidebar.project-deletion-action: Possible values: close-windows, move-windows-to-fallback",
+            "workspace-sidebar.folder-deletion-action: Possible values: close-windows, move-windows-to-fallback",
         ])
+    }
+
+    func testParseWorkspaceSidebarLegacyProjectFolderAliases() {
+        let (parsed, errors) = parseConfig(
+            """
+            [workspace-sidebar]
+                project-deletion-action = 'move-windows-to-fallback'
+
+            [workspace-sidebar.project-labels]
+                default = 'Legacy'
+
+            [workspace-sidebar.project-colors]
+                default = '#60a5fa'
+            """,
+        )
+
+        assertEquals(errors, [])
+        XCTAssertEqual(parsed.workspaceSidebar.projectDeletionAction, .moveWindowsToFallback)
+        XCTAssertEqual(parsed.workspaceSidebar.projectLabels, ["default": "Legacy"])
+        XCTAssertEqual(parsed.workspaceSidebar.projectColors, ["default": "#60A5FA"])
+    }
+
+    func testParseWorkspaceSidebarLegacyWorkspaceLabelAlias() {
+        let (parsed, errors) = parseConfig(
+            """
+            [workspace-sidebar.workspace-labels]
+                1 = 'Code'
+            """,
+        )
+
+        assertEquals(errors, [])
+        XCTAssertEqual(parsed.workspaceSidebar.workspaceLabels, ["1": "Code"])
     }
 
     func testWorkspaceSidebarDoesNotRequireThemeConfig() {

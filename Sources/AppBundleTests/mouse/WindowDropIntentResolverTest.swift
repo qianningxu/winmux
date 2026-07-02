@@ -21,14 +21,14 @@ final class WindowDropIntentResolverTest: XCTestCase {
     }
 
     func testPreviewZonesUseFullTargetFrameAndActiveZone() {
-        let resolution = resolve(point: CGPoint(x: 200, y: 210)).orDie()
+        let resolution = resolve(point: CGPoint(x: 110, y: 210)).orDie()
         let zones = windowDropIntentPreviewZones(for: resolution)
 
-        XCTAssertEqual(zones.count, 6)
+        XCTAssertEqual(zones.count, 4)
         XCTAssertEqual(zones.filter(\.isActive).count, 1)
-        assertRect(zones.first { $0.isActive }?.rect, x: 170, y: 195.2, width: 70, height: 57.4)
-        assertRect(windowDropIntentActivePreviewRect(for: resolution), x: 170, y: 195.2, width: 70, height: 57.4)
-        assertRect(zones.first?.rect, x: 100, y: 100, width: 210, height: 37.8)
+        assertRect(zones.first { $0.isActive }?.rect, x: 100, y: 100, width: 105, height: 210)
+        assertRect(windowDropIntentActivePreviewRect(for: resolution), x: 100, y: 100, width: 105, height: 210)
+        assertRect(zones.first?.rect, x: 100, y: 100, width: 105, height: 210)
     }
 
     func testRejectsSourceAsTargetAndOutsidePointer() {
@@ -120,7 +120,7 @@ final class WindowDropIntentResolverTest: XCTestCase {
     }
 
     @MainActor
-    func testWorkspaceMoveCopySaysTab() {
+    func testCrossWorkspaceCenterBodyDropProducesNoDestination() {
         let sourceWorkspace = Workspace.get(byName: "source")
         let source = TestWindow.new(id: 1, parent: sourceWorkspace.rootTilingContainer)
         _ = source.focusWindow()
@@ -136,8 +136,30 @@ final class WindowDropIntentResolverTest: XCTestCase {
             detachOrigin: .window,
         )
 
-        XCTAssertEqual(destination?.title, "Move Here")
-        XCTAssertEqual(destination?.subtitle, "Drop to move this item to this Tab")
+        XCTAssertNil(destination)
+    }
+
+    @MainActor
+    func testCrossWorkspaceEdgeDropStillProducesDirectionalMove() {
+        let sourceWorkspace = Workspace.get(byName: "source")
+        let source = TestWindow.new(id: 1, parent: sourceWorkspace.rootTilingContainer)
+        _ = source.focusWindow()
+        let targetWorkspace = Workspace.get(byName: "target")
+        targetWorkspace.markAsAutomaticallyNamed()
+        targetWorkspace.seedMonitorIfNeeded(mainMonitor)
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(targetWorkspace))
+        let targetFrame = mainMonitor.visibleRectPaddedByOuterGaps
+        let mouseLocation = CGPoint(x: targetFrame.minX + 4, y: targetFrame.center.y)
+
+        let destination = currentWindowDragIntentDestination(
+            sourceWindow: source,
+            mouseLocation: mouseLocation,
+            subject: .window,
+            detachOrigin: .window,
+        )
+
+        XCTAssertEqual(destination?.kind, .moveToWorkspaceZone(workspaceName: targetWorkspace.name, zone: .left))
+        XCTAssertEqual(destination?.title, "Move Left")
     }
 
     private func resolve(point: CGPoint) -> WindowDropIntentResolution? {

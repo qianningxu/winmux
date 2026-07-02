@@ -168,6 +168,7 @@ final class WorkspaceSidebarPanel: NSPanelHud {
             workspaces: TrayMenuModel.shared.workspaceSidebarWorkspaces,
             selectedMonitorScopeId: viewModel.workspaceSidebarSelectedMonitorScopeId,
             focusedMonitorScopeId: TrayMenuModel.shared.workspaceSidebarFocusedMonitorScopeId,
+            targetMonitorScopeId: monitorScopeId,
         )
         return sanitizedWorkspaceSidebarHoveredWorkspaceName(
             visibleWorkspaceNames: visibleWorkspaceNames,

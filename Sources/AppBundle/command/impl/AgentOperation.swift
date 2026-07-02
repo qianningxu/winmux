@@ -24,6 +24,7 @@ enum AgentOperation: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case type
+        case tab
         case workspace
         case windowId
         case windowId1
@@ -56,18 +57,18 @@ enum AgentOperation: Decodable {
         switch normalizedAgentOperationType(rawType) {
             case "focuswindow":
                 self = .focusWindow(try AgentWindowTarget(from: decoder))
-            case "focusworkspace":
-                self = .focusWorkspace(workspace: try container.decode(String.self, forKey: .workspace))
-            case "movewindowtoworkspace":
+            case "focustab", "focusworkspace":
+                self = .focusWorkspace(workspace: try container.decodeTabName())
+            case "movewindowtotab", "movewindowtoworkspace":
                 self = .moveWindowToWorkspace(
                     windowId: try container.decode(UInt32.self, forKey: .windowId),
-                    workspace: try container.decode(String.self, forKey: .workspace),
+                    workspace: try container.decodeTabName(),
                     focus: try container.decodeIfPresent(Bool.self, forKey: .focus),
                 )
-            case "movetabgrouptoworkspace":
+            case "movetabgrouptotab", "movetabgrouptoworkspace":
                 self = .moveTabGroupToWorkspace(
                     tabGroupId: try container.decode(String.self, forKey: .tabGroupId),
-                    workspace: try container.decode(String.self, forKey: .workspace),
+                    workspace: try container.decodeTabName(),
                     focus: try container.decodeIfPresent(Bool.self, forKey: .focus),
                 )
             case "swappanes", "swap", "swapwindows":
@@ -120,7 +121,7 @@ enum AgentOperation: Decodable {
             case "parkwindow":
                 self = .parkWindow(
                     try container.decode(AgentPaneRef.self, forKey: .pane),
-                    workspace: try container.decodeIfPresent(String.self, forKey: .workspace),
+                    workspace: try container.decodeTabNameIfPresent(),
                 )
             case "setpanesize", "resizepane":
                 self = .setPaneSize(
@@ -128,10 +129,26 @@ enum AgentOperation: Decodable {
                     axis: try container.decodeAgentSizeAxis(axisKey: .axis, directionKey: .direction),
                     size: try container.decodeAgentSizeRatio(sizeKey: .size, percentKey: .sizePercent),
                 )
-            case "setworkspacelayout":
+            case "settablayout", "setworkspacelayout":
                 self = .setWorkspaceLayout(try container.decode(AgentWorkspaceLayout.self, forKey: .layout))
             default:
                 throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: "Unknown agent operation type '\(rawType)'")
         }
+    }
+}
+
+private extension KeyedDecodingContainer where K == AgentOperation.CodingKeys {
+    func decodeTabName() throws -> String {
+        if let tab = try decodeIfPresent(String.self, forKey: .tab) {
+            return tab
+        }
+        return try decode(String.self, forKey: .workspace)
+    }
+
+    func decodeTabNameIfPresent() throws -> String? {
+        if let tab = try decodeIfPresent(String.self, forKey: .tab) {
+            return tab
+        }
+        return try decodeIfPresent(String.self, forKey: .workspace)
     }
 }

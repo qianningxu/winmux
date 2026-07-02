@@ -14,7 +14,7 @@ extension ConfigTest {
             label: "Code",
         )
 
-        XCTAssertTrue(updated.contains("[workspace-sidebar.workspace-labels]"))
+        XCTAssertTrue(updated.contains("[workspace-sidebar.tab-labels]"))
         XCTAssertTrue(updated.contains("\"1\" = \"Code\""))
     }
 
@@ -32,6 +32,8 @@ extension ConfigTest {
         XCTAssertTrue(updated.contains("\"1\" = \"Code\""))
         XCTAssertFalse(updated.contains("\"1\" = \"Old\""))
         XCTAssertTrue(updated.contains("\"2\" = \"Web\""))
+        XCTAssertTrue(updated.contains("[workspace-sidebar.tab-labels]"))
+        XCTAssertFalse(updated.contains("[workspace-sidebar.workspace-labels]"))
     }
 
     func testUpdateWorkspaceSidebarLabelConfigAddsNewLabelWithoutExtraBlankLine() {
@@ -47,7 +49,7 @@ extension ConfigTest {
         XCTAssertEqual(
             updated,
             """
-            [workspace-sidebar.workspace-labels]
+            [workspace-sidebar.tab-labels]
             "1" = "Code"
             "2" = "Web"
             """,
@@ -68,6 +70,7 @@ extension ConfigTest {
         )
 
         XCTAssertFalse(updated.contains("[workspace-sidebar.workspace-labels]"))
+        XCTAssertFalse(updated.contains("[workspace-sidebar.tab-labels]"))
         XCTAssertTrue(updated.contains("[mode.main.binding]"))
     }
 
@@ -81,7 +84,7 @@ extension ConfigTest {
             colorHex: "#60A5FA",
         )
 
-        XCTAssertTrue(added.contains("[workspace-sidebar.project-colors]"))
+        XCTAssertTrue(added.contains("[workspace-sidebar.folder-colors]"))
         XCTAssertTrue(added.contains("\"project-1\" = \"#60A5FA\""))
 
         let replaced = updateWorkspaceSidebarProjectColorConfig(
@@ -97,7 +100,7 @@ extension ConfigTest {
     func testUpdateWorkspaceSidebarProjectColorConfigRemovesLastColorSection() {
         let updated = updateWorkspaceSidebarProjectColorConfig(
             in: """
-            [workspace-sidebar.project-colors]
+            [workspace-sidebar.folder-colors]
             "project-1" = "#60A5FA"
 
             [mode.main.binding]
@@ -107,8 +110,23 @@ extension ConfigTest {
             colorHex: nil,
         )
 
-        XCTAssertFalse(updated.contains("[workspace-sidebar.project-colors]"))
+        XCTAssertFalse(updated.contains("[workspace-sidebar.folder-colors]"))
         XCTAssertTrue(updated.contains("[mode.main.binding]"))
+    }
+
+    func testUpdateWorkspaceSidebarProjectColorConfigMigratesLegacySectionName() {
+        let updated = updateWorkspaceSidebarProjectColorConfig(
+            in: """
+            [workspace-sidebar.project-colors]
+            "project-1" = "#60A5FA"
+            """,
+            projectId: "project-1",
+            colorHex: "#F87171",
+        )
+
+        XCTAssertTrue(updated.contains("[workspace-sidebar.folder-colors]"))
+        XCTAssertFalse(updated.contains("[workspace-sidebar.project-colors]"))
+        XCTAssertTrue(updated.contains("\"project-1\" = \"#F87171\""))
     }
 
     func testUpdateWindowTabLabelConfigAddsReplacesEscapesAndRemoves() {
@@ -185,7 +203,8 @@ extension ConfigTest {
             action: .closeWindows,
         )
 
-        XCTAssertTrue(updated.contains("project-deletion-action = 'close-windows' # legacy"))
+        XCTAssertTrue(updated.contains("folder-deletion-action = 'close-windows' # legacy"))
+        XCTAssertFalse(updated.contains("project-deletion-action"))
         XCTAssertFalse(updated.contains("move-windows-to-fallback"))
     }
 

@@ -1,6 +1,11 @@
 import AppKit
 import Common
 
+enum NewTilingWindowPlacement: Equatable {
+    case targetWorkspace
+    case freshTabWhenTargetOccupied
+}
+
 @MainActor
 func targetWorkspaceForNewWindow(
     isStartup: Bool,
@@ -8,19 +13,70 @@ func targetWorkspaceForNewWindow(
     focusedWorkspace: Workspace,
 ) -> Workspace {
     if let windowRect {
-        return windowRect.center.monitorApproximation.activeWorkspace
+        return activeOrTransientBlankTab(for: windowRect.center.monitorApproximation)
     }
-    return isStartup ? mainMonitor.activeWorkspace : focusedWorkspace
+    return activeOrTransientBlankTab(for: isStartup ? mainMonitor : focusedWorkspace.workspaceMonitor)
 }
 
 @MainActor
-func unbindAndGetBindingDataForNewWindow(_ windowId: UInt32, _ macApp: MacApp, _ workspace: Workspace, window: Window?) async throws -> BindingData {
+func activeOrTransientBlankTab(for monitor: Monitor) -> Workspace {
+    if let workspace = winMuxWorkspaceState.visibleWorkspace(for: monitor) {
+        return workspace
+    }
+    let workspace = getOrCreateMonitorViewportFallbackWorkspace(
+        projectId: workspaceProjectDefaultId,
+        for: monitor
+    )
+    _ = monitor.setActiveWorkspace(workspace)
+    return workspace
+}
+
+@MainActor
+func workspaceForNewTilingWindow(
+    defaultWorkspace workspace: Workspace,
+    placement: NewTilingWindowPlacement,
+) -> Workspace {
+    guard placement == .freshTabWhenTargetOccupied else { return workspace }
+    guard !workspace.isEffectivelyEmpty else { return workspace }
+
+    let projectId = projectsAreEnabled() ? workspace.projectId : workspaceProjectDefaultId
+    let anchor = workspace.projectId == projectId ? workspace : nil
+    let freshWorkspace = createFreshAdjacentBlankWorkspace(
+        projectId: projectId,
+        monitor: workspace.workspaceMonitor,
+        after: anchor
+    )
+    guard freshWorkspace.workspaceMonitor.setActiveWorkspace(freshWorkspace) else {
+        return workspace
+    }
+    return freshWorkspace
+}
+
+@MainActor
+func unbindAndGetBindingDataForNewWindow(
+    _ windowId: UInt32,
+    _ macApp: MacApp,
+    _ workspace: Workspace,
+    window: Window?,
+    normalWindowPlacement: NewTilingWindowPlacement = defaultNewTilingWindowPlacement(),
+) async throws -> BindingData {
     let windowLevel = getWindowLevel(for: windowId)
     return switch try await macApp.getAxUiElementWindowType(windowId, windowLevel) {
         case .popup: BindingData(parent: macosPopupWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
         case .dialog: BindingData(parent: workspace, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
-        case .window: bindingDataForNewTilingWindow(workspace, window: window)
+        case .window:
+            bindingDataForNewTilingWindow(
+                workspaceForNewTilingWindow(
+                    defaultWorkspace: workspace,
+                    placement: normalWindowPlacement
+                ),
+                window: window
+            )
     }
+}
+
+func defaultNewTilingWindowPlacement() -> NewTilingWindowPlacement {
+    .freshTabWhenTargetOccupied
 }
 
 @MainActor

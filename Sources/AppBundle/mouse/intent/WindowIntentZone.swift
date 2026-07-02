@@ -33,6 +33,10 @@ enum WindowIntentZoneBuilder {
         ].filter { $0.frame.width > 0 && $0.frame.height > 0 }
     }
 
+    static func splitZones(in frame: Rect) -> [WindowIntentZone] {
+        zones(in: frame).filter { $0.zone.stackSplitPosition != nil }
+    }
+
     static func zone(at point: CGPoint, in frame: Rect) -> WindowDropZone? {
         guard frame.contains(point) else { return nil }
         return zones(in: frame).reversed().first { $0.frame.contains(point) }?.zone

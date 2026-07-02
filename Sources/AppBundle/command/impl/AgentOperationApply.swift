@@ -77,7 +77,7 @@ extension AgentOperation {
         context _: inout AgentApplyContext,
     ) {
         // Validation rejects this legacy operation. Keep apply inert too, so
-        // bypassed validation cannot recreate old top-tab groups.
+        // Bypassed validation cannot recreate old top folders.
     }
 
     @MainActor
@@ -88,13 +88,13 @@ extension AgentOperation {
         context _: AgentApplyContext,
     ) {
         // Validation rejects this legacy operation. Keep apply inert too, so
-        // bypassed validation cannot recreate old top-tab groups.
+        // Bypassed validation cannot recreate old top folders.
     }
 
     @MainActor
     private func applySetActiveTab(_ _: String, windowId _: UInt32, context _: AgentApplyContext) {
         // Sidebar Tabs are selected by focusing their backing workspace.
-        // Legacy top-tab activation is intentionally disabled.
+        // Legacy top folder activation is intentionally disabled.
     }
 
     @MainActor

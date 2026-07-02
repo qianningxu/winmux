@@ -57,20 +57,44 @@ public struct ClientRequest: Codable, Sendable, ConvenienceCopyable, Equatable {
         case stdin
         case windowId
         case workspace
+        case tab
     }
 
     public init(from decoder: any Decoder) throws {
         let data = try ClientRequestData.init(from: decoder)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let tab = try container.decodeIfPresent(String?.self, forKey: .tab)
         var raw = ClientRequest(
             args: data.args,
             stdin: data.stdin,
             windowId: data.windowId.flatMap { $0 },
-            workspace: data.workspace.flatMap { $0 },
+            workspace: data.workspace.flatMap { $0 } ?? tab.flatMap { $0 },
         )
-        let container = try decoder.container(keyedBy: CodingKeys.self)
         if !container.contains(.windowId) { raw.windowId = nil }
-        if !container.contains(.workspace) { raw.workspace = nil }
+        if !container.contains(.workspace), !container.contains(.tab) { raw.workspace = nil }
         self = raw
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(args, forKey: .args)
+        try container.encode(stdin, forKey: .stdin)
+        switch windowId {
+            case .none:
+                break
+            case .some(.none):
+                try container.encodeNil(forKey: .windowId)
+            case .some(.some(let value)):
+                try container.encode(value, forKey: .windowId)
+        }
+        switch workspace {
+            case .none:
+                break
+            case .some(.none):
+                try container.encodeNil(forKey: .workspace)
+            case .some(.some(let value)):
+                try container.encode(value, forKey: .workspace)
+        }
     }
 }
 

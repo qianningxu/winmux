@@ -118,9 +118,9 @@ private func newConnection(_ connection: NWConnection) async { // todo add exit 
                     exitCode: 1,
                     stderr: "Fail to await main thread. \(_answer.failureOrNil?.localizedDescription ?? "")",
                     serverVersionAndHash: serverVersionAndHash,
-                )
+            )
             if request.windowId == nil || request.workspace == nil {
-                answer.stderr += "\n\nWinMux client has sent incomplete JSON request. 'windowId' or/and 'workspace' fields are missing. Please forward WINMUX_WINDOW_ID and WINMUX_WORKSPACE to these JSON fields. If the appropriate environment variables are empty, pass explicit 'null' in the JSON."
+                answer.stderr += "\n\nWinMux client has sent incomplete JSON request. 'windowId' or/and 'tab' (legacy 'workspace') fields are missing. Please forward WINMUX_WINDOW_ID and WINMUX_TAB (or legacy WINMUX_WORKSPACE) to these JSON fields. If the appropriate environment variables are empty, pass explicit 'null' in the JSON."
             }
             await answerToClient(answer)
             continue

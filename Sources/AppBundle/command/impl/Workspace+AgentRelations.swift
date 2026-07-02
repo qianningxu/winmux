@@ -40,6 +40,7 @@ extension Workspace {
         }
     }
 
+    @MainActor
     private func setAgentPaneRelation(
         _ paneId: String,
         _ keyPath: WritableKeyPath<AgentPaneRelation, String?>,
@@ -47,7 +48,11 @@ extension Workspace {
         byPane: inout [String: AgentPaneRelation],
     ) {
         guard let value else { return }
-        var item = byPane[paneId] ?? AgentPaneRelation(workspace: name, paneId: paneId)
+        var item = byPane[paneId] ?? AgentPaneRelation(
+            tab: workspaceDisplayName(name),
+            workspace: name,
+            paneId: paneId
+        )
         item[keyPath: keyPath] = value
         byPane[paneId] = item
     }

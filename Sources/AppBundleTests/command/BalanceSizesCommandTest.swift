@@ -6,6 +6,11 @@ import XCTest
 final class BalanceSizesCommandTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
 
+    func testParseTabAlias() {
+        testParseCommandSucc("balance-sizes --tab 1", BalanceSizesCmdArgs(rawArgs: ["--tab", "1"]).copy(\.workspaceName, .parse("1").getOrDie()))
+        testParseCommandSucc("balance-sizes --workspace 1", BalanceSizesCmdArgs(rawArgs: ["--workspace", "1"]).copy(\.workspaceName, .parse("1").getOrDie()))
+    }
+
     func testBalanceSizesCommand() async throws {
         let workspace = Workspace.get(byName: name).apply { wsp in
             wsp.rootTilingContainer.apply {

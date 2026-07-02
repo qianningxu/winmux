@@ -83,6 +83,7 @@ private func dumpWindowDebugInfo(_ window: Window) async throws -> String {
     let windowLevelJson = windowLevel?.toJson() ?? .null
     result["WinMux.windowLevel"] = windowLevelJson
     result["WinMux.axWindowId"] = .uint32(window.windowId)
+    result["WinMux.tab"] = .stringOrNull(winMuxDebugTabName(for: window))
     result["WinMux.workspace"] = .stringOrNull(window.nodeWorkspace?.name)
     result["WinMux.treeNodeParent"] = .string(String(describing: window.parent))
     result["WinMux.macOS.version"] = .string(ProcessInfo().operatingSystemVersionString) // because built-in apps might behave differently depending on the OS version
@@ -108,6 +109,11 @@ private func dumpWindowDebugInfo(_ window: Window) async throws -> String {
 
     return JSONEncoder.winMuxDefault.encodeToString(result).prettyDescription
         .prefixLines(with: "\(window.app.rawAppBundleId ?? "nil-bundle-id").\(window.windowId) ||| ")
+}
+
+@MainActor
+func winMuxDebugTabName(for window: Window) -> String? {
+    window.nodeWorkspace.map { workspaceDisplayName($0.name) }
 }
 
 @MainActor

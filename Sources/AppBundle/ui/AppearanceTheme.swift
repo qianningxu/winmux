@@ -80,6 +80,22 @@ struct WinMuxOverlayPalette {
         colorToken(.gray100)
     }
 
+    var gray200BaseNSColor: NSColor {
+        colorToken(.gray200)
+    }
+
+    var gray300BaseNSColor: NSColor {
+        colorToken(.gray300)
+    }
+
+    var gray500BaseNSColor: NSColor {
+        colorToken(.gray500)
+    }
+
+    var gray700BaseNSColor: NSColor {
+        colorToken(.gray700)
+    }
+
     var borderBaseNSColor: NSColor {
         colorToken(.border)
     }
@@ -134,6 +150,38 @@ struct WinMuxOverlayPalette {
 
     func gray100(_ opacity: Double = 1) -> Color {
         Color(nsColor: gray100NSColor(opacity: CGFloat(opacity)))
+    }
+
+    func gray200NSColor(opacity: CGFloat = 1) -> NSColor {
+        gray200BaseNSColor.withAlphaComponent(opacity)
+    }
+
+    func gray200(_ opacity: Double = 1) -> Color {
+        Color(nsColor: gray200NSColor(opacity: CGFloat(opacity)))
+    }
+
+    func gray300NSColor(opacity: CGFloat = 1) -> NSColor {
+        gray300BaseNSColor.withAlphaComponent(opacity)
+    }
+
+    func gray300(_ opacity: Double = 1) -> Color {
+        Color(nsColor: gray300NSColor(opacity: CGFloat(opacity)))
+    }
+
+    func gray500NSColor(opacity: CGFloat = 1) -> NSColor {
+        gray500BaseNSColor.withAlphaComponent(opacity)
+    }
+
+    func gray500(_ opacity: Double = 1) -> Color {
+        Color(nsColor: gray500NSColor(opacity: CGFloat(opacity)))
+    }
+
+    func gray700NSColor(opacity: CGFloat = 1) -> NSColor {
+        gray700BaseNSColor.withAlphaComponent(opacity)
+    }
+
+    func gray700(_ opacity: Double = 1) -> Color {
+        Color(nsColor: gray700NSColor(opacity: CGFloat(opacity)))
     }
 
     func selectedSurfaceNSColor(opacity: CGFloat = 1) -> NSColor {
@@ -198,6 +246,54 @@ struct WinMuxOverlayPalette {
 }
 
 extension WinMuxOverlayPalette {
+    var dropIntentBackdropNSColor: NSColor {
+        gray100BaseNSColor
+    }
+
+    func dropIntentBackdrop(_ opacity: Double = 1) -> Color {
+        Color(nsColor: dropIntentBackdropNSColor.withAlphaComponent(CGFloat(opacity)))
+    }
+
+    var dropIntentInactivePaneNSColor: NSColor {
+        gray300BaseNSColor
+    }
+
+    func dropIntentInactivePane(_ opacity: Double = 1) -> Color {
+        Color(nsColor: dropIntentInactivePaneNSColor.withAlphaComponent(CGFloat(opacity)))
+    }
+
+    var dropIntentLandingPaneNSColor: NSColor {
+        dropIntentSplitPlacementPaneNSColor
+    }
+
+    func dropIntentLandingPane(_ opacity: Double = 1) -> Color {
+        Color(nsColor: dropIntentLandingPaneNSColor.withAlphaComponent(CGFloat(opacity)))
+    }
+
+    var dropIntentSplitPlacementPaneNSColor: NSColor {
+        gray500BaseNSColor
+    }
+
+    func dropIntentSplitPlacementPane(_ opacity: Double = 1) -> Color {
+        Color(nsColor: dropIntentSplitPlacementPaneNSColor.withAlphaComponent(CGFloat(opacity)))
+    }
+
+    var dropIntentDisplacedPaneNSColor: NSColor {
+        dropIntentSplitExistingPaneNSColor
+    }
+
+    func dropIntentDisplacedPane(_ opacity: Double = 1) -> Color {
+        Color(nsColor: dropIntentDisplacedPaneNSColor.withAlphaComponent(CGFloat(opacity)))
+    }
+
+    var dropIntentSplitExistingPaneNSColor: NSColor {
+        gray300BaseNSColor
+    }
+
+    func dropIntentSplitExistingPane(_ opacity: Double = 1) -> Color {
+        Color(nsColor: dropIntentSplitExistingPaneNSColor.withAlphaComponent(CGFloat(opacity)))
+    }
+
     var canvasBackgroundNSColor: NSColor {
         colorToken(.canvasBackground)
     }
@@ -240,6 +336,10 @@ private enum GeistOverlayColorToken {
     case foreground
     case card
     case gray100
+    case gray200
+    case gray300
+    case gray500
+    case gray700
     case muted
     case mutedForeground
     case border
@@ -258,6 +358,14 @@ private enum GeistOverlayColorToken {
                 return GeistCSSColor.background100.nsColor(theme: theme)
             case .gray100:
                 return GeistCSSColor.gray100.nsColor(theme: theme)
+            case .gray200:
+                return GeistCSSColor.gray200.nsColor(theme: theme)
+            case .gray300:
+                return GeistCSSColor.gray300.nsColor(theme: theme)
+            case .gray500:
+                return GeistCSSColor.gray500.nsColor(theme: theme)
+            case .gray700:
+                return GeistCSSColor.gray700.nsColor(theme: theme)
             case .muted:
                 return GeistCSSColor.gray100.nsColor(theme: theme)
             case .mutedForeground:
@@ -291,6 +399,7 @@ private enum GeistCSSColor {
     case gray200
     case gray300
     case gray400
+    case gray500
     case gray700
     case gray900
     case gray1000
@@ -315,6 +424,8 @@ private enum GeistCSSColor {
                 return theme == .dark ? Self.hex(0x292929) : Self.gray(0.90)
             case .gray400:
                 return theme == .dark ? Self.hex(0x333333) : Self.gray(0.92)
+            case .gray500:
+                return theme == .dark ? Self.hex(0x454545) : Self.gray(0.79)
             case .gray700:
                 return theme == .dark ? Self.hex(0x8F8F8F) : Self.gray(0.56)
             case .gray900:

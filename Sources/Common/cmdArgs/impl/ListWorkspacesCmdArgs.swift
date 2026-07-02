@@ -36,7 +36,7 @@ public struct ListWorkspacesCmdArgs: CmdArgs, JsonFormattableListCmdArgs {
     fileprivate var focused: Bool = false // Alias
 
     public var filteringOptions = FilteringOptions()
-    public var _format: [StringInterToken] = [.interVar("tab")]
+    public var _format: [StringInterToken] = []
     public var outputOnlyCount: Bool = false
     public var json: Bool = false
 
@@ -49,6 +49,10 @@ public struct ListWorkspacesCmdArgs: CmdArgs, JsonFormattableListCmdArgs {
 
 extension ListWorkspacesCmdArgs {
     public var format: [StringInterToken] { _format.isEmpty ? [.interVar("tab")] : _format }
+
+    public var jsonFormat: [StringInterToken] {
+        _format.isEmpty ? [.interVar("tab"), .literal(" "), .interVar("workspace")] : _format
+    }
 }
 
 func parseListWorkspacesCmdArgs(_ args: StrArrSlice) -> ParsedCmd<ListWorkspacesCmdArgs> {

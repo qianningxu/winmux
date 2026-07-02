@@ -13,15 +13,7 @@ extension WindowTabStripPanelController {
     }
 
     func refreshInteractiveChrome(strips: [WindowTabStripViewModel], activeIds: Set<ObjectIdentifier>) {
-        for strip in strips {
-            guard !hiddenPassiveTabGroupChromeIds.contains(strip.id) else {
-                orderOutPanels(id: strip.id)
-                continue
-            }
-            visualPanel(for: strip.id).update(with: strip)
-            stripPanel(for: strip.id).update(with: strip)
-        }
-        removeStalePanels(activeIds: activeIds)
+        hideAll()
     }
 
     func refreshSuppressedChrome(
@@ -29,23 +21,10 @@ extension WindowTabStripPanelController {
         strips: [WindowTabStripViewModel],
         activeIds: Set<ObjectIdentifier>,
     ) {
-        switch mode {
-            case .frameOnly:
-                refreshFrameOnlyChrome(strips: strips, activeIds: activeIds)
-            case .hidden:
-                refreshHiddenChrome(activeIds: activeIds)
-        }
+        hideAll()
     }
 
     func refreshFrameOnlyChrome(strips: [WindowTabStripViewModel], activeIds: Set<ObjectIdentifier>) {
-        for strip in strips {
-            guard !hiddenPassiveTabGroupChromeIds.contains(strip.id) else {
-                orderOutPanels(id: strip.id)
-                continue
-            }
-            visualPanel(for: strip.id).update(with: strip)
-            orderOutIfVisible(stripPanels[strip.id])
-        }
-        removeStalePanels(activeIds: activeIds)
+        hideAll()
     }
 }

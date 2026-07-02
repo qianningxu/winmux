@@ -117,6 +117,9 @@ extension WorkspaceSidebarView {
         .onPreferenceChange(WorkspaceSidebarWorkspaceReorderFramePreferenceKey.self) { frames in
             workspaceReorderFrames = frames
         }
+        .onPreferenceChange(WorkspaceSidebarFolderReorderFramePreferenceKey.self) { frames in
+            folderReorderFrames = frames
+        }
         .overlay {
             sidebarSwipeCaptureOverlay(expansionProgress: expansionProgress)
         }

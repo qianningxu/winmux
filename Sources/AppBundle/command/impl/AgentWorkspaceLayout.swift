@@ -17,7 +17,7 @@ struct AgentWorkspaceLayout: Codable {
     @MainActor
     func validate(appendTo errors: inout [String]) async throws {
         if layout.containsTopTabGroupNode {
-            errors.append("setWorkspaceLayout '\(name)': tabGroup layout nodes are disabled. Tabs are now managed in the sidebar; use split/window nodes instead.")
+            errors.append("setTabLayout '\(name)': legacy folder layout nodes are disabled. Tabs and folders are now managed in the sidebar; use split/window nodes instead.")
         }
         var orderedWindowIds: [UInt32] = []
         layout.collectWindowIds(result: &orderedWindowIds)
@@ -27,13 +27,13 @@ struct AgentWorkspaceLayout: Codable {
 
         let windowIds = Set(orderedWindowIds)
         for windowId in duplicateAgentWindowIds(in: orderedWindowIds) {
-            errors.append("setWorkspaceLayout '\(name)': window \(windowId) appears more than once")
+            errors.append("setTabLayout '\(name)': window \(windowId) appears more than once")
         }
         for windowId in windowIds where Window.get(byId: windowId) == nil {
-            errors.append("setWorkspaceLayout '\(name)': window \(windowId) does not exist")
+            errors.append("setTabLayout '\(name)': window \(windowId) does not exist")
         }
         for ref in floating ?? [] where ref.resolveNode() == nil {
-            errors.append("setWorkspaceLayout '\(name)': floating pane does not exist")
+            errors.append("setTabLayout '\(name)': floating pane does not exist")
         }
     }
 

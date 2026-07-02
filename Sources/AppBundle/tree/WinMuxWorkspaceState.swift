@@ -75,7 +75,7 @@ struct WinMuxWorkspaceState {
             nextProjectCounter += 1
         }
         defer { nextProjectCounter += 1 }
-        return (WorkspaceProjectId("project-\(nextProjectCounter)"), "Project \(nextProjectCounter)")
+        return (WorkspaceProjectId("project-\(nextProjectCounter)"), "Folder \(nextProjectCounter)")
     }
 
     func workspace(named name: String) -> Workspace? {
@@ -115,7 +115,7 @@ struct WinMuxWorkspaceState {
     mutating func ensureProjectExists(_ projectId: WorkspaceProjectId) {
         if projectsById[projectId] == nil {
             let order = nextProjectOrder()
-            registerProject(WorkspaceProject(id: projectId, name: "Project", order: order))
+            registerProject(WorkspaceProject(id: projectId, name: "Folder", order: order))
         }
     }
 
@@ -194,6 +194,30 @@ struct WinMuxWorkspaceState {
         project.workspaceOrder = reordered
         projectsById[projectId] = project
         return true
+    }
+
+    mutating func reorderWorkspaces(_ workspaceIds: [WorkspaceId], inProject projectId: WorkspaceProjectId, before anchorWorkspaceId: WorkspaceId?) {
+        pruneProjectWorkspaceIndexes()
+        guard var project = projectsById[projectId] else { return }
+        var orderedIds: [WorkspaceId] = []
+        var seen: Set<WorkspaceId> = []
+        for workspaceId in workspaceIds {
+            guard let workspace = workspaceById[workspaceId],
+                  workspace.projectId == projectId,
+                  !workspace.isArchived,
+                  seen.insert(workspaceId).inserted
+            else { continue }
+            orderedIds.append(workspaceId)
+        }
+        guard !orderedIds.isEmpty else { return }
+
+        var remainingOrder = project.workspaceOrder.filter { !seen.contains($0) }
+        let insertionIndex = anchorWorkspaceId
+            .flatMap { remainingOrder.firstIndex(of: $0) }
+            ?? remainingOrder.count
+        remainingOrder.insert(contentsOf: orderedIds, at: insertionIndex)
+        project.workspaceOrder = remainingOrder
+        projectsById[projectId] = project
     }
 
     mutating func pruneProjectWorkspaceIndexes() {

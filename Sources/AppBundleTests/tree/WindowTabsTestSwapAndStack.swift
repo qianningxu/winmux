@@ -4,7 +4,7 @@ import CoreGraphics
 import XCTest
 
 @MainActor extension WindowTabsTest {
-    func testSameTabGroupTabStripReentryPrioritizesTabTakeBackIntent() {
+    func testSameTabGroupTabStripReentryIntentIsDisabledForSidebarTabs() {
         setUpWorkspacesForTests()
         clearPendingWindowDragIntent()
         config.windowTabs.enabled = true
@@ -20,25 +20,14 @@ import XCTest
 
         let mouseLocation = tabGroup.windowTabDropInteractionRect.orDie().center
 
-        XCTAssertTrue(updatePendingWindowDragIntent(
+        XCTAssertFalse(updatePendingWindowDragIntent(
             sourceWindow: source,
             mouseLocation: mouseLocation,
             subject: .window,
             detachOrigin: .tabStrip,
         ))
 
-        let pendingIntent = debugPendingWindowDragIntentSummary().orDie()
-        let expectedPreviewRect = tabGroup.windowTabDropZoneRect.orDie()
-        let expectedInteractionRect = tabGroup.windowTabDropInteractionRect.orDie()
-        XCTAssertEqual(pendingIntent.kind, .reorderTab(windowId: source.windowId, targetIndex: 0))
-        XCTAssertEqual(pendingIntent.previewRect.topLeftX, expectedPreviewRect.topLeftX)
-        XCTAssertEqual(pendingIntent.previewRect.topLeftY, expectedPreviewRect.topLeftY)
-        XCTAssertEqual(pendingIntent.previewRect.width, expectedPreviewRect.width)
-        XCTAssertEqual(pendingIntent.previewRect.height, expectedPreviewRect.height)
-        XCTAssertEqual(pendingIntent.interactionRect.topLeftX, expectedInteractionRect.topLeftX)
-        XCTAssertEqual(pendingIntent.interactionRect.topLeftY, expectedInteractionRect.topLeftY)
-        XCTAssertEqual(pendingIntent.interactionRect.width, expectedInteractionRect.width)
-        XCTAssertEqual(pendingIntent.interactionRect.height, expectedInteractionRect.height)
+        XCTAssertNil(debugPendingWindowDragIntentSummary())
     }
 
     func testTabStackOntoHiddenTabbedWindowUsesGroupContentRect() {

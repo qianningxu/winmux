@@ -268,7 +268,7 @@ extension Workspace {
 }
 
 @MainActor private func onWorkspaceChanged(_ oldWorkspace: String, _ newWorkspace: String) {
-    broadcastEvent(.workspaceChanged(
+    broadcastEvent(.tabChanged(
         workspace: newWorkspace,
         prevWorkspace: oldWorkspace,
     ))
@@ -277,6 +277,9 @@ extension Workspace {
         process.executableURL = URL(filePath: exec)
         process.arguments = Array(config.execOnWorkspaceChange.dropFirst())
         var environment = config.execConfig.envVariables
+        environment[WINMUX_FOCUSED_TAB] = newWorkspace
+        environment[WINMUX_PREV_TAB] = oldWorkspace
+        environment[WINMUX_TAB] = newWorkspace
         environment[WINMUX_FOCUSED_WORKSPACE] = newWorkspace
         environment[WINMUX_PREV_WORKSPACE] = oldWorkspace
         environment[WINMUX_WORKSPACE] = newWorkspace

@@ -5,7 +5,7 @@ func buildWorkspaceSidebarWorkspaceViewModels(
     availableMonitors: [Monitor],
 ) async -> [WorkspaceSidebarWorkspaceViewModel] {
     var workspaces: [WorkspaceSidebarWorkspaceViewModel] = []
-    for workspace in orderedWorkspacesForPresentation() {
+    for workspace in userFacingWorkspaces(orderedWorkspacesForPresentation(), focusedWorkspace: currentFocus.workspace) {
         workspaces.append(await makeWorkspaceSidebarWorkspaceViewModel(
             workspace,
             currentFocus: currentFocus,
@@ -66,9 +66,16 @@ private func makeWorkspaceSidebarTabSummaryViewModel(
     let automaticTitle = windowTitle ?? appName ?? workspaceDisplayName(workspace.name)
     let manualTitle = sidebarLabel.trimmingCharacters(in: .whitespacesAndNewlines).takeIf { !$0.isEmpty }
     let title = manualTitle ?? automaticTitle
-    let subtitle = manualTitle == nil
+    let automaticSubtitle = manualTitle == nil
         ? nil
         : automaticTitle.takeIf { $0 != title && $0 != appName }
+    let windowCountSubtitle = windows.count > 1
+        ? "\(windows.count) windows"
+        : nil
+    let subtitle = [automaticSubtitle, windowCountSubtitle]
+        .compactMap { $0 }
+        .joined(separator: " - ")
+        .takeIf { !$0.isEmpty }
     return WorkspaceSidebarTabSummaryViewModel(
         title: title,
         subtitle: subtitle,
@@ -83,11 +90,16 @@ func visibleWorkspaceNamesForSidebar(
     workspaces: [WorkspaceSidebarWorkspaceViewModel],
     selectedMonitorScopeId: String,
     focusedMonitorScopeId: String,
+    targetMonitorScopeId: String? = nil,
 ) -> Set<String> {
-    Set(workspaces.filter {
+    let resolvedScopeId = workspaceSidebarTabListScopeId(
+        selectedScopeId: selectedMonitorScopeId,
+        targetMonitorScopeId: targetMonitorScopeId,
+    )
+    return Set(workspaces.filter {
         workspaceSidebarWorkspaceMatchesScope(
             $0,
-            selectedScopeId: selectedMonitorScopeId,
+            selectedScopeId: resolvedScopeId,
             focusedMonitorScopeId: focusedMonitorScopeId,
         )
     }.map(\.name))

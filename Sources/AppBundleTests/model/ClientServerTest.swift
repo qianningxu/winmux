@@ -39,6 +39,22 @@ final class ClientServerTest: XCTestCase {
         assertSucc(ClientRequest.decodeJson(data), expected)
     }
 
+    func testClientRequestAcceptsTabAliasForWorkspace_decoding() {
+        let data = """
+            { "args": ["foo", "bar"], "stdin": "stdin", "windowId": 1, "tab": "foo" }
+            """.data(using: .utf8)!
+        let expected = ClientRequest(args: ["foo", "bar"], stdin: "stdin", windowId: 1, workspace: "foo")
+        assertSucc(ClientRequest.decodeJson(data), expected)
+    }
+
+    func testClientRequestAcceptsExplicitNullTabAlias_decoding() {
+        let data = """
+            { "args": ["foo", "bar"], "stdin": "stdin", "windowId": null, "tab": null }
+            """.data(using: .utf8)!
+        let expected = ClientRequest(args: ["foo", "bar"], stdin: "stdin", windowId: nil, workspace: nil)
+        assertSucc(ClientRequest.decodeJson(data), expected)
+    }
+
     func testClientRequestJsonV9999_decoding() {
         let data = """
             { "args": ["foo", "bar"], "stdin": "stdin", "yet another future field": 1 }
@@ -64,24 +80,25 @@ final class ClientServerTest: XCTestCase {
         }
     }
 
+    @MainActor
     func testServerEventEncoding() throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         let testData: [(ServerEvent, String)] = [
             (.focusChanged(windowId: 123, workspace: "1"),
-             #"{"_event":"focus-changed","windowId":123,"workspace":"1"}"#),
+             #"{"_event":"focus-changed","tab":"1","windowId":123,"workspace":"1"}"#),
 
             (.focusedMonitorChanged(workspace: "2", monitorId_oneBased: 1),
-             #"{"_event":"focused-monitor-changed","monitorId":1,"workspace":"2"}"#),
+             #"{"_event":"focused-monitor-changed","monitorId":1,"tab":"2","workspace":"2"}"#),
 
-            (.workspaceChanged(workspace: "2", prevWorkspace: "1"),
-             #"{"_event":"focused-workspace-changed","prevWorkspace":"1","workspace":"2"}"#),
+            (.tabChanged(workspace: "2", prevWorkspace: "1"),
+             #"{"_event":"focused-tab-changed","prevTab":"1","prevWorkspace":"1","tab":"2","workspace":"2"}"#),
 
             (.modeChanged(mode: "resize"),
              #"{"_event":"mode-changed","mode":"resize"}"#),
 
             (.windowDetected(windowId: 456, workspace: "1", appBundleId: "com.example", appName: "Example"),
-             #"{"_event":"window-detected","appBundleId":"com.example","appName":"Example","windowId":456,"workspace":"1"}"#),
+             #"{"_event":"window-detected","appBundleId":"com.example","appName":"Example","tab":"1","windowId":456,"workspace":"1"}"#),
 
             (.bindingTriggered(mode: "main", binding: "alt-h"),
              #"{"_event":"binding-triggered","binding":"alt-h","mode":"main"}"#),
@@ -97,7 +114,8 @@ final class ClientServerTest: XCTestCase {
         let testData: [(String, ServerEventType)] = [
             (#"{"_event":"focus-changed","windowId":123,"workspace":"1","monitorId":1}"#, .focusChanged),
             (#"{"_event":"focused-monitor-changed","workspace":"2","monitorId":1}"#, .focusedMonitorChanged),
-            (#"{"_event":"focused-workspace-changed","workspace":"2","prevWorkspace":"1"}"#, .workspaceChanged),
+            (#"{"_event":"focused-tab-changed","tab":"Tab 2","workspace":"2","prevTab":"Tab 1","prevWorkspace":"1"}"#, .tabChanged),
+            (#"{"_event":"focused-workspace-changed","workspace":"2","prevWorkspace":"1"}"#, .tabChanged),
             (#"{"_event":"mode-changed","mode":"resize"}"#, .modeChanged),
             (#"{"_event":"window-detected","windowId":456}"#, .windowDetected),
             (#"{"_event":"binding-triggered","mode":"main","binding":"alt-h"}"#, .bindingTriggered),

@@ -3,6 +3,26 @@ import AppKit
 import XCTest
 
 extension WorkspaceSidebarDragTest {
+    func testAppInfoPlistExportsSidebarDragPayloadType() throws {
+        let infoPlist = projectRoot.appending(component: "resources/WinMuxInfo.plist")
+        let data = try Data(contentsOf: infoPlist)
+        let plist = try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+            "Expected WinMuxInfo.plist to parse as a dictionary",
+        )
+        let declarations = try XCTUnwrap(
+            plist["UTExportedTypeDeclarations"] as? [[String: Any]],
+            "WinMuxInfo.plist must export the custom sidebar drag payload type",
+        )
+
+        let declaration = declarations.first {
+            ($0["UTTypeIdentifier"] as? String) == workspaceSidebarDragPayloadType.identifier
+        }
+        XCTAssertNotNil(declaration)
+        XCTAssertEqual(declaration?["UTTypeDescription"] as? String, "WinMux Sidebar Drag Payload")
+        XCTAssertEqual(declaration?["UTTypeConformsTo"] as? [String], ["public.data"])
+    }
+
     func testSameWorkspaceSidebarDropTargetIsNotActionable() {
         XCTAssertFalse(
             isActionableSidebarWorkspaceDropTarget(
@@ -30,6 +50,15 @@ extension WorkspaceSidebarDragTest {
         )
     }
 
+    func testFolderSidebarDropTargetIsActionable() {
+        XCTAssertTrue(
+            isActionableSidebarWorkspaceDropTarget(
+                sourceWorkspaceName: "1",
+                targetKind: .folder("project-1", monitorScopeId: workspaceSidebarDefaultScopeId),
+            ),
+        )
+    }
+
     func testBlankSidebarAreaIsNotActionable() {
         XCTAssertFalse(
             isActionableSidebarWorkspaceDropTarget(
@@ -45,6 +74,29 @@ extension WorkspaceSidebarDragTest {
                 sourceWorkspaceName: "1",
                 targetKind: .monitor("monitor:1920.0,0.0"),
             ),
+        )
+    }
+
+    @MainActor
+    func testSidebarDropTargetPrefersSpecificChildOverFolderBlock() {
+        let targets = [
+            WorkspaceSidebarDropTarget(
+                kind: .folder("project-1", monitorScopeId: workspaceSidebarDefaultScopeId),
+                rect: Rect(topLeftX: 0, topLeftY: 0, width: 220, height: 180)
+            ),
+            WorkspaceSidebarDropTarget(
+                kind: .workspace("child"),
+                rect: Rect(topLeftX: 20, topLeftY: 60, width: 180, height: 32)
+            ),
+        ]
+
+        XCTAssertEqual(
+            workspaceSidebarDropTarget(
+                in: targets,
+                panelVisibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 240, height: 400),
+                at: CGPoint(x: 40, y: 76)
+            )?.kind,
+            .workspace("child")
         )
     }
 

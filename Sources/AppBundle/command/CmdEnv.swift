@@ -7,7 +7,9 @@ struct CmdEnv: ConvenienceCopyable {
     static let defaultEnv: CmdEnv = .init()
     func withFocus(_ focus: LiveFocus) -> CmdEnv {
         switch focus.asLeaf {
-            case .window(let wd): .defaultEnv.copy(\.windowId, wd.windowId)
+            case .window(let wd): .defaultEnv
+                .copy(\.windowId, wd.windowId)
+                .copy(\.workspaceName, focus.workspace.name)
             case .emptyWorkspace(let ws): .defaultEnv.copy(\.workspaceName, ws.name)
         }
     }
@@ -18,6 +20,7 @@ struct CmdEnv: ConvenienceCopyable {
             result[WINMUX_WINDOW_ID] = windowId.description
         }
         if let workspaceName {
+            result[WINMUX_TAB] = workspaceName.description
             result[WINMUX_WORKSPACE] = workspaceName.description
         }
         return result

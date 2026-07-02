@@ -11,10 +11,10 @@ struct MoveNodeToProjectCommand: Command {
         guard let target = args.resolveTargetOrReportError(env, io) else { return false }
         guard let window = target.windowOrNil else { return io.err(noWindowIsFocused) }
         guard let sourceWorkspace = window.nodeWorkspace else {
-            return io.err("Window \(window.windowId) doesn't belong to any workspace")
+            return io.err("Window \(window.windowId) doesn't belong to any Tab")
         }
         guard let project = resolveProjectTarget(args.target.val, currentProjectId: sourceWorkspace.projectId, wrapAround: args.wrapAround) else {
-            return io.err("Can't resolve project target")
+            return io.err("Can't resolve folder target")
         }
         let monitor = window.nodeMonitor ?? sourceWorkspace.workspaceMonitor
         let targetWorkspace = firstWorkspaceForProjectMove(projectId: project.id, monitor: monitor)

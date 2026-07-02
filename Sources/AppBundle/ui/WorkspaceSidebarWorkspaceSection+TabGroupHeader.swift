@@ -10,24 +10,27 @@ extension WorkspaceSidebarWorkspaceSection {
                 return
             }
             activeInUseOverrideWorkspaceName = nil
+            onBeginWorkspaceActivation(workspace.name)
             actions.send(.selectWindow(group.representativeWindowId))
         } label: {
             WorkspaceSidebarWindowRow(
                 title: group.title.isEmpty ? "Composed Windows" : group.title,
-                badge: group.windowCount > 1 ? "\(group.windowCount)" : nil,
+                badge: nil,
                 isFocused: group.isFocused,
                 suppressFocusedStyle: isSearchFiltering,
-                rowHeight: rowHeight,
+                rowHeight: workspaceSidebarNestedTabRowHeight,
                 isHovered: hoveredTabGroupId == group.representativeWindowId,
                 style: .tabGroupHeader,
                 appBundleIds: group.tabs.map(\.appBundleId),
                 appBundlePaths: group.tabs.map(\.appBundlePath),
                 reservesCloseButtonSpace: false,
+                leadingContentInset: 0,
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.leading, workspaceSidebarTabGroupChildLeadingIndent)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .modifier(WorkspaceSidebarOptionalDragModifier(

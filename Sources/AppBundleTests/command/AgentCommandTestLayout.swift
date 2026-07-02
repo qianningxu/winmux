@@ -39,7 +39,7 @@ extension AgentCommandTest {
         let result = try await parseCommand("agent apply --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.joined(separator: "\n").contains("createTabGroup is disabled"))
+        XCTAssertTrue(result.stderr.joined(separator: "\n").contains("Folder creation through legacy JSON is disabled"))
         XCTAssertTrue(root.allAgentTabGroupsForTests.isEmpty)
     }
 
@@ -76,7 +76,7 @@ extension AgentCommandTest {
         let result = try await parseCommand("agent check --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.joined(separator: "\n").contains("tabGroup layout nodes are disabled"))
+        XCTAssertTrue(result.stderr.joined(separator: "\n").contains("legacy folder layout nodes are disabled"))
     }
 
     func testDeclarativeWorkspaceLayoutUsesProportionalSizes() async throws {
@@ -128,6 +128,70 @@ extension AgentCommandTest {
         XCTAssertEqual(rightSplit.children[1].getWeight(.v) / rightSplit.getWeight(.v), 0.25, accuracy: 0.0001)
     }
 
+    func testDeclarativeTabLayoutAcceptsTabsContainerAlias() async throws {
+        let root = Workspace.get(byName: "a").rootTilingContainer
+        _ = TestWindow.new(id: 1, parent: root)
+        _ = TestWindow.new(id: 2, parent: root)
+
+        let path = try writeAgentJson("""
+            {
+              "schemaVersion": 1,
+              "edit": {
+                "layout": {
+                  "tabs": [
+                    {
+                      "name": "coding",
+                      "layout": {
+                        "kind": "split",
+                        "direction": "horizontal",
+                        "children": [
+                          { "kind": "window", "windowId": 1 },
+                          { "kind": "window", "windowId": 2 }
+                        ]
+                      },
+                      "focus": { "windowId": 2 }
+                    }
+                  ]
+                }
+              }
+            }
+            """)
+
+        let result = try await parseCommand("agent apply --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
+
+        XCTAssertEqual(result.exitCode, 0)
+        let targetRoot = Workspace.get(byName: "coding").rootTilingContainer
+        XCTAssertEqual(targetRoot.allLeafWindowsRecursive.map(\.windowId).sorted(), [1, 2])
+        XCTAssertEqual(focus.windowOrNil?.windowId, 2)
+    }
+
+    func testSetTabLayoutOperationAliasAppliesComposedTabLayout() async throws {
+        let root = Workspace.get(byName: "a").rootTilingContainer
+        _ = TestWindow.new(id: 1, parent: root)
+
+        let path = try writeAgentJson("""
+            {
+              "schemaVersion": 1,
+              "edit": {
+                "operations": [
+                  {
+                    "type": "setTabLayout",
+                    "layout": {
+                      "name": "solo",
+                      "layout": { "kind": "window", "windowId": 1 }
+                    }
+                  }
+                ]
+              }
+            }
+            """)
+
+        let result = try await parseCommand("agent apply --path \(path.path)").cmdOrDie.run(.defaultEnv, .emptyStdin)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(Workspace.get(byName: "solo").rootTilingContainer.allLeafWindowsRecursive.map(\.windowId), [1])
+    }
+
     func testDeclarativeWorkspaceLayoutRejectsDuplicateWindows() async throws {
         let root = Workspace.get(byName: "a").rootTilingContainer
         _ = TestWindow.new(id: 1, parent: root)
@@ -160,8 +224,8 @@ extension AgentCommandTest {
 
         XCTAssertEqual(result.exitCode, 1)
         let stderr = result.stderr.joined(separator: "\n")
-        XCTAssertTrue(stderr.contains("tabGroup layout nodes are disabled"))
-        XCTAssertTrue(stderr.contains("setWorkspaceLayout 'coding': window 1 appears more than once"))
+        XCTAssertTrue(stderr.contains("legacy folder layout nodes are disabled"))
+        XCTAssertTrue(stderr.contains("setTabLayout 'coding': window 1 appears more than once"))
     }
 
     func testSetPaneSizeOperationUsesProportionalSize() async throws {

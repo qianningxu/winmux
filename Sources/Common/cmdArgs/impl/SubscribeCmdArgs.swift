@@ -39,10 +39,11 @@ private func parseEventTypes(_ input: ArgParserInput) -> ParsedCliArgs<Set<Serve
     for arg in args {
         switch parseEnum(arg, ServerEventType.self) {
             case .success(let event):
-                if events.contains(event) {
+                let canonicalEvent = event.canonical
+                if events.contains(canonicalEvent) {
                     errorMsg = "Duplicate event '\(arg)'"
                 }
-                events.insert(event)
+                events.insert(canonicalEvent)
             case .failure(let errorMsg):
                 return .fail(errorMsg, advanceBy: events.count + 1)
         }
@@ -57,8 +58,17 @@ private func parseEventTypes(_ input: ArgParserInput) -> ParsedCliArgs<Set<Serve
 public enum ServerEventType: String, Codable, CaseIterable, Sendable {
     case focusChanged = "focus-changed"
     case focusedMonitorChanged = "focused-monitor-changed"
+    case tabChanged = "focused-tab-changed"
     case workspaceChanged = "focused-workspace-changed"
     case modeChanged = "mode-changed"
     case windowDetected = "window-detected"
     case bindingTriggered = "binding-triggered"
+
+    public static var allCases: [ServerEventType] {
+        [.focusChanged, .focusedMonitorChanged, .tabChanged, .modeChanged, .windowDetected, .bindingTriggered]
+    }
+
+    public var canonical: ServerEventType {
+        self == .workspaceChanged ? .tabChanged : self
+    }
 }

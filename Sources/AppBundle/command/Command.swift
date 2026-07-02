@@ -55,6 +55,7 @@ extension Command {
                  is MoveNodeToProjectCommand,
                  is MoveNodeToWorkspaceCommand,
                  is MoveWorkspaceToMonitorCommand,
+                 is NewTabCommand,
                  is OpenSidebarCommand,
                  is ProjectCommand,
                  is ReorderWorkspaceCommand,

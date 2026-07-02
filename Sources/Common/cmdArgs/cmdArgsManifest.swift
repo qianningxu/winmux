@@ -31,6 +31,7 @@ public enum CmdKind: String, CaseIterable, Equatable, Sendable {
     case moveNodeToProject = "move-node-to-project"
     case moveNodeToWorkspace = "move-node-to-workspace"
     case moveWorkspaceToMonitor = "move-workspace-to-monitor"
+    case newTab = "new-tab"
     case openSidebar = "open-sidebar"
     case project
     case reloadConfig = "reload-config"
@@ -69,6 +70,7 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 break // exec-and-forget is parsed separately
             case .flattenWorkspaceTree:
                 result[kind.rawValue] = SubCommandParser(FlattenWorkspaceTreeCmdArgs.init)
+                result["flatten-tab-tree"] = SubCommandParser(FlattenWorkspaceTreeCmdArgs.init)
             case .focus:
                 result[kind.rawValue] = SubCommandParser(parseFocusCmdArgs)
             case .focusBackAndForth:
@@ -93,6 +95,7 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(parseListWindowsCmdArgs)
             case .listWorkspaces:
                 result[kind.rawValue] = SubCommandParser(parseListWorkspacesCmdArgs)
+                result["list-tabs"] = SubCommandParser(parseListWorkspacesCmdArgs)
             case .macosNativeFullscreen:
                 result[kind.rawValue] = SubCommandParser(parseMacosNativeFullscreenCmdArgs)
             case .macosNativeMinimize:
@@ -111,10 +114,14 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(parseMoveNodeToProjectCmdArgs)
             case .moveNodeToWorkspace:
                 result[kind.rawValue] = SubCommandParser(parseMoveNodeToWorkspaceCmdArgs)
+                result["move-node-to-tab"] = SubCommandParser(parseMoveNodeToWorkspaceCmdArgs)
             case .moveWorkspaceToMonitor:
                 result[kind.rawValue] = SubCommandParser(parseWorkspaceToMonitorCmdArgs)
+                result["move-tab-to-monitor"] = SubCommandParser(parseWorkspaceToMonitorCmdArgs)
                 // deprecated
                 result["move-workspace-to-display"] = SubCommandParser(MoveWorkspaceToMonitorCmdArgs.init)
+            case .newTab:
+                result[kind.rawValue] = SubCommandParser(NewTabCmdArgs.init)
             case .openSidebar:
                 result[kind.rawValue] = SubCommandParser(OpenSidebarCmdArgs.init)
             case .project:
@@ -123,6 +130,7 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(ReloadConfigCmdArgs.init)
             case .reorderWorkspace:
                 result[kind.rawValue] = SubCommandParser(parseReorderWorkspaceCmdArgs)
+                result["reorder-tab"] = SubCommandParser(parseReorderWorkspaceCmdArgs)
             case .resize:
                 result[kind.rawValue] = SubCommandParser(parseResizeCmdArgs)
             case .split:
@@ -133,6 +141,7 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(parseSubscribeCmdArgs)
             case .summonWorkspace:
                 result[kind.rawValue] = SubCommandParser(SummonWorkspaceCmdArgs.init)
+                result["summon-tab"] = SubCommandParser(SummonWorkspaceCmdArgs.init)
             case .swap:
                 result[kind.rawValue] = SubCommandParser(parseSwapCmdArgs)
             case .triggerBinding:
@@ -141,8 +150,10 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(VolumeCmdArgs.init)
             case .workspace:
                 result[kind.rawValue] = SubCommandParser(parseWorkspaceCmdArgs)
+                result["tab"] = SubCommandParser(parseWorkspaceCmdArgs)
             case .workspaceBackAndForth:
                 result[kind.rawValue] = SubCommandParser(WorkspaceBackAndForthCmdArgs.init)
+                result["tab-back-and-forth"] = SubCommandParser(WorkspaceBackAndForthCmdArgs.init)
         }
     }
     return result

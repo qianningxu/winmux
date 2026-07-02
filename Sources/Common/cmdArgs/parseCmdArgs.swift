@@ -41,15 +41,35 @@ extension CmdArgs {
     }
 
     public var description: String {
-        switch Self.info.kind {
+        let kind = switch Self.info.kind {
+            case .flattenWorkspaceTree:
+                "flatten-tab-tree"
+            case .listWorkspaces:
+                "list-tabs"
+            case .moveNodeToWorkspace:
+                "move-node-to-tab"
+            case .moveWorkspaceToMonitor:
+                "move-tab-to-monitor"
+            case .reorderWorkspace:
+                "reorder-tab"
+            case .summonWorkspace:
+                "summon-tab"
+            case .workspace:
+                "tab"
+            case .workspaceBackAndForth:
+                "tab-back-and-forth"
+            default:
+                Self.info.kind.rawValue
+        }
+        return switch Self.info.kind {
             case .execAndForget:
                 if let args = self as? ExecAndForgetCmdArgs {
-                    CmdKind.execAndForget.rawValue + " " + args.bashScript
+                    kind + " " + args.bashScript
                 } else {
-                    ([Self.info.kind.rawValue] + commonState.rawArgsForStrRepr.value.toArray()).joinArgs()
+                    ([kind] + commonState.rawArgsForStrRepr.value.toArray()).joinArgs()
                 }
             default:
-                ([Self.info.kind.rawValue] + commonState.rawArgsForStrRepr.value.toArray()).joinArgs()
+                ([kind] + commonState.rawArgsForStrRepr.value.toArray()).joinArgs()
         }
     }
 }

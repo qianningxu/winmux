@@ -163,7 +163,7 @@ extension WorkspaceSidebarProjectPager {
             isProjectMenuOpen.toggle()
         } label: {
             HStack(spacing: 4) {
-                Text(selectedProject?.displayName ?? "Project")
+                Text(selectedProject?.displayName ?? "Folder")
                     .font(.system(size: 12.5, weight: .medium))
                     .foregroundStyle(palette.foreground(isHovered || isProjectMenuOpen ? 0.86 : 0.72))
                     .lineLimit(1)
@@ -191,7 +191,7 @@ extension WorkspaceSidebarProjectPager {
                 .modifier(WorkspaceSidebarDropdownControlStyle(isActive: false))
         }
         .buttonStyle(.plain)
-        .help("New Project")
+        .help("New Folder")
         .frame(height: workspaceSidebarPagerHeight, alignment: .center)
     }
 
@@ -240,32 +240,34 @@ extension WorkspaceSidebarProjectPager {
 
     @ViewBuilder
     func projectContextMenuItems(for project: WorkspaceSidebarProjectViewModel) -> some View {
-        Button("Rename Project") {
+        Button("Rename Folder") {
             onBeginRenameProject(project)
         }
-        Menu("Color") {
-            let selectedColorHex = project.colorHex.flatMap(normalizedWorkspaceSidebarColorHex)
-            Button {
-                onSetProjectColor(project, nil)
-            } label: {
-                Label {
-                    Text("Auto")
-                } icon: {
-                    Image(nsImage: workspaceSidebarAutomaticColorSwatchImage(isSelected: selectedColorHex == nil))
-                }
-            }
-            Divider()
-            ForEach(workspaceSidebarProjectColorPresets) { preset in
+        if projectsAreEnabled() {
+            Menu("Color") {
+                let selectedColorHex = project.colorHex.flatMap(normalizedWorkspaceSidebarColorHex)
                 Button {
-                    onSetProjectColor(project, preset.hex)
+                    onSetProjectColor(project, nil)
                 } label: {
                     Label {
-                        Text(preset.name)
+                        Text("Auto")
                     } icon: {
-                        Image(nsImage: workspaceSidebarProjectColorSwatchImage(
-                            hex: preset.hex,
-                            isSelected: selectedColorHex == preset.hex,
-                        ))
+                        Image(nsImage: workspaceSidebarAutomaticColorSwatchImage(isSelected: selectedColorHex == nil))
+                    }
+                }
+                Divider()
+                ForEach(workspaceSidebarProjectColorPresets) { preset in
+                    Button {
+                        onSetProjectColor(project, preset.hex)
+                    } label: {
+                        Label {
+                            Text(preset.name)
+                        } icon: {
+                            Image(nsImage: workspaceSidebarProjectColorSwatchImage(
+                                hex: preset.hex,
+                                isSelected: selectedColorHex == preset.hex,
+                            ))
+                        }
                     }
                 }
             }
@@ -273,7 +275,7 @@ extension WorkspaceSidebarProjectPager {
         Button(role: .destructive) {
             onDeleteProject(project)
         } label: {
-            Text("Delete Project")
+            Text("Delete Folder")
         }
         .disabled(!canDeleteWorkspaceProject(project.id))
     }

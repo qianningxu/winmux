@@ -27,9 +27,14 @@ struct AgentSnapshot: Encodable {
             let relations = workspace.agentPaneRelations()
             allPanes.append(contentsOf: panes)
             allRelations.append(contentsOf: relations)
-            rawTrees.append(AgentRawWorkspaceTree(workspace: workspace.name, tree: workspace.rootTilingContainer.agentRawLayoutNode()))
+            rawTrees.append(AgentRawWorkspaceTree(
+                tab: workspaceDisplayName(workspace.name),
+                workspace: workspace.name,
+                tree: workspace.rootTilingContainer.agentRawLayoutNode()
+            ))
             workspaceInfos.append(AgentWorkspaceInfo(
                 name: workspace.name,
+                tab: workspaceDisplayName(workspace.name),
                 displayName: workspaceDisplayName(workspace.name),
                 visible: workspace.isVisible,
                 focused: focus.workspace == workspace,
@@ -44,10 +49,12 @@ struct AgentSnapshot: Encodable {
             }
         }
 
+        let sortedWorkspaceInfos = workspaceInfos.sortedBy(\.name)
         let inventory = AgentInventory(
             windows: windows.sortedBy(\.windowId),
             tabGroups: tabGroups.sortedBy(\.tabGroupId),
-            workspaces: workspaceInfos.sortedBy(\.name),
+            tabs: sortedWorkspaceInfos,
+            workspaces: sortedWorkspaceInfos,
         )
         let reasoning = AgentReasoning(
             panes: allPanes.sortedBy(\.paneId),
@@ -68,11 +75,13 @@ struct AgentSnapshot: Encodable {
 struct AgentInventory: Encodable {
     let windows: [AgentWindowInfo]
     let tabGroups: [AgentTabGroupInfo]
+    let tabs: [AgentWorkspaceInfo]
     let workspaces: [AgentWorkspaceInfo]
 }
 
 struct AgentWorkspaceInfo: Encodable {
     let name: String
+    let tab: String
     let displayName: String
     let visible: Bool
     let focused: Bool
@@ -86,6 +95,7 @@ struct AgentWindowInfo: Encodable {
     let appName: String?
     let appBundleId: String?
     let pid: Int32
+    let tab: String?
     let workspace: String?
     let paneId: String?
     let tabGroupId: String?
@@ -104,7 +114,9 @@ struct AgentWindowInfo: Encodable {
         appName = window.app.name
         appBundleId = window.app.rawAppBundleId
         pid = window.app.pid
-        workspace = window.nodeWorkspace?.name
+        let workspaceName = window.nodeWorkspace?.name
+        tab = workspaceName.map(workspaceDisplayName)
+        workspace = workspaceName
         tabGroupId = window.nearestWindowTabGroup.map(agentTabGroupId)
         paneId = window.agentPaneId
         focused = focus.windowOrNil == window
@@ -121,6 +133,7 @@ struct AgentWindowInfo: Encodable {
 struct AgentTabGroupInfo: Encodable {
     let tabGroupId: String
     let paneId: String
+    let tab: String?
     let workspace: String?
     let activeWindowId: UInt32?
     let tabs: [UInt32]
@@ -133,7 +146,9 @@ struct AgentTabGroupInfo: Encodable {
     init(_ group: TilingContainer) async {
         tabGroupId = agentTabGroupId(group)
         paneId = agentPaneIdForTabGroup(tabGroupId: tabGroupId)
-        workspace = group.nodeWorkspace?.name
+        let workspaceName = group.nodeWorkspace?.name
+        tab = workspaceName.map(workspaceDisplayName)
+        workspace = workspaceName
         activeWindowId = group.tabActiveWindow?.windowId
         let windows = group.agentTabWindows
         tabs = windows.map(\.windowId)
@@ -157,6 +172,7 @@ struct AgentReasoning: Encodable {
 struct AgentPaneInfo: Encodable {
     let paneId: String
     let kind: AgentPaneKind
+    let tab: String
     let workspace: String
     let windowId: UInt32?
     let tabGroupId: String?
@@ -172,6 +188,7 @@ enum AgentPaneKind: String, Codable {
 }
 
 struct AgentPaneRelation: Encodable {
+    let tab: String
     let workspace: String
     let paneId: String
     var left: String?
@@ -181,6 +198,7 @@ struct AgentPaneRelation: Encodable {
 }
 
 struct AgentRawWorkspaceTree: Encodable {
+    let tab: String
     let workspace: String
     let tree: AgentRawLayoutNode
 }
@@ -243,4 +261,3 @@ struct AgentEditTemplate: Encodable {
     let operations: [String]
     let layout: AgentLayoutEdit?
 }
-

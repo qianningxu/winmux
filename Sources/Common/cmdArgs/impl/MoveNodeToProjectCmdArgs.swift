@@ -11,10 +11,10 @@ public struct MoveNodeToProjectCmdArgs: CmdArgs {
             "--window-id": optionalWindowIdFlag(),
             "--focus-follows-window": trueBoolFlag(\.focusFollowsWindow),
         ],
-        posArgs: [newMandatoryPosArgParser(\.target, parseProjectTarget, placeholder: projectTargetPlaceholder)],
+        posArgs: [ArgParser(\.target, parseOptionalMoveNodeToProjectTarget)],
     )
 
-    public var target: Lateinit<ProjectTarget> = .uninitialized
+    public var target: Lateinit<ProjectTarget> = .initialized(.index(1))
     public var _wrapAround: Bool?
     public var failIfNoop: Bool = false
     public var focusFollowsWindow: Bool = false
@@ -29,4 +29,8 @@ func parseMoveNodeToProjectCmdArgs(_ args: StrArrSlice) -> ParsedCmd<MoveNodeToP
         .filter("--wrapAround requires using (next|prev) argument") { ($0._wrapAround != nil).implies($0.target.val.isRelative) }
         .filterNot("--fail-if-noop is incompatible with (next|prev)") { $0.failIfNoop && $0.target.val.isRelative }
         .filterNot("--window-id is incompatible with (next|prev)") { $0.windowId != nil && $0.target.val.isRelative }
+}
+
+private func parseOptionalMoveNodeToProjectTarget(i: PosArgParserInput) -> ParsedCliArgs<Lateinit<ProjectTarget>> {
+    parseProjectTarget(i: i).map { .initialized($0) }
 }

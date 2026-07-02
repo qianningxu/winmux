@@ -15,6 +15,7 @@ public struct ListWindowsCmdArgs: CmdArgs, JsonFormattableListCmdArgs {
             // Filtering flags
             "--focused": trueBoolFlag(\.filteringOptions.focused),
             "--monitor": ArgParser(\.filteringOptions.monitors, parseMonitorIds),
+            "--tab": ArgParser(\.filteringOptions.workspaces, parseWorkspaces),
             "--workspace": ArgParser(\.filteringOptions.workspaces, parseWorkspaces),
             "--pid": singleValueSubArgParser(\.filteringOptions.pidFilter, "<pid>", Int32.init),
             "--app-bundle-id": singleValueSubArgParser(\.filteringOptions.appIdFilter, "<app-bundle-id>") { $0 },
@@ -26,7 +27,7 @@ public struct ListWindowsCmdArgs: CmdArgs, JsonFormattableListCmdArgs {
         ],
         posArgs: [],
         conflictingOptions: [
-            ["--all", "--focused", "--workspace"],
+            ["--all", "--focused", "--tab", "--workspace"],
             ["--all", "--focused", "--monitor"],
             ["--count", "--format"],
             ["--count", "--json"],
@@ -59,12 +60,24 @@ extension ListWindowsCmdArgs {
             ]
             : _format
     }
+
+    public var jsonFormat: [StringInterToken] {
+        _format.isEmpty
+            ? [
+                .interVar("window-id"),
+                .interVar("app-name"),
+                .interVar("window-title"),
+                .interVar("tab"),
+                .interVar("workspace"),
+            ]
+            : _format
+    }
 }
 
 func parseListWindowsCmdArgs(_ args: StrArrSlice) -> ParsedCmd<ListWindowsCmdArgs> {
     let args = args.map { $0 == "--app-id" ? "--app-bundle-id" : $0 }.slice // Compatibility
     return parseSpecificCmdArgs(ListWindowsCmdArgs(commonState: .init(args)), args)
-        .filter("Mandatory option is not specified (--focused|--all|--monitor|--workspace)") { raw in
+        .filter("Choose a window scope: --focused, --all, --monitor, or --tab (legacy --workspace is still accepted)") { raw in
             raw.filteringOptions.focused || raw.allAlias || !raw.filteringOptions.monitors.isEmpty || !raw.filteringOptions.workspaces.isEmpty
         }
         .filter("--all conflicts with \"filtering\" flags. Please use '--monitor all' instead of '--all' alias") { raw in

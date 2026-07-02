@@ -24,7 +24,7 @@ struct ListWorkspacesCommand: Command {
         } else {
             return result.map { FormatObject.workspace($0) }.writeFormattedOutput(
                 to: io,
-                format: args.format,
+                format: args.json ? args.jsonFormat : args.format,
                 json: args.json,
                 ignoreRightPaddingVar: args._format.isEmpty,
             )

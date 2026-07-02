@@ -100,45 +100,45 @@ private let agentSkillText = """
 
     For small changes, replace the entire `edit.operations` array. Do not append to old operations unless the user asked for one multi-step batch. Prefer operations for focus, moving one window, swapping, placing one pane, setting WinMux fullscreen, closing, or parking windows.
 
-    For full Tab setup, edit `edit.layout.workspaces`. Use layout mode for requests like "set up my coding Tab" or "organize all windows into Tabs".
+    For full Tab setup, edit `edit.layout.tabs`. Use layout mode for requests like "set up my coding Tab" or "organize all windows into Tabs". Legacy `edit.layout.workspaces` is still accepted.
 
-    WinMux Tabs are managed in the sidebar. A Tab can contain a composed split layout with multiple windows. Do not create old top-tab groups. Use split/window layout nodes to compose multiple windows inside one Tab.
+    WinMux Tabs are managed in the sidebar. A Tab can contain a composed split layout with multiple windows. Do not create old top folders or sidebar folders through agent JSON. Use split/window layout nodes to compose multiple windows inside one Tab.
 
-    If the user says "all Chrome windows" or "all IDEs", scan every item in `inventory.windows` and include every matching `windowId`. Do not stop after the first match. Existing legacy `inventory.tabGroups` may appear for old state; you may move or resize those panes, but do not create new tab groups.
+    If the user says "all Chrome windows" or "all IDEs", scan every item in `inventory.windows` and include every matching `windowId`. Do not stop after the first match. Existing legacy `inventory.tabGroups` may appear for old state; you may move or resize those panes, but do not create new folders.
 
-    `createTabGroup`, `addWindowToTabGroup`, `setActiveTab`, and layout nodes with `"kind": "tabGroup"` are disabled. To put windows together, use `placePane` or `setWorkspaceLayout` with `"split"` and `"window"` nodes.
+    `createTabGroup`, `addWindowToTabGroup`, `setActiveTab`, and layout nodes with `"kind": "tabGroup"` are disabled. To put windows together, use `placePane` or `setTabLayout` with `"split"` and `"window"` nodes.
 
     Read the query file before choosing IDs:
     - Find windows in `inventory.windows`. Match by `appName`, `title`, and `windowId`.
-    - Legacy whole tab groups may exist in `inventory.tabGroups`. Use `tabGroupId` only when moving or editing an existing legacy group.
+    - Legacy folders may exist in `inventory.tabGroups`. Use `tabGroupId` only when moving or editing an existing legacy folder.
     - Find current layout in `reasoning.panes`, `reasoning.relations`, and `reasoning.rawTrees`.
     - Use `size` and `sizeAxis` from the query file to understand current proportions before resizing.
-    - Never invent a `windowId`, `paneId`, `tabGroupId`, or Tab/workspace name if the query file already gives the correct value.
+    - Never invent a `windowId`, `paneId`, `tabGroupId`, or Tab name if the query file already gives the correct value.
 
-    Canonical operation type names are camelCase. Common snake_case aliases are accepted, but prefer the exact schemas below.
+    Canonical operation type names are camelCase. Common snake_case aliases are accepted. Prefer Tab-named operation aliases; legacy Workspace-named aliases are still accepted.
 
     Pane refs:
     - Window: `{ "windowId": 123 }` or pane id `"pane-123"`
-    - Legacy tab group: `{ "tabGroupId": "tabgroup-123" }` or pane id `"pane-tabgroup-123"`
+    - Legacy folder: `{ "tabGroupId": "tabgroup-123" }` or pane id `"pane-tabgroup-123"`
 
     All `edit.operations` commands:
     - `focusWindow`: `{ "type": "focusWindow", "windowId": 123 }`
     - `focusWindow` by match: `{ "type": "focusWindow", "match": { "appName": "Google Chrome", "titleContains": "Docs" } }`
-    - `focusWorkspace`: `{ "type": "focusWorkspace", "workspace": "2" }`
-    - `moveWindowToWorkspace`: `{ "type": "moveWindowToWorkspace", "windowId": 123, "workspace": "2", "focus": true }`
-    - `moveTabGroupToWorkspace` for existing legacy groups: `{ "type": "moveTabGroupToWorkspace", "tabGroupId": "tabgroup-123", "workspace": "2", "focus": true }`
+    - `focusTab`: `{ "type": "focusTab", "tab": "2" }`
+    - `moveWindowToTab`: `{ "type": "moveWindowToTab", "windowId": 123, "tab": "2", "focus": true }`
+    - `moveTabGroupToTab` for existing legacy folders: `{ "type": "moveTabGroupToTab", "tabGroupId": "tabgroup-123", "tab": "2", "focus": true }`
     - `swapPanes`: `{ "type": "swapPanes", "paneId1": "pane-123", "paneId2": "pane-456" }`
     - `swapPanes` alt: `{ "type": "swapPanes", "a": { "windowId": 123 }, "b": { "tabGroupId": "tabgroup-456" } }`
     - `placePane`: `{ "type": "placePane", "pane": { "windowId": 123 }, "relation": "below", "target": { "windowId": 456 } }`
-    - `moveWindowOutOfTabGroup` for existing legacy groups: `{ "type": "moveWindowOutOfTabGroup", "windowId": 123 }`
+    - `moveWindowOutOfTabGroup` for existing legacy folders: `{ "type": "moveWindowOutOfTabGroup", "windowId": 123 }`
     - `setWinMuxFullscreen`: `{ "type": "setWinMuxFullscreen", "windowId": 123, "value": true, "noOuterGaps": true }`
     - `setFloating`: `{ "type": "setFloating", "windowId": 123, "value": true }`
     - `closeWindow`: `{ "type": "closeWindow", "windowId": 123, "quitAppIfLastWindow": true }`
-    - `parkWindow`: `{ "type": "parkWindow", "pane": { "windowId": 123 }, "workspace": "__agent_parked" }`
+    - `parkWindow`: `{ "type": "parkWindow", "pane": { "windowId": 123 }, "tab": "__agent_parked" }`
     - `setPaneSize`: `{ "type": "setPaneSize", "pane": { "windowId": 123 }, "size": 0.8 }`
     - `setPaneSize` percent alt: `{ "type": "setPaneSize", "pane": { "tabGroupId": "tabgroup-123" }, "sizePercent": 80 }`
     - `setPaneSize` vertical split: `{ "type": "setPaneSize", "pane": { "windowId": 123 }, "axis": "vertical", "size": 0.75 }`
-    - `setWorkspaceLayout`: `{ "type": "setWorkspaceLayout", "layout": { "name": "1", "layout": { "kind": "window", "windowId": 123 } } }`
+    - `setTabLayout`: `{ "type": "setTabLayout", "layout": { "name": "1", "layout": { "kind": "window", "windowId": 123 } } }`
 
     For a small change, the `edit` object in the queried file should look like this. Keep the rest of the queried file unchanged:
     ```json
@@ -155,14 +155,14 @@ private let agentSkillText = """
 
     WinMux fullscreen is not macOS native fullscreen. Use `setWinMuxFullscreen`.
 
-    If the user wants a window not to show in the current workspace but does not ask to close it, use `parkWindow` or `moveWindowToWorkspace`, not native minimize.
+    If the user wants a window not to show in the current Tab but does not ask to close it, use `parkWindow` or `moveWindowToTab`, not native minimize.
 
     Full layout mode:
-    - Edit `edit.layout.workspaces`.
+    - Edit `edit.layout.tabs`.
     - Replace `edit.operations` with an empty array unless the user explicitly asked for extra operations in the same batch.
-    - Prefer layout mode when the user asks to design or reorganize a workspace, especially when the request includes exact sizes like "80/20", "left takes 80%", or multiple groups/panes in one workspace.
+    - Prefer layout mode when the user asks to design or reorganize a Tab, especially when the request includes exact sizes like "80/20", "left takes 80%", or multiple panes in one Tab.
     - A split's `direction` describes how children are arranged: `horizontal` means left/right; `vertical` means top/bottom.
-    - Workspace layout shape: `{ "name": "coding", "layout": <layoutNode>, "focus": { "windowId": 123 }, "floating": [{ "windowId": 456 }] }`
+    - Tab layout shape: `{ "name": "coding", "layout": <layoutNode>, "focus": { "windowId": 123 }, "floating": [{ "windowId": 456 }] }`
     - Split node: `{ "kind": "split", "direction": "horizontal", "children": [<layoutNode>, <layoutNode>], "size": 0.5 }`
     - Window node: `{ "kind": "window", "windowId": 123, "size": 0.5 }`
     - Directions: `horizontal`, `vertical`.
@@ -175,7 +175,7 @@ private let agentSkillText = """
     {
       "edit": {
         "layout": {
-          "workspaces": [
+          "tabs": [
             {
               "name": "1",
               "layout": {

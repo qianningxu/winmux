@@ -90,11 +90,11 @@ private func startupFallbackMessage(_ message: Message, startupConfigUrl: URL?) 
 private func smartLayoutAtStartup() {
     let workspace = focus.workspace
     let root = workspace.rootTilingContainer
-    if root.children.count <= 3 {
-        root.layout = .tiles
-    } else {
-        root.layout = .tabGroup
-    }
+    root.layout = startupRootContainerLayoutForHardSidebarTabs(childCount: root.children.count)
+}
+
+func startupRootContainerLayoutForHardSidebarTabs(childCount _: Int) -> Layout {
+    .tiles
 }
 
 @TaskLocal

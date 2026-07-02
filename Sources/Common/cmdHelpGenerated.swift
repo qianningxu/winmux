@@ -2,7 +2,7 @@
 // TO REGENERATE THE FILE RUN generate.sh
 
 let balance_sizes_help_generated = """
-    USAGE: balance-sizes [-h|--help] [--workspace <workspace>]
+    USAGE: balance-sizes [-h|--help] [--tab <tab>]
     """
 let close_all_windows_but_current_help_generated = """
     USAGE: close-all-windows-but-current [-h|--help] [--quit-if-last-window]
@@ -28,7 +28,7 @@ let exec_and_forget_help_generated = """
     USAGE: exec-and-forget <bash-script>
     """
 let flatten_workspace_tree_help_generated = """
-    USAGE: flatten-workspace-tree [-h|--help] [--workspace <workspace>]
+    USAGE: flatten-tab-tree [-h|--help] [--tab <tab>]
     """
 let focus_back_and_forth_help_generated = """
     USAGE: focus-back-and-forth [-h|--help]
@@ -62,7 +62,7 @@ let join_with_help_generated = """
     """
 let layout_help_generated = """
     USAGE: layout [-h|--help] [--window-id <window-id>]
-                  (h_tiles|v_tiles|h_tab_group|v_tab_group|tiles|tab-group|horizontal|vertical|tiling|floating)...
+                  (h_tiles|v_tiles|tiles|horizontal|vertical|tiling|floating)...
     """
 let list_apps_help_generated = """
     USAGE: list-apps [-h|--help] [--macos-native-hidden [no]] [--format <output-format>] [--count] [--json]
@@ -77,17 +77,17 @@ let list_monitors_help_generated = """
     USAGE: list-monitors [-h|--help] [--focused [no]] [--mouse [no]] [--format <output-format>] [--count] [--json]
     """
 let list_windows_help_generated = """
-    USAGE: list-windows [-h|--help] (--workspace <tab>...|--monitor <monitor>...)
-                        [--monitor <monitor>...] [--workspace <tab>...]
+    USAGE: list-windows [-h|--help] (--tab <tab>...|--monitor <monitor>...)
+                        [--monitor <monitor>...] [--tab <tab>...]
                         [--pid <pid>] [--app-bundle-id <app-bundle-id>] [--format <output-format>]
                         [--count] [--json]
        OR: list-windows [-h|--help] --all [--format <output-format>] [--count] [--json]
        OR: list-windows [-h|--help] --focused [--format <output-format>] [--count] [--json]
     """
 let list_workspaces_help_generated = """
-    USAGE: list-workspaces [-h|--help] --monitor <monitor>... [--visible [no]] [--empty [no]] [--format <output-format>] [--count] [--json]
-       OR: list-workspaces [-h|--help] --all [--format <output-format>] [--count] [--json]
-       OR: list-workspaces [-h|--help] --focused [--format <output-format>] [--count] [--json]
+    USAGE: list-tabs [-h|--help] --monitor <monitor>... [--visible [no]] [--empty [no]] [--format <output-format>] [--count] [--json]
+       OR: list-tabs [-h|--help] --all [--format <output-format>] [--count] [--json]
+       OR: list-tabs [-h|--help] --focused [--format <output-format>] [--count] [--json]
     """
 let macos_native_fullscreen_help_generated = """
     USAGE: macos-native-fullscreen [-h|--help] [--window-id <window-id>]
@@ -110,32 +110,35 @@ let move_node_to_monitor_help_generated = """
                                 [--fail-if-noop] <monitor-pattern>...
     """
 let move_node_to_project_help_generated = """
-    USAGE: move-node-to-project [-h|--help] [--window-id <window-id>] [--focus-follows-window]
-                                [--wrap-around] [--fail-if-noop] (<project-index>|next|prev)
+    USAGE: move-node-to-project [-h|--help]
+
+    Disabled legacy folder command. Tabs and folders are managed in the sidebar.
     """
 let move_node_to_workspace_help_generated = """
-    USAGE: move-node-to-workspace [-h|--help] [--focus-follows-window] [--wrap-around]
+    USAGE: move-node-to-tab [-h|--help] [--focus-follows-window] [--wrap-around]
                                   [--stdin|--no-stdin]
                                   (next|prev)
-       OR: move-node-to-workspace [-h|--help] [--focus-follows-window] [--fail-if-noop]
+       OR: move-node-to-tab [-h|--help] [--focus-follows-window] [--fail-if-noop]
                                   [--window-id <window-id>] <tab-name>
     """
 let move_workspace_to_monitor_help_generated = """
-    USAGE: move-workspace-to-monitor [-h|--help] [--workspace <workspace>] [--wrap-around] (left|down|up|right)
-       OR: move-workspace-to-monitor [-h|--help] [--workspace <workspace>] [--wrap-around] (next|prev)
-       OR: move-workspace-to-monitor [-h|--help] [--workspace <workspace>] <monitor-pattern>...
+    USAGE: move-tab-to-monitor [-h|--help] [--tab <tab>] [--wrap-around] (left|down|up|right)
+       OR: move-tab-to-monitor [-h|--help] [--tab <tab>] [--wrap-around] (next|prev)
+       OR: move-tab-to-monitor [-h|--help] [--tab <tab>] <monitor-pattern>...
     """
 let move_help_generated = """
     USAGE: move [-h|--help] [--window-id <window-id>] [--boundaries <boundary>] [--boundaries-action <boundary-action>] (left|down|up|right)
     """
 let project_help_generated = """
-    USAGE: project [-h|--help] [--wrap-around] [--fail-if-noop] (<project-index>|next|prev)
+    USAGE: project [-h|--help]
+
+    Disabled legacy folder command. Tabs and folders are managed in the sidebar.
     """
 let reload_config_help_generated = """
     USAGE: reload-config [-h|--help] [--no-gui] [--dry-run]
     """
 let reorder_workspace_help_generated = """
-    USAGE: reorder-workspace [-h|--help] <tab-name> (--before <tab-name>|--after <tab-name>)
+    USAGE: reorder-tab [-h|--help] <tab-name> (--before <tab-name>|--after <tab-name>)
     """
 let resize_help_generated = """
     USAGE: resize [-h|--help] [--window-id <window-id>] (smart|smart-opposite|width|height) [+|-]<number>
@@ -150,7 +153,7 @@ let subscribe_help_generated = """
     USAGE: subscribe [-h|--help] [--all] [--no-send-initial] [<event>...]
     """
 let summon_workspace_help_generated = """
-    USAGE: summon-workspace [-h|--help] [--fail-if-noop] <tab>
+    USAGE: summon-tab [-h|--help] [--fail-if-noop] <tab>
     """
 let swap_help_generated = """
     USAGE: swap [-h|--help] [--window-id <window-id>] [--swap-focus]
@@ -166,9 +169,9 @@ let volume_help_generated = """
        OR: volume [-h|--help] set <number> [--no-gui]
     """
 let workspace_back_and_forth_help_generated = """
-    USAGE: workspace-back-and-forth [-h|--help]
+    USAGE: tab-back-and-forth [-h|--help]
     """
 let workspace_help_generated = """
-    USAGE: workspace [-h|--help] [--auto-back-and-forth] [--fail-if-noop] <tab-name>
-       OR: workspace [-h|--help] [--wrap-around] [--stdin|--no-stdin] (next|prev)
+    USAGE: tab [-h|--help] [--auto-back-and-forth] [--fail-if-noop] <tab-name>
+       OR: tab [-h|--help] [--wrap-around] [--stdin|--no-stdin] (next|prev)
     """

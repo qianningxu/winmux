@@ -19,6 +19,8 @@ func isActionableSidebarWorkspaceDropTarget(
     switch targetKind {
         case .workspace(let workspaceName):
             return sourceWorkspaceName != workspaceName
+        case .folder:
+            return true
         case .monitor:
             return true
         case .newWorkspace:
@@ -60,6 +62,18 @@ func currentSidebarWorkspaceDropDestination(sourceWindow: Window, mouseLocation:
                     interactionRect: sidebarWorkspaceDropInteractionRect(for: target),
                     title: sourceLabel,
                     subtitle: "Drop to send this item to \(workspaceDisplayName(workspaceName))",
+                    previewStyle: .sidebarWorkspaceMove,
+                    previewGeometry: .rounded,
+                    isGroup: isGroup,
+                )
+            case .folder(let projectId, let monitorScopeId):
+                return WindowDragIntentDestination(
+                    kind: .createWorkspace(projectId: projectId, monitorScopeId: monitorScopeId),
+                    previewContainerRect: workspaceSidebarCursorPreviewRect(at: mouseLocation),
+                    previewRect: workspaceSidebarCursorPreviewRect(at: mouseLocation),
+                    interactionRect: sidebarWorkspaceDropInteractionRect(for: target),
+                    title: sourceLabel,
+                    subtitle: "Drop to move this item into \(workspaceProjectDisplayName(projectId, fallbackName: "Folder"))",
                     previewStyle: .sidebarWorkspaceMove,
                     previewGeometry: .rounded,
                     isGroup: isGroup,

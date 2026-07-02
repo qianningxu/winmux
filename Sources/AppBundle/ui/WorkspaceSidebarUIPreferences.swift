@@ -1,7 +1,8 @@
 import Foundation
 
 private let workspaceSidebarPinnedExpandedPreferenceKey = "workspaceSidebar.pinnedExpanded"
-private let workspaceSidebarCollapsedTabGroupIdsPreferenceKey = "workspaceSidebar.collapsedTabGroupIds"
+private let workspaceSidebarCollapsedFolderIdsPreferenceKey = "workspaceSidebar.collapsedFolderIds"
+private let workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey = "workspaceSidebar.collapsedTabGroupIds"
 
 func workspaceSidebarPinnedExpandedPreference() -> Bool {
     UserDefaults.standard.bool(forKey: workspaceSidebarPinnedExpandedPreferenceKey)
@@ -14,31 +15,44 @@ func setWorkspaceSidebarPinnedExpandedPreference(_ isPinned: Bool) {
     TrayMenuModel.shared.isWorkspaceSidebarPinnedExpanded = isPinned
 }
 
-func collapsedWorkspaceSidebarTabGroupIdsPreference() -> Set<String> {
-    let ids = UserDefaults.standard.stringArray(forKey: workspaceSidebarCollapsedTabGroupIdsPreferenceKey) ?? []
+func collapsedWorkspaceSidebarFolderIdsPreference() -> Set<String> {
+    let ids = UserDefaults.standard.stringArray(forKey: workspaceSidebarCollapsedFolderIdsPreferenceKey)
+        ?? UserDefaults.standard.stringArray(forKey: workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey)
+        ?? []
     return Set(ids)
 }
 
 @MainActor
 func resetWorkspaceSidebarUIPreferencesForTests() {
     UserDefaults.standard.removeObject(forKey: workspaceSidebarPinnedExpandedPreferenceKey)
-    UserDefaults.standard.removeObject(forKey: workspaceSidebarCollapsedTabGroupIdsPreferenceKey)
+    UserDefaults.standard.removeObject(forKey: workspaceSidebarCollapsedFolderIdsPreferenceKey)
+    UserDefaults.standard.removeObject(forKey: workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey)
     UserDefaults.standard.synchronize()
     TrayMenuModel.shared.isWorkspaceSidebarPinnedExpanded = false
 }
 
-func workspaceSidebarTabGroupIsExpanded(_ projectId: WorkspaceProjectId) -> Bool {
-    !collapsedWorkspaceSidebarTabGroupIdsPreference().contains(projectId.rawValue)
+func workspaceSidebarFolderIsExpanded(_ projectId: WorkspaceProjectId) -> Bool {
+    !collapsedWorkspaceSidebarFolderIdsPreference().contains(projectId.rawValue)
 }
 
 @MainActor
-func setWorkspaceSidebarTabGroupExpanded(_ projectId: WorkspaceProjectId, isExpanded: Bool) {
-    var collapsedIds = collapsedWorkspaceSidebarTabGroupIdsPreference()
+func setWorkspaceSidebarFolderExpanded(_ projectId: WorkspaceProjectId, isExpanded: Bool) {
+    var collapsedIds = collapsedWorkspaceSidebarFolderIdsPreference()
     if isExpanded {
         collapsedIds.remove(projectId.rawValue)
     } else {
         collapsedIds.insert(projectId.rawValue)
     }
-    UserDefaults.standard.setValue(collapsedIds.sorted(), forKey: workspaceSidebarCollapsedTabGroupIdsPreferenceKey)
+    UserDefaults.standard.setValue(collapsedIds.sorted(), forKey: workspaceSidebarCollapsedFolderIdsPreferenceKey)
+    UserDefaults.standard.removeObject(forKey: workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey)
+    UserDefaults.standard.synchronize()
+}
+
+@MainActor
+func clearWorkspaceSidebarFolderExpansionPreference(_ projectId: WorkspaceProjectId) {
+    var collapsedIds = collapsedWorkspaceSidebarFolderIdsPreference()
+    guard collapsedIds.remove(projectId.rawValue) != nil else { return }
+    UserDefaults.standard.setValue(collapsedIds.sorted(), forKey: workspaceSidebarCollapsedFolderIdsPreferenceKey)
+    UserDefaults.standard.removeObject(forKey: workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey)
     UserDefaults.standard.synchronize()
 }

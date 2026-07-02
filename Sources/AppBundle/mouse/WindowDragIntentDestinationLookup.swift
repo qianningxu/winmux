@@ -49,10 +49,6 @@ func currentWindowDragIntentDestination(
         sourceWorkspace: sourceWorkspace,
         mouseLocation: mouseLocation,
         subject: subject,
-    ) ?? workspaceMoveDestination(
-        targetWorkspace: targetWorkspace,
-        sourceWorkspace: sourceWorkspace,
-        subject: subject,
     )
 }
 
@@ -103,10 +99,10 @@ private func workspaceZoneMoveDestination(
     else {
         return nil
     }
-    let zones = WindowIntentZoneBuilder.zones(in: workspaceRect)
-    let previewZones = zones.map { candidate in
-        WindowDragIntentPreviewZone(
-            rect: candidate.frame,
+        let zones = WindowIntentZoneBuilder.splitZones(in: workspaceRect)
+        let previewZones = zones.map { candidate in
+            WindowDragIntentPreviewZone(
+                rect: candidate.frame,
             style: candidate.zone.previewStyleForWorkspaceMove,
             geometry: candidate.zone.previewGeometryForWorkspaceMove,
             isActive: candidate.zone == zone
@@ -137,7 +133,7 @@ private extension WindowDropZone {
             case .left, .right, .top, .bottom:
                 .stackSplit
             case .tab, .middle:
-                .workspaceMove
+                .stackSplit
         }
     }
 
@@ -167,28 +163,7 @@ private extension WindowDropZone {
             case .bottom:
                 "Move Below"
             case .tab, .middle:
-                "Move Here"
+                "Move"
         }
     }
-}
-
-@MainActor
-private func workspaceMoveDestination(
-    targetWorkspace: Workspace,
-    sourceWorkspace: Workspace?,
-    subject: WindowDragSubject,
-) -> WindowDragIntentDestination? {
-    guard targetWorkspace != sourceWorkspace else { return nil }
-    let previewRect = targetWorkspace.workspaceMonitor.visibleRectPaddedByOuterGaps
-    return WindowDragIntentDestination(
-        kind: .moveToWorkspace(workspaceName: targetWorkspace.name),
-        previewContainerRect: previewRect,
-        previewRect: previewRect,
-        interactionRect: previewRect,
-        title: "Move Here",
-        subtitle: "Drop to move this item to this Tab",
-        previewStyle: .workspaceMove,
-        previewGeometry: .rounded,
-        isGroup: subject == .group,
-    )
 }

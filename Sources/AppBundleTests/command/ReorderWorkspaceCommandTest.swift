@@ -12,11 +12,25 @@ final class ReorderWorkspaceCommandTest: XCTestCase {
             ReorderWorkspaceCmdArgs(source: .parse("3").getOrDie(), beforeTarget: .parse("2").getOrDie())
         )
         testParseCommandSucc(
+            "reorder-tab 3 --before 2",
+            ReorderWorkspaceCmdArgs(source: .parse("3").getOrDie(), beforeTarget: .parse("2").getOrDie())
+        )
+        testParseCommandSucc(
             "reorder-workspace 1 --after 2",
             ReorderWorkspaceCmdArgs(source: .parse("1").getOrDie(), afterTarget: .parse("2").getOrDie())
         )
         assertEquals(parseCommand("reorder-workspace 1").errorOrNil, "Either --before or --after is required")
         assertEquals(parseCommand("reorder-workspace 1 --before 2 --after 3").errorOrNil, "ERROR: Conflicting options: --after, --before")
+    }
+
+    func testHelpIsTabFirstWhileKeepingWorkspaceCompatibility() {
+        guard case .help(let help) = parseCommand("reorder-workspace --help") else {
+            XCTFail("Expected help")
+            return
+        }
+
+        XCTAssertTrue(help.contains("USAGE: reorder-tab"))
+        XCTAssertFalse(help.contains("OR: reorder-workspace"))
     }
 
     func testReorderWorkspaceCommandMovesSourceBeforeTarget() async throws {

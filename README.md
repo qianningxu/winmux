@@ -12,37 +12,37 @@ This is a fork of [ZimengXiong/winmux](https://github.com/ZimengXiong/winmux), u
 https://github.com/user-attachments/assets/51983568-a168-494f-8ae3-5f50ca1efce1
 
 ## Highlights
-### Projects
-Projects are collection of workspaces. Think of it like a parent/child hiearchy, you can switch between projects. Each project has it's own set of workspaces.
+### Tabs
+Tabs are the top-level working views in WinMux. A tab can hold one window or a composed split layout with multiple windows.
 
 ### Sidebar
 The sidebar is a more interactively-performant and useful alternative to [Sketchybar](https://github.com/felixkratz/sketchybar) and traditional workspace menu bar dropdowns for most everyday tasks. It provides better visibility into spaces and spatial awareness on the desktop.
 
-You can drag windows in and out of the sidebar from and to the current workspace. You can rearrange windows across all spaces using the sidebar, including tab groups.
+You can drag windows in and out of the sidebar from and to the current tab. You can rearrange windows across all tabs using the sidebar, including folders.
 
 The sidebar can be configured (as shown) to display the current date and time.
 
 
-### Tab Groups
-![](resources/screenshots/tab-groups.png)
-Tab groups allow you to have many windows occupy the same footprint, similar to Yabai stacks but with browser-like tab behavior. This is useful when you want to have multiple pieces of reference information next to an editor, multiple tabs in different browser profiles, or, when you simply want multiple fullscreen views without the additional friction and overhead of creating a new workspace.
+### Folders
+![](resources/screenshots/folders.png)
+Folders let you group related sidebar tabs together without merging their composed window layouts. This is useful when you want a tidy set of reference tabs, several browser-profile tabs, or a batch of fullscreen views that should stay near each other.
 
-Unlike stack-only layouts, WinMux tab groups behave more intuitively like you would expect tabs to in browsers, and don't need a keyboard shortcut to activate. You can drag tabs from tab groups into another window's [intent zone](#managed-tiling-mode), or in between workspaces. You can also rearrange tab order within a tab group, and navigate through them with relative and absolute keybindings.
+Folders can be expanded or hidden from the sidebar, and WinMux remembers that state. Drag one tab onto another to create a folder, drag tabs within a folder to reorder them, or drag a tab back into the active view to compose it with the current tab.
 
 ### Philosophy
 
-#### Workspaces
-You can NOT create workspaces that have no windows in them. Workspaces with no windows are automatically destroyed.
+#### Empty Tabs
+You can not keep tabs that have no windows in them. Empty tabs are automatically removed.
 
 ### Multi-Monitors
-Monitors share the global project/workspace state. Each monitor can be treated as *independent* from each other. They each just use the sidebar to browse through projects and 'select' a workspace to view. 
+Each monitor has its own sidebar tab list. Monitors can be treated as *independent* from each other while still sharing the same app state.
 
-Monitors can not be attached to the same workspace at the same time. They can be on the same project at the same time.
+Monitors can not show the same tab at the same time.
 
 #### App Launching
 WinMux supports single-modifer keybindings (e.g. triggering an action on press of `⌘`)
 
-I highly recommend that you configure the apps you use every day to be launch with Left/Right Option+Command, or similar shortcuts, otherwise it might be hard to launch common things into the current workspace (and instead, take you to the other workspace where the app is currently active). Here is some of the apps that I have keybinded:
+I highly recommend that you configure the apps you use every day to be launch with Left/Right Option+Command, or similar shortcuts, otherwise it might be hard to launch common things into the current tab (and instead, take you to the other tab where the app is currently active). Here is some of the apps that I have keybinded:
 
 ```toml
 [mode.main.binding-tap]
@@ -99,13 +99,13 @@ make build VERSION=0.2.1-workspace-preview
 ./.debug/WinMuxApp --config-path ~/.config/winmux/winmux.toml
 ```
 
-### Workspace Preview Branch
-This branch adds a workspace switcher that behaves like Command-Tab, but switches WinMux workspaces instead of macOS apps.
+### Tab Preview Branch
+This branch adds a tab switcher that behaves like Command-Tab, but switches WinMux tabs instead of macOS apps.
 
-- `Option + Tab` opens the workspace preview and cycles forward.
+- `Option + Tab` opens the tab preview and cycles forward.
 - `Option + Shift + Tab` cycles backward.
-- Releasing Option switches to the selected workspace.
-- Preview cards draw each workspace using its actual window layout, with stable card sizing between selected and unselected states.
+- Releasing Option switches to the selected tab.
+- Preview cards draw each tab using its actual window layout, with stable card sizing between selected and unselected states.
 - The overlay keeps the area outside the floating preview cards transparent.
 
 This branch also includes sidebar refinements:
@@ -118,7 +118,7 @@ This branch also includes sidebar refinements:
 ### From AeroSpace
 If `~/.config/winmux/winmux.toml` already exists, WinMux uses it as-is.
 
-If you have an AeroSpace config but no WinMux config yet, WinMux creates one for you on first launch. It copies over your AeroSpace shortcuts/key mapping and fills in the rest with WinMux defaults, including the sidebar and window tabs.
+If you have an AeroSpace config but no WinMux config yet, WinMux creates one for you on first launch. It copies over your AeroSpace shortcuts/key mapping and fills in the rest with WinMux defaults, including the sidebar, Tabs, and Folders.
 
 You do not need to edit anything to get started. After import, WinMux uses `~/.config/winmux/winmux.toml` and leaves your AeroSpace config alone.
 

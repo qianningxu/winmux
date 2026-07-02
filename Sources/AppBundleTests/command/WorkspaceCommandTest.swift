@@ -11,13 +11,25 @@ final class WorkspaceCommandTest: XCTestCase {
         testParseCommandFail("workspace 'my mail'", msg: "ERROR: Whitespace characters are forbidden in Tab names")
         assertEquals(parseCommand("workspace").errorOrNil, "ERROR: Argument '(<tab-name>|next|prev)' is mandatory")
         testParseCommandSucc("workspace next", WorkspaceCmdArgs(target: .relative(.next)))
+        testParseCommandSucc("tab next", WorkspaceCmdArgs(target: .relative(.next)))
         testParseCommandSucc("workspace --auto-back-and-forth W", WorkspaceCmdArgs(target: .direct(.parse("W").getOrDie()), autoBackAndForth: true))
         assertEquals(parseCommand("workspace --wrap-around W").errorOrNil, "--wrapAround requires using (next|prev) argument")
         assertEquals(parseCommand("workspace --auto-back-and-forth next").errorOrNil, "--auto-back-and-forth is incompatible with (next|prev)")
         testParseCommandSucc("workspace next --wrap-around", WorkspaceCmdArgs(target: .relative(.next), wrapAround: true))
+        testParseCommandSucc("tab next --wrap-around", WorkspaceCmdArgs(target: .relative(.next), wrapAround: true))
         assertEquals(parseCommand("workspace --stdin foo").errorOrNil, "--stdin and --no-stdin require using (next|prev) argument")
         testParseCommandSucc("workspace --stdin next", WorkspaceCmdArgs(target: .relative(.next)).copy(\.explicitStdinFlag, true))
         testParseCommandSucc("workspace --no-stdin next", WorkspaceCmdArgs(target: .relative(.next)).copy(\.explicitStdinFlag, false))
+    }
+
+    func testHelpIsTabFirstWhileKeepingWorkspaceCompatibility() {
+        guard case .help(let help) = parseCommand("workspace --help") else {
+            XCTFail("Expected help")
+            return
+        }
+
+        XCTAssertTrue(help.contains("USAGE: tab"))
+        XCTAssertFalse(help.contains("OR: workspace"))
     }
 
     func testDirectWorkspaceFocusDoesNotCreateMissingWorkspace() async throws {

@@ -41,6 +41,15 @@ func createBlankWorkspace(projectId: WorkspaceProjectId, monitor: Monitor) -> Wo
 }
 
 @MainActor
+func createFreshAdjacentBlankWorkspace(projectId: WorkspaceProjectId, monitor: Monitor, after anchor: Workspace?) -> Workspace {
+    let workspace = createBlankWorkspace(projectId: projectId, monitor: monitor)
+    if let anchor {
+        _ = winMuxWorkspaceState.reorderWorkspace(workspace.id, inProject: projectId, destination: .after(anchor.id))
+    }
+    return workspace
+}
+
+@MainActor
 func getOrCreateAdjacentBlankWorkspace(projectId: WorkspaceProjectId, monitor: Monitor) -> Workspace {
     let scope = WorkspaceScope(projectId: projectId, monitor: monitor)
     if let workspaceId = retainedEmptyWorkspaceId(in: scope),
@@ -159,12 +168,14 @@ func pruneEmptyWorkspaces() {
     let workspacesToRemove = Workspace.all.filter {
         !workspaceShouldSurviveReconciliation($0, retainedEmptyWorkspaceIds: retainedEmptyWorkspaceIds)
     }
+    let workspaceIdsToRemove = Set(workspacesToRemove.map(\.id))
     var focusedReplacement: Workspace?
 
     for workspace in workspacesToRemove {
         let replacement = replacementWorkspaceForPrunedWorkspace(
             workspace,
             retainedEmptyWorkspaceIds: retainedEmptyWorkspaceIds,
+            excludingWorkspaceIds: workspaceIdsToRemove,
         )
         if workspace.isVisible, let replacement {
             check(
@@ -173,7 +184,7 @@ func pruneEmptyWorkspaces() {
             )
         }
         if workspace == focusedWorkspaceBeforePrune {
-            focusedReplacement = focusReplacementForPrunedWorkspace(workspace) ?? replacement
+            focusedReplacement = replacement ?? focusReplacementForPrunedWorkspace(workspace)
         }
         removeWorkspaceFromRegistry(workspace)
     }
@@ -185,7 +196,14 @@ func pruneEmptyWorkspaces() {
 
 @MainActor
 func focusReplacementForPrunedWorkspace(_ workspace: Workspace) -> Workspace? {
-    let visibleWorkspaces = Workspace.all.filter { $0.isVisible && $0 != workspace }
+    focusReplacementForPrunedWorkspace(workspace, excludingWorkspaceIds: [workspace.id])
+}
+
+@MainActor
+func focusReplacementForPrunedWorkspace(_ workspace: Workspace, excludingWorkspaceIds: Set<WorkspaceId>) -> Workspace? {
+    let visibleWorkspaces = Workspace.all.filter {
+        $0.isVisible && $0 != workspace && !excludingWorkspaceIds.contains($0.id)
+    }
     if let mainVisible = visibleWorkspaces.first(where: { $0 === mainMonitor.activeWorkspace }) {
         return mainVisible
     }
@@ -202,17 +220,34 @@ func workspaceShouldSurviveReconciliation(
     let isReplaceableVisibleRename = workspace.isVisible &&
         workspace.isOrdinaryEmptySlot &&
         workspaceHasSidebarDisplayNameOverride(workspace.name)
-    return (workspace.isVisible && !isReplaceableVisibleRename) ||
+    return (workspace.isVisible && !isReplaceableVisibleRename && shouldRetainVisibleWorkspaceDuringPrune(workspace)) ||
         workspaceHasLifecycleWindows(workspace) ||
         workspace.isConfiguredPersistent ||
-        (!isReplaceableVisibleRename && projectWorkspaces(projectId: workspace.projectId).filter { !$0.isArchived }.count == 1) ||
+        (!isReplaceableVisibleRename && shouldRetainLastEmptyWorkspaceInProject(workspace)) ||
         retainedEmptyWorkspaceIds[scope] == workspace.id
+}
+
+@MainActor
+private func shouldRetainVisibleWorkspaceDuringPrune(_ workspace: Workspace) -> Bool {
+    if projectsAreEnabled() || workspace.projectId == workspaceProjectDefaultId {
+        return true
+    }
+    return !workspace.isOrdinaryEmptySlot
+}
+
+@MainActor
+private func shouldRetainLastEmptyWorkspaceInProject(_ workspace: Workspace) -> Bool {
+    guard projectWorkspaces(projectId: workspace.projectId).filter({ !$0.isArchived }).count == 1 else {
+        return false
+    }
+    return projectsAreEnabled() || workspace.projectId == workspaceProjectDefaultId
 }
 
 @MainActor
 func replacementWorkspaceForPrunedWorkspace(
     _ workspace: Workspace,
     retainedEmptyWorkspaceIds: [WorkspaceScope: WorkspaceId],
+    excludingWorkspaceIds: Set<WorkspaceId> = [],
 ) -> Workspace? {
     let scope = WorkspaceScope(projectId: workspace.projectId, monitor: workspace.workspaceMonitor)
     let isReplaceableVisibleRename = workspace.isVisible &&
@@ -222,12 +257,14 @@ func replacementWorkspaceForPrunedWorkspace(
        let retainedWorkspaceId = retainedEmptyWorkspaceIds[scope],
        retainedWorkspaceId != workspace.id,
        let retainedWorkspace = winMuxWorkspaceState.workspaceById[retainedWorkspaceId],
+       !excludingWorkspaceIds.contains(retainedWorkspace.id),
        workspaceIsAvailableForMonitor(retainedWorkspace, monitor: workspace.workspaceMonitor)
     {
         return retainedWorkspace
     }
     if let candidate = orderedWorkspaces(in: scope).first(where: {
         $0.id != workspace.id &&
+            !excludingWorkspaceIds.contains($0.id) &&
             workspaceShouldSurviveReconciliation($0, retainedEmptyWorkspaceIds: retainedEmptyWorkspaceIds) &&
             (workspaceHasSidebarVisibleWindows($0) || $0.isConfiguredPersistent) &&
             workspaceIsAvailableForMonitor($0, monitor: workspace.workspaceMonitor)
@@ -235,7 +272,15 @@ func replacementWorkspaceForPrunedWorkspace(
         return candidate
     }
     if workspace.isVisible {
-        return createBlankWorkspace(projectId: workspace.projectId, monitor: workspace.workspaceMonitor)
+        let fallbackProjectId = (!projectsAreEnabled() && workspace.projectId != workspaceProjectDefaultId)
+            ? workspaceProjectDefaultId
+            : workspace.projectId
+        return getOrCreateFallbackWorkspace(
+            projectId: fallbackProjectId,
+            monitor: workspace.workspaceMonitor,
+            excluding: workspace,
+            excludingIds: excludingWorkspaceIds,
+        )
     }
     return nil
 }

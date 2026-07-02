@@ -33,6 +33,7 @@ final class MacWindow: Window {
             macApp,
             targetWorkspace,
             window: nil,
+            normalWindowPlacement: .freshTabWhenTargetOccupied,
         )
 
         // atomic synchronous section

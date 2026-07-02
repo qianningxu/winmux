@@ -182,12 +182,22 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertTrue(view.shouldShowTopFilterBar)
     }
 
+    func testSidebarTabRowsShareVisualMetricsAcrossNestingLevels() {
+        XCTAssertEqual(workspaceSidebarWorkspaceSectionHeaderHeight, workspaceSidebarTabRowHeight)
+        XCTAssertEqual(workspaceSidebarNestedTabRowHeight, workspaceSidebarTabRowHeight)
+        XCTAssertEqual(workspaceSidebarWorkspaceSectionHeightExpanded, workspaceSidebarTabRowHeight)
+        XCTAssertEqual(workspaceSidebarHeaderRowLeadingPadding, workspaceSidebarRowHorizontalPadding)
+        XCTAssertEqual(workspaceSidebarWindowRowsLeadingIndent, 0)
+        XCTAssertEqual(workspaceSidebarNestedRowSpacing, 4)
+        XCTAssertGreaterThan(workspaceSidebarTabGroupChildLeadingIndent, workspaceSidebarRowHorizontalPadding)
+    }
+
     @MainActor
     func testTopFilterBarIgnoresProjectsForHardTabMigration() {
         let view = WorkspaceSidebarView(snapshot: workspaceSidebarSnapshotForTopFilterBar(
             projects: [
                 WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Default", colorHex: nil),
-                WorkspaceSidebarProjectViewModel(id: "project-1", displayName: "Project 1", colorHex: nil),
+                WorkspaceSidebarProjectViewModel(id: "project-1", displayName: "Folder 1", colorHex: nil),
             ],
             monitorScopes: [
                 WorkspaceSidebarMonitorScopeViewModel(
@@ -204,9 +214,43 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
+    func testSidebarTopBarPlusCreatesNewTabOnTargetMonitor() {
+        let snapshot = WorkspaceSidebarSnapshot(
+            workspaces: [],
+            projects: [
+                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Default", colorHex: nil),
+            ],
+            activeProjectId: workspaceProjectDefaultId,
+            monitorScopes: [],
+            selectedMonitorScopeId: workspaceSidebarDefaultScopeId,
+            targetMonitorScopeId: "monitor:target",
+            focusedMonitorScopeId: "monitor:focused",
+            visibleWidth: 240,
+            isPinnedExpanded: false,
+            hoveredWorkspaceName: nil,
+            dropPreview: nil,
+            configuration: WorkspaceSidebarConfiguration(
+                collapsedWidth: 44,
+                expandedWidth: 240,
+                topPadding: 8,
+                showMonitorSelector: false,
+                showsDate: false,
+                showsStatusPills: false,
+                widgets: [],
+            ),
+        )
+
+        let action = WorkspaceSidebarView(snapshot: snapshot).sidebarNewTabAction()
+
+        XCTAssertEqual(action, .createWorkspace(projectId: workspaceProjectDefaultId, monitorScopeId: "monitor:target"))
+    }
+
+    @MainActor
     func testWorkspaceSidebarSnapshotKeepsLegacyProjectIdsForTabGroups() async {
         setUpWorkspacesForTests()
         let project = createWorkspaceProject()
+        let projectWorkspace = Workspace.all.first { $0.projectId == project.id }.orDie()
+        _ = TestWindow.new(id: 901, parent: projectWorkspace.rootTilingContainer)
         let projectWorkspaceNames = Set(Workspace.all.filter { $0.projectId == project.id }.map(\.name))
 
         XCTAssertFalse(projectWorkspaceNames.isEmpty)
@@ -224,15 +268,45 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
-    func testTabGroupFolderSectionsKeepDefaultTabsFlatAndGroupProjectTabs() {
+    func testFolderSectionsKeepDefaultTabsFlatAndFolderTabsGrouped() {
         let projectId = WorkspaceProjectId("project-1")
+        let emptyProjectId = WorkspaceProjectId("project-empty")
         var workspaces = makeWorkspaceSidebarSearchFixture()
+        let groupedWindow = WorkspaceSidebarWindowViewModel(
+            windowId: 301,
+            workspaceName: "grouped",
+            appName: "Dia",
+            appBundleId: "company.thebrowser.dia",
+            appBundlePath: "/Applications/Dia.app",
+            title: "Client brief",
+            isFocused: false,
+        )
         let grouped = WorkspaceSidebarWorkspaceViewModel(
             name: "grouped",
             projectId: projectId,
             displayName: "Grouped",
             sidebarLabel: "Grouped",
             isGeneratedName: false,
+            tabSummary: WorkspaceSidebarTabSummaryViewModel(
+                title: "Client brief",
+                subtitle: "Dia",
+                appBundleId: "company.thebrowser.dia",
+                appBundlePath: "/Applications/Dia.app",
+                windowCount: 1,
+                isEmpty: false,
+            ),
+            monitorScopeId: workspaceSidebarDefaultScopeId,
+            monitorName: nil,
+            isFocused: false,
+            isVisible: false,
+            items: [WorkspaceSidebarItemViewModel(kind: .window(groupedWindow))],
+        )
+        let emptyGrouped = WorkspaceSidebarWorkspaceViewModel(
+            name: "empty-grouped",
+            projectId: emptyProjectId,
+            displayName: "New Tab",
+            sidebarLabel: "",
+            isGeneratedName: true,
             tabSummary: .empty,
             monitorScopeId: workspaceSidebarDefaultScopeId,
             monitorName: nil,
@@ -241,13 +315,15 @@ final class WorkspaceSidebarDragTest: XCTestCase {
             items: [],
         )
         workspaces.append(grouped)
+        workspaces.append(emptyGrouped)
 
-        let sections = workspaceSidebarTabGroupFolderSections(
+        let sections = workspaceSidebarFolderSections(
             projectId: workspaceProjectDefaultId,
             workspaces: workspaces,
             projects: [
                 WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Tabs", colorHex: nil),
                 WorkspaceSidebarProjectViewModel(id: projectId, displayName: "Client", colorHex: nil),
+                WorkspaceSidebarProjectViewModel(id: emptyProjectId, displayName: "Empty", colorHex: nil),
             ],
         )
 
@@ -274,17 +350,17 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
-    func testTabGroupExpansionPreferenceRoundTrips() {
+    func testFolderExpansionPreferenceRoundTrips() {
         resetWorkspaceSidebarUIPreferencesForTests()
         let projectId = WorkspaceProjectId("project-1")
 
-        XCTAssertTrue(workspaceSidebarTabGroupIsExpanded(projectId))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(projectId))
 
-        setWorkspaceSidebarTabGroupExpanded(projectId, isExpanded: false)
-        XCTAssertFalse(workspaceSidebarTabGroupIsExpanded(projectId))
+        setWorkspaceSidebarFolderExpanded(projectId, isExpanded: false)
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(projectId))
 
-        setWorkspaceSidebarTabGroupExpanded(projectId, isExpanded: true)
-        XCTAssertTrue(workspaceSidebarTabGroupIsExpanded(projectId))
+        setWorkspaceSidebarFolderExpanded(projectId, isExpanded: true)
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(projectId))
     }
 
     @MainActor
@@ -304,9 +380,103 @@ final class WorkspaceSidebarDragTest: XCTestCase {
 
         XCTAssertEqual(model.displayName, "Research")
         XCTAssertEqual(model.tabSummary.title, "Research")
-        XCTAssertEqual(model.tabSummary.subtitle, "TestWindow(2)")
+        XCTAssertEqual(model.tabSummary.subtitle, "TestWindow(2) - 2 windows")
         XCTAssertEqual(model.tabSummary.windowCount, 2)
         XCTAssertFalse(model.tabSummary.isEmpty)
+    }
+
+    @MainActor
+    func testWorkspaceSidebarManualTabTitleSticksWhenFocusedWindowChanges() async throws {
+        setUpWorkspacesForTests()
+        let workspace = Workspace.get(byName: "coding")
+        workspace.markAsAutomaticallyNamed()
+        let first = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        let second = TestWindow.new(id: 2, parent: workspace.rootTilingContainer)
+        _ = first.focusWindow()
+
+        var sidebarWorkspaces = await buildWorkspaceSidebarWorkspaceViewModels(
+            currentFocus: focus,
+            workspaceLabels: [workspace.name: "Research"],
+            availableMonitors: sortedMonitors,
+        )
+        var model = try XCTUnwrap(sidebarWorkspaces.first { $0.name == workspace.name })
+
+        XCTAssertEqual(model.tabSummary.title, "Research")
+        XCTAssertEqual(model.tabSummary.subtitle, "TestWindow(1) - 2 windows")
+
+        _ = second.focusWindow()
+        sidebarWorkspaces = await buildWorkspaceSidebarWorkspaceViewModels(
+            currentFocus: focus,
+            workspaceLabels: [workspace.name: "Research"],
+            availableMonitors: sortedMonitors,
+        )
+        model = try XCTUnwrap(sidebarWorkspaces.first { $0.name == workspace.name })
+
+        XCTAssertEqual(model.tabSummary.title, "Research")
+        XCTAssertEqual(model.tabSummary.subtitle, "TestWindow(2) - 2 windows")
+        XCTAssertEqual(model.tabSummary.windowCount, 2)
+    }
+
+    @MainActor
+    func testWorkspaceSidebarComposedTabSummaryShowsWindowCountWithoutManualLabel() async throws {
+        setUpWorkspacesForTests()
+        let workspace = Workspace.get(byName: "coding")
+        workspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        _ = TestWindow.new(id: 2, parent: workspace.rootTilingContainer).focusWindow()
+
+        let sidebarWorkspaces = await buildWorkspaceSidebarWorkspaceViewModels(
+            currentFocus: focus,
+            workspaceLabels: [:],
+            availableMonitors: sortedMonitors,
+        )
+        let model = try XCTUnwrap(sidebarWorkspaces.first { $0.name == workspace.name })
+
+        XCTAssertEqual(model.tabSummary.title, "TestWindow(2)")
+        XCTAssertEqual(model.tabSummary.subtitle, "2 windows")
+        XCTAssertEqual(model.tabSummary.windowCount, 2)
+    }
+
+    @MainActor
+    func testWorkspaceSidebarTabSummaryUsesFocusedWindowTitleAsAutomaticTitle() async throws {
+        setUpWorkspacesForTests()
+        let workspace = Workspace.get(byName: "coding")
+        workspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 1, parent: workspace.rootTilingContainer)
+        _ = TestWindow.new(id: 2, parent: workspace.rootTilingContainer)
+        _ = TestWindow.new(id: 3, parent: workspace.rootTilingContainer).focusWindow()
+
+        let sidebarWorkspaces = await buildWorkspaceSidebarWorkspaceViewModels(
+            currentFocus: focus,
+            workspaceLabels: [:],
+            availableMonitors: sortedMonitors,
+        )
+        let model = try XCTUnwrap(sidebarWorkspaces.first { $0.name == workspace.name })
+
+        XCTAssertEqual(model.tabSummary.title, "TestWindow(3)")
+        XCTAssertEqual(model.tabSummary.subtitle, "3 windows")
+        XCTAssertEqual(model.tabSummary.windowCount, 3)
+    }
+
+    @MainActor
+    func testWorkspaceSidebarModelExcludesHiddenEmptyTabs() async throws {
+        setUpWorkspacesForTests()
+        let active = Workspace.get(byName: "active")
+        active.markAsAutomaticallyNamed()
+        active.seedMonitorIfNeeded(mainMonitor)
+        _ = TestWindow.new(id: 1, parent: active.rootTilingContainer).focusWindow()
+        let empty = Workspace.get(byName: "empty")
+        empty.markAsAutomaticallyNamed()
+        empty.seedMonitorIfNeeded(mainMonitor)
+
+        let sidebarWorkspaces = await buildWorkspaceSidebarWorkspaceViewModels(
+            currentFocus: focus,
+            workspaceLabels: [:],
+            availableMonitors: sortedMonitors,
+        )
+
+        XCTAssertTrue(sidebarWorkspaces.contains { $0.name == active.name })
+        XCTAssertFalse(sidebarWorkspaces.contains { $0.name == empty.name })
     }
 
     @MainActor
@@ -490,7 +660,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         if case .tabGroup(let group) = appResults.first?.items.first?.kind {
             XCTAssertEqual(group.searchVisibleTabs?.map(\.windowId), [202])
         } else {
-            XCTFail("Expected matching tab group")
+            XCTFail("Expected matching folder")
         }
         XCTAssertEqual(workspaceSidebarSearchSelections(workspaces: appResults), [.workspace("research")])
     }
@@ -581,6 +751,45 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         )
     }
 
+    func testPendingWorkspaceActivationHighlightsUntilVisibleOnTargetMonitor() {
+        let workspaces = makeWorkspaceSidebarSearchFixture()
+        let target = workspaces[0]
+        let pending = WorkspaceSidebarPendingActivation(
+            workspaceName: target.name,
+            targetMonitorScopeId: target.monitorScopeId
+        )
+
+        XCTAssertTrue(workspaceSidebarPendingActivationMatches(
+            pending,
+            workspace: target,
+            targetMonitorScopeId: target.monitorScopeId,
+            isActiveOnTargetMonitor: false
+        ))
+        XCTAssertFalse(workspaceSidebarPendingActivationMatches(
+            pending,
+            workspace: target,
+            targetMonitorScopeId: target.monitorScopeId,
+            isActiveOnTargetMonitor: true
+        ))
+        XCTAssertFalse(workspaceSidebarPendingActivationMatches(
+            pending,
+            workspace: target,
+            targetMonitorScopeId: "monitor:other",
+            isActiveOnTargetMonitor: false
+        ))
+        XCTAssertTrue(workspaceSidebarPendingActivationHasResolved(
+            pending,
+            workspaces: workspaces
+        ))
+        XCTAssertFalse(workspaceSidebarPendingActivationHasResolved(
+            WorkspaceSidebarPendingActivation(
+                workspaceName: target.name,
+                targetMonitorScopeId: "monitor:other"
+            ),
+            workspaces: workspaces
+        ))
+    }
+
     func testProjectSwipeDirectionRequiresHorizontalIntent() {
         XCTAssertEqual(
             workspaceSidebarProjectSwipeDirection(horizontalTranslation: -40, verticalTranslation: 4),
@@ -596,6 +805,13 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertNil(
             workspaceSidebarProjectSwipeDirection(horizontalTranslation: -4, verticalTranslation: 0),
         )
+    }
+
+    func testProjectSwipeCaptureIsDisabledForSidebarFoldersWhenProjectsAreDisabled() {
+        XCTAssertFalse(workspaceSidebarProjectSwipeCaptureIsEnabled(projectsEnabled: false, projectCount: 0))
+        XCTAssertFalse(workspaceSidebarProjectSwipeCaptureIsEnabled(projectsEnabled: false, projectCount: 2))
+        XCTAssertFalse(workspaceSidebarProjectSwipeCaptureIsEnabled(projectsEnabled: true, projectCount: 0))
+        XCTAssertTrue(workspaceSidebarProjectSwipeCaptureIsEnabled(projectsEnabled: true, projectCount: 1))
     }
 
     func testProjectSwipeNavigatesWithoutWrapping() {
@@ -778,13 +994,71 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         )
     }
 
-    func testWorkspaceSidebarDefaultScopeShowsWholeProject() {
+    func testWorkspaceSidebarDefaultScopeIsRawAllScopeBeforePanelResolution() {
         XCTAssertTrue(
             workspaceSidebarWorkspaceMatchesScope(
                 workspaceMonitorScopeId: "monitor:1440.0,0.0",
                 selectedScopeId: workspaceSidebarDefaultScopeId,
                 focusedMonitorScopeId: "monitor:0.0,0.0",
             ),
+        )
+    }
+
+    func testWorkspaceSidebarDefaultTabListScopeResolvesToPanelMonitor() {
+        XCTAssertEqual(
+            workspaceSidebarTabListScopeId(
+                selectedScopeId: workspaceSidebarDefaultScopeId,
+                targetMonitorScopeId: "monitor:1440.0,0.0"
+            ),
+            "monitor:1440.0,0.0"
+        )
+        XCTAssertEqual(
+            workspaceSidebarTabListScopeId(
+                selectedScopeId: "monitor:0.0,0.0",
+                targetMonitorScopeId: "monitor:1440.0,0.0"
+            ),
+            "monitor:0.0,0.0"
+        )
+    }
+
+    func testVisibleWorkspaceNamesDefaultScopeUsesPanelMonitor() {
+        let mainScope = "monitor:0.0,0.0"
+        let secondaryScope = "monitor:1440.0,0.0"
+        let workspaces = [
+            WorkspaceSidebarWorkspaceViewModel(
+                name: "main-tab",
+                projectId: workspaceProjectDefaultId,
+                displayName: "Main",
+                sidebarLabel: "",
+                isGeneratedName: true,
+                monitorScopeId: mainScope,
+                monitorName: nil,
+                isFocused: true,
+                isVisible: true,
+                items: [],
+            ),
+            WorkspaceSidebarWorkspaceViewModel(
+                name: "secondary-tab",
+                projectId: workspaceProjectDefaultId,
+                displayName: "Secondary",
+                sidebarLabel: "",
+                isGeneratedName: true,
+                monitorScopeId: secondaryScope,
+                monitorName: nil,
+                isFocused: false,
+                isVisible: true,
+                items: [],
+            ),
+        ]
+
+        XCTAssertEqual(
+            visibleWorkspaceNamesForSidebar(
+                workspaces: workspaces,
+                selectedMonitorScopeId: workspaceSidebarDefaultScopeId,
+                focusedMonitorScopeId: mainScope,
+                targetMonitorScopeId: secondaryScope,
+            ),
+            ["secondary-tab"]
         )
     }
 

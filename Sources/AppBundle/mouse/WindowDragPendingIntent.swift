@@ -75,6 +75,14 @@ func setPendingWindowDragIntent(
     detachOrigin: TabDetachOrigin,
     destination: WindowDragIntentDestination,
 ) -> Bool {
+    guard isWindowDragIntentKindEnabled(destination.kind) else {
+        logWindowDragIntentIfNeeded(
+            signature: "intent-disabled:source=\(sourceWindowId):kind=\(debugDescribe(destination.kind))",
+            "windowDragIntent.disabled source=\(sourceWindowId) subject=\(debugDescribe(sourceSubject)) kind=\(debugDescribe(destination.kind)); clearing previews"
+        )
+        clearPendingWindowDragIntent()
+        return false
+    }
     let isPointerSettled = WindowDragFrameGate.shared.state(for: sourceWindowId)?.isSettled ?? false
     WindowTabStripPanelController.shared.clearHiddenPassiveTabGroupChrome()
     updateWindowTabReentryPreview(sourceWindowId: sourceWindowId, destination: destination)

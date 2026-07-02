@@ -186,7 +186,11 @@ func createWorkspaceFromSidebarButton() {
 func createWorkspaceFromSidebarButton(projectId: WorkspaceProjectId, monitorScopeId: String) {
     runWorkspaceSidebarSession {
         let targetMonitor = workspaceSidebarTargetMonitor(scopeId: monitorScopeId)
-        let workspace = getOrCreateAdjacentBlankWorkspace(projectId: projectId, monitor: targetMonitor)
+        let workspace = createFreshAdjacentBlankWorkspace(
+            projectId: projectId,
+            monitor: targetMonitor,
+            after: targetMonitor.activeWorkspace,
+        )
         _ = workspace.focusWorkspace()
     }
 }
@@ -331,6 +335,15 @@ func previewWorkspaceSidebarDrop(_ windowId: UInt32, subject: WindowDragSubject,
                 subject: subject,
                 targetWorkspaceName: nil,
                 targetsNewWorkspace: true,
+                targetProjectId: projectId,
+                targetMonitorScopeId: monitorScopeId,
+            ))
+        } else if case .folder(let projectId, let monitorScopeId) = target {
+            setWorkspaceSidebarDropPreviewIfChanged(workspaceSidebarDropPreview(
+                sourceWindow: sourceWindow,
+                subject: subject,
+                targetWorkspaceName: nil,
+                targetsNewWorkspace: false,
                 targetProjectId: projectId,
                 targetMonitorScopeId: monitorScopeId,
             ))
@@ -488,23 +501,30 @@ func createWorkspaceSidebarProject(
 }
 
 @MainActor
-func createWorkspaceSidebarTabGroup(
+func createWorkspaceSidebarFolder(
     viewModel: TrayMenuModel = TrayMenuModel.shared,
 ) {
     runWorkspaceSidebarSession {
-        let project = createWorkspaceProject()
-        try renameWorkspaceProject(project.id, displayName: workspaceSidebarDefaultTabGroupName(project))
-        setWorkspaceSidebarTabGroupExpanded(project.id, isExpanded: true)
+        let project = createWorkspaceSidebarFolderProject()
+        try renameWorkspaceProject(project.id, displayName: workspaceSidebarDefaultFolderName(project))
+        setWorkspaceSidebarFolderExpanded(project.id, isExpanded: true)
         viewModel.workspaceSidebarActiveProjectId = workspaceProjectDefaultId
         await updateWorkspaceSidebarModel()
     }
 }
 
-private func workspaceSidebarDefaultTabGroupName(_ project: WorkspaceProject) -> String {
-    if project.name.hasPrefix("Project ") {
-        return "Group \(project.name.dropFirst("Project ".count))"
-    }
-    return project.name
+@MainActor
+private func createWorkspaceSidebarFolderProject() -> WorkspaceProject {
+    materializePersistedWorkspaceProjects()
+    let identity = winMuxWorkspaceState.nextGeneratedProjectIdentity()
+    let order = winMuxWorkspaceState.nextProjectOrder()
+    let project = WorkspaceProject(id: identity.id, name: identity.name, order: order)
+    winMuxWorkspaceState.registerProject(project)
+    return project
+}
+
+private func workspaceSidebarDefaultFolderName(_ project: WorkspaceProject) -> String {
+    workspaceSidebarFolderDisplayName(project.name)
 }
 
 @MainActor
@@ -552,17 +572,17 @@ private func confirmWorkspaceSidebarProjectDeletion(_ project: WorkspaceSidebarP
     let alert = NSAlert()
     switch config.workspaceSidebar.projectDeletionAction {
         case .closeWindows:
-            alert.messageText = "Close Project Windows?"
+            alert.messageText = "Close Folder Windows?"
             alert.informativeText = """
-            WinMux will ask macOS to close \(windowCount) window\(windowCount == 1 ? "" : "s") in “\(project.displayName)”. Apps may show their own confirmation dialogs for unsaved work. If any window stays open, WinMux will keep the project.
+            WinMux will ask macOS to close \(windowCount) window\(windowCount == 1 ? "" : "s") in “\(project.displayName)”. Apps may show their own confirmation dialogs for unsaved work. If any window stays open, WinMux will keep the folder.
             """
-            alert.addButton(withTitle: "Close Project")
+            alert.addButton(withTitle: "Close Folder")
         case .moveWindowsToFallback:
-            alert.messageText = "Delete Project?"
+            alert.messageText = "Delete Folder?"
             alert.informativeText = """
-            WinMux will delete “\(project.displayName)” and move \(windowCount) window\(windowCount == 1 ? "" : "s") to another project.
+            WinMux will delete “\(project.displayName)” and move \(windowCount) window\(windowCount == 1 ? "" : "s") to another folder.
             """
-            alert.addButton(withTitle: "Delete Project")
+            alert.addButton(withTitle: "Delete Folder")
     }
     alert.addButton(withTitle: "Cancel")
     alert.alertStyle = .warning
@@ -600,7 +620,32 @@ func reorderWorkspaceFromSidebar(_ workspaceName: String, projectId: WorkspacePr
 }
 
 @MainActor
-func mergeWorkspaceFromSidebar(
+func createFolderFromWorkspacesFromSidebar(
+    sourceWorkspaceName: String,
+    targetWorkspaceName: String
+) {
+    runWorkspaceSidebarSession {
+        guard createSidebarFolderFromWorkspaces(
+            sourceWorkspaceName: sourceWorkspaceName,
+            targetWorkspaceName: targetWorkspaceName
+        ) else { return }
+        await updateWorkspaceSidebarModel()
+    }
+}
+
+@MainActor
+func moveWorkspaceToFolderFromSidebar(
+    _ workspaceName: String,
+    projectId: WorkspaceProjectId
+) {
+    runWorkspaceSidebarSession {
+        guard moveWorkspaceToSidebarFolder(workspaceName, projectId: projectId) else { return }
+        await updateWorkspaceSidebarModel()
+    }
+}
+
+@MainActor
+func mergeWorkspacesFromSidebar(
     sourceWorkspaceName: String,
     targetWorkspaceName: String,
     position: WindowStackSplitPosition
@@ -613,6 +658,69 @@ func mergeWorkspaceFromSidebar(
         ) else { return }
         await updateWorkspaceSidebarModel()
     }
+}
+
+@MainActor
+@discardableResult
+func createSidebarFolderFromWorkspaces(
+    sourceWorkspaceName: String,
+    targetWorkspaceName: String
+) -> Bool {
+    materializePersistedWorkspaceProjects()
+    guard sourceWorkspaceName != targetWorkspaceName,
+          let sourceWorkspace = Workspace.existing(byName: sourceWorkspaceName),
+          let targetWorkspace = Workspace.existing(byName: targetWorkspaceName),
+          !sourceWorkspace.isArchived,
+          !targetWorkspace.isArchived
+    else { return false }
+    if let sourceMonitor = sourceWorkspace.visibleMonitor,
+       let targetMonitor = targetWorkspace.visibleMonitor,
+       sourceMonitor.rect.topLeftCorner != targetMonitor.rect.topLeftCorner
+    {
+        return false
+    }
+
+    let folderWorkspaces = orderedWorkspacesForPresentation()
+        .filter { $0 == sourceWorkspace || $0 == targetWorkspace }
+    let orderedFolderWorkspaces = folderWorkspaces.count == 2 ? folderWorkspaces : [targetWorkspace, sourceWorkspace]
+    let project = createWorkspaceSidebarFolderProject()
+    do {
+        try renameWorkspaceProject(project.id, displayName: workspaceSidebarDefaultFolderName(project))
+    } catch {
+        return false
+    }
+    for workspace in orderedFolderWorkspaces {
+        workspace.assignProject(project.id)
+    }
+    var storedProject = winMuxWorkspaceState.projectsById[project.id].orDie()
+    storedProject.workspaceOrder = orderedFolderWorkspaces.map(\.id)
+    winMuxWorkspaceState.projectsById[project.id] = storedProject
+    setWorkspaceSidebarFolderExpanded(project.id, isExpanded: true)
+    checkWorkspaceHierarchyInvariants()
+    return true
+}
+
+@MainActor
+@discardableResult
+func moveWorkspaceToSidebarFolder(
+    _ workspaceName: String,
+    projectId: WorkspaceProjectId
+) -> Bool {
+    materializePersistedWorkspaceProjects()
+    guard var project = winMuxWorkspaceState.projectsById[projectId],
+          let workspace = Workspace.existing(byName: workspaceName),
+          workspace.projectId != projectId,
+          !workspace.isArchived
+    else { return false }
+    workspace.assignProject(projectId)
+    project.workspaceOrder.removeAll { $0 == workspace.id }
+    project.workspaceOrder.append(workspace.id)
+    winMuxWorkspaceState.projectsById[projectId] = project
+    if projectId != workspaceProjectDefaultId {
+        setWorkspaceSidebarFolderExpanded(projectId, isExpanded: true)
+    }
+    checkWorkspaceHierarchyInvariants()
+    return true
 }
 
 @MainActor
@@ -919,6 +1027,13 @@ func commitActiveWorkspaceSidebarDrag(to target: WorkspaceSidebarDropTargetKind)
             } else {
                 return applySidebarSource(sourceWindow.windowId, subject: .window, toWorkspace: workspaceName)
             }
+        case .folder(let projectId, let monitorScopeId):
+            return applySidebarSourceToNewWorkspace(
+                sourceWindow.windowId,
+                subject: activeDrag.subject,
+                projectId: projectId,
+                monitorScopeId: monitorScopeId
+            )
         case .newWorkspace(let projectId, let monitorScopeId):
             if activeDrag.subject == .group {
                 return applySidebarSourceToNewWorkspace(

@@ -10,9 +10,9 @@ struct WorkspaceSidebarSideAreaMetrics: Equatable, Sendable {
     let plateCornerRadius: CGFloat
 
     init(
-        outerInset: CGFloat = 8,
-        mainContentGap: CGFloat = 8,
-        minimumWindowCanvasOuterGap: CGFloat = 8,
+        outerInset: CGFloat = 10,
+        mainContentGap: CGFloat = 10,
+        minimumWindowCanvasOuterGap: CGFloat = 10,
         edgeTriggerWidth: CGFloat = 4,
         plateCornerRadius: CGFloat = 18
     ) {

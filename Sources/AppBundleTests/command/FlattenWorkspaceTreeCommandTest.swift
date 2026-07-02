@@ -6,6 +6,11 @@ import XCTest
 final class FlattenWorkspaceTreeCommandTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
 
+    func testParseTabAlias() {
+        testParseCommandSucc("flatten-tab-tree --tab 1", FlattenWorkspaceTreeCmdArgs(rawArgs: ["--tab", "1"]).copy(\.workspaceName, .parse("1").getOrDie()))
+        testParseCommandSucc("flatten-workspace-tree --workspace 1", FlattenWorkspaceTreeCmdArgs(rawArgs: ["--workspace", "1"]).copy(\.workspaceName, .parse("1").getOrDie()))
+    }
+
     func testSimple() async throws {
         let workspace = Workspace.get(byName: name).apply {
             $0.rootTilingContainer.apply {

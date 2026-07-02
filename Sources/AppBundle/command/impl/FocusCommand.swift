@@ -61,7 +61,7 @@ struct FocusCommand: Command {
                 }
                 return windows[targetIndex].focusWindow()
             case .tabRelative(let nextPrev):
-                return focusRelativeInCurrentTabGroup(target, args.boundariesAction, nextPrev)
+                return focusRelativeInActiveTab(target, args.boundariesAction, nextPrev)
         }
     }
 }
@@ -122,60 +122,45 @@ struct FocusCommand: Command {
     return windowToFocus.focusWindow()
 }
 
-@MainActor private func focusRelativeInCurrentTabGroup(
+@MainActor private func focusRelativeInActiveTab(
     _ target: LiveFocus,
     _ boundariesAction: FocusCmdArgs.WhenBoundariesCrossed,
     _ nextPrev: TabNextPrev,
 ) -> Bool {
-    guard
-        let tabGroupData = currentTabGroupData(target)
-    else {
+    let windows = composedWindowsInActiveTab(target)
+    guard let currentIndex = windows.firstIndex(where: { $0 == target.windowOrNil }) else {
         return switch boundariesAction {
             case .stop, .wrapAroundTheWorkspace: true
             case .fail: false
             case .wrapAroundAllMonitors: dieT("Must be discarded by args parser")
         }
     }
-    let currentTab = tabGroupData.currentTab
-    guard let currentIndex = currentTab.ownIndex else { return false }
 
     var targetIndex = currentIndex + nextPrev.focusOffset
-    if !(0 ..< tabGroupData.group.children.count).contains(targetIndex) {
+    if !(0 ..< windows.count).contains(targetIndex) {
         switch boundariesAction {
             case .stop:
                 return true
             case .fail:
                 return false
             case .wrapAroundTheWorkspace:
-                targetIndex = (targetIndex + tabGroupData.group.children.count) % tabGroupData.group.children.count
+                targetIndex = (targetIndex + windows.count) % windows.count
             case .wrapAroundAllMonitors:
                 return dieT("Must be discarded by args parser")
         }
     }
 
-    return tabWindowToFocus(tabGroupData.group, targetIndex).map { $0.focusWindow() } ?? false
+    return windows[targetIndex].focusWindow()
 }
 
 @MainActor
 private func tabWindowToFocus(_ target: LiveFocus, _ oneBasedTabIndex: UInt32) -> Window? {
-    guard let group = currentTabGroupData(target)?.group else { return nil }
-    return tabWindowToFocus(group, Int(oneBasedTabIndex) - 1)
+    composedWindowsInActiveTab(target).getOrNil(atIndex: Int(oneBasedTabIndex) - 1)
 }
 
 @MainActor
-private func tabWindowToFocus(_ group: TilingContainer, _ zeroBasedIndex: Int) -> Window? {
-    guard let targetTab = group.children.getOrNil(atIndex: zeroBasedIndex) else { return nil }
-    return targetTab.mostRecentWorkspaceFocusableWindowRecursive ?? targetTab.tabRepresentativeWindow
-}
-
-@MainActor
-private func currentTabGroupData(_ target: LiveFocus) -> (group: TilingContainer, currentTab: TreeNode)? {
-    guard
-        let focusedWindow = target.windowOrNil,
-        let tabGroup = focusedWindow.nearestWindowTabGroup,
-        let currentTab = focusedWindow.directChild(in: tabGroup)
-    else { return nil }
-    return (tabGroup, currentTab)
+private func composedWindowsInActiveTab(_ target: LiveFocus) -> [Window] {
+    target.workspace.rootTilingContainer.allLeafWindowsRecursive
 }
 
 @MainActor private func makeFloatingWindowsSeenAsTiling(workspace: Workspace) async throws -> [FloatingWindowData] {

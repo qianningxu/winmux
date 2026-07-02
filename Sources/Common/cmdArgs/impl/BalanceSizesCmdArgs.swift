@@ -6,6 +6,7 @@ public struct BalanceSizesCmdArgs: CmdArgs {
         allowInConfig: true,
         help: balance_sizes_help_generated,
         flags: [
+            "--tab": optionalWorkspaceFlag(),
             "--workspace": optionalWorkspaceFlag(),
         ],
         posArgs: [],

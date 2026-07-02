@@ -76,6 +76,29 @@ struct AgentApplyContext {
 struct AgentLayoutEdit: Codable {
     let workspaces: [AgentWorkspaceLayout]
 
+    private enum CodingKeys: String, CodingKey {
+        case tabs
+        case workspaces
+    }
+
+    init(workspaces: [AgentWorkspaceLayout]) {
+        self.workspaces = workspaces
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let tabs = try container.decodeIfPresent([AgentWorkspaceLayout].self, forKey: .tabs) {
+            workspaces = tabs
+        } else {
+            workspaces = try container.decode([AgentWorkspaceLayout].self, forKey: .workspaces)
+        }
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(workspaces, forKey: .tabs)
+    }
+
     @MainActor
     func validate(appendTo errors: inout [String]) async throws {
         for workspace in workspaces {
@@ -90,4 +113,3 @@ struct AgentLayoutEdit: Codable {
         }
     }
 }
-

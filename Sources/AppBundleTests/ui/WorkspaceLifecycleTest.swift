@@ -60,6 +60,34 @@ final class WorkspaceLifecycleTest: XCTestCase {
         XCTAssertNil(Workspace.existing(byName: "3"))
     }
 
+    func testFreshAdjacentBlankWorkspaceDoesNotReuseExistingEmptySlotAndInsertsAfterActiveTab() async throws {
+        let first = Workspace.get(byName: "1")
+        first.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 21, parent: first.rootTilingContainer)
+        let existingBlank = Workspace.get(byName: "2")
+        existingBlank.markAsTransientBlank()
+        let second = Workspace.get(byName: "3")
+        second.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 22, parent: second.rootTilingContainer)
+        XCTAssertTrue(first.focusWorkspace())
+
+        let fresh = createFreshAdjacentBlankWorkspace(
+            projectId: workspaceProjectDefaultId,
+            monitor: first.workspaceMonitor,
+            after: first
+        )
+
+        XCTAssertFalse(fresh === existingBlank)
+        XCTAssertTrue(fresh.isEffectivelyEmpty)
+        let relevantNames = Set([first.name, fresh.name, existingBlank.name, second.name])
+        XCTAssertEqual(
+            orderedWorkspacesForPresentation()
+                .filter { !$0.isArchived && relevantNames.contains($0.name) }
+                .map(\.name),
+            [first.name, fresh.name, existingBlank.name, second.name]
+        )
+    }
+
     func testAdjacentBlankWorkspaceCreationDoesNotReuseOtherMonitorEmptyTab() {
         let main = WorkspaceNamingTestMonitor(
             monitorAppKitNsScreenScreensId: 1,
@@ -119,7 +147,7 @@ final class WorkspaceLifecycleTest: XCTestCase {
         XCTAssertTrue(emptyUserFacingWorkspaces(in: sourceWorkspace.projectId).isEmpty)
     }
 
-    func testMovingLastProjectWindowAwayLeavesOneActiveEmptyProjectWorkspace() async throws {
+    func testMovingLastTabGroupWindowAwayDissolvesEmptyTabGroup() async throws {
         let defaultTarget = Workspace.get(byName: "default-target")
         _ = TestWindow.new(id: 5, parent: defaultTarget.rootTilingContainer)
         let project = createWorkspaceProject()
@@ -135,9 +163,11 @@ final class WorkspaceLifecycleTest: XCTestCase {
         )
         Workspace.reconcileWorkspaceState()
 
-        XCTAssertEqual(mainMonitor.activeWorkspace.projectId, project.id)
-        XCTAssertTrue(mainMonitor.activeWorkspace.isEffectivelyEmpty)
-        XCTAssertEqual(emptyUserFacingWorkspaces(in: projectWorkspace.projectId), [projectWorkspace])
+        XCTAssertEqual(mainMonitor.activeWorkspace.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(projectWindow.nodeWorkspace?.projectId, workspaceProjectDefaultId)
+        XCTAssertNil(Workspace.existing(byName: projectWorkspace.name))
+        XCTAssertNil(winMuxWorkspaceState.projectsById[project.id])
+        XCTAssertEqual(emptyUserFacingWorkspaces(in: project.id), [])
     }
 
     func testWorkspaceNextFromExistingBlankDoesNotCreateAnotherBlank() async throws {
@@ -246,7 +276,7 @@ final class WorkspaceLifecycleTest: XCTestCase {
         XCTAssertEqual(mainMonitor.activeWorkspace.projectId, workspaceProjectDefaultId)
     }
 
-    func testEachMonitorKeepsAWorkspaceWhenWorkspacesSpanProjects() {
+    func testEachMonitorKeepsDefaultTabWhenEmptyTabGroupDissolves() {
         let main = WorkspaceNamingTestMonitor(
             monitorAppKitNsScreenScreensId: 1,
             name: "Main",
@@ -271,9 +301,12 @@ final class WorkspaceLifecycleTest: XCTestCase {
         Workspace.reconcileWorkspaceState()
 
         XCTAssertTrue(main.activeWorkspace === defaultWorkspace)
-        XCTAssertTrue(secondary.activeWorkspace === projectWorkspace)
+        XCTAssertFalse(secondary.activeWorkspace === projectWorkspace)
         XCTAssertEqual(defaultWorkspace.projectId, workspaceProjectDefaultId)
-        XCTAssertEqual(projectWorkspace.projectId, project.id)
+        XCTAssertEqual(secondary.activeWorkspace.projectId, workspaceProjectDefaultId)
+        XCTAssertTrue(secondary.activeWorkspace.isOrdinaryEmptySlot)
+        XCTAssertNil(Workspace.existing(byName: projectWorkspace.name))
+        XCTAssertNil(winMuxWorkspaceState.projectsById[project.id])
     }
 
     func testSameProjectCanBeActiveOnDifferentMonitorsWithDifferentWorkspaces() {
@@ -403,8 +436,67 @@ final class WorkspaceLifecycleTest: XCTestCase {
         XCTAssertTrue(target === secondaryActiveWorkspace)
     }
 
-    func testNewWindowWithoutRectKeepsFocusedWorkspaceFallbackOutsideStartup() {
+    func testNewTilingWindowDefaultsToFreshTabWhenTargetTabIsOccupied() {
+        let occupied = focus.workspace
+        occupied.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 34, parent: occupied.rootTilingContainer)
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(occupied))
+
+        let destination = workspaceForNewTilingWindow(
+            defaultWorkspace: occupied,
+            placement: .freshTabWhenTargetOccupied
+        )
+
+        XCTAssertFalse(destination === occupied)
+        XCTAssertTrue(destination.isEffectivelyEmpty)
+        XCTAssertEqual(destination.lifecycle, .transient)
+        XCTAssertTrue(mainMonitor.activeWorkspace === destination)
+        XCTAssertEqual(destination.workspaceMonitor.rect.topLeftCorner, occupied.workspaceMonitor.rect.topLeftCorner)
+        XCTAssertEqual(
+            orderedWorkspacesForPresentation().filter { !$0.isArchived }.map(\.name),
+            [occupied.name, destination.name]
+        )
+    }
+
+    func testDefaultNewTilingWindowPlacementCreatesFreshTabWhenOccupied() {
+        XCTAssertEqual(defaultNewTilingWindowPlacement(), .freshTabWhenTargetOccupied)
+    }
+
+    func testNewTilingWindowUsesCurrentEmptyTabInsteadOfCreatingExtraBlank() {
+        let empty = focus.workspace
+        empty.markAsTransientBlank()
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(empty))
+
+        let destination = workspaceForNewTilingWindow(
+            defaultWorkspace: empty,
+            placement: .freshTabWhenTargetOccupied
+        )
+
+        XCTAssertTrue(destination === empty)
+        XCTAssertEqual(Workspace.all.filter { !$0.isArchived }.map(\.name), [empty.name])
+        XCTAssertTrue(mainMonitor.activeWorkspace === empty)
+    }
+
+    func testTargetWorkspacePlacementKeepsExistingTabForRelayout() {
+        let occupied = focus.workspace
+        occupied.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 35, parent: occupied.rootTilingContainer)
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(occupied))
+
+        let destination = workspaceForNewTilingWindow(
+            defaultWorkspace: occupied,
+            placement: .targetWorkspace
+        )
+
+        XCTAssertTrue(destination === occupied)
+        XCTAssertEqual(Workspace.all.filter { !$0.isArchived }.map(\.name), [occupied.name])
+        XCTAssertTrue(mainMonitor.activeWorkspace === occupied)
+    }
+
+    func testNewWindowWithoutRectTargetsFocusedMonitorActiveTabOutsideStartup() {
+        let activeWorkspace = Workspace.get(byName: "active-tab")
         let focusedWorkspace = Workspace.get(byName: "focused-tab")
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(activeWorkspace))
 
         let target = targetWorkspaceForNewWindow(
             isStartup: false,
@@ -412,7 +504,29 @@ final class WorkspaceLifecycleTest: XCTestCase {
             focusedWorkspace: focusedWorkspace,
         )
 
-        XCTAssertTrue(target === focusedWorkspace)
+        XCTAssertTrue(target === activeWorkspace)
+    }
+
+    func testNewWindowWithoutRectCreatesTransientBlankTabWhenFocusedMonitorHasNoActiveTab() {
+        let occupiedWorkspace = focus.workspace
+        occupiedWorkspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 33, parent: occupiedWorkspace.rootTilingContainer)
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(occupiedWorkspace))
+        let viewportId = MonitorViewportId(mainMonitor)
+        var viewport = winMuxWorkspaceState.monitorViewportsById[viewportId].orDie()
+        viewport.activeWorkspaceId = nil
+        winMuxWorkspaceState.monitorViewportsById[viewportId] = viewport
+
+        let target = targetWorkspaceForNewWindow(
+            isStartup: false,
+            windowRect: nil,
+            focusedWorkspace: occupiedWorkspace,
+        )
+
+        XCTAssertFalse(target === occupiedWorkspace)
+        XCTAssertTrue(target.isEffectivelyEmpty)
+        XCTAssertEqual(target.lifecycle, .transient)
+        XCTAssertTrue(mainMonitor.activeWorkspace === target)
     }
 
     func testStartupNewWindowWithoutRectTargetsMainMonitorActiveWorkspace() {
@@ -427,6 +541,50 @@ final class WorkspaceLifecycleTest: XCTestCase {
         )
 
         XCTAssertTrue(target === startupWorkspace)
+    }
+
+    func testNewWindowCreatesTransientBlankTabWhenMonitorHasNoActiveTab() {
+        let occupiedWorkspace = focus.workspace
+        occupiedWorkspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 31, parent: occupiedWorkspace.rootTilingContainer)
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(occupiedWorkspace))
+        let viewportId = MonitorViewportId(mainMonitor)
+        var viewport = winMuxWorkspaceState.monitorViewportsById[viewportId].orDie()
+        viewport.activeWorkspaceId = nil
+        winMuxWorkspaceState.monitorViewportsById[viewportId] = viewport
+
+        let target = targetWorkspaceForNewWindow(
+            isStartup: false,
+            windowRect: Rect(topLeftX: 100, topLeftY: 100, width: 800, height: 600),
+            focusedWorkspace: occupiedWorkspace,
+        )
+
+        XCTAssertFalse(target === occupiedWorkspace)
+        XCTAssertTrue(target.isEffectivelyEmpty)
+        XCTAssertEqual(target.lifecycle, .transient)
+        XCTAssertTrue(mainMonitor.activeWorkspace === target)
+    }
+
+    func testStartupNewWindowCreatesTransientBlankTabWhenMainMonitorHasNoActiveTab() {
+        let focusedWorkspace = focus.workspace
+        focusedWorkspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 32, parent: focusedWorkspace.rootTilingContainer)
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(focusedWorkspace))
+        let viewportId = MonitorViewportId(mainMonitor)
+        var viewport = winMuxWorkspaceState.monitorViewportsById[viewportId].orDie()
+        viewport.activeWorkspaceId = nil
+        winMuxWorkspaceState.monitorViewportsById[viewportId] = viewport
+
+        let target = targetWorkspaceForNewWindow(
+            isStartup: true,
+            windowRect: nil,
+            focusedWorkspace: focusedWorkspace,
+        )
+
+        XCTAssertFalse(target === focusedWorkspace)
+        XCTAssertTrue(target.isEffectivelyEmpty)
+        XCTAssertEqual(target.lifecycle, .transient)
+        XCTAssertTrue(mainMonitor.activeWorkspace === target)
     }
 
     private func emptyUserFacingWorkspaces(in projectId: WorkspaceProjectId) -> [Workspace] {

@@ -8,13 +8,18 @@ func projectsAreEnabled() -> Bool {
 
 @MainActor
 func projectFeatureDisabledMessage() -> String {
-    "Projects are disabled by enable-projects = false"
+    "Legacy folder commands are disabled. Tabs and folders are managed in the sidebar."
 }
 
 @MainActor
 func workspaceProjects() -> [WorkspaceProject] {
     materializePersistedWorkspaceProjects()
-    ensureMinimumWorkspaceForAllProjects()
+    if projectsAreEnabled() {
+        ensureMinimumWorkspaceForAllProjects()
+    } else {
+        pruneEmptyWorkspaceTabGroups()
+        ensureMinimumWorkspace(for: workspaceProjectDefaultId)
+    }
     let projects = winMuxWorkspaceState.projectsById.values.sorted {
         if $0.id == workspaceProjectDefaultId { return true }
         if $1.id == workspaceProjectDefaultId { return false }
@@ -27,12 +32,12 @@ func workspaceProjects() -> [WorkspaceProject] {
            !configuredName.isEmpty,
            configuredName != project.id.rawValue
         {
-            displayName = configuredName
+            displayName = workspaceSidebarFolderDisplayName(configuredName)
         } else if project.id == workspaceProjectDefaultId {
             displayName = "Default"
         } else {
             numberedProjectIndex += 1
-            displayName = "Project \(numberedProjectIndex)"
+            displayName = "Folder \(numberedProjectIndex)"
         }
         return WorkspaceProject(
             id: project.id,
@@ -46,7 +51,7 @@ func workspaceProjects() -> [WorkspaceProject] {
 
 @MainActor
 func workspaceProjectName(_ projectId: WorkspaceProjectId) -> String {
-    workspaceProjects().first { $0.id == projectId }?.name ?? "Project"
+    workspaceProjects().first { $0.id == projectId }?.name ?? "Folder"
 }
 
 @MainActor
@@ -85,6 +90,13 @@ func workspaceProjectOrderPrecedes(_ lhs: WorkspaceProject, _ rhs: WorkspaceProj
 
 @MainActor
 func materializePersistedWorkspaceProjects() {
+    guard projectsAreEnabled() else {
+        // Legacy project commands are disabled, but project metadata remains the
+        // backing store for sidebar folders. Do not erase persisted labels or
+        // colors just because the old project feature is no longer user-facing.
+        ensureMinimumWorkspace(for: workspaceProjectDefaultId)
+        return
+    }
     for (rawProjectId, label) in config.workspaceSidebar.projectLabels {
         let projectId = WorkspaceProjectId(rawProjectId)
         let name = label.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -97,7 +109,10 @@ func materializePersistedWorkspaceProjects() {
 
 @MainActor
 func ensureMinimumWorkspaceForAllProjects(monitor: Monitor = mainMonitor) {
-    for projectId in winMuxWorkspaceState.projectsById.keys {
+    let projectIds = projectsAreEnabled()
+        ? Array(winMuxWorkspaceState.projectsById.keys)
+        : [workspaceProjectDefaultId]
+    for projectId in projectIds {
         ensureMinimumWorkspace(for: projectId, monitor: monitor)
     }
 }
@@ -142,18 +157,17 @@ func reorderWorkspaceForSidebar(
           !target.isArchived
     else { return false }
 
-    guard projectsAreEnabled() else {
-        guard projectId == workspaceProjectDefaultId else { return false }
-        return reorderWorkspaceForSidebarAcrossPresentationOrder(
+    guard target.projectId == projectId
+    else { return false }
+
+    if source.projectId != projectId {
+        return moveWorkspaceForSidebarReorder(
             source: source,
             target: target,
+            destinationProjectId: projectId,
             placement: placement
         )
     }
-
-    guard source.projectId == projectId,
-          target.projectId == projectId
-    else { return false }
 
     let destination: WorkspaceOrderDestination = switch placement {
         case .before(_): .before(target.id)
@@ -163,46 +177,31 @@ func reorderWorkspaceForSidebar(
 }
 
 @MainActor
-private func reorderWorkspaceForSidebarAcrossPresentationOrder(
+private func moveWorkspaceForSidebarReorder(
     source: Workspace,
     target: Workspace,
+    destinationProjectId: WorkspaceProjectId,
     placement: WorkspaceReorderPlacement
 ) -> Bool {
-    guard source != target else { return false }
-    let ordered = orderedWorkspacesForPresentation()
-    guard ordered.contains(source), ordered.contains(target) else { return false }
-    var reorderedIds = ordered.map(\.id)
-    reorderedIds.removeAll { $0 == source.id }
-    guard let targetIndex = reorderedIds.firstIndex(of: target.id) else { return false }
+    guard source != target,
+          target.projectId == destinationProjectId,
+          winMuxWorkspaceState.projectsById[destinationProjectId] != nil
+    else { return false }
+    source.assignProject(destinationProjectId)
+    guard var project = winMuxWorkspaceState.projectsById[destinationProjectId] else { return false }
+    project.workspaceOrder.removeAll { $0 == source.id }
+    guard let targetIndex = project.workspaceOrder.firstIndex(of: target.id) else { return false }
     let insertionIndex = switch placement {
         case .before(_): targetIndex
         case .after(_): targetIndex + 1
     }
-    reorderedIds.insert(source.id, at: insertionIndex)
-    guard reorderedIds != ordered.map(\.id) else { return false }
-    source.assignProject(workspaceProjectDefaultId)
-    target.assignProject(workspaceProjectDefaultId)
-    applyPresentationWorkspaceOrder(reorderedIds)
+    project.workspaceOrder.insert(source.id, at: insertionIndex)
+    winMuxWorkspaceState.projectsById[destinationProjectId] = project
+    if destinationProjectId != workspaceProjectDefaultId {
+        setWorkspaceSidebarFolderExpanded(destinationProjectId, isExpanded: true)
+    }
+    checkWorkspaceHierarchyInvariants()
     return true
-}
-
-@MainActor
-private func applyPresentationWorkspaceOrder(_ orderedIds: [WorkspaceId]) {
-    var remainingIds = orderedIds
-    let projects = winMuxWorkspaceState.projectsById.values.sorted {
-        if $0.id == workspaceProjectDefaultId { return true }
-        if $1.id == workspaceProjectDefaultId { return false }
-        return workspaceProjectOrderPrecedes($0, $1)
-    }
-    for project in projects {
-        var project = project
-        let projectIds = remainingIds.filter {
-            winMuxWorkspaceState.workspaceById[$0]?.projectId == project.id
-        }
-        project.workspaceOrder = projectIds
-        winMuxWorkspaceState.projectsById[project.id] = project
-        remainingIds.removeAll { projectIds.contains($0) }
-    }
 }
 
 @MainActor
@@ -355,12 +354,63 @@ private func clearWorkspaceSidebarProjectMetadata(_ projectId: WorkspaceProjectI
     let rawProjectId = projectId.rawValue
     let hadLabel = config.workspaceSidebar.projectLabels.removeValue(forKey: rawProjectId) != nil
     let hadColor = config.workspaceSidebar.projectColors.removeValue(forKey: rawProjectId) != nil
+    clearWorkspaceSidebarFolderExpansionPreference(projectId)
     guard !isUnitTest else { return }
     if hadLabel {
         try persistWorkspaceSidebarProjectLabel(projectId: rawProjectId, label: nil)
     }
     if hadColor {
         try persistWorkspaceSidebarProjectColor(projectId: rawProjectId, colorHex: nil)
+    }
+}
+
+@MainActor
+private func clearOrphanedWorkspaceTabGroupMetadata() {
+    var metadataProjectIds: Set<WorkspaceProjectId> = []
+    for rawProjectId in config.workspaceSidebar.projectLabels.keys {
+        metadataProjectIds.insert(WorkspaceProjectId(rawProjectId))
+    }
+    for rawProjectId in config.workspaceSidebar.projectColors.keys {
+        metadataProjectIds.insert(WorkspaceProjectId(rawProjectId))
+    }
+    for projectId in metadataProjectIds
+    where projectId != workspaceProjectDefaultId && winMuxWorkspaceState.projectsById[projectId] == nil {
+        try? clearWorkspaceSidebarProjectMetadata(projectId)
+    }
+}
+
+@MainActor
+func pruneEmptyWorkspaceTabGroups() {
+    guard !projectsAreEnabled() else { return }
+    winMuxWorkspaceState.pruneProjectWorkspaceIndexes()
+    let emptyProjectIds = winMuxWorkspaceState.projectsById.keys
+        .filter { $0 != workspaceProjectDefaultId }
+        .filter { !workspaceTabGroupProjectHasContent($0) }
+
+    for projectId in emptyProjectIds {
+        for workspace in Workspace.all where workspace.projectId == projectId {
+            if workspace.isVisible {
+                let fallback = workspaceFallbackForDeletion(
+                    excluding: workspace,
+                    projectId: workspaceProjectDefaultId,
+                    monitor: workspace.workspaceMonitor,
+                )
+                _ = workspace.workspaceMonitor.setActiveWorkspace(fallback)
+                if focus.workspace == workspace {
+                    _ = setFocus(to: fallback.toLiveFocus())
+                }
+            }
+            removeWorkspaceFromRegistry(workspace)
+        }
+        winMuxWorkspaceState.projectsById.removeValue(forKey: projectId)
+        try? clearWorkspaceSidebarProjectMetadata(projectId)
+    }
+}
+
+@MainActor
+private func workspaceTabGroupProjectHasContent(_ projectId: WorkspaceProjectId) -> Bool {
+    projectWorkspaces(projectId: projectId).contains {
+        !$0.isArchived && (workspaceHasLifecycleWindows($0) || $0.isConfiguredPersistent)
     }
 }
 

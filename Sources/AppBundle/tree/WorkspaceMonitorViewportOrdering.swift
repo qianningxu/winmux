@@ -42,11 +42,13 @@ func getOrCreateFallbackWorkspace(
     projectId: WorkspaceProjectId,
     monitor: Monitor,
     excluding excludedWorkspace: Workspace?,
+    excludingIds: Set<WorkspaceId> = [],
 ) -> Workspace {
     let scope = WorkspaceScope(projectId: projectId, monitor: monitor)
     if let workspaceId = retainedEmptyWorkspaceId(in: scope),
        let workspace = winMuxWorkspaceState.workspaceById[workspaceId],
        workspace != excludedWorkspace,
+       !excludingIds.contains(workspace.id),
        workspaceIsAvailableForMonitor(workspace, monitor: monitor)
     {
         return workspace
@@ -54,6 +56,7 @@ func getOrCreateFallbackWorkspace(
     if let workspace = projectWorkspaces(projectId: projectId)
         .first(where: {
             $0 != excludedWorkspace &&
+                !excludingIds.contains($0.id) &&
                 $0.isEffectivelyEmpty &&
                 !$0.isArchived &&
                 workspaceIsAvailableForMonitor($0, monitor: monitor)
@@ -62,7 +65,7 @@ func getOrCreateFallbackWorkspace(
         return workspace
     }
     let workspace = Workspace.get(byName: nextAutomaticWorkspaceName(projectId: projectId, monitor: monitor))
-    workspace.markAsAutomaticallyNamed()
+    workspace.markAsTransientBlank()
     workspace.assignProject(projectId)
     workspace.seedMonitorIfNeeded(monitor)
     return workspace

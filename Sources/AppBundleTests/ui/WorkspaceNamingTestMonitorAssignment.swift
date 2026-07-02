@@ -4,7 +4,7 @@ import Common
 import XCTest
 
 extension WorkspaceNamingTest {
-    func testMovingWorkspaceToAnotherMonitorKeepsSourceMonitorInSameProject() async throws {
+    func testMovingTabGroupWorkspaceToAnotherMonitorLeavesSourceMonitorOnDefaultTab() async throws {
         let main = WorkspaceNamingTestMonitor(
             monitorAppKitNsScreenScreensId: 1,
             name: "Left",
@@ -22,6 +22,7 @@ extension WorkspaceNamingTest {
         setMonitorsForTests([main, secondary])
         let project = createWorkspaceProject()
         let projectWorkspace = try XCTUnwrap(switchWorkspaceProject(project.id, on: main))
+        _ = TestWindow.new(id: 601, parent: projectWorkspace.rootTilingContainer)
         XCTAssertTrue(projectWorkspace.focusWorkspace())
 
         var args = MoveWorkspaceToMonitorCmdArgs(rawArgs: [])
@@ -30,7 +31,7 @@ extension WorkspaceNamingTest {
 
         assertEquals(result.exitCode, 0)
         XCTAssertTrue(secondary.activeWorkspace === projectWorkspace)
-        XCTAssertEqual(main.activeWorkspace.projectId, project.id)
+        XCTAssertEqual(main.activeWorkspace.projectId, workspaceProjectDefaultId)
         XCTAssertTrue(main.activeWorkspace !== projectWorkspace)
     }
 
@@ -53,7 +54,7 @@ extension WorkspaceNamingTest {
         XCTAssertTrue(focus.workspace === defaultWorkspace)
     }
 
-    func testSummoningWorkspaceToFocusedMonitorKeepsSourceMonitorInSameProject() async throws {
+    func testSummoningTabGroupWorkspaceToFocusedMonitorLeavesSourceMonitorOnDefaultTab() async throws {
         let main = WorkspaceNamingTestMonitor(
             monitorAppKitNsScreenScreensId: 1,
             name: "Left",
@@ -71,7 +72,10 @@ extension WorkspaceNamingTest {
         setMonitorsForTests([main, secondary])
         let project = createWorkspaceProject()
         let projectWorkspace = try XCTUnwrap(switchWorkspaceProject(project.id, on: secondary))
+        _ = TestWindow.new(id: 602, parent: projectWorkspace.rootTilingContainer)
         let focusedWorkspace = Workspace.get(byName: "focused")
+        focusedWorkspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 603, parent: focusedWorkspace.rootTilingContainer)
         XCTAssertTrue(main.setActiveWorkspace(focusedWorkspace))
         XCTAssertTrue(focusedWorkspace.focusWorkspace())
 
@@ -81,7 +85,7 @@ extension WorkspaceNamingTest {
         assertEquals(result.exitCode, 0)
         XCTAssertTrue(main.activeWorkspace === projectWorkspace)
         XCTAssertTrue(focus.workspace === projectWorkspace)
-        XCTAssertEqual(secondary.activeWorkspace.projectId, project.id)
+        XCTAssertEqual(secondary.activeWorkspace.projectId, workspaceProjectDefaultId)
         XCTAssertTrue(secondary.activeWorkspace !== projectWorkspace)
     }
 
@@ -107,6 +111,71 @@ extension WorkspaceNamingTest {
         XCTAssertFalse(main.setActiveWorkspace(workspace))
         XCTAssertTrue(secondary.setActiveWorkspace(workspace))
         XCTAssertTrue(secondary.activeWorkspace === workspace)
+    }
+
+    func testMoveTabToMonitorForceAssignmentErrorUsesTabConfigKey() async throws {
+        let main = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 1,
+            name: "Main",
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            isMain: true,
+        )
+        let secondary = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 2,
+            name: "Secondary",
+            rect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            isMain: false,
+        )
+        setMonitorsForTests([main, secondary])
+        config.workspaceToMonitorForceAssignment["forced"] = [.sequenceNumber(2)]
+        let workspace = Workspace.get(byName: "forced")
+        _ = TestWindow.new(id: 611, parent: workspace.rootTilingContainer)
+        XCTAssertTrue(secondary.setActiveWorkspace(workspace))
+        XCTAssertTrue(workspace.focusWorkspace())
+
+        let result = try await parseCommand("move-tab-to-monitor main").cmdOrDie
+            .run(.defaultEnv, .emptyStdin)
+
+        assertEquals(result.exitCode, 1)
+        assertEquals(result.stderr, [
+            "Can't move Tab 'forced' to monitor 'Main'. tab-to-monitor-force-assignment doesn't allow it",
+        ])
+    }
+
+    func testSummonTabForceAssignmentErrorUsesTabConfigKey() async throws {
+        let main = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 1,
+            name: "Main",
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            isMain: true,
+        )
+        let secondary = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 2,
+            name: "Secondary",
+            rect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            isMain: false,
+        )
+        setMonitorsForTests([main, secondary])
+        config.workspaceToMonitorForceAssignment["forced"] = [.sequenceNumber(2)]
+        let workspace = Workspace.get(byName: "forced")
+        let focusedWorkspace = Workspace.get(byName: "focused")
+        _ = TestWindow.new(id: 612, parent: workspace.rootTilingContainer)
+        _ = TestWindow.new(id: 613, parent: focusedWorkspace.rootTilingContainer)
+        XCTAssertTrue(secondary.setActiveWorkspace(workspace))
+        XCTAssertTrue(main.setActiveWorkspace(focusedWorkspace))
+        XCTAssertTrue(focusedWorkspace.focusWorkspace())
+
+        let result = try await parseCommand("summon-tab forced").cmdOrDie
+            .run(.defaultEnv, .emptyStdin)
+
+        assertEquals(result.exitCode, 1)
+        assertEquals(result.stderr, [
+            "Can't move Tab 'forced' to monitor 'Main'. tab-to-monitor-force-assignment doesn't allow it",
+        ])
     }
 
     func testReconcileMovesVisibleWorkspaceToNewForceAssignedMonitor() {
@@ -250,7 +319,7 @@ extension WorkspaceNamingTest {
         XCTAssertTrue(userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace).contains(mainMonitor.activeWorkspace))
     }
 
-    func testClosingLastWindowKeepsOneWorkspaceInDefaultProjectWhenProjectsAreHardDisabled() throws {
+    func testClosingLastWindowDissolvesVisibleTabGroupAndActivatesDefaultTabWhenProjectsAreHardDisabled() throws {
         let defaultWorkspace = Workspace.get(byName: "1")
         defaultWorkspace.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 19, parent: defaultWorkspace.rootTilingContainer)
@@ -262,14 +331,14 @@ extension WorkspaceNamingTest {
         projectWindow.unbindFromParent()
         Workspace.reconcileWorkspaceState()
 
-        XCTAssertTrue(projectWorkspace.isVisible)
+        XCTAssertNil(Workspace.existing(byName: projectWorkspace.name))
+        XCTAssertNil(winMuxWorkspaceState.projectsById[project.id])
         XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), workspaceProjectDefaultId)
-        XCTAssertFalse(workspaceHasSidebarVisibleWindows(projectWorkspace))
-        XCTAssertTrue(userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace).contains(projectWorkspace))
+        XCTAssertTrue(mainMonitor.activeWorkspace === defaultWorkspace)
         XCTAssertEqual(
             userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace)
                 .filter { $0.isVisible && !workspaceHasSidebarVisibleWindows($0) },
-            [projectWorkspace],
+            [],
         )
     }
 }

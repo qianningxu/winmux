@@ -8,6 +8,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.leading, headerButtonLeadingIndent)
         .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
         .contentShape(Rectangle())
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -23,9 +24,13 @@ extension WorkspaceSidebarWorkspaceSection {
         }
     }
 
+    var headerButtonLeadingIndent: CGFloat {
+        isCompact || nestedContentIndent <= 0 ? 0 : nestedContentIndent
+    }
+
     var expandedHeader: some View {
-        HStack(spacing: workspaceSidebarHeaderSpacing) {
-            tabIcon
+        HStack(spacing: workspaceSidebarAppIconTextSpacing) {
+            expandedTabIcon
             if isRenamingWorkspace {
                 WorkspaceSidebarWorkspaceRenameField(
                     text: $renamingWorkspaceText,
@@ -37,8 +42,8 @@ extension WorkspaceSidebarWorkspaceSection {
             } else {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(workspace.displayName)
-                        .font(.system(size: 13.5, weight: isActiveOnTargetMonitor ? .semibold : .medium))
-                        .foregroundStyle(isActiveOnTargetMonitor ? palette.foreground(1) : palette.foreground(0.86))
+                        .font(.system(size: 13.5, weight: isVisuallyActiveOnTargetMonitor ? .semibold : .medium))
+                        .foregroundStyle(isVisuallyActiveOnTargetMonitor ? palette.foreground(1) : palette.foreground(0.86))
                         .lineLimit(1)
                         .truncationMode(.tail)
                     if let subtitle = workspace.tabSummary.subtitle {
@@ -50,7 +55,6 @@ extension WorkspaceSidebarWorkspaceSection {
                     }
                 }
                 .contentShape(Rectangle())
-                .simultaneousGesture(TapGesture(count: 2).onEnded(handleHeaderDoubleClick))
                 .layoutPriority(1)
             }
             if let projectContextLabel, let projectContextColor {
@@ -69,23 +73,85 @@ extension WorkspaceSidebarWorkspaceSection {
                             .strokeBorder(projectContextColor.opacity(0.24), lineWidth: 0.5)
                     }
             }
-            if workspace.tabSummary.windowCount > 1 {
-                Text("\(workspace.tabSummary.windowCount)")
-                    .font(.system(size: 10.5, weight: .semibold))
-                    .foregroundStyle(palette.foreground(isActiveOnTargetMonitor ? 0.76 : 0.48))
-                    .monospacedDigit()
-                    .padding(.horizontal, 5)
-                    .frame(height: 16)
-                    .background {
-                        Capsule(style: .continuous)
-                            .fill(palette.contrastingFill(darkOpacity: 0.08, lightOpacity: 0.07))
+            Spacer(minLength: 0)
+            if headerCloseTargetWindow != nil {
+                Color.clear
+                    .frame(width: workspaceSidebarWindowCloseButtonReservedWidth)
+            }
+        }
+        .padding(.leading, workspaceSidebarRowHorizontalPadding)
+        .padding(.trailing, workspaceSidebarRowHorizontalPadding)
+        .frame(height: workspaceSidebarTabRowHeight)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            headerRowShape
+                .fill(headerRowBackgroundFill)
+            if isHovered && !isHeaderRowSelected {
+                headerRowShape
+                    .fill(palette.contrastingFill(darkOpacity: 0.035, lightOpacity: 0.03))
+            }
+        }
+        .overlay {
+            if isHeaderRowSelected {
+                headerRowShape
+                    .strokeBorder(palette.border(palette.isDark ? 0.76 : 0.90), lineWidth: 0.8)
+            }
+        }
+        .shadow(
+            color: palette.shadow(0.14, lightOpacity: 0.08),
+            radius: isHeaderRowSelected ? 1.5 : 0,
+            x: 0,
+            y: isHeaderRowSelected ? 0.5 : 0
+        )
+    }
+
+    @ViewBuilder
+    var expandedTabIcon: some View {
+        if let icon = appIconImage(
+            bundleIdentifier: workspace.tabSummary.appBundleId,
+            bundlePath: workspace.tabSummary.appBundlePath
+        ) {
+            Image(nsImage: icon)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
+                .cornerRadius(4)
+                .opacity(isVisuallyActiveOnTargetMonitor ? 1 : 0.88)
+        }
+    }
+
+    var isHeaderRowSelected: Bool {
+        !showsWindowRows && !isSearchFiltering && (isVisuallyActiveOnTargetMonitor || isPinnedActiveWorkspace)
+    }
+
+    var headerRowShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
+    }
+
+    var headerRowBackgroundFill: Color {
+        isHeaderRowSelected ? palette.selectedSurface() : Color.clear
+    }
+
+    var headerCloseTargetWindow: WorkspaceSidebarWindowViewModel? {
+        guard workspace.tabSummary.windowCount == 1 else { return nil }
+        for item in workspace.items {
+            switch item.kind {
+                case .window(let window):
+                    return window
+                case .tabGroup(let group):
+                    if group.tabs.count == 1 {
+                        return group.tabs[0]
                     }
             }
-            Spacer(minLength: 0)
         }
-        .padding(.leading, workspaceSidebarHeaderRowLeadingPadding)
-        .padding(.trailing, workspaceSidebarRowHorizontalPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        return nil
+    }
+
+    var isHeaderCloseButtonVisible: Bool {
+        !isCompact &&
+            !isRenamingWorkspace &&
+            isHovered &&
+            headerCloseTargetWindow != nil
     }
 
     var compactTabBadge: some View {
@@ -111,10 +177,10 @@ extension WorkspaceSidebarWorkspaceSection {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
                 .cornerRadius(4)
-                .opacity(isActiveOnTargetMonitor ? 1 : 0.88)
+                .opacity(isVisuallyActiveOnTargetMonitor ? 1 : 0.88)
         } else {
             workspaceBadge
-                .font(.system(size: 12, weight: isActiveOnTargetMonitor ? .bold : .semibold))
+                .font(.system(size: 12, weight: isVisuallyActiveOnTargetMonitor ? .bold : .semibold))
                 .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
         }
     }

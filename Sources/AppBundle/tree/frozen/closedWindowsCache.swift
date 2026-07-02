@@ -117,8 +117,14 @@ func restoreFrozenWorldIfNeeded(_ frozenWorld: FrozenWorld, newlyDetectedWindow:
         }
         let prevRoot = workspace.rootTilingContainer // Save prevRoot into a variable to avoid it being garbage collected earlier than needed
         let potentialOrphans = prevRoot.allLeafWindowsRecursive
+        let potentialOrphansById = Dictionary(uniqueKeysWithValues: potentialOrphans.map { ($0.windowId, $0) })
         prevRoot.unbindFromParent()
-        restoreTreeRecursive(frozenContainer: frozenWorkspace.rootTilingNode, parent: workspace, index: INDEX_BIND_LAST)
+        restoreTreeRecursive(
+            frozenContainer: frozenWorkspace.rootTilingNode,
+            parent: workspace,
+            index: INDEX_BIND_LAST,
+            knownWindowsById: potentialOrphansById
+        )
         for window in (potentialOrphans - workspace.rootTilingContainer.allLeafWindowsRecursive) {
             if let frozenWindow = frozenWindowById[window.windowId] {
                 if case .macos = frozenWindow.layoutReason {
@@ -143,12 +149,25 @@ func restoreFrozenWorldIfNeeded(_ frozenWorld: FrozenWorld, newlyDetectedWindow:
         }
         _ = targetMonitor.setActiveWorkspace(targetWorkspace)
     }
+    migrateWorkspaceTabGroupsToWorkspaceTabs()
+    Workspace.reconcileWorkspaceState()
     return true
 }
 
 @discardableResult
 @MainActor
 private func restoreTreeRecursive(frozenContainer: FrozenContainer, parent: NonLeafTreeNodeObject, index: Int) -> Bool {
+    restoreTreeRecursive(frozenContainer: frozenContainer, parent: parent, index: index, knownWindowsById: [:])
+}
+
+@discardableResult
+@MainActor
+private func restoreTreeRecursive(
+    frozenContainer: FrozenContainer,
+    parent: NonLeafTreeNodeObject,
+    index: Int,
+    knownWindowsById: [UInt32: Window],
+) -> Bool {
     let container = TilingContainer(
         parent: parent,
         adaptiveWeight: frozenContainer.weight,
@@ -161,12 +180,17 @@ private func restoreTreeRecursive(frozenContainer: FrozenContainer, parent: NonL
         switch child {
             case .window(let w):
                 // Stop the loop if can't find the window, because otherwise all the subsequent windows will have incorrect index
-                guard let window = Window.get(byId: w.id) else { return false }
+                guard let window = knownWindowsById[w.id] ?? Window.get(byId: w.id) else { return false }
                 applyFrozenWindowState(window, w)
                 window.bind(to: container, adaptiveWeight: w.weight, index: index)
             case .container(let c):
                 // There is no reason to continue
-                if !restoreTreeRecursive(frozenContainer: c, parent: container, index: index) { return false }
+                if !restoreTreeRecursive(
+                    frozenContainer: c,
+                    parent: container,
+                    index: index,
+                    knownWindowsById: knownWindowsById
+                ) { return false }
         }
     }
     return true

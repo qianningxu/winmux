@@ -121,7 +121,11 @@ extension String {
             case (_, .none): break
 
             case (.window(let w, _), .workspace):
-                return w.nodeWorkspace.flatMap(FormatObject.workspace).map(expandFormatVar) ?? .success(.string("NULL-WORKSPACE"))
+                if let workspace = w.nodeWorkspace {
+                    return expandFormatVar(obj: .workspace(workspace))
+                }
+                let nullTabValue = self.starts(with: "tab") ? "NULL-TAB" : "NULL-WORKSPACE"
+                return .success(.string(nullTabValue))
             case (.window(let w, _), .monitor):
                 return w.nodeMonitor.flatMap(FormatObject.monitor).map(expandFormatVar) ?? .success(.string("NULL-MONITOR"))
             case (.window(let w, _), .app):

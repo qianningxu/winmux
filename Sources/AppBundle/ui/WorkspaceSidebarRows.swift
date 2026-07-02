@@ -21,6 +21,7 @@ struct WorkspaceSidebarWindowRow: View {
     let appBundleIds: [String?]
     let appBundlePaths: [String?]
     let reservesCloseButtonSpace: Bool
+    let leadingContentInset: CGFloat
     @Environment(\.colorScheme) private var colorScheme
 
     private var isTabGroupHeader: Bool { style == .tabGroupHeader }
@@ -33,9 +34,13 @@ struct WorkspaceSidebarWindowRow: View {
 
     var body: some View {
         HStack(spacing: workspaceSidebarAppIconTextSpacing) {
+            if leadingContentInset > 0 {
+                Color.clear
+                    .frame(width: leadingContentInset)
+            }
             appIconStack
             Text(title)
-                .font(.system(size: isTabGroupHeader ? 13 : 12.5, weight: isActiveRow ? .semibold : .regular))
+                .font(.system(size: rowTitleFontSize, weight: rowTitleWeight))
                 .foregroundStyle(rowTextColor)
                 .lineLimit(1)
                 .truncationMode(.tail)
@@ -62,6 +67,18 @@ struct WorkspaceSidebarWindowRow: View {
                     .fill(rowHoverOverlayFill)
             }
         }
+        .overlay {
+            if isActiveRow, !isTabGroupHeader {
+                rowShape
+                    .strokeBorder(activeRowBorderColor, lineWidth: 0.8)
+            }
+        }
+        .shadow(
+            color: activeRowShadowColor,
+            radius: isActiveRow && !isTabGroupHeader ? 1.5 : 0,
+            x: 0,
+            y: isActiveRow && !isTabGroupHeader ? 0.5 : 0
+        )
         .contentShape(Rectangle())
     }
 
@@ -88,11 +105,26 @@ struct WorkspaceSidebarWindowRow: View {
                 Image(nsImage: icon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: workspaceSidebarAppIconSize, height: workspaceSidebarAppIconSize)
-                    .cornerRadius(3)
+                    .frame(width: rowIconSize, height: rowIconSize)
+                    .cornerRadius(isTabGroupChild ? 4 : 3)
                     .opacity(rowIconOpacity)
             }
         }
+    }
+
+    private var rowTitleFontSize: CGFloat {
+        13.5
+    }
+
+    private var rowTitleWeight: Font.Weight {
+        if isActiveRow {
+            return .semibold
+        }
+        return .medium
+    }
+
+    private var rowIconSize: CGFloat {
+        workspaceSidebarAppIconSize + 2
     }
 
     private var rowTextColor: Color {
@@ -100,36 +132,32 @@ struct WorkspaceSidebarWindowRow: View {
             return palette.foreground(isTabGroupHeader ? 0.96 : 1)
         }
         if isTabGroupChild {
-            return palette.foreground(0.58)
+            return palette.foreground(0.86)
         }
         return palette.foreground(0.78)
     }
 
     private var rowIconOpacity: Double {
-        isTabGroupChild ? 0.56 : 1
+        1
     }
 
     private var rowBackgroundFill: Color {
-        if isActiveRow {
-            if isTabGroupHeader {
-                return palette.contrastingFill(darkOpacity: 0.14, lightOpacity: 0.10)
-            }
-            if isTabGroupChild {
-                return palette.contrastingFill(darkOpacity: 0.055, lightOpacity: 0.045)
-            }
-            return palette.contrastingFill(darkOpacity: 0.085, lightOpacity: 0.07)
+        if isActiveRow, !isTabGroupHeader {
+            return palette.selectedSurface()
         }
         return Color.clear
     }
 
     private var rowHoverOverlayFill: Color {
-        if isTabGroupHeader {
-            return palette.contrastingFill(darkOpacity: 0.04, lightOpacity: 0.035)
-        }
-        if isTabGroupChild {
-            return palette.contrastingFill(darkOpacity: 0.03, lightOpacity: 0.025)
-        }
-        return palette.contrastingFill(darkOpacity: 0.045, lightOpacity: 0.035)
+        palette.contrastingFill(darkOpacity: 0.035, lightOpacity: 0.03)
+    }
+
+    private var activeRowBorderColor: Color {
+        palette.border(palette.isDark ? 0.76 : 0.90)
+    }
+
+    private var activeRowShadowColor: Color {
+        palette.shadow(0.14, lightOpacity: 0.08)
     }
 }
 
@@ -148,10 +176,10 @@ struct WorkspaceSidebarPreviewRow: View {
         HStack(spacing: 7) {
             ZStack {
                 Circle()
-                    .fill(Color.accentColor.opacity(0.20))
+                    .fill(palette.gray200(palette.isDark ? 0.86 : 0.94))
                 Image(systemName: preview.isTabGroup ? "square.stack.3d.up.fill" : "macwindow")
                     .font(.system(size: 9.5, weight: .semibold))
-                    .foregroundStyle(Color.accentColor.opacity(0.92))
+                    .foregroundStyle(palette.foreground(0.68))
             }
             .frame(width: 18, height: 18)
             .opacity(0.92)
@@ -162,18 +190,6 @@ struct WorkspaceSidebarPreviewRow: View {
                 .lineLimit(1)
                 .opacity(max(expansionProgress, 0.12))
             Spacer(minLength: 0)
-            if preview.isTabGroup, preview.windowCount > 1, expansionProgress > 0.72 {
-                Text("\(preview.windowCount)")
-                    .font(.system(size: 9.5, weight: .bold))
-                    .foregroundStyle(palette.foreground(0.68))
-                    .monospacedDigit()
-                    .padding(.horizontal, 5)
-                    .frame(height: 15)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(palette.contrastingFill(darkOpacity: 0.09, lightOpacity: 0.08))
-                    )
-            }
         }
         .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
         .padding(.vertical, 1.5)
@@ -181,16 +197,16 @@ struct WorkspaceSidebarPreviewRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
-                .fill(Color.accentColor.opacity(0.105))
+                .fill(palette.selectedSurface(palette.isDark ? 0.86 : 0.94))
                 .overlay {
                     RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
                         .strokeBorder(
-                            Color.accentColor.opacity(0.32),
-                            style: StrokeStyle(lineWidth: 1, dash: [5, 3])
+                            palette.border(palette.isDark ? 0.80 : 0.90),
+                            lineWidth: 0.8
                         )
                 }
         )
-        .shadow(color: Color.accentColor.opacity(0.12), radius: 9, y: 2)
+        .shadow(color: palette.shadow(0.10, lightOpacity: 0.035), radius: 4, y: 1)
         .contentShape(Rectangle())
         .allowsHitTesting(false)
     }

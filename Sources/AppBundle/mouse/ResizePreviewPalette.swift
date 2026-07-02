@@ -1,27 +1,44 @@
 import AppKit
 
 enum ResizePreviewPalette {
-    static let fill = mattePanelNSColor.cgColor
-    static let stroke = WinMuxOverlayPalette.adaptiveNSColor {
+    static let fillNSColor = WinMuxOverlayPalette.adaptiveNSColor(\.dropIntentSplitPlacementPaneNSColor)
+    static var fill: CGColor { fillNSColor.cgColor }
+
+    static let strokeNSColor = WinMuxOverlayPalette.adaptiveNSColor {
         $0.contrastingNSColor(darkOpacity: 0.04, lightOpacity: 0.08)
-    }.cgColor
-    static let tabGroupBar = WinMuxOverlayPalette.adaptiveNSColor {
+    }
+    static var stroke: CGColor { strokeNSColor.cgColor }
+
+    static let tabGroupBarNSColor = WinMuxOverlayPalette.adaptiveNSColor {
         $0.contrastingNSColor(darkOpacity: 0.055, lightOpacity: 0.07)
-    }.cgColor
-    static let fallbackIconFill = WinMuxOverlayPalette.adaptiveNSColor {
+    }
+    static var tabGroupBar: CGColor { tabGroupBarNSColor.cgColor }
+
+    static let fallbackIconFillNSColor = WinMuxOverlayPalette.adaptiveNSColor {
         $0.contrastingNSColor(darkOpacity: 0.12, lightOpacity: 0.10)
-    }.cgColor
-    static let sourceFrameFill = mattePanelNSColor.cgColor
-    static let sourceFrameStroke = WinMuxOverlayPalette.adaptiveNSColor {
+    }
+    static var fallbackIconFill: CGColor { fallbackIconFillNSColor.cgColor }
+
+    static let sourceFrameFillNSColor = WinMuxOverlayPalette.adaptiveNSColor(\.dropIntentInactivePaneNSColor)
+    static var sourceFrameFill: CGColor { sourceFrameFillNSColor.cgColor }
+
+    static let sourceFrameStrokeNSColor = WinMuxOverlayPalette.adaptiveNSColor {
         $0.contrastingNSColor(darkOpacity: 0.055, lightOpacity: 0.09)
-    }.cgColor
-    static let sourceMockTabFill = WinMuxOverlayPalette.adaptiveNSColor {
+    }
+    static var sourceFrameStroke: CGColor { sourceFrameStrokeNSColor.cgColor }
+
+    static let sourceMockTabFillNSColor = WinMuxOverlayPalette.adaptiveNSColor {
         $0.contrastingNSColor(darkOpacity: 0.085, lightOpacity: 0.08)
-    }.cgColor
-    static let sourceMockTabStroke = WinMuxOverlayPalette.adaptiveNSColor {
+    }
+    static var sourceMockTabFill: CGColor { sourceMockTabFillNSColor.cgColor }
+
+    static let sourceMockTabStrokeNSColor = WinMuxOverlayPalette.adaptiveNSColor {
         $0.contrastingNSColor(darkOpacity: 0.075, lightOpacity: 0.10)
-    }.cgColor
-    static let fallbackText = WinMuxOverlayPalette.adaptiveNSColor {
+    }
+    static var sourceMockTabStroke: CGColor { sourceMockTabStrokeNSColor.cgColor }
+
+    static let fallbackTextNSColor = WinMuxOverlayPalette.adaptiveNSColor {
         $0.foregroundNSColor(opacity: 0.82)
-    }.cgColor
+    }
+    static var fallbackText: CGColor { fallbackTextNSColor.cgColor }
 }

@@ -7,11 +7,16 @@ final class ListWindowsTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
 
     func testParse() {
-        assertEquals(parseCommand("list-windows --pid 1").errorOrNil, "Mandatory option is not specified (--focused|--all|--monitor|--workspace)")
+        assertEquals(
+            parseCommand("list-windows --pid 1").errorOrNil,
+            "Choose a window scope: --focused, --all, --monitor, or --tab (legacy --workspace is still accepted)"
+        )
+        assertNil(parseCommand("list-windows --tab M --pid 1").errorOrNil)
         assertNil(parseCommand("list-windows --workspace M --pid 1").errorOrNil)
         assertEquals(parseCommand("list-windows --pid 1 --focused").errorOrNil, "--focused conflicts with other \"filtering\" flags")
         assertEquals(parseCommand("list-windows --pid 1 --all").errorOrNil, "--all conflicts with \"filtering\" flags. Please use '--monitor all' instead of '--all' alias")
         assertNil(parseCommand("list-windows --all").errorOrNil)
+        assertEquals(parseCommand("list-windows --all --tab M").errorOrNil, "ERROR: Conflicting options: --all, --tab")
         assertEquals(parseCommand("list-windows --all --workspace M").errorOrNil, "ERROR: Conflicting options: --all, --workspace")
         assertEquals(parseCommand("list-windows --all --focused").errorOrNil, "ERROR: Conflicting options: --all, --focused")
         assertEquals(parseCommand("list-windows --all --count --format %{window-title}").errorOrNil, "ERROR: Conflicting options: --count, --format")
@@ -31,6 +36,16 @@ final class ListWindowsTest: XCTestCase {
         assertEquals(parseCommand("list-windows --all --format '%{right-padding}' --json").errorOrNil, "%{right-padding} interpolation variable is not allowed when --json is used")
         assertEquals(parseCommand("list-windows --all --format '%{window-title} |' --json").errorOrNil, "Only interpolation variables and spaces are allowed in \'--format\' when \'--json\' is used")
         assertNil(parseCommand("list-windows --all --format '%{window-title}' --json").errorOrNil)
+    }
+
+    func testHelpIsTabFirstWhileKeepingWorkspaceCompatibility() {
+        guard case .help(let help) = parseCommand("list-windows --help") else {
+            XCTFail("Expected help")
+            return
+        }
+
+        XCTAssertTrue(help.contains("USAGE: list-windows [-h|--help] (--tab <tab>...|--monitor <monitor>...)"))
+        XCTAssertFalse(help.contains("[--workspace <tab>...]"))
     }
 
     func testInterpolationVariablesConsistency() {
@@ -82,6 +97,7 @@ final class ListWindowsTest: XCTestCase {
             let windows = [FormatObject.window(window: window, title: "detached")]
 
             assertEquals(windows.format([.interVar("workspace")]), .success(["NULL-WORKSPACE"]))
+            assertEquals(windows.format([.interVar("tab")]), .success(["NULL-TAB"]))
         }
     }
 
@@ -101,5 +117,30 @@ final class ListWindowsTest: XCTestCase {
         let result = try await command.run(.defaultEnv, .emptyStdin)
 
         assertEquals(result.stdout, ["1"])
+    }
+
+    func testListWindowsDefaultJsonIncludesTabDisplayNameAndLegacyWorkspaceKey() async throws {
+        let workspace = Workspace.get(byName: "10")
+        workspace.markAsAutomaticallyNamed()
+        workspace.rootTilingContainer.apply {
+            _ = TestWindow.new(id: 42, parent: $0)
+        }
+
+        guard let command = parseCommand("list-windows --all --json").cmdOrNil as? ListWindowsCommand else {
+            XCTFail("Expected list-windows command")
+            return
+        }
+
+        let result = try await command.run(.defaultEnv, .emptyStdin)
+
+        XCTAssertTrue(result.stderr.isEmpty)
+        let objects = try JSONSerialization.jsonObject(
+            with: Data(result.stdout.joined(separator: "\n").utf8)
+        ) as? [[String: Any]]
+        let window = try XCTUnwrap(objects?.first { ($0["window-id"] as? UInt32) == 42 || ($0["window-id"] as? Int) == 42 })
+        XCTAssertEqual(window["tab"] as? String, "Tab 1")
+        XCTAssertEqual(window["workspace"] as? String, "10")
+        XCTAssertEqual(window["window-title"] as? String, "TestWindow(42)")
+        XCTAssertEqual(window["app-name"] as? String, "bobko.WinMux.test-app")
     }
 }
