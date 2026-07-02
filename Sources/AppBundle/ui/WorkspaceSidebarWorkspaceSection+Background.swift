@@ -15,10 +15,10 @@ extension WorkspaceSidebarWorkspaceSection {
 
     var sectionBorderColor: Color {
         if isDropTarget {
-            return palette.border(palette.isDark ? 0.86 : 0.92)
+            return palette.tabStroke(active: true)
         }
         if isSearchSelectedWorkspace {
-            return palette.border(0.95)
+            return palette.tabStroke(active: true)
         }
         if allowsWorkspaceActivation && isInUseOnOtherDisplay {
             return palette.destructive(isHovered ? 0.54 : 0.36)
@@ -30,7 +30,7 @@ extension WorkspaceSidebarWorkspaceSection {
             return Color.clear
         }
         if isVisuallyActiveOnTargetMonitor || isPinnedActiveWorkspace {
-            return palette.border(isHovered ? 0.92 : 0.72)
+            return palette.tabStroke(active: isHovered)
         }
         if isFromOtherDisplay {
             return palette.otherDisplay(isHovered ? 0.32 : 0.22)

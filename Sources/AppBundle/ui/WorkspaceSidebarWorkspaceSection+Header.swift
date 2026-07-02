@@ -88,9 +88,12 @@ extension WorkspaceSidebarWorkspaceSection {
                 .fill(headerRowBackgroundFill)
         }
         .overlay {
-            if isHeaderRowHighlighted {
+            if isHeaderRowHighlighted || isHovered {
                 headerRowShape
-                    .strokeBorder(palette.border(palette.isDark ? 0.76 : 0.90), lineWidth: 0.8)
+                    .strokeBorder(
+                        palette.tabStroke(active: isHeaderRowHighlighted),
+                        lineWidth: isHeaderRowHighlighted ? 0.95 : 0.75
+                    )
             }
         }
         .shadow(
@@ -113,6 +116,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
                 .cornerRadius(4)
                 .opacity(isVisuallyActiveOnTargetMonitor ? 1 : 0.88)
+                .workspaceSidebarIconStroke(palette, isActive: isVisuallyActiveOnTargetMonitor)
         }
     }
 
@@ -136,7 +140,7 @@ extension WorkspaceSidebarWorkspaceSection {
             return palette.selectedSurface()
         }
         if isHovered {
-            return palette.gray100()
+            return palette.tabHoverSurface()
         }
         return Color.clear
     }
@@ -187,6 +191,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
                 .cornerRadius(4)
                 .opacity(isVisuallyActiveOnTargetMonitor ? 1 : 0.88)
+                .workspaceSidebarIconStroke(palette, isActive: isVisuallyActiveOnTargetMonitor)
         } else {
             workspaceBadge
                 .font(.system(size: 12, weight: isVisuallyActiveOnTargetMonitor ? .bold : .semibold))

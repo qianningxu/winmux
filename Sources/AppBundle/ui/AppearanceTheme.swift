@@ -200,6 +200,30 @@ struct WinMuxOverlayPalette {
         Color(nsColor: borderNSColor(opacity: CGFloat(opacity)))
     }
 
+    var tabHoverSurfaceNSColor: NSColor {
+        isDark ? gray300BaseNSColor : gray200BaseNSColor
+    }
+
+    func tabHoverSurface(_ opacity: Double = 1) -> Color {
+        Color(nsColor: tabHoverSurfaceNSColor.withAlphaComponent(CGFloat(opacity)))
+    }
+
+    func tabStrokeNSColor(active: Bool = false) -> NSColor {
+        gray500BaseNSColor.withAlphaComponent(active ? 0.90 : 0.66)
+    }
+
+    func tabStroke(active: Bool = false) -> Color {
+        Color(nsColor: tabStrokeNSColor(active: active))
+    }
+
+    func iconStrokeNSColor(active: Bool = false) -> NSColor {
+        gray500BaseNSColor.withAlphaComponent(active ? 0.82 : 0.58)
+    }
+
+    func iconStroke(active: Bool = false) -> Color {
+        Color(nsColor: iconStrokeNSColor(active: active))
+    }
+
     func contrastingNSColor(darkOpacity: CGFloat, lightOpacity: CGFloat? = nil) -> NSColor {
         let opacity = isDark ? darkOpacity : (lightOpacity ?? darkOpacity)
         return foregroundBaseNSColor.withAlphaComponent(opacity)

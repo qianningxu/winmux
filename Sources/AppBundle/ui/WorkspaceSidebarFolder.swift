@@ -262,13 +262,13 @@ struct WorkspaceSidebarFolder<Content: View>: View {
             return palette.gray200(palette.isDark ? 0.84 : 0.92)
         }
         if isHovered || isHeaderHovered {
-            return palette.gray100(palette.isDark ? 0.64 : 0.72)
+            return palette.tabHoverSurface()
         }
         return Color.clear
     }
 
     private var folderHeaderBorder: Color {
-        palette.border(isFolderTargeted ? (palette.isDark ? 0.96 : 1.0) : (palette.isDark ? 0.82 : 0.92))
+        palette.tabStroke(active: isFolderTargeted)
     }
 
     private var folderHeaderShadowColor: Color {
@@ -301,7 +301,7 @@ struct WorkspaceSidebarFolder<Content: View>: View {
     }
 
     private var folderBlockBorder: Color {
-        palette.border(isFolderTargeted ? (palette.isDark ? 0.88 : 0.96) : (palette.isDark ? 0.68 : 0.82))
+        palette.tabStroke(active: isFolderTargeted)
     }
 
     private var folderBlockShadowColor: Color {

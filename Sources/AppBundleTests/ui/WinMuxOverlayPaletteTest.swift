@@ -58,6 +58,20 @@ final class WinMuxOverlayPaletteTest: XCTestCase {
         XCTAssertGreaterThan(relativeLuminance(dark.gray100BaseNSColor), relativeLuminance(dark.cardBaseNSColor))
     }
 
+    func testSidebarTabChromeUsesDistinctHoverAndDarkerStrokes() {
+        let light = WinMuxOverlayPalette(theme: .light)
+        let dark = WinMuxOverlayPalette(theme: .dark)
+
+        assertGray(light.tabHoverSurfaceNSColor, 0.92)
+        assertHex(dark.tabHoverSurfaceNSColor, 0x292929)
+        XCTAssertLessThan(relativeLuminance(light.tabHoverSurfaceNSColor), relativeLuminance(light.gray100BaseNSColor))
+        XCTAssertGreaterThan(relativeLuminance(dark.tabHoverSurfaceNSColor), relativeLuminance(dark.gray100BaseNSColor))
+        XCTAssertLessThan(relativeLuminance(light.tabStrokeNSColor()), relativeLuminance(light.borderBaseNSColor))
+        XCTAssertGreaterThan(relativeLuminance(dark.tabStrokeNSColor()), relativeLuminance(dark.borderBaseNSColor))
+        XCTAssertLessThan(relativeLuminance(light.iconStrokeNSColor()), relativeLuminance(light.borderBaseNSColor))
+        XCTAssertGreaterThan(relativeLuminance(dark.iconStrokeNSColor()), relativeLuminance(dark.borderBaseNSColor))
+    }
+
     func testPaletteUsesGeistSemanticAccentTokens() {
         let light = WinMuxOverlayPalette(theme: .light)
         let dark = WinMuxOverlayPalette(theme: .dark)

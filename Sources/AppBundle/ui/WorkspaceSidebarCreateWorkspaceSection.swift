@@ -115,7 +115,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
             .overlay {
                 if isDropTargeted {
                     sectionShape.strokeBorder(
-                        palette.border(0.95),
+                        palette.tabStroke(active: true),
                         style: StrokeStyle(lineWidth: 0.5, dash: [3, 2.5])
                     )
                 }

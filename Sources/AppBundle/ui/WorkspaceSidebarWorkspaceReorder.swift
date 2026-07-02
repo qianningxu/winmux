@@ -545,10 +545,12 @@ struct WorkspaceSidebarWorkspaceReorderPlaceholder: View {
                     .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
                     .cornerRadius(4)
                     .opacity(0.92)
+                    .workspaceSidebarIconStroke(palette)
             } else {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(palette.gray200(palette.isDark ? 0.86 : 0.92))
                     .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
+                    .workspaceSidebarIconStroke(palette)
             }
 
             if let previewWorkspace {
@@ -586,7 +588,7 @@ struct WorkspaceSidebarWorkspaceReorderPlaceholder: View {
         }
         .overlay {
             rowShape
-                .strokeBorder(palette.border(palette.isDark ? 0.92 : 1), lineWidth: 0.9)
+                .strokeBorder(palette.tabStroke(active: true), lineWidth: 0.95)
         }
         .shadow(
             color: palette.shadow(0.10, lightOpacity: 0.04),
@@ -651,7 +653,7 @@ struct WorkspaceSidebarWorkspaceFolderPreview: View {
         }
         .overlay {
             containerShape
-                .strokeBorder(palette.border(palette.isDark ? 0.86 : 0.96), lineWidth: 0.9)
+                .strokeBorder(palette.tabStroke(active: true), lineWidth: 0.95)
         }
         .shadow(
             color: palette.shadow(0.10, lightOpacity: 0.04),
@@ -688,6 +690,10 @@ struct WorkspaceSidebarWorkspaceFolderPreview: View {
             RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
                 .fill(palette.gray200(palette.isDark ? 0.80 : 0.84))
         }
+        .overlay {
+            RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
+                .strokeBorder(palette.tabStroke(active: true), lineWidth: 0.8)
+        }
     }
 
     private func previewRow(
@@ -704,10 +710,12 @@ struct WorkspaceSidebarWorkspaceFolderPreview: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
                     .cornerRadius(4)
+                    .workspaceSidebarIconStroke(palette, isActive: isTarget)
             } else {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(palette.gray200(palette.isDark ? 0.86 : 0.92))
                     .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
+                    .workspaceSidebarIconStroke(palette, isActive: isTarget)
             }
 
             Text(workspace.displayName)
@@ -723,6 +731,10 @@ struct WorkspaceSidebarWorkspaceFolderPreview: View {
         .background {
             RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
                 .fill(isTarget ? palette.gray200(palette.isDark ? 0.88 : 1) : palette.gray100(palette.isDark ? 0.62 : 0.72))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
+                .strokeBorder(palette.tabStroke(active: isTarget), lineWidth: isTarget ? 0.9 : 0.75)
         }
     }
 }

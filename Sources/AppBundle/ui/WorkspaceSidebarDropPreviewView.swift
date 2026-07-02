@@ -48,8 +48,8 @@ struct WorkspaceSidebarDropPreviewView: View {
         .background(sectionShape.fill(palette.gray100(palette.isDark ? 0.90 : 1)))
         .overlay {
             sectionShape.strokeBorder(
-                palette.border(palette.isDark ? 0.82 : 0.92),
-                lineWidth: 0.8
+                palette.tabStroke(active: true),
+                lineWidth: 0.9
             )
         }
         .shadow(color: palette.shadow(0.10, lightOpacity: 0.035), radius: 4, x: 0, y: 1)
@@ -92,6 +92,7 @@ struct WorkspaceSidebarDropPreviewView: View {
                                 .aspectRatio(contentMode: .fit)
                                 .frame(width: 14, height: 14)
                                 .cornerRadius(3)
+                                .workspaceSidebarIconStroke(palette, cornerRadius: 3, isActive: true)
                         }
                     }
                 }
@@ -108,6 +109,9 @@ struct WorkspaceSidebarDropPreviewView: View {
         .frame(height: rowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(rowShape.fill(palette.gray200(palette.isDark ? 0.84 : 0.92)))
+        .overlay {
+            rowShape.strokeBorder(palette.tabStroke(active: true), lineWidth: 0.8)
+        }
     }
 
     private func singleWindowRow(
@@ -122,6 +126,7 @@ struct WorkspaceSidebarDropPreviewView: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 14, height: 14)
                     .cornerRadius(3)
+                    .workspaceSidebarIconStroke(palette, cornerRadius: 3)
             }
             Text(title)
                 .font(.system(size: 12.5, weight: .regular))
@@ -135,5 +140,8 @@ struct WorkspaceSidebarDropPreviewView: View {
         .frame(height: rowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(rowShape.fill(palette.gray100(palette.isDark ? 0.72 : 0.84)))
+        .overlay {
+            rowShape.strokeBorder(palette.tabStroke(), lineWidth: 0.75)
+        }
     }
 }

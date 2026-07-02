@@ -51,8 +51,7 @@ struct WindowTabItemView: View {
     }
 
     private var tabStrokeStyle: Color {
-        if tab.isActive { return palette.contrastingFill(darkOpacity: 0.18, lightOpacity: 0.15) }
-        return palette.contrastingFill(darkOpacity: isHovered ? 0.10 : 0.06, lightOpacity: isHovered ? 0.11 : 0.08)
+        palette.tabStroke(active: tab.isActive || isHovered)
     }
 }
 

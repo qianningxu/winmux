@@ -13,6 +13,7 @@ extension WindowTabItemView {
                 .scaledToFit()
                 .frame(width: size, height: size, alignment: .center)
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .workspaceSidebarIconStroke(palette, isActive: tab.isActive)
                 .accessibilityHidden(true)
         } else {
             fallbackIcon(size: size)
@@ -30,6 +31,10 @@ extension WindowTabItemView {
                         darkOpacity: tab.isActive ? 0.22 : 0.14,
                         lightOpacity: tab.isActive ? 0.14 : 0.10
                     ))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(palette.iconStroke(active: tab.isActive), lineWidth: 0.65)
             }
             .accessibilityHidden(true)
     }

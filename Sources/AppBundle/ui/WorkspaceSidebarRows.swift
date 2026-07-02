@@ -62,15 +62,15 @@ struct WorkspaceSidebarWindowRow: View {
         .background {
             rowShape
                 .fill(rowBackgroundFill)
-            if isHovered {
+            if isHovered && !isActiveRow {
                 rowShape
                     .fill(rowHoverOverlayFill)
             }
         }
         .overlay {
-            if isActiveRow, !isTabGroupHeader {
+            if showsRowStroke {
                 rowShape
-                    .strokeBorder(activeRowBorderColor, lineWidth: 0.8)
+                    .strokeBorder(rowBorderColor, lineWidth: isActiveRow ? 0.95 : 0.75)
             }
         }
         .shadow(
@@ -108,6 +108,11 @@ struct WorkspaceSidebarWindowRow: View {
                     .frame(width: rowIconSize, height: rowIconSize)
                     .cornerRadius(isTabGroupChild ? 4 : 3)
                     .opacity(rowIconOpacity)
+                    .workspaceSidebarIconStroke(
+                        palette,
+                        cornerRadius: isTabGroupChild ? 4 : 3,
+                        isActive: isActiveRow
+                    )
             }
         }
     }
@@ -149,11 +154,15 @@ struct WorkspaceSidebarWindowRow: View {
     }
 
     private var rowHoverOverlayFill: Color {
-        palette.contrastingFill(darkOpacity: 0.035, lightOpacity: 0.03)
+        palette.tabHoverSurface()
     }
 
-    private var activeRowBorderColor: Color {
-        palette.border(palette.isDark ? 0.76 : 0.90)
+    private var showsRowStroke: Bool {
+        isHovered || (isActiveRow && !isTabGroupHeader)
+    }
+
+    private var rowBorderColor: Color {
+        palette.tabStroke(active: isActiveRow && !isTabGroupHeader)
     }
 
     private var activeRowShadowColor: Color {
@@ -201,8 +210,8 @@ struct WorkspaceSidebarPreviewRow: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
                         .strokeBorder(
-                            palette.border(palette.isDark ? 0.80 : 0.90),
-                            lineWidth: 0.8
+                            palette.tabStroke(active: true),
+                            lineWidth: 0.9
                         )
                 }
         )
