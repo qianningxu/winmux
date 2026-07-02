@@ -271,7 +271,7 @@ struct WorkspaceSidebarFolder<Content: View>: View {
             return palette.gray200(palette.isDark ? 0.84 : 0.92)
         }
         if isHovered || isHeaderHovered {
-            return palette.tabHoverSurface()
+            return palette.gray300(palette.isDark ? 0.38 : 0.54)
         }
         return Color.clear
     }
@@ -300,11 +300,11 @@ struct WorkspaceSidebarFolder<Content: View>: View {
         if isFolderTargeted {
             return palette.gray200(palette.isDark ? 0.58 : 0.70)
         }
+        if isHovered || isHeaderHovered {
+            return palette.gray200(palette.isDark ? 0.46 : 0.58)
+        }
         if showsFolderContent {
             return palette.gray100(palette.isDark ? 0.50 : 0.72)
-        }
-        if isHovered || isHeaderHovered {
-            return palette.gray100(palette.isDark ? 0.32 : 0.42)
         }
         return Color.clear
     }
