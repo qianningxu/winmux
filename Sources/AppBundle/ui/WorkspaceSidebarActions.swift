@@ -956,6 +956,10 @@ func finishWorkspaceSidebarDragAfterGlobalMouseUp() {
     let hasSidebarWindowDragState = currentActiveWorkspaceSidebarDrag() != nil
     let hasCursorProxy = WindowDragCursorProxyPanel.shared.currentContent != nil || WindowDragCursorProxyPanel.shared.isVisible
     guard hasSidebarWindowDragState || hasCursorProxy else {
+        postWorkspaceSidebarDragPointerNotification(
+            workspaceSidebarDragPointerEndedNotification,
+            pointer: MousePointerTracker.shared.currentSample.point
+        )
         resetWorkspaceSidebarItemDrag()
         return
     }

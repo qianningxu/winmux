@@ -151,6 +151,8 @@ struct WorkspaceSidebarView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarDragPointerEndedNotification)) { _ in
             resetProjectEdgeDrag()
+            cancelWorkspaceReorderDrag()
+            resetWorkspaceSidebarItemDrag()
         }
     }
 

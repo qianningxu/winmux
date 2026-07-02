@@ -86,22 +86,22 @@ extension WorkspaceSidebarWorkspaceSection {
         .background {
             headerRowShape
                 .fill(headerRowBackgroundFill)
-            if isHovered && !isHeaderRowSelected {
+            if isHovered && !isHeaderRowHighlighted {
                 headerRowShape
                     .fill(palette.contrastingFill(darkOpacity: 0.035, lightOpacity: 0.03))
             }
         }
         .overlay {
-            if isHeaderRowSelected {
+            if isHeaderRowHighlighted {
                 headerRowShape
                     .strokeBorder(palette.border(palette.isDark ? 0.76 : 0.90), lineWidth: 0.8)
             }
         }
         .shadow(
             color: palette.shadow(0.14, lightOpacity: 0.08),
-            radius: isHeaderRowSelected ? 1.5 : 0,
+            radius: isHeaderRowHighlighted ? 1.5 : 0,
             x: 0,
-            y: isHeaderRowSelected ? 0.5 : 0
+            y: isHeaderRowHighlighted ? 0.5 : 0
         )
     }
 
@@ -124,12 +124,19 @@ extension WorkspaceSidebarWorkspaceSection {
         !showsWindowRows && !isSearchFiltering && (isVisuallyActiveOnTargetMonitor || isPinnedActiveWorkspace)
     }
 
+    var isHeaderRowHighlighted: Bool {
+        workspaceSidebarHeaderRowIsHighlighted(
+            isSelected: isHeaderRowSelected,
+            isReorderSource: isWorkspaceReorderSource
+        )
+    }
+
     var headerRowShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
     }
 
     var headerRowBackgroundFill: Color {
-        isHeaderRowSelected ? palette.selectedSurface() : Color.clear
+        isHeaderRowHighlighted ? palette.selectedSurface() : Color.clear
     }
 
     var headerCloseTargetWindow: WorkspaceSidebarWindowViewModel? {

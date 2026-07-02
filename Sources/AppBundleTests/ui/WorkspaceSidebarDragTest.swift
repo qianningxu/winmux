@@ -13,6 +13,14 @@ struct WorkspaceSidebarDragTestMonitor: Monitor {
     var height: CGFloat { rect.height }
 }
 
+private final class WorkspaceSidebarDragPointerObserver: NSObject {
+    var endedPointer: CGPoint?
+
+    @objc func handlePointerEnded(_ notification: Notification) {
+        endedPointer = (notification.userInfo?[workspaceSidebarDragPointerUserInfoKey] as? NSValue)?.pointValue
+    }
+}
+
 private func makeWorkspaceSidebarSearchFixture() -> [WorkspaceSidebarWorkspaceViewModel] {
     let releaseNotes = WorkspaceSidebarWindowViewModel(
         windowId: 101,
@@ -541,6 +549,29 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         resetWorkspaceSidebarItemDrag()
 
         XCTAssertFalse(isWorkspaceSidebarItemDragActive())
+    }
+
+    @MainActor
+    func testGlobalMouseUpFallbackEndsPureSidebarItemDrag() {
+        resetWorkspaceSidebarItemDrag()
+        beginWorkspaceSidebarItemDrag()
+        MousePointerTracker.shared.note(point: CGPoint(x: 21, y: 34))
+        let observer = WorkspaceSidebarDragPointerObserver()
+        NotificationCenter.default.addObserver(
+            observer,
+            selector: #selector(WorkspaceSidebarDragPointerObserver.handlePointerEnded(_:)),
+            name: workspaceSidebarDragPointerEndedNotification,
+            object: nil,
+        )
+        defer {
+            NotificationCenter.default.removeObserver(observer)
+            resetWorkspaceSidebarItemDrag()
+        }
+
+        finishWorkspaceSidebarDragAfterGlobalMouseUp()
+
+        XCTAssertFalse(isWorkspaceSidebarItemDragActive())
+        XCTAssertEqual(observer.endedPointer, CGPoint(x: 21, y: 34))
     }
 
     @MainActor

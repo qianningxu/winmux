@@ -128,6 +128,13 @@ func workspaceSidebarWorkspaceReorderIsEnabled(
         isInteractive
 }
 
+func workspaceSidebarHeaderRowIsHighlighted(
+    isSelected: Bool,
+    isReorderSource: Bool
+) -> Bool {
+    isSelected || isReorderSource
+}
+
 func workspaceSidebarWorkspaceReorderTarget(
     sourceWorkspaceName: String,
     sourceProjectId: WorkspaceProjectId,

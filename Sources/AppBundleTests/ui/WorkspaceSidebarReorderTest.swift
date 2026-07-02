@@ -1176,6 +1176,21 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ))
     }
 
+    func testDraggingTabKeepsSelectedRowTreatment() {
+        XCTAssertTrue(workspaceSidebarHeaderRowIsHighlighted(
+            isSelected: false,
+            isReorderSource: true
+        ))
+        XCTAssertTrue(workspaceSidebarHeaderRowIsHighlighted(
+            isSelected: true,
+            isReorderSource: false
+        ))
+        XCTAssertFalse(workspaceSidebarHeaderRowIsHighlighted(
+            isSelected: false,
+            isReorderSource: false
+        ))
+    }
+
     private func makeOrderedDefaultWorkspaces() -> (Workspace, Workspace, Workspace) {
         let first = focus.workspace
         let second = Workspace.get(byName: "second")

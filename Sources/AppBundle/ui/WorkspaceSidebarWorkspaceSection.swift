@@ -81,7 +81,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
             .frame(minHeight: sectionMinHeight, alignment: .top)
             .frame(maxWidth: .infinity, alignment: .leading)
             .clipped()
-            .opacity(compactFocusOpacity * (isWorkspaceReorderSource ? 0.16 : 1))
+            .opacity(compactFocusOpacity)
             .contentShape(Rectangle())
             .contextMenu {
                 Button {
