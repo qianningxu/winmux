@@ -66,7 +66,6 @@ enum WorkspaceSidebarAction: Equatable {
     case renameWorkspace(String, displayName: String)
     case deleteWorkspace(String)
     case reorderWorkspace(String, projectId: WorkspaceProjectId, placement: WorkspaceReorderPlacement)
-    case createFolderFromWorkspaces(String, withWorkspace: String)
     case moveWorkspaceToFolder(String, projectId: WorkspaceProjectId)
     case setPinnedExpanded(Bool)
     case moveWindow(UInt32, toWorkspace: String)

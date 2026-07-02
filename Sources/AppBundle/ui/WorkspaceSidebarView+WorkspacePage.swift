@@ -233,13 +233,6 @@ extension WorkspaceSidebarView {
                         expansionProgress: expansionProgress,
                         nestedContentIndent: nestedContentIndent
                     )
-                case .folderPreview(let targetWorkspace, let sourceWorkspace):
-                    workspaceFolderPreview(
-                        targetWorkspace: targetWorkspace,
-                        sourceWorkspace: sourceWorkspace,
-                        expansionProgress: expansionProgress,
-                        nestedContentIndent: nestedContentIndent
-                    )
             }
         }
     }

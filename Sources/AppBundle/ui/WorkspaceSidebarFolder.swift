@@ -137,10 +137,10 @@ struct WorkspaceSidebarFolder<Content: View>: View {
 
             if showsFolderContent {
                 if isExpanded || isShowingProjectedContent {
-                    content()
+                    folderContent
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 } else if isWorkspaceDragTargeted {
-                    content()
+                    folderContent
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
@@ -243,6 +243,15 @@ struct WorkspaceSidebarFolder<Content: View>: View {
         )
         .contentShape(Rectangle())
         .help(isExpanded ? "Hide folder" : "Show folder")
+    }
+
+    private var folderContent: some View {
+        VStack(alignment: .leading, spacing: workspaceSidebarNestedRowSpacing) {
+            content()
+        }
+        .padding(.top, 1)
+        .padding(.bottom, 2)
+        .frame(width: sectionWidth, alignment: .leading)
     }
 
     private var showsFolderContent: Bool {

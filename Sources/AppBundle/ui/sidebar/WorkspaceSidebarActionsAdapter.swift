@@ -85,8 +85,6 @@ func handleWorkspaceSidebarAction(
             }
         case .reorderWorkspace(let name, let projectId, let placement):
             reorderWorkspaceFromSidebar(name, projectId: projectId, placement: placement)
-        case .createFolderFromWorkspaces(let sourceName, let targetName):
-            createFolderFromWorkspacesFromSidebar(sourceWorkspaceName: sourceName, targetWorkspaceName: targetName)
         case .moveWorkspaceToFolder(let workspaceName, let projectId):
             moveWorkspaceToFolderFromSidebar(workspaceName, projectId: projectId)
         case .setPinnedExpanded(let isPinned):

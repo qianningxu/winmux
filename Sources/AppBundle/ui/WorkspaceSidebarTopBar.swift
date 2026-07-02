@@ -32,6 +32,7 @@ extension WorkspaceSidebarView {
                 .lineLimit(1)
                 .frame(height: 26, alignment: .center)
             Spacer(minLength: 0)
+            sidebarNewFolderButton(isCompact: false)
             sidebarPinButton(expansionProgress: expansionProgress, isCompact: false)
         }
         .padding(.leading, 8)
@@ -40,7 +41,10 @@ extension WorkspaceSidebarView {
     }
 
     func compactSidebarPinButton(expansionProgress: CGFloat) -> some View {
-        sidebarPinButton(expansionProgress: expansionProgress, isCompact: true)
+        HStack(spacing: 0) {
+            sidebarNewFolderButton(isCompact: true)
+            sidebarPinButton(expansionProgress: expansionProgress, isCompact: true)
+        }
             .frame(width: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration), height: workspaceSidebarWorkspaceSectionHeightCompact)
     }
 
@@ -69,6 +73,22 @@ extension WorkspaceSidebarView {
         .buttonStyle(.plain)
         .help(isPinned ? "Unpin sidebar" : "Keep sidebar expanded")
         .accessibilityLabel(isPinned ? "Unpin sidebar" : "Keep sidebar expanded")
+    }
+
+    func sidebarNewFolderButton(isCompact: Bool) -> some View {
+        let palette = WinMuxOverlayPalette(colorScheme: colorScheme)
+        return Button {
+            actions.send(.createFolder)
+        } label: {
+            Image(systemName: "folder.badge.plus")
+                .font(.system(size: isCompact ? 11 : 12, weight: .semibold))
+                .foregroundStyle(palette.foreground(0.70))
+                .frame(width: isCompact ? workspaceSidebarBadgeWidth : 26, height: isCompact ? workspaceSidebarBadgeWidth : 26)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("New Folder")
+        .accessibilityLabel("New Folder")
     }
 
     func sidebarNewTabButton(isCompact: Bool) -> some View {

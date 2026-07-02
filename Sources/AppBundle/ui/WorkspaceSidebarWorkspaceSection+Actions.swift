@@ -26,15 +26,8 @@ extension WorkspaceSidebarWorkspaceSection {
         switch payload {
             case .window(let windowId):
                 actions.send(.moveWindow(windowId, toWorkspace: workspace.name))
-            case .tabGroup:
-                guard let sourceWorkspaceName = workspaceSidebarPayloadSourceWorkspaceName(payload),
-                      sourceWorkspaceName != workspace.name
-                else {
-                    actions.send(.clearDropPreview)
-                    WindowDragCursorProxyPanel.shared.hide()
-                    return
-                }
-                actions.send(.createFolderFromWorkspaces(sourceWorkspaceName, withWorkspace: workspace.name))
+            case .tabGroup(let representativeWindowId):
+                actions.send(.moveTabGroup(representativeWindowId, toWorkspace: workspace.name))
         }
     }
 }

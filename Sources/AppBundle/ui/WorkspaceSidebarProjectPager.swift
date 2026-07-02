@@ -58,7 +58,6 @@ struct WorkspaceSidebarProjectPager: View {
         return popupHeight + workspaceSidebarSectionGap + controlsHeight
     }
     var footerSpacing: CGFloat { isCompact ? 2 : 8 }
-    var projectCreateButtonWidth: CGFloat { workspaceSidebarDropdownHeight }
     var projectPopupWidth: CGFloat {
         let names = projects.map(\.displayName) + ["Folder"]
         let maxTextWidth = names.map {

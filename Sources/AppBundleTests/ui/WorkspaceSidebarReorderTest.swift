@@ -245,7 +245,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertEqual(afterSecond?.placement, .after("third"))
     }
 
-    func testWorkspaceDragTargetUsesMiddleToCreateFolderAndTopBottomForReorder() {
+    func testWorkspaceDragTargetUsesTopBottomForReorderAndIgnoresMiddleDrop() {
         let frames = [
             reorderFrame("first", minY: 10, height: 40),
             reorderFrame("second", minY: 60, height: 40),
@@ -282,13 +282,8 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             workspaceFrames: frames
         )
 
-        let expectedFolderCreationTarget = WorkspaceSidebarWorkspaceDragTarget.createFolder(WorkspaceSidebarWorkspaceFolderCreationTarget(
-            projectId: workspaceProjectDefaultId,
-            sourceWorkspaceName: "first",
-            targetWorkspaceName: "second"
-        ))
-        XCTAssertEqual(leftMiddleTarget, expectedFolderCreationTarget)
-        XCTAssertEqual(rightMiddleTarget, expectedFolderCreationTarget)
+        XCTAssertNil(leftMiddleTarget)
+        XCTAssertNil(rightMiddleTarget)
         XCTAssertEqual(topBandTarget, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
             projectId: workspaceProjectDefaultId,
             targetWorkspaceName: "second",
@@ -299,10 +294,10 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             targetWorkspaceName: "second",
             placement: .after("second")
         )))
-        XCTAssertEqual(centerTarget, expectedFolderCreationTarget)
+        XCTAssertNil(centerTarget)
     }
 
-    func testWorkspaceDragTargetIgnoresHorizontalEdgeForFoldering() {
+    func testWorkspaceDragTargetDoesNotCreateFolderFromHorizontalEdge() {
         let frames = [
             reorderFrame("first", minY: 10, height: 40),
             reorderFrame("second", minY: 60, height: 40),
@@ -315,11 +310,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             workspaceFrames: frames
         )
 
-        XCTAssertEqual(target, .createFolder(WorkspaceSidebarWorkspaceFolderCreationTarget(
-            projectId: workspaceProjectDefaultId,
-            sourceWorkspaceName: "first",
-            targetWorkspaceName: "second"
-        )))
+        XCTAssertNil(target)
     }
 
     func testWorkspaceDragTargetUsesFolderHeaderForMovingTabIntoFolder() {
@@ -545,14 +536,6 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             ),
             .intoFolder(folderId)
         )
-        XCTAssertNil(workspaceSidebarWorkspaceReorderPreviewPlacement(
-            sourceWorkspaceName: "source",
-            target: .createFolder(WorkspaceSidebarWorkspaceFolderCreationTarget(
-                projectId: workspaceProjectDefaultId,
-                sourceWorkspaceName: "source",
-                targetWorkspaceName: "target"
-            ))
-        ))
     }
 
     func testWorkspaceListEntriesPreviewReorderAsRealPlaceholder() {
@@ -708,30 +691,6 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
 
         XCTAssertEqual(entries.map(\.testDescription), [
             "placeholder:default:folder-child",
-        ])
-    }
-
-    func testWorkspaceListEntriesPreviewFolderCreationAsFolderBlock() {
-        let source = sidebarWorkspace("source")
-        let target = sidebarWorkspace("target")
-        let other = sidebarWorkspace("other")
-
-        let entries = workspaceSidebarWorkspaceListEntries(
-            workspaces: [target, source, other],
-            projectId: workspaceProjectDefaultId,
-            sourceWorkspaceName: "source",
-            sourceWorkspace: source,
-            target: .createFolder(WorkspaceSidebarWorkspaceFolderCreationTarget(
-                projectId: workspaceProjectDefaultId,
-                sourceWorkspaceName: "source",
-                targetWorkspaceName: "target"
-            ))
-        )
-
-        XCTAssertEqual(entries.map(\.testDescription), [
-            "folder-preview:target:source",
-            "drag-anchor:source",
-            "workspace:other",
         ])
     }
 
@@ -1274,8 +1233,6 @@ private extension WorkspaceSidebarWorkspaceListEntry {
                 return "\(isDragAnchor ? "drag-anchor" : "workspace"):\(workspace.name)"
             case .placeholder(let workspace, let projectId):
                 return "placeholder:\(projectId.rawValue):\(workspace.name)"
-            case .folderPreview(let target, let source):
-                return "folder-preview:\(target.name):\(source.name)"
         }
     }
 }

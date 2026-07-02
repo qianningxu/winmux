@@ -41,12 +41,6 @@ struct WorkspaceSidebarWorkspaceReorderTarget: Equatable {
     let placement: WorkspaceReorderPlacement
 }
 
-struct WorkspaceSidebarWorkspaceFolderCreationTarget: Equatable {
-    let projectId: WorkspaceProjectId
-    let sourceWorkspaceName: String
-    let targetWorkspaceName: String
-}
-
 struct WorkspaceSidebarWorkspaceFolderTarget: Equatable {
     let projectId: WorkspaceProjectId
     let sourceWorkspaceName: String
@@ -54,7 +48,6 @@ struct WorkspaceSidebarWorkspaceFolderTarget: Equatable {
 
 enum WorkspaceSidebarWorkspaceDragTarget: Equatable {
     case reorder(WorkspaceSidebarWorkspaceReorderTarget)
-    case createFolder(WorkspaceSidebarWorkspaceFolderCreationTarget)
     case moveToFolder(WorkspaceSidebarWorkspaceFolderTarget)
 }
 
@@ -68,12 +61,6 @@ func workspaceSidebarWorkspaceDragFinishAction(
                 sourceWorkspaceName,
                 projectId: reorderTarget.projectId,
                 placement: reorderTarget.placement
-            )
-        case .createFolder(let folderCreationTarget):
-            guard folderCreationTarget.sourceWorkspaceName == sourceWorkspaceName else { return nil }
-            return .createFolderFromWorkspaces(
-                folderCreationTarget.sourceWorkspaceName,
-                withWorkspace: folderCreationTarget.targetWorkspaceName
             )
         case .moveToFolder(let folderTarget):
             guard folderTarget.sourceWorkspaceName == sourceWorkspaceName else { return nil }
@@ -100,7 +87,6 @@ enum WorkspaceSidebarWorkspaceReorderPreviewPlacement: Equatable {
 enum WorkspaceSidebarWorkspaceListEntry: Identifiable, Equatable {
     case workspace(WorkspaceSidebarWorkspaceViewModel, isDragAnchor: Bool)
     case placeholder(WorkspaceSidebarWorkspaceViewModel, projectId: WorkspaceProjectId)
-    case folderPreview(target: WorkspaceSidebarWorkspaceViewModel, source: WorkspaceSidebarWorkspaceViewModel)
 
     var id: String {
         switch self {
@@ -108,8 +94,6 @@ enum WorkspaceSidebarWorkspaceListEntry: Identifiable, Equatable {
                 return "workspace:\(workspace.name)"
             case .placeholder(let workspace, let projectId):
                 return "placeholder:\(projectId.rawValue):\(workspace.name)"
-            case .folderPreview(let target, let source):
-                return "folder-preview:\(target.name):\(source.name)"
         }
     }
 }
@@ -161,14 +145,6 @@ func workspaceSidebarWorkspaceReorderTarget(
                     ? .before(containingCandidate.workspaceName)
                     : .after(containingCandidate.workspaceName)
             )
-        }
-        if workspaceSidebarWorkspaceFolderCreationTarget(
-            sourceWorkspaceName: sourceWorkspaceName,
-            sourceProjectId: sourceProjectId,
-            pointer: pointer,
-            frames: [containingCandidate]
-        ) != nil {
-            return nil
         }
         guard let placement = workspaceSidebarWorkspaceReorderPlacement(
             pointer,
@@ -222,14 +198,6 @@ func workspaceSidebarWorkspaceDragTarget(
     {
         return .moveToFolder(folderTarget)
     }
-    if let folderCreationTarget = workspaceSidebarWorkspaceFolderCreationTarget(
-        sourceWorkspaceName: sourceWorkspaceName,
-        sourceProjectId: sourceProjectId,
-        pointer: pointer,
-        frames: workspaceFrames
-    ) {
-        return .createFolder(folderCreationTarget)
-    }
     if let reorderTarget = workspaceSidebarWorkspaceReorderTarget(
         sourceWorkspaceName: sourceWorkspaceName,
         sourceProjectId: sourceProjectId,
@@ -254,29 +222,6 @@ private func workspaceSidebarPointerIsOverWorkspaceRow(
             $0.workspaceName != sourceWorkspaceName &&
             $0.frame.contains(pointer)
     }
-}
-
-func workspaceSidebarWorkspaceFolderCreationTarget(
-    sourceWorkspaceName: String,
-    sourceProjectId: WorkspaceProjectId,
-    pointer: CGPoint,
-    frames: [WorkspaceSidebarWorkspaceReorderFrame]
-) -> WorkspaceSidebarWorkspaceFolderCreationTarget? {
-    let candidates = frames.filter {
-        $0.isReorderable &&
-            sourceProjectId == workspaceProjectDefaultId &&
-            $0.projectId == workspaceProjectDefaultId &&
-            $0.workspaceName != sourceWorkspaceName &&
-            $0.frame.contains(pointer)
-    }
-    guard let candidate = candidates.last,
-          workspaceSidebarWorkspaceFolderCreationZoneContains(pointer, frame: candidate.frame)
-    else { return nil }
-    return WorkspaceSidebarWorkspaceFolderCreationTarget(
-        projectId: candidate.projectId,
-        sourceWorkspaceName: sourceWorkspaceName,
-        targetWorkspaceName: candidate.workspaceName
-    )
 }
 
 func workspaceSidebarWorkspaceFolderTarget(
@@ -314,8 +259,6 @@ func workspaceSidebarWorkspaceReorderPreviewPlacement(
         case .moveToFolder(let folderTarget):
             guard folderTarget.sourceWorkspaceName == sourceWorkspaceName else { return nil }
             return .intoFolder(folderTarget.projectId)
-        case .createFolder:
-            return nil
     }
 }
 
@@ -337,16 +280,6 @@ func workspaceSidebarWorkspaceListEntries(
             workspace,
             isDragAnchor: retainsSourceGestureAnchor && workspace.name == sourceWorkspaceName
         )
-    }
-    if let sourceWorkspace,
-       case .createFolder(let folderCreationTarget)? = target,
-       folderCreationTarget.projectId == projectId
-    {
-        return visibleWorkspaces.map { workspace in
-            workspace.name == folderCreationTarget.targetWorkspaceName
-                ? .folderPreview(target: workspace, source: sourceWorkspace)
-                : workspaceEntry(workspace)
-        }
     }
     guard let sourceWorkspace,
           let placement = workspaceSidebarWorkspaceReorderPreviewPlacement(
@@ -480,13 +413,6 @@ func workspaceSidebarWorkspaceReorderPlacement(
     return nil
 }
 
-func workspaceSidebarWorkspaceFolderCreationZoneContains(_ pointer: CGPoint, frame: CGRect) -> Bool {
-    guard frame.width > 0, frame.height > 0 else { return false }
-    let y = (pointer.y - frame.minY) / frame.height
-    let reorderBand: CGFloat = 0.24
-    return y >= reorderBand && y <= 1 - reorderBand && frame.contains(pointer)
-}
-
 struct WorkspaceSidebarWorkspaceReorderGestureModifier: ViewModifier {
     let isEnabled: Bool
     let onChanged: (CGPoint) -> Void
@@ -618,123 +544,6 @@ struct WorkspaceSidebarProjectedDragAnchorModifier: ViewModifier {
                 .accessibilityHidden(true)
         } else {
             content
-        }
-    }
-}
-
-struct WorkspaceSidebarWorkspaceFolderPreview: View {
-    let sourceWorkspace: WorkspaceSidebarWorkspaceViewModel
-    let targetWorkspace: WorkspaceSidebarWorkspaceViewModel
-    let width: CGFloat
-    let nestedContentIndent: CGFloat
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
-    private var containerShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius + 2, style: .continuous)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: workspaceSidebarNestedRowSpacing) {
-            previewFolderHeader
-            VStack(alignment: .leading, spacing: workspaceSidebarNestedRowSpacing) {
-                previewRow(targetWorkspace, isTarget: true)
-                previewRow(sourceWorkspace, isTarget: false)
-            }
-            .padding(.leading, workspaceSidebarTabGroupChildLeadingIndent)
-        }
-        .padding(.vertical, 4)
-        .padding(.leading, workspaceSidebarSectionInnerHorizontalInset + nestedContentIndent)
-        .padding(.trailing, workspaceSidebarSectionInnerHorizontalInset)
-        .frame(width: width, alignment: .leading)
-        .background {
-            containerShape
-                .fill(palette.gray100(palette.isDark ? 0.86 : 0.98))
-        }
-        .overlay {
-            containerShape
-                .strokeBorder(palette.tabStroke(active: true), lineWidth: 0.95)
-        }
-        .shadow(
-            color: palette.shadow(0.10, lightOpacity: 0.04),
-            radius: 5,
-            x: 0,
-            y: 1
-        )
-        .transition(.opacity.combined(with: .scale(scale: 0.985, anchor: .center)))
-        .accessibilityHidden(true)
-        .allowsHitTesting(false)
-    }
-
-    private var previewFolderHeader: some View {
-        HStack(spacing: workspaceSidebarHeaderSpacing) {
-            Image(systemName: "folder.fill")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(palette.foreground(0.52))
-                .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
-            Text("New Folder")
-                .font(.system(size: 13.5, weight: .semibold))
-                .foregroundStyle(palette.foreground(0.78))
-                .lineLimit(1)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 10, weight: .bold))
-                .rotationEffect(.degrees(90))
-                .foregroundStyle(palette.foreground(0.50))
-                .frame(width: 10, height: 18)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
-        .frame(height: workspaceSidebarWorkspaceSectionHeaderHeight)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
-                .fill(palette.gray200(palette.isDark ? 0.80 : 0.84))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
-                .strokeBorder(palette.tabStroke(active: true), lineWidth: 0.8)
-        }
-    }
-
-    private func previewRow(
-        _ workspace: WorkspaceSidebarWorkspaceViewModel,
-        isTarget: Bool
-    ) -> some View {
-        HStack(spacing: workspaceSidebarAppIconTextSpacing) {
-            if let icon = appIconImage(
-                bundleIdentifier: workspace.tabSummary.appBundleId,
-                bundlePath: workspace.tabSummary.appBundlePath
-            ) {
-                Image(nsImage: icon)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
-                    .cornerRadius(4)
-                    .workspaceSidebarIconStroke(palette, isActive: isTarget)
-            } else {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(palette.gray200(palette.isDark ? 0.86 : 0.92))
-                    .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
-                    .workspaceSidebarIconStroke(palette, isActive: isTarget)
-            }
-
-            Text(workspace.displayName)
-                .font(.system(size: 13.5, weight: isTarget ? .semibold : .medium))
-                .foregroundStyle(palette.foreground(isTarget ? 0.84 : 0.72))
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
-        .frame(height: workspaceSidebarTabRowHeight)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
-                .fill(isTarget ? palette.gray200(palette.isDark ? 0.88 : 1) : palette.gray100(palette.isDark ? 0.62 : 0.72))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
-                .strokeBorder(palette.tabStroke(active: isTarget), lineWidth: isTarget ? 0.9 : 0.75)
         }
     }
 }

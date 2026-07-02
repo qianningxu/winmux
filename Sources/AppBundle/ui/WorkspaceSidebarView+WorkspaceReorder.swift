@@ -48,8 +48,6 @@ extension WorkspaceSidebarView {
                 return folderTarget.projectId == projectId
             case .reorder(let reorderTarget):
                 return reorderTarget.projectId == projectId
-            case .createFolder:
-                return false
         }
     }
 
@@ -77,20 +75,6 @@ extension WorkspaceSidebarView {
             width: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration),
             nestedContentIndent: nestedContentIndent,
             previewWorkspace: workspaceReorderPreviewWorkspace()
-        )
-    }
-
-    func workspaceFolderPreview(
-        targetWorkspace: WorkspaceSidebarWorkspaceViewModel,
-        sourceWorkspace: WorkspaceSidebarWorkspaceViewModel,
-        expansionProgress: CGFloat,
-        nestedContentIndent: CGFloat = 0
-    ) -> some View {
-        WorkspaceSidebarWorkspaceFolderPreview(
-            sourceWorkspace: sourceWorkspace,
-            targetWorkspace: targetWorkspace,
-            width: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration),
-            nestedContentIndent: nestedContentIndent
         )
     }
 

@@ -147,8 +147,6 @@ extension WorkspaceSidebarProjectPager {
                 Spacer(minLength: 0)
                 projectMenu
                     .frame(width: projectMenuWidth, height: workspaceSidebarPagerHeight, alignment: .trailing)
-                newProjectButton
-                    .frame(width: projectCreateButtonWidth, height: workspaceSidebarPagerHeight, alignment: .trailing)
             }
             .frame(width: sectionWidth, height: workspaceSidebarPagerHeight, alignment: .trailing)
 
@@ -176,22 +174,6 @@ extension WorkspaceSidebarProjectPager {
             .modifier(WorkspaceSidebarDropdownControlStyle(isActive: isProjectMenuOpen))
         }
         .buttonStyle(.plain)
-        .frame(height: workspaceSidebarPagerHeight, alignment: .center)
-    }
-
-    private var newProjectButton: some View {
-        Button {
-            onCreateProject()
-            isProjectMenuOpen = false
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(palette.foreground(isHovered ? 0.86 : 0.72))
-                .frame(width: workspaceSidebarDropdownHeight - (workspaceSidebarDropdownPadding * 2))
-                .modifier(WorkspaceSidebarDropdownControlStyle(isActive: false))
-        }
-        .buttonStyle(.plain)
-        .help("New Folder")
         .frame(height: workspaceSidebarPagerHeight, alignment: .center)
     }
 
@@ -226,7 +208,7 @@ extension WorkspaceSidebarProjectPager {
             )
             .frame(width: projectPopupWidth)
             .offset(
-                x: -(projectCreateButtonWidth + 6),
+                x: 0,
                 y: -(expandedProjectControlsHeight + workspaceSidebarSectionGap)
             )
             .transition(.asymmetric(

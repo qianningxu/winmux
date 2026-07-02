@@ -620,20 +620,6 @@ func reorderWorkspaceFromSidebar(_ workspaceName: String, projectId: WorkspacePr
 }
 
 @MainActor
-func createFolderFromWorkspacesFromSidebar(
-    sourceWorkspaceName: String,
-    targetWorkspaceName: String
-) {
-    runWorkspaceSidebarSession {
-        guard createSidebarFolderFromWorkspaces(
-            sourceWorkspaceName: sourceWorkspaceName,
-            targetWorkspaceName: targetWorkspaceName
-        ) else { return }
-        await updateWorkspaceSidebarModel()
-    }
-}
-
-@MainActor
 func moveWorkspaceToFolderFromSidebar(
     _ workspaceName: String,
     projectId: WorkspaceProjectId
