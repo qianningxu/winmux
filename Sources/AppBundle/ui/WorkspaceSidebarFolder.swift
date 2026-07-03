@@ -64,19 +64,6 @@ func workspaceSidebarFolderSections(
         }
     }
 
-    let defaultProject = projectById[workspaceProjectDefaultId] ?? WorkspaceSidebarProjectViewModel(
-        id: workspaceProjectDefaultId,
-        displayName: "Tabs",
-        colorHex: nil,
-    )
-    let visibleDefaultWorkspaces = workspaceSidebarNonEmptyFolderWorkspaces(defaultWorkspaces)
-    if !visibleDefaultWorkspaces.isEmpty {
-        sections.append(WorkspaceSidebarFolderSection(
-            project: defaultProject,
-            workspaces: visibleDefaultWorkspaces,
-        ))
-    }
-
     let orderedProjects = projects.filter { $0.id != workspaceProjectDefaultId }
     for project in orderedProjects {
         guard let folderWorkspaces = folderWorkspacesByProject.removeValue(forKey: project.id)
@@ -97,6 +84,18 @@ func workspaceSidebarFolderSections(
                 colorHex: nil,
             ),
             workspaces: visibleFolderWorkspaces,
+        ))
+    }
+    let defaultProject = projectById[workspaceProjectDefaultId] ?? WorkspaceSidebarProjectViewModel(
+        id: workspaceProjectDefaultId,
+        displayName: "Tabs",
+        colorHex: nil,
+    )
+    let visibleDefaultWorkspaces = workspaceSidebarNonEmptyFolderWorkspaces(defaultWorkspaces)
+    if !visibleDefaultWorkspaces.isEmpty {
+        sections.append(WorkspaceSidebarFolderSection(
+            project: defaultProject,
+            workspaces: visibleDefaultWorkspaces,
         ))
     }
     return sections

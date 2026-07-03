@@ -130,8 +130,8 @@ private func orderedWorkspacesAcrossProjectIndexes() -> [Workspace] {
     var seen: Set<WorkspaceId> = []
     var result: [Workspace] = []
     let projects = winMuxWorkspaceState.projectsById.values.sorted {
-        if $0.id == workspaceProjectDefaultId { return true }
-        if $1.id == workspaceProjectDefaultId { return false }
+        if $0.id == workspaceProjectDefaultId { return false }
+        if $1.id == workspaceProjectDefaultId { return true }
         return workspaceProjectOrderPrecedes($0, $1)
     }
     for project in projects {

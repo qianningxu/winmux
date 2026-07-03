@@ -371,11 +371,11 @@ final class WorkspaceSidebarDragTest: XCTestCase {
             ],
         )
 
-        XCTAssertEqual(sections.map(\.project.id), [workspaceProjectDefaultId, projectId])
-        XCTAssertTrue(sections[0].isDefault)
-        XCTAssertEqual(sections[0].workspaces.map(\.name), ["coding", "research"])
-        XCTAssertEqual(sections[1].project.displayName, "Client")
-        XCTAssertEqual(sections[1].workspaces.map(\.name), ["grouped"])
+        XCTAssertEqual(sections.map(\.project.id), [projectId, workspaceProjectDefaultId])
+        XCTAssertEqual(sections[0].project.displayName, "Client")
+        XCTAssertEqual(sections[0].workspaces.map(\.name), ["grouped"])
+        XCTAssertTrue(sections[1].isDefault)
+        XCTAssertEqual(sections[1].workspaces.map(\.name), ["coding", "research"])
     }
 
     @MainActor

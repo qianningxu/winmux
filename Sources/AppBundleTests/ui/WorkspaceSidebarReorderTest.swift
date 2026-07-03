@@ -155,9 +155,9 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         setProjectWorkspaceOrder(project.id, [second])
 
         XCTAssertEqual(orderedWorkspacesForPresentation().map(\.name), [
+            second.name,
             first.name,
             third.name,
-            second.name,
         ])
 
         XCTAssertTrue(reorderWorkspaceForSidebar(

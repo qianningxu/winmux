@@ -33,4 +33,27 @@ final class NewTabCommandTest: XCTestCase {
             [first.name, focus.workspace.name, second.name]
         )
     }
+
+    func testNewTabRootTabsPresentAfterSidebarFolders() async throws {
+        let root = Workspace.get(byName: "root")
+        root.assignProject(workspaceProjectDefaultId)
+        root.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 3, parent: root.rootTilingContainer)
+        let folder = createWorkspaceProject()
+        let folderTab = projectWorkspaces(projectId: folder.id).first.orDie()
+        folderTab.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 4, parent: folderTab.rootTilingContainer)
+        winMuxWorkspaceState.projectsById[workspaceProjectDefaultId]?.workspaceOrder = [root.id]
+        winMuxWorkspaceState.projectsById[folder.id]?.workspaceOrder = [folderTab.id]
+        XCTAssertTrue(root.focusWorkspace())
+
+        let result = try await NewTabCommand(args: NewTabCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
+
+        assertEquals(result.exitCode, 0)
+        XCTAssertEqual(focus.workspace.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(
+            orderedWorkspacesForPresentation().filter { !$0.isArchived }.map(\.name),
+            [folderTab.name, root.name, focus.workspace.name]
+        )
+    }
 }
