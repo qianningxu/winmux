@@ -230,7 +230,9 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertEqual(workspaceSidebarWorkspaceSectionHeightExpanded, workspaceSidebarTabRowHeight)
         XCTAssertEqual(workspaceSidebarHeaderRowLeadingPadding, workspaceSidebarRowHorizontalPadding)
         XCTAssertEqual(workspaceSidebarWindowRowsLeadingIndent, 0)
-        XCTAssertEqual(workspaceSidebarNestedRowSpacing, 4)
+        XCTAssertEqual(workspaceSidebarListItemSpacing, 2)
+        XCTAssertEqual(workspaceSidebarNestedRowSpacing, 2)
+        XCTAssertEqual(workspaceSidebarFolderOuterVerticalMargin, 2)
         XCTAssertGreaterThan(workspaceSidebarTabGroupChildLeadingIndent, workspaceSidebarRowHorizontalPadding)
     }
 

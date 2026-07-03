@@ -154,7 +154,7 @@ struct WorkspaceSidebarFolder<Content: View>: View {
                 }
             }
         }
-        .padding(.vertical, showsFolderContent ? 4 : 0)
+        .padding(.vertical, showsFolderContent ? 2 : 0)
         .frame(width: sectionWidth, alignment: .leading)
         .background {
             GeometryReader { geometry in
@@ -193,6 +193,7 @@ struct WorkspaceSidebarFolder<Content: View>: View {
             x: 0,
             y: folderBlockShadowYOffset
         )
+        .padding(.vertical, workspaceSidebarFolderOuterVerticalMargin)
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
         .onDrop(of: [workspaceSidebarDragPayloadType], delegate: WorkspaceSidebarDropDelegate(
