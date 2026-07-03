@@ -87,8 +87,12 @@ extension WorkspaceSidebarView {
     func updateWorkspaceReorderDrag(
         workspace: WorkspaceSidebarWorkspaceViewModel,
         projectId: WorkspaceProjectId,
-        pointer: CGPoint
+        pointer: CGPoint,
+        startsTracking: Bool = true
     ) {
+        if startsTracking {
+            startWorkspaceReorderTrackingIfNeeded(workspace: workspace, projectId: projectId)
+        }
         if workspaceReorderDrag == nil {
             NotificationCenter.default.post(name: workspaceSidebarDismissProjectMenusNotification, object: nil)
             isProjectMenuOpen = false
@@ -115,6 +119,71 @@ extension WorkspaceSidebarView {
             pointer: pointer,
             target: target
         )
+    }
+
+    func startWorkspaceReorderTrackingIfNeeded(
+        workspace: WorkspaceSidebarWorkspaceViewModel,
+        projectId: WorkspaceProjectId
+    ) {
+        guard !workspaceReorderDriver.isTracking(sourceWorkspaceName: workspace.name, projectId: projectId) else {
+            return
+        }
+        workspaceReorderDriver.start(
+            sourceWorkspaceName: workspace.name,
+            projectId: projectId,
+            onTick: {
+                continueWorkspaceReorderDragFromMouse(
+                    sourceWorkspaceName: workspace.name,
+                    projectId: projectId
+                )
+            },
+            onFinish: {
+                finishWorkspaceReorderDragFromMouse(
+                    sourceWorkspaceName: workspace.name,
+                    projectId: projectId
+                )
+            }
+        )
+    }
+
+    func continueWorkspaceReorderDragFromMouse(
+        sourceWorkspaceName: String,
+        projectId: WorkspaceProjectId
+    ) {
+        noteCurrentMousePointerSample()
+        guard let workspace = snapshot.workspaces.first(where: { $0.name == sourceWorkspaceName }),
+              let pointer = currentWorkspaceReorderContentPointer()
+        else { return }
+        updateWorkspaceReorderDrag(
+            workspace: workspace,
+            projectId: projectId,
+            pointer: pointer,
+            startsTracking: false
+        )
+    }
+
+    func finishWorkspaceReorderDragFromMouse(
+        sourceWorkspaceName: String,
+        projectId: WorkspaceProjectId
+    ) {
+        noteCurrentMousePointerSample()
+        guard let drag = workspaceReorderDrag,
+              drag.sourceWorkspaceName == sourceWorkspaceName,
+              drag.projectId == projectId,
+              let workspace = snapshot.workspaces.first(where: { $0.name == sourceWorkspaceName })
+        else {
+            cancelWorkspaceReorderDrag()
+            return
+        }
+        finishWorkspaceReorderDrag(
+            workspace: workspace,
+            projectId: projectId,
+            pointer: currentWorkspaceReorderContentPointer() ?? drag.pointer
+        )
+    }
+
+    func currentWorkspaceReorderContentPointer() -> CGPoint? {
+        currentPanel()?.convertScreenPointToSidebarContentPoint(NSEvent.mouseLocation)
     }
 
     func finishWorkspaceReorderDrag(
@@ -187,7 +256,8 @@ extension WorkspaceSidebarView {
     }
 
     func clearWorkspaceReorderDragImmediately() {
-        let hadWorkspaceReorderDrag = workspaceReorderDrag != nil
+        let hadWorkspaceReorderDrag = workspaceReorderDrag != nil || workspaceReorderDriver.isTracking
+        workspaceReorderDriver.stop()
         var transaction = Transaction()
         transaction.animation = nil
         withTransaction(transaction) {

@@ -30,6 +30,7 @@ struct WorkspaceSidebarView: View {
     @State var workspaceReorderFrames: [WorkspaceSidebarWorkspaceReorderFrame] = []
     @State var folderReorderFrames: [WorkspaceSidebarFolderReorderFrame] = []
     @State var workspaceReorderDrag: WorkspaceSidebarWorkspaceReorderDragState? = nil
+    @StateObject var workspaceReorderDriver = WorkspaceSidebarWorkspaceReorderDriver()
     @State var folderExpansionOverrides: [WorkspaceProjectId: Bool] = [:]
     @State var pendingWorkspaceActivation: WorkspaceSidebarPendingActivation? = nil
 

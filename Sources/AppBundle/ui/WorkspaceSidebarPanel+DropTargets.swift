@@ -13,6 +13,11 @@ extension WorkspaceSidebarPanel {
         }
     }
 
+    func convertScreenPointToSidebarContentPoint(_ screenPoint: CGPoint) -> CGPoint {
+        let windowPoint = convertFromScreen(NSRect(origin: screenPoint, size: .zero)).origin
+        return hostingView.convert(windowPoint, from: nil)
+    }
+
     func visibleScreenRectNormalized() -> Rect? {
         guard isVisible, viewModel.workspaceSidebarVisibleWidth > 0 else { return nil }
         return sideAreaBackgroundFrame().monitorFrameNormalized()

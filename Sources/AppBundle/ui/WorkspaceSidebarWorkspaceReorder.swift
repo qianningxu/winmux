@@ -78,6 +78,64 @@ struct WorkspaceSidebarWorkspaceReorderDragState: Equatable {
     var target: WorkspaceSidebarWorkspaceDragTarget?
 }
 
+@MainActor
+final class WorkspaceSidebarWorkspaceReorderDriver: ObservableObject {
+    private var session: WorkspaceSidebarWorkspaceReorderSession?
+    private var onTick: (@MainActor () -> Void)?
+    private var onFinish: (@MainActor () -> Void)?
+
+    var isTracking: Bool { session != nil }
+
+    func isTracking(sourceWorkspaceName: String, projectId: WorkspaceProjectId) -> Bool {
+        session == WorkspaceSidebarWorkspaceReorderSession(
+            sourceWorkspaceName: sourceWorkspaceName,
+            projectId: projectId
+        )
+    }
+
+    func start(
+        sourceWorkspaceName: String,
+        projectId: WorkspaceProjectId,
+        onTick: @escaping @MainActor () -> Void,
+        onFinish: @escaping @MainActor () -> Void
+    ) {
+        self.onTick = onTick
+        self.onFinish = onFinish
+        let nextSession = WorkspaceSidebarWorkspaceReorderSession(
+            sourceWorkspaceName: sourceWorkspaceName,
+            projectId: projectId
+        )
+        guard session != nextSession else { return }
+        session = nextSession
+        DisplayRefreshDriver.shared.add(owner: self) { [weak self] _ in
+            self?.tick()
+        }
+    }
+
+    func stop() {
+        guard session != nil else { return }
+        DisplayRefreshDriver.shared.remove(owner: self)
+        session = nil
+        onTick = nil
+        onFinish = nil
+    }
+
+    private func tick() {
+        guard isLeftMouseButtonDown else {
+            let finish = onFinish
+            stop()
+            finish?()
+            return
+        }
+        onTick?()
+    }
+}
+
+private struct WorkspaceSidebarWorkspaceReorderSession: Equatable {
+    let sourceWorkspaceName: String
+    let projectId: WorkspaceProjectId
+}
+
 enum WorkspaceSidebarWorkspaceReorderPreviewPlacement: Equatable {
     case before(String)
     case after(String)
