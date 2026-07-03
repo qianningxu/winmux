@@ -377,6 +377,56 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
+    func testFolderSectionsHideEmptyDefaultTabWhenAllTabsAreFoldered() {
+        let projectId = WorkspaceProjectId("project-1")
+        let emptyDefault = WorkspaceSidebarWorkspaceViewModel(
+            name: "empty-default",
+            projectId: workspaceProjectDefaultId,
+            displayName: "Tab 1",
+            sidebarLabel: "",
+            isGeneratedName: true,
+            tabSummary: .empty,
+            monitorScopeId: workspaceSidebarDefaultScopeId,
+            monitorName: nil,
+            isFocused: true,
+            isVisible: true,
+            items: [],
+        )
+        let foldered = WorkspaceSidebarWorkspaceViewModel(
+            name: "foldered",
+            projectId: projectId,
+            displayName: "Foldered",
+            sidebarLabel: "",
+            isGeneratedName: false,
+            tabSummary: WorkspaceSidebarTabSummaryViewModel(
+                title: "Foldered",
+                subtitle: nil,
+                appBundleId: nil,
+                appBundlePath: nil,
+                windowCount: 1,
+                isEmpty: false,
+            ),
+            monitorScopeId: workspaceSidebarDefaultScopeId,
+            monitorName: nil,
+            isFocused: false,
+            isVisible: false,
+            items: [],
+        )
+
+        let sections = workspaceSidebarFolderSections(
+            projectId: workspaceProjectDefaultId,
+            workspaces: [emptyDefault, foldered],
+            projects: [
+                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Tabs", colorHex: nil),
+                WorkspaceSidebarProjectViewModel(id: projectId, displayName: "Folder", colorHex: nil),
+            ],
+        )
+
+        XCTAssertEqual(sections.map(\.project.id), [projectId])
+        XCTAssertEqual(sections.singleOrNil()?.workspaces.map(\.name), ["foldered"])
+    }
+
+    @MainActor
     func testSidebarPinnedExpandedPreferenceRoundTrips() {
         resetWorkspaceSidebarUIPreferencesForTests()
 

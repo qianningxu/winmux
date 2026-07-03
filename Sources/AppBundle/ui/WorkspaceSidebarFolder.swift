@@ -69,10 +69,11 @@ func workspaceSidebarFolderSections(
         displayName: "Tabs",
         colorHex: nil,
     )
-    if !defaultWorkspaces.isEmpty {
+    let visibleDefaultWorkspaces = workspaceSidebarNonEmptyFolderWorkspaces(defaultWorkspaces)
+    if !visibleDefaultWorkspaces.isEmpty {
         sections.append(WorkspaceSidebarFolderSection(
             project: defaultProject,
-            workspaces: defaultWorkspaces,
+            workspaces: visibleDefaultWorkspaces,
         ))
     }
 
