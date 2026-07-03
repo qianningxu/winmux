@@ -550,7 +550,31 @@ private func createWorkspaceSidebarFolderProject() -> WorkspaceProject {
     let order = winMuxWorkspaceState.nextProjectOrder()
     let project = WorkspaceProject(id: identity.id, name: identity.name, order: order)
     winMuxWorkspaceState.registerProject(project)
-    return project
+    moveWorkspaceSidebarFolderProjectToTop(project.id)
+    return winMuxWorkspaceState.projectsById[project.id] ?? project
+}
+
+@MainActor
+private func moveWorkspaceSidebarFolderProjectToTop(_ projectId: WorkspaceProjectId) {
+    let orderedProjectIds = winMuxWorkspaceState.projectsById.values
+        .filter { $0.id != workspaceProjectDefaultId }
+        .sorted(by: workspaceProjectOrderPrecedes)
+        .map(\.id)
+    guard orderedProjectIds.first != projectId,
+          orderedProjectIds.contains(projectId)
+    else { return }
+
+    let reorderedProjectIds = [projectId] + orderedProjectIds.filter { $0 != projectId }
+    for (offset, projectId) in reorderedProjectIds.enumerated() {
+        guard let project = winMuxWorkspaceState.projectsById[projectId] else { continue }
+        winMuxWorkspaceState.projectsById[projectId] = WorkspaceProject(
+            id: project.id,
+            name: project.name,
+            order: offset + 1,
+            workspaceOrder: project.workspaceOrder,
+            linkedViewportIds: project.linkedViewportIds
+        )
+    }
 }
 
 private func workspaceSidebarDefaultFolderName(_ project: WorkspaceProject) -> String {

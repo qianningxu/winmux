@@ -306,15 +306,12 @@ struct WorkspaceSidebarFolder<Content: View>: View {
 
     private var folderBlockFill: Color {
         if isFolderTargeted {
-            return palette.gray200(palette.isDark ? 0.58 : 0.70)
+            return palette.contrastingFill(darkOpacity: 0.18, lightOpacity: 0.15)
         }
         if isHovered {
-            return palette.gray500(palette.isDark ? 0.42 : 0.50)
+            return palette.contrastingFill(darkOpacity: 0.14, lightOpacity: 0.12)
         }
-        if showsFolderContent {
-            return palette.gray100(palette.isDark ? 0.50 : 0.72)
-        }
-        return Color.clear
+        return palette.contrastingFill(darkOpacity: 0.095, lightOpacity: 0.08)
     }
 
     private var folderBlockBorder: Color {

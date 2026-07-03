@@ -987,6 +987,30 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertEqual(focus.workspace, workspace)
     }
 
+    func testCreateSidebarFolderFromWorkspaceInsertsFolderBeforeExistingFolders() {
+        let first = createWorkspaceProjectWithWindow(windowId: 31)
+        let second = createWorkspaceProjectWithWindow(windowId: 32)
+        let workspace = Workspace.get(byName: "source")
+        workspace.markAsAutomaticallyNamed()
+        workspace.assignProject(workspaceProjectDefaultId)
+        workspace.rootTilingContainer.apply {
+            TestWindow.new(id: 33, parent: $0)
+        }
+
+        let folderId = createSidebarFolderFromWorkspace(workspace.name)
+
+        guard let folderId else {
+            XCTFail("Expected sidebar folder creation to succeed")
+            return
+        }
+        XCTAssertEqual(workspaceProjects().map(\.id), [
+            workspaceProjectDefaultId,
+            folderId,
+            first.id,
+            second.id,
+        ])
+    }
+
     func testCreateSidebarFolderFromWorkspaceRejectsEmptyTab() {
         let workspace = Workspace.get(byName: "empty")
         workspace.markAsAutomaticallyNamed()
