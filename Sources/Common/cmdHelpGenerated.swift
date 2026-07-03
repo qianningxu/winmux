@@ -130,9 +130,10 @@ let move_help_generated = """
     USAGE: move [-h|--help] [--window-id <window-id>] [--boundaries <boundary>] [--boundaries-action <boundary-action>] (left|down|up|right)
     """
 let project_help_generated = """
-    USAGE: project [-h|--help]
+    USAGE: folder [-h|--help] [--wrap-around] (folder-index|next|prev)
+       OR: project [-h|--help] [--wrap-around] (folder-index|next|prev)
 
-    Disabled legacy folder command. Tabs and folders are managed in the sidebar.
+    Focus a sidebar folder. Folders are numbered top to bottom, with root tabs after the last folder.
     """
 let reload_config_help_generated = """
     USAGE: reload-config [-h|--help] [--no-gui] [--dry-run]

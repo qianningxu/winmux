@@ -1,6 +1,6 @@
 @MainActor
 func automaticWorkspaceDisplayIndex(_ workspace: Workspace, focusedWorkspace: Workspace?) -> Int? {
-    monitorScopedAutomaticDisplayWorkspaces(
+    monitorScopedAutomaticDisplayWorkspacesInExactProject(
         projectId: workspace.projectId,
         monitor: workspace.workspaceMonitor,
         focusedWorkspace: focusedWorkspace,
@@ -52,7 +52,7 @@ func monitorScopedAutomaticDisplayWorkspacesInExactProject(
 func createAdjacentTransientBlankWorkspaceIfAllowed(named workspaceName: String, from current: Workspace) -> Workspace? {
     createAdjacentTransientBlankWorkspaceIfAllowed(
         named: workspaceName,
-        projectId: projectsAreEnabled() ? current.projectId : workspaceProjectDefaultId,
+        projectId: current.projectId,
         monitor: current.workspaceMonitor,
         focusedWorkspace: current,
     )

@@ -26,7 +26,7 @@ func nextInternalAutomaticWorkspaceName() -> String {
 
 @MainActor
 func nextAutomaticWorkspaceDisplayIndex(projectId: WorkspaceProjectId, monitor: Monitor) -> Int {
-    let usedIndices = monitorScopedAutomaticDisplayWorkspaces(
+    let usedIndices = monitorScopedAutomaticDisplayWorkspacesInExactProject(
         projectId: projectId,
         monitor: monitor,
         focusedWorkspace: nil,

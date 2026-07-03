@@ -107,15 +107,15 @@ func starterConfigText() -> String {
         ("ctrl-l", "tab next"),
         ("cmd-ctrl-h", "tab prev"),
         ("cmd-ctrl-l", "tab next"),
-        ("alt-shift-1", "move-node-to-tab 1"),
-        ("alt-shift-2", "move-node-to-tab 2"),
-        ("alt-shift-3", "move-node-to-tab 3"),
-        ("alt-shift-4", "move-node-to-tab 4"),
-        ("alt-shift-5", "move-node-to-tab 5"),
-        ("alt-shift-6", "move-node-to-tab 6"),
-        ("alt-shift-7", "move-node-to-tab 7"),
-        ("alt-shift-8", "move-node-to-tab 8"),
-        ("alt-shift-9", "move-node-to-tab 9"),
+        ("alt-shift-1", "folder 1"),
+        ("alt-shift-2", "folder 2"),
+        ("alt-shift-3", "folder 3"),
+        ("alt-shift-4", "folder 4"),
+        ("alt-shift-5", "folder 5"),
+        ("alt-shift-6", "folder 6"),
+        ("alt-shift-7", "folder 7"),
+        ("alt-shift-8", "folder 8"),
+        ("alt-shift-9", "folder 9"),
         ("ctrl-shift-0", "move-node-to-tab 10"),
         ("ctrl-shift-h", "move-node-to-tab --focus-follows-window prev"),
         ("ctrl-shift-l", "move-node-to-tab --focus-follows-window next"),
@@ -204,6 +204,12 @@ func migrateAerospaceConfigForWinMux(_ rawToml: String) throws -> String {
         #"(?<![A-Za-z0-9_-])workspace(?![A-Za-z0-9_-])"#,
         with: "tab",
     )
+    for index in 1 ... 9 {
+        migrated = migrated.replacingRegex(
+            #"(?m)^(\s*alt-shift-\#(index)\s*=\s*['"])move-node-to-tab \#(index)(['"].*)$"#,
+            with: "$1folder \(index)$2",
+        )
+    }
     let baseConfig = migrated.isEmpty
         ? starterConfigText()
         : removingAerospaceKeyboardConfigSections(from: starterConfigText())

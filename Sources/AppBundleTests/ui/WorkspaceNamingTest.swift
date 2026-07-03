@@ -323,7 +323,7 @@ final class WorkspaceNamingTest: XCTestCase {
         XCTAssertEqual(secondaryWorkspace.projectId, workspaceProjectDefaultId)
     }
 
-    func testProjectsDoNotOwnSeparateWorkspaceSetsWhenHardDisabled() {
+    func testSidebarFoldersOwnSeparateTabDisplayIndexesWhenProjectsHardDisabled() {
         let defaultWorkspace = Workspace.get(byName: "1")
         defaultWorkspace.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 12, parent: defaultWorkspace.rootTilingContainer)
@@ -336,7 +336,7 @@ final class WorkspaceNamingTest: XCTestCase {
 
         XCTAssertNotEqual(defaultWorkspace.projectId, projectWorkspace.projectId)
         XCTAssertEqual(workspaceDisplayName(defaultWorkspace.name), "Tab 1")
-        XCTAssertEqual(workspaceDisplayName(projectWorkspace.name), "Tab 2")
+        XCTAssertEqual(workspaceDisplayName(projectWorkspace.name), "Tab 1")
     }
 
     func testWorkspaceSidebarRenameUsesDisplayLabelWithoutRenamingWorkspaceIdentity() throws {

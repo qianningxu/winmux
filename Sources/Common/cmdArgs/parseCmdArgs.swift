@@ -50,6 +50,8 @@ extension CmdArgs {
                 "move-node-to-tab"
             case .moveWorkspaceToMonitor:
                 "move-tab-to-monitor"
+            case .project:
+                "folder"
             case .reorderWorkspace:
                 "reorder-tab"
             case .summonWorkspace:

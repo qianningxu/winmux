@@ -126,6 +126,7 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(OpenSidebarCmdArgs.init)
             case .project:
                 result[kind.rawValue] = SubCommandParser(parseProjectCmdArgs)
+                result["folder"] = SubCommandParser(parseProjectCmdArgs)
             case .reloadConfig:
                 result[kind.rawValue] = SubCommandParser(ReloadConfigCmdArgs.init)
             case .reorderWorkspace:

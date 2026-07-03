@@ -8,6 +8,8 @@ final class CliDescriptionGeneratedTest: XCTestCase {
         XCTAssertTrue(descriptions.contains(#"["  workspace", "Legacy alias for tab"]"#))
         XCTAssertTrue(descriptions.contains(#"["  list-tabs", "Print Tabs that satisfy conditions"]"#))
         XCTAssertTrue(descriptions.contains(#"["  list-workspaces", "Legacy alias for list-tabs"]"#))
+        XCTAssertTrue(descriptions.contains(#"["  folder", "Focus the specified sidebar folder"]"#))
+        XCTAssertTrue(descriptions.contains(#"["  project", "Legacy alias for folder"]"#))
         XCTAssertTrue(descriptions.contains(#"["  move-node-to-tab", "Move the focused window to the specified Tab"]"#))
         XCTAssertTrue(descriptions.contains(#"["  move-node-to-workspace", "Legacy alias for move-node-to-tab"]"#))
         XCTAssertTrue(descriptions.contains(#"["  reorder-tab", "Reorder a Tab before or after another Tab"]"#))
@@ -22,6 +24,7 @@ final class CliDescriptionGeneratedTest: XCTestCase {
 
         XCTAssertTrue(help.contains("USAGE: tab [-h|--help]"))
         XCTAssertTrue(help.contains("USAGE: list-tabs [-h|--help]"))
+        XCTAssertTrue(help.contains("USAGE: folder [-h|--help]"))
         XCTAssertTrue(help.contains("USAGE: move-node-to-tab [-h|--help]"))
         XCTAssertTrue(help.contains("USAGE: move-tab-to-monitor [-h|--help]"))
         XCTAssertTrue(help.contains("USAGE: reorder-tab [-h|--help]"))
