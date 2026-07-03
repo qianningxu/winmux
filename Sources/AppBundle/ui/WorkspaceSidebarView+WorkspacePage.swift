@@ -164,9 +164,6 @@ extension WorkspaceSidebarView {
                                             allowsActivation: allowsActivation,
                                             nestedContentIndent: workspaceSidebarTabGroupChildLeadingIndent,
                                         )
-                                        if let dropPreview = folderDropPreview(section.project.id) {
-                                            folderDropPreviewRow(dropPreview, expansionProgress: expansionProgress)
-                                        }
                                     }
                                 )
                             } else {
@@ -275,18 +272,6 @@ extension WorkspaceSidebarView {
               dropPreview.targetMonitorScopeId == nil || dropPreview.targetMonitorScopeId == snapshot.targetMonitorScopeId
         else { return nil }
         return dropPreview
-    }
-
-    private func folderDropPreviewRow(
-        _ preview: WorkspaceSidebarDropPreviewViewModel,
-        expansionProgress _: CGFloat
-    ) -> some View {
-        WorkspaceSidebarDropPreviewView(
-            preview: preview,
-            rowHeight: workspaceSidebarTabRowHeight,
-        )
-        .padding(.leading, workspaceSidebarTabGroupChildLeadingIndent)
-        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
     @MainActor

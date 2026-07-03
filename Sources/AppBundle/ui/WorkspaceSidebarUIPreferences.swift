@@ -49,6 +49,13 @@ func setWorkspaceSidebarFolderExpanded(_ projectId: WorkspaceProjectId, isExpand
 }
 
 @MainActor
+func restoreWorkspaceSidebarCollapsedFolderIds(_ projectIds: [WorkspaceProjectId]) {
+    UserDefaults.standard.setValue(projectIds.map(\.rawValue).sorted(), forKey: workspaceSidebarCollapsedFolderIdsPreferenceKey)
+    UserDefaults.standard.removeObject(forKey: workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey)
+    UserDefaults.standard.synchronize()
+}
+
+@MainActor
 func clearWorkspaceSidebarFolderExpansionPreference(_ projectId: WorkspaceProjectId) {
     var collapsedIds = collapsedWorkspaceSidebarFolderIdsPreference()
     guard collapsedIds.remove(projectId.rawValue) != nil else { return }

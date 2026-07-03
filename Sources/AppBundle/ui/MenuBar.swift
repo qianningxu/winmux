@@ -34,7 +34,7 @@ private let winmuxNewIssueURL = "https://github.com/zimengxiong/winmux/issues/ne
         Button("Quit \(winMuxAppName)") {
             Task {
                 defer { terminateApp() }
-                try await terminationHandler.beforeTermination()
+                await prepareAppBundleForTerminationIfNeeded()
             }
         }.keyboardShortcut("Q", modifiers: .command)
     } label: {

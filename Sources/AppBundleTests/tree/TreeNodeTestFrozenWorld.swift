@@ -40,6 +40,7 @@ extension TreeNodeTest {
             workspaces: [FrozenWorkspace(workspace)],
             monitors: monitors.map(FrozenMonitor.init),
             windowIds: [11, 12],
+            sidebar: FrozenSidebarState(restorableWorkspaces: [workspace]),
         )
 
         let data = try JSONEncoder().encode(frozenWorld)
@@ -47,6 +48,7 @@ extension TreeNodeTest {
 
         XCTAssertEqual(decoded.windowIds, [11, 12])
         XCTAssertEqual(decoded.workspaces.count, 1)
+        XCTAssertEqual(decoded.sidebar?.projects.singleOrNil()?.workspaceNames, [workspace.name])
 
         let frozenChild = try XCTUnwrap(decoded.workspaces.first?.rootTilingNode.children.first)
         switch frozenChild {
@@ -66,6 +68,26 @@ extension TreeNodeTest {
         }
     }
 
+    func testFrozenWorldDecodesLegacyPayloadWithoutSidebarState() throws {
+        let json = #"{"workspaces":[],"monitors":[],"windowIds":[]}"#
+
+        let decoded = try JSONDecoder().decode(FrozenWorld.self, from: Data(json.utf8))
+
+        XCTAssertNil(decoded.sidebar)
+        XCTAssertTrue(decoded.workspaces.isEmpty)
+        XCTAssertTrue(decoded.monitors.isEmpty)
+        XCTAssertTrue(decoded.windowIds.isEmpty)
+    }
+
+    func testFrozenWorldDecodesLegacySidebarStateWithoutLabels() throws {
+        let json = #"{"workspaces":[],"monitors":[],"windowIds":[],"sidebar":{"projects":[],"collapsedFolderIds":[]}}"#
+
+        let decoded = try JSONDecoder().decode(FrozenWorld.self, from: Data(json.utf8))
+
+        XCTAssertEqual(decoded.sidebar?.workspaceLabels, [:])
+        XCTAssertEqual(decoded.sidebar?.projectLabels, [:])
+    }
+
     func testSnapshotCurrentFrozenWorldExcludesDetachedMinimizedWindow() {
         let workspace = Workspace.get(byName: "minimized")
         let window = TestWindow.new(id: 32, parent: workspace.rootTilingContainer)
@@ -78,6 +100,126 @@ extension TreeNodeTest {
 
         XCTAssertTrue(frozenWorld.windowIds.isEmpty)
         XCTAssertTrue(frozenWorld.workspaces.isEmpty)
+    }
+
+    func testSnapshotCurrentFrozenWorldCapturesSidebarFolderOrderAndExpansion() {
+        let first = Workspace.get(byName: "first")
+        first.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 51, parent: first.rootTilingContainer)
+        let second = Workspace.get(byName: "second")
+        second.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 52, parent: second.rootTilingContainer)
+        let folder = createWorkspaceProject()
+        first.assignProject(folder.id)
+        second.assignProject(folder.id)
+        var storedFolder = winMuxWorkspaceState.projectsById[folder.id].orDie()
+        storedFolder.workspaceOrder = [second.id, first.id]
+        winMuxWorkspaceState.projectsById[folder.id] = storedFolder
+        setWorkspaceSidebarFolderExpanded(folder.id, isExpanded: false)
+
+        let frozenWorld = snapshotCurrentFrozenWorld()
+        let frozenFolder = frozenWorld.sidebar?.projects.first { $0.id == folder.id }
+
+        XCTAssertEqual(frozenFolder?.workspaceNames, ["second", "first"])
+        XCTAssertTrue(frozenWorld.sidebar?.collapsedFolderIds.contains(folder.id) == true)
+    }
+
+    func testSnapshotCurrentFrozenWorldCapturesSidebarRenamedTabsAndFolders() throws {
+        let workspace = Workspace.get(byName: "renamed")
+        workspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 53, parent: workspace.rootTilingContainer)
+        let folder = createWorkspaceProject()
+        workspace.assignProject(folder.id)
+        try renameWorkspaceForSidebar(workspaceName: workspace.name, displayName: "Design")
+        try renameWorkspaceProject(folder.id, displayName: "Client")
+
+        let frozenWorld = snapshotCurrentFrozenWorld()
+
+        XCTAssertEqual(frozenWorld.sidebar?.workspaceLabels[workspace.name], "Design")
+        XCTAssertEqual(frozenWorld.sidebar?.projectLabels[folder.id.rawValue], "Client")
+    }
+
+    func testRestoreFrozenWorldRestoresSidebarOrderAndCollapsedFolders() async throws {
+        let first = Workspace.get(byName: "first")
+        first.markAsAutomaticallyNamed()
+        let firstWindow = TestWindow.new(id: 61, parent: first.rootTilingContainer)
+        let second = Workspace.get(byName: "second")
+        second.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 62, parent: second.rootTilingContainer)
+        let folder = createWorkspaceProject()
+        first.assignProject(folder.id)
+        second.assignProject(folder.id)
+        var storedFolder = winMuxWorkspaceState.projectsById[folder.id].orDie()
+        storedFolder.workspaceOrder = [second.id, first.id]
+        winMuxWorkspaceState.projectsById[folder.id] = storedFolder
+        setWorkspaceSidebarFolderExpanded(folder.id, isExpanded: false)
+        let frozenWorld = snapshotCurrentFrozenWorld()
+
+        first.assignProject(workspaceProjectDefaultId)
+        second.assignProject(workspaceProjectDefaultId)
+        setWorkspaceSidebarFolderExpanded(folder.id, isExpanded: true)
+
+        let didRestore = try await restoreFrozenWorldIfNeeded(frozenWorld, newlyDetectedWindow: firstWindow)
+
+        XCTAssertTrue(didRestore)
+        XCTAssertEqual(first.projectId, folder.id)
+        XCTAssertEqual(second.projectId, folder.id)
+        XCTAssertEqual(
+            winMuxWorkspaceState.projectsById[folder.id]?.workspaceOrder,
+            [second.id, first.id],
+        )
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(folder.id))
+    }
+
+    func testRestoreFrozenWorldRestoresSidebarRenamedTabsAndFolders() async throws {
+        let workspace = Workspace.get(byName: "renamed")
+        workspace.markAsAutomaticallyNamed()
+        let window = TestWindow.new(id: 64, parent: workspace.rootTilingContainer)
+        let folder = createWorkspaceProject()
+        workspace.assignProject(folder.id)
+        try renameWorkspaceForSidebar(workspaceName: workspace.name, displayName: "Design")
+        try renameWorkspaceProject(folder.id, displayName: "Client")
+        let frozenWorld = snapshotCurrentFrozenWorld()
+
+        config.workspaceSidebar.workspaceLabels.removeValue(forKey: workspace.name)
+        config.workspaceSidebar.projectLabels.removeValue(forKey: folder.id.rawValue)
+        workspace.assignProject(workspaceProjectDefaultId)
+
+        let didRestore = try await restoreFrozenWorldIfNeeded(frozenWorld, newlyDetectedWindow: window)
+
+        XCTAssertTrue(didRestore)
+        XCTAssertEqual(config.workspaceSidebar.workspaceLabels[workspace.name], "Design")
+        XCTAssertEqual(config.workspaceSidebar.projectLabels[folder.id.rawValue], "Client")
+    }
+
+    func testRestoreFrozenWorldKeepsSidebarTabsOnTheirSavedMonitor() async throws {
+        let main = TestMonitor(
+            monitorAppKitNsScreenScreensId: 1,
+            name: "Main",
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 1000, height: 800),
+            visibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 1000, height: 760),
+            isMain: true,
+        )
+        let secondary = TestMonitor(
+            monitorAppKitNsScreenScreensId: 2,
+            name: "Secondary",
+            rect: Rect(topLeftX: 1000, topLeftY: 0, width: 1000, height: 800),
+            visibleRect: Rect(topLeftX: 1000, topLeftY: 0, width: 1000, height: 760),
+            isMain: false,
+        )
+        setMonitorsForTests([main, secondary])
+        let workspace = Workspace.get(byName: "secondary")
+        workspace.markAsAutomaticallyNamed()
+        workspace.seedMonitorIfNeeded(secondary)
+        let window = TestWindow.new(id: 63, parent: workspace.rootTilingContainer)
+        let frozenWorld = snapshotCurrentFrozenWorld()
+
+        workspace.preferredMonitorPoint = main.rect.topLeftCorner
+
+        let didRestore = try await restoreFrozenWorldIfNeeded(frozenWorld, newlyDetectedWindow: window)
+
+        XCTAssertTrue(didRestore)
+        XCTAssertEqual(workspace.preferredMonitorPointForTesting, secondary.rect.topLeftCorner)
     }
 
     func testRestoreFrozenWorldIfNeededUsesNativeFallbackWorkspaceForMissingVisibleWorkspace() async throws {

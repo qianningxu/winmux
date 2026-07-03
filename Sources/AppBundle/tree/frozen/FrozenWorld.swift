@@ -2,15 +2,29 @@ struct FrozenWorld: Codable, Sendable {
     let workspaces: [FrozenWorkspace]
     let monitors: [FrozenMonitor]
     let windowIds: Set<UInt32>
+    let sidebar: FrozenSidebarState?
+
+    init(
+        workspaces: [FrozenWorkspace],
+        monitors: [FrozenMonitor],
+        windowIds: Set<UInt32>,
+        sidebar: FrozenSidebarState? = nil
+    ) {
+        self.workspaces = workspaces
+        self.monitors = monitors
+        self.windowIds = windowIds
+        self.sidebar = sidebar
+    }
 }
 
 @MainActor
 func snapshotCurrentFrozenWorld() -> FrozenWorld {
-    let workspaces = restorableWorkspaces(Workspace.all)
+    let workspaces = restorableWorkspaces(orderedWorkspacesForPresentation())
     return FrozenWorld(
         workspaces: workspaces.map(FrozenWorkspace.init),
         monitors: monitors.map(FrozenMonitor.init),
         windowIds: workspaces.flatMap { collectAllWindowIds(workspace: $0) }.toSet(),
+        sidebar: FrozenSidebarState(restorableWorkspaces: workspaces),
     )
 }
 

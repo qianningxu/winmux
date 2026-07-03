@@ -98,6 +98,7 @@ func restoreFrozenWorldIfNeeded(_ frozenWorld: FrozenWorld, newlyDetectedWindow:
 
     for frozenWorkspace in frozenWorld.workspaces {
         let workspace = Workspace.get(byName: frozenWorkspace.name)
+        workspace.preferredMonitorPoint = frozenWorkspace.monitor.topLeftCorner
         workspace.assignProject(frozenWorkspace.projectId)
         workspace.restoreNamingStyle(frozenWorkspace.namingStyle)
         let frozenWindowById = collectFrozenWindows(frozenWorkspace)
@@ -136,6 +137,8 @@ func restoreFrozenWorldIfNeeded(_ frozenWorld: FrozenWorld, newlyDetectedWindow:
             try await window.relayoutWindow(on: workspace, forceTile: true)
         }
     }
+
+    restoreFrozenSidebarState(frozenWorld.sidebar, restoredWorkspaceNames: restoredWorkspaceNames)
 
     for monitor in frozenWorld.monitors {
         guard let targetMonitor = topLeftCornerToMonitor[monitor.topLeftCorner]?.singleOrNil() else { continue }
