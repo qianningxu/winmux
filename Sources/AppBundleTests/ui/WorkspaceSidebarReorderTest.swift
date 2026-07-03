@@ -719,6 +719,111 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ])
     }
 
+    func testWorkspaceSourcePreviewUsesSingleWindowMetadata() {
+        let window = WorkspaceSidebarWindowViewModel(
+            windowId: 42,
+            workspaceName: "research",
+            appName: "Arc",
+            appBundleId: "company.thebrowser.Browser",
+            appBundlePath: "/Applications/Arc.app",
+            title: "Design docs",
+            isFocused: false
+        )
+        let workspace = WorkspaceSidebarWorkspaceViewModel(
+            name: "research",
+            projectId: workspaceProjectDefaultId,
+            displayName: "Design docs",
+            sidebarLabel: "",
+            isGeneratedName: true,
+            tabSummary: WorkspaceSidebarTabSummaryViewModel(
+                title: "Design docs",
+                subtitle: "Arc",
+                appBundleId: "fallback.bundle",
+                appBundlePath: "/Applications/Fallback.app",
+                windowCount: 1,
+                isEmpty: false
+            ),
+            monitorScopeId: workspaceSidebarDefaultScopeId,
+            monitorName: nil,
+            isFocused: false,
+            isVisible: true,
+            items: [WorkspaceSidebarItemViewModel(kind: .window(window))]
+        )
+
+        let preview = workspaceSidebarWorkspaceSourcePreview(workspace)
+
+        XCTAssertEqual(preview.sourceWindowId, 42)
+        XCTAssertEqual(preview.label, "Design docs")
+        XCTAssertEqual(preview.appName, "Arc")
+        XCTAssertEqual(preview.appBundleIdentifier, "company.thebrowser.Browser")
+        XCTAssertEqual(preview.appBundlePath, "/Applications/Arc.app")
+        XCTAssertFalse(preview.isTabGroup)
+        XCTAssertEqual(preview.windowCount, 1)
+        XCTAssertTrue(preview.tabItems.isEmpty)
+    }
+
+    func testWorkspaceSourcePreviewCarriesGroupedTabItemsForCursorStack() {
+        let arc = WorkspaceSidebarWindowViewModel(
+            windowId: 201,
+            workspaceName: "research",
+            appName: "Arc",
+            appBundleId: "company.thebrowser.Browser",
+            appBundlePath: "/Applications/Arc.app",
+            title: "Browser notes",
+            isFocused: false
+        )
+        let notes = WorkspaceSidebarWindowViewModel(
+            windowId: 202,
+            workspaceName: "research",
+            appName: "Notes",
+            appBundleId: "com.apple.Notes",
+            appBundlePath: "/System/Applications/Notes.app",
+            title: "Planning",
+            isFocused: false
+        )
+        let group = WorkspaceSidebarTabGroupViewModel(
+            representativeWindowId: arc.windowId,
+            workspaceName: "research",
+            title: "Research",
+            windowCount: 2,
+            isFocused: false,
+            tabs: [arc, notes]
+        )
+        let workspace = WorkspaceSidebarWorkspaceViewModel(
+            name: "research",
+            projectId: workspaceProjectDefaultId,
+            displayName: "Research",
+            sidebarLabel: "Research",
+            isGeneratedName: false,
+            tabSummary: WorkspaceSidebarTabSummaryViewModel(
+                title: "Research",
+                subtitle: nil,
+                appBundleId: "fallback.bundle",
+                appBundlePath: "/Applications/Fallback.app",
+                windowCount: 2,
+                isEmpty: false
+            ),
+            monitorScopeId: workspaceSidebarDefaultScopeId,
+            monitorName: nil,
+            isFocused: false,
+            isVisible: true,
+            items: [WorkspaceSidebarItemViewModel(kind: .tabGroup(group))]
+        )
+
+        let preview = workspaceSidebarWorkspaceSourcePreview(workspace)
+
+        XCTAssertEqual(preview.sourceWindowId, 201)
+        XCTAssertEqual(preview.label, "Research")
+        XCTAssertEqual(preview.appName, "Arc")
+        XCTAssertTrue(preview.isTabGroup)
+        XCTAssertEqual(preview.windowCount, 2)
+        XCTAssertEqual(preview.tabItems.map(\.title), ["Browser notes", "Planning"])
+        XCTAssertEqual(preview.tabItems.map(\.appBundleIdentifier), [
+            "company.thebrowser.Browser",
+            "com.apple.Notes",
+        ])
+    }
+
     func testCreateSidebarFolderFromWorkspacesCreatesAutoNamedEditableFolder() {
         let source = Workspace.get(byName: "source")
         source.markAsAutomaticallyNamed()

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 extension WorkspaceSidebarView {
@@ -104,6 +105,10 @@ extension WorkspaceSidebarView {
             screenPoint: MousePointerTracker.shared.currentSample.point,
             hasSidebarTarget: target != nil
         )
+        WindowDragCursorProxyPanel.shared.show(
+            preview: workspaceSidebarWorkspaceSourcePreview(workspace),
+            mouseScreenPoint: NSEvent.mouseLocation
+        )
         workspaceReorderDrag = WorkspaceSidebarWorkspaceReorderDragState(
             sourceWorkspaceName: workspace.name,
             projectId: projectId,
@@ -124,14 +129,21 @@ extension WorkspaceSidebarView {
             workspaceFrames: workspaceReorderFrames,
             folderFrames: folderReorderFrames
         ) ?? workspaceReorderDrag?.target
-        workspaceReorderDrag = nil
+        clearWorkspaceReorderDragImmediately()
         WindowDropIntentOverlayPanelController.shared.hide()
         guard let target else {
             let screenPoint = MousePointerTracker.shared.currentSample.point
             guard let dropIntent = workspaceCanvasDropIntent(
                 sourceWorkspaceName: workspace.name,
                 screenPoint: screenPoint
-            ) else { return }
+            ) else {
+                activateWorkspaceAfterUncommittedReorderDrag(
+                    workspace: workspace,
+                    projectId: projectId,
+                    screenPoint: screenPoint
+                )
+                return
+            }
             mergeWorkspaceIntoActiveViewFromSidebarIfPossible(
                 sourceWorkspaceName: workspace.name,
                 pointer: screenPoint,
@@ -146,9 +158,44 @@ extension WorkspaceSidebarView {
         actions.send(action)
     }
 
+    func activateWorkspaceAfterUncommittedReorderDrag(
+        workspace: WorkspaceSidebarWorkspaceViewModel,
+        projectId: WorkspaceProjectId,
+        screenPoint: CGPoint
+    ) {
+        guard WorkspaceSidebarPanel.panel(containing: screenPoint) != nil else { return }
+        guard allowsWorkspaceActivation(projectId: projectId) else { return }
+        if workspaceSidebarWorkspaceIsInUseOnOtherDisplay(
+            workspace,
+            selectedScopeId: snapshot.targetMonitorScopeId
+        ) {
+            activeInUseOverrideWorkspaceName = workspace.name
+            return
+        }
+        guard shouldHandleWorkspaceSidebarActivation(
+            isEditing: false,
+            isSidebarDragInProgress: false
+        ) else { return }
+        activeInUseOverrideWorkspaceName = nil
+        beginPendingWorkspaceActivation(workspace.name)
+        actions.send(.selectWorkspace(workspace.name))
+    }
+
     func cancelWorkspaceReorderDrag() {
-        workspaceReorderDrag = nil
+        clearWorkspaceReorderDragImmediately()
         WindowDropIntentOverlayPanelController.shared.hide()
+    }
+
+    func clearWorkspaceReorderDragImmediately() {
+        let hadWorkspaceReorderDrag = workspaceReorderDrag != nil
+        var transaction = Transaction()
+        transaction.animation = nil
+        withTransaction(transaction) {
+            workspaceReorderDrag = nil
+        }
+        if hadWorkspaceReorderDrag {
+            WindowDragCursorProxyPanel.shared.hide()
+        }
     }
 
     func updateWorkspaceCanvasDropIntentOverlay(

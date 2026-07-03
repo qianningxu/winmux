@@ -331,6 +331,64 @@ func workspaceSidebarWorkspaceListEntries(
     }
 }
 
+func workspaceSidebarWorkspaceSourcePreview(
+    _ workspace: WorkspaceSidebarWorkspaceViewModel
+) -> WorkspaceSidebarDropPreviewViewModel {
+    let tabItems = workspaceSidebarWorkspaceSourcePreviewTabItems(workspace)
+    let primaryItem = tabItems.first
+    let windowCount = max(workspace.tabSummary.windowCount, tabItems.count, 1)
+    return WorkspaceSidebarDropPreviewViewModel(
+        sourceWindowId: workspaceSidebarWorkspaceSourceWindowId(workspace),
+        label: workspace.displayName.isEmpty ? workspace.tabSummary.title : workspace.displayName,
+        appName: primaryItem?.appName ?? workspace.tabSummary.subtitle ?? workspace.tabSummary.title,
+        appBundleIdentifier: primaryItem?.appBundleIdentifier ?? workspace.tabSummary.appBundleId,
+        appBundlePath: primaryItem?.appBundlePath ?? workspace.tabSummary.appBundlePath,
+        targetWorkspaceName: nil,
+        targetsNewWorkspace: false,
+        isTabGroup: windowCount > 1,
+        windowCount: windowCount,
+        tabItems: windowCount > 1 ? tabItems : [],
+    )
+}
+
+private func workspaceSidebarWorkspaceSourceWindowId(
+    _ workspace: WorkspaceSidebarWorkspaceViewModel
+) -> UInt32 {
+    for item in workspace.items {
+        switch item.kind {
+            case .window(let window):
+                return window.windowId
+            case .tabGroup(let group):
+                return group.representativeWindowId
+        }
+    }
+    return 0
+}
+
+private func workspaceSidebarWorkspaceSourcePreviewTabItems(
+    _ workspace: WorkspaceSidebarWorkspaceViewModel
+) -> [WorkspaceSidebarDropPreviewTabItem] {
+    workspace.items.flatMap { item -> [WorkspaceSidebarDropPreviewTabItem] in
+        switch item.kind {
+            case .window(let window):
+                return [workspaceSidebarWorkspaceSourcePreviewTabItem(window)]
+            case .tabGroup(let group):
+                return group.tabs.map(workspaceSidebarWorkspaceSourcePreviewTabItem)
+        }
+    }
+}
+
+private func workspaceSidebarWorkspaceSourcePreviewTabItem(
+    _ window: WorkspaceSidebarWindowViewModel
+) -> WorkspaceSidebarDropPreviewTabItem {
+    WorkspaceSidebarDropPreviewTabItem(
+        title: window.title ?? window.appName,
+        appName: window.appName,
+        appBundleIdentifier: window.appBundleId,
+        appBundlePath: window.appBundlePath,
+    )
+}
+
 func workspaceSidebarIsProjectPreviewTarget(
     projectId: WorkspaceProjectId,
     sourceWorkspaceName: String?,
