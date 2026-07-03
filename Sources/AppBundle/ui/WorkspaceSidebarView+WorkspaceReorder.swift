@@ -22,6 +22,24 @@ extension WorkspaceSidebarView {
             workspaceReorderDrag?.projectId == workspace.projectId
     }
 
+    func isFolderReorderEnabled(
+        projectId: WorkspaceProjectId,
+        expansionProgress: CGFloat,
+        isInteractive: Bool
+    ) -> Bool {
+        workspaceSidebarFolderReorderIsEnabled(
+            projectId: projectId,
+            isCompact: expansionProgress < workspaceSidebarRowsRevealProgress,
+            isSearchFiltering: isSidebarSearchFiltering,
+            isRenamingWorkspace: renamingWorkspaceName != nil || renamingProjectId != nil,
+            isInteractive: isInteractive
+        )
+    }
+
+    func isFolderReorderSource(_ projectId: WorkspaceProjectId) -> Bool {
+        folderReorderDrag?.sourceProjectId == projectId
+    }
+
     func workspaceListEntries(
         workspaces: [WorkspaceSidebarWorkspaceViewModel],
         projectId: WorkspaceProjectId
@@ -32,6 +50,16 @@ extension WorkspaceSidebarView {
             sourceWorkspaceName: workspaceReorderDrag?.sourceWorkspaceName,
             sourceWorkspace: workspaceReorderPreviewWorkspace(),
             target: workspaceReorderDrag?.target
+        )
+    }
+
+    func folderListEntries(
+        sections: [WorkspaceSidebarFolderSection]
+    ) -> [WorkspaceSidebarFolderListEntry] {
+        workspaceSidebarFolderListEntries(
+            sections: sections,
+            sourceProjectId: folderReorderDrag?.sourceProjectId,
+            target: folderReorderDrag?.target
         )
     }
 
@@ -91,6 +119,7 @@ extension WorkspaceSidebarView {
         startsTracking: Bool = true
     ) {
         if startsTracking {
+            clearFolderReorderDragImmediately()
             startWorkspaceReorderTrackingIfNeeded(workspace: workspace, projectId: projectId)
         }
         if workspaceReorderDrag == nil {
@@ -266,6 +295,113 @@ extension WorkspaceSidebarView {
         if hadWorkspaceReorderDrag {
             WindowDragCursorProxyPanel.shared.hide()
         }
+    }
+
+    func updateFolderReorderDrag(
+        section: WorkspaceSidebarFolderSection,
+        pointer: CGPoint,
+        startsTracking: Bool = true
+    ) {
+        if startsTracking {
+            clearWorkspaceReorderDragImmediately()
+            startFolderReorderTrackingIfNeeded(projectId: section.project.id)
+        }
+        if folderReorderDrag == nil {
+            NotificationCenter.default.post(name: workspaceSidebarDismissProjectMenusNotification, object: nil)
+            isProjectMenuOpen = false
+        }
+        let target = workspaceSidebarFolderReorderTarget(
+            sourceProjectId: section.project.id,
+            pointer: pointer,
+            frames: folderReorderFrames
+        )
+        WindowDragCursorProxyPanel.shared.show(
+            preview: workspaceSidebarFolderSourcePreview(section),
+            mouseScreenPoint: NSEvent.mouseLocation
+        )
+        folderReorderDrag = WorkspaceSidebarFolderReorderDragState(
+            sourceProjectId: section.project.id,
+            pointer: pointer,
+            target: target
+        )
+    }
+
+    func startFolderReorderTrackingIfNeeded(projectId: WorkspaceProjectId) {
+        guard !folderReorderDriver.isTracking(sourceProjectId: projectId) else { return }
+        folderReorderDriver.start(
+            sourceProjectId: projectId,
+            onTick: {
+                continueFolderReorderDragFromMouse(sourceProjectId: projectId)
+            },
+            onFinish: {
+                finishFolderReorderDragFromMouse(sourceProjectId: projectId)
+            }
+        )
+    }
+
+    func continueFolderReorderDragFromMouse(sourceProjectId: WorkspaceProjectId) {
+        noteCurrentMousePointerSample()
+        guard let section = folderReorderSection(projectId: sourceProjectId),
+              let pointer = currentWorkspaceReorderContentPointer()
+        else { return }
+        updateFolderReorderDrag(section: section, pointer: pointer, startsTracking: false)
+    }
+
+    func finishFolderReorderDragFromMouse(sourceProjectId: WorkspaceProjectId) {
+        noteCurrentMousePointerSample()
+        guard let drag = folderReorderDrag,
+              drag.sourceProjectId == sourceProjectId,
+              let section = folderReorderSection(projectId: sourceProjectId)
+        else {
+            cancelFolderReorderDrag()
+            return
+        }
+        finishFolderReorderDrag(
+            section: section,
+            pointer: currentWorkspaceReorderContentPointer() ?? drag.pointer
+        )
+    }
+
+    func finishFolderReorderDrag(
+        section: WorkspaceSidebarFolderSection,
+        pointer: CGPoint
+    ) {
+        let target = workspaceSidebarFolderReorderTarget(
+            sourceProjectId: section.project.id,
+            pointer: pointer,
+            frames: folderReorderFrames
+        ) ?? folderReorderDrag?.target
+        clearFolderReorderDragImmediately()
+        guard let target else { return }
+        actions.send(.reorderFolder(section.project.id, placement: target.placement))
+    }
+
+    func cancelFolderReorderDrag() {
+        clearFolderReorderDragImmediately()
+    }
+
+    func clearFolderReorderDragImmediately() {
+        let hadFolderReorderDrag = folderReorderDrag != nil || folderReorderDriver.isTracking
+        folderReorderDriver.stop()
+        var transaction = Transaction()
+        transaction.animation = nil
+        withTransaction(transaction) {
+            folderReorderDrag = nil
+        }
+        if hadFolderReorderDrag {
+            WindowDragCursorProxyPanel.shared.hide()
+        }
+    }
+
+    func folderReorderSection(projectId: WorkspaceProjectId) -> WorkspaceSidebarFolderSection? {
+        guard projectId != workspaceProjectDefaultId,
+              let project = snapshot.projects.first(where: { $0.id == projectId })
+        else { return nil }
+        let workspaces = workspaceSidebarNonEmptyFolderWorkspaces(
+            snapshot.workspaces.filter { $0.projectId == projectId }
+        )
+        guard !workspaces.isEmpty else { return nil }
+        return WorkspaceSidebarFolderSection(project: project, workspaces: workspaces)
     }
 
     func updateWorkspaceCanvasDropIntentOverlay(

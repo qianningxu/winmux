@@ -25,7 +25,7 @@ extension WorkspaceSidebarView {
 
     func expandedSidebarTopBar(expansionProgress: CGFloat) -> some View {
         let palette = WinMuxOverlayPalette(colorScheme: colorScheme)
-        return HStack(alignment: .top, spacing: 6) {
+        return HStack(alignment: .center, spacing: 6) {
             Text("WinMux")
                 .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(palette.foreground(0.82))
@@ -122,11 +122,13 @@ private extension View {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(isActive ? palette.selectedSurface() : Color.clear)
                 .overlay {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(
-                            palette.tabStroke(active: isActive),
-                            lineWidth: isActive ? 0.95 : 0.75
-                        )
+                    if isActive {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .strokeBorder(
+                                palette.tabStroke(active: true),
+                                lineWidth: 0.95
+                            )
+                    }
                 }
         }
     }

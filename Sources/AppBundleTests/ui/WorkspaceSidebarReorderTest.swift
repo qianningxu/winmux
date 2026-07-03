@@ -512,6 +512,107 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertNil(target)
     }
 
+    func testFolderReorderTargetUsesFolderFrames() {
+        let sourceId = WorkspaceProjectId("project-source")
+        let firstId = WorkspaceProjectId("project-first")
+        let secondId = WorkspaceProjectId("project-second")
+        let frames = [
+            folderFrame(workspaceProjectDefaultId, minY: 0, height: 40),
+            folderFrame(firstId, minY: 50, height: 50),
+            folderFrame(sourceId, minY: 110, height: 50),
+            folderFrame(secondId, minY: 170, height: 50),
+        ]
+
+        let beforeFirst = workspaceSidebarFolderReorderTarget(
+            sourceProjectId: sourceId,
+            pointer: CGPoint(x: 100, y: 54),
+            frames: frames
+        )
+        let afterSecond = workspaceSidebarFolderReorderTarget(
+            sourceProjectId: sourceId,
+            pointer: CGPoint(x: 100, y: 218),
+            frames: frames
+        )
+        let ignoresDefault = workspaceSidebarFolderReorderTarget(
+            sourceProjectId: sourceId,
+            pointer: CGPoint(x: 100, y: 20),
+            frames: frames
+        )
+
+        XCTAssertEqual(beforeFirst, WorkspaceSidebarFolderReorderTarget(
+            targetProjectId: firstId,
+            placement: .before(firstId)
+        ))
+        XCTAssertEqual(afterSecond, WorkspaceSidebarFolderReorderTarget(
+            targetProjectId: secondId,
+            placement: .after(secondId)
+        ))
+        XCTAssertEqual(ignoresDefault, WorkspaceSidebarFolderReorderTarget(
+            targetProjectId: firstId,
+            placement: .before(firstId)
+        ))
+    }
+
+    func testFolderListEntriesPreviewReorderAsPlaceholder() {
+        let first = sidebarFolder("project-first", displayName: "First")
+        let source = sidebarFolder("project-source", displayName: "Source")
+        let second = sidebarFolder("project-second", displayName: "Second")
+
+        let entries = workspaceSidebarFolderListEntries(
+            sections: [first, source, second],
+            sourceProjectId: source.id,
+            target: WorkspaceSidebarFolderReorderTarget(
+                targetProjectId: second.id,
+                placement: .after(second.id)
+            )
+        )
+
+        XCTAssertEqual(entries.map(\.testDescription), [
+            "folder:project-first",
+            "drag-anchor:project-source",
+            "folder:project-second",
+            "folder-placeholder:project-source",
+        ])
+    }
+
+    func testFolderReorderIsDisabledForDefaultAndEditingStates() {
+        XCTAssertTrue(workspaceSidebarFolderReorderIsEnabled(
+            projectId: WorkspaceProjectId("project-folder"),
+            isCompact: false,
+            isSearchFiltering: false,
+            isRenamingWorkspace: false,
+            isInteractive: true
+        ))
+        XCTAssertFalse(workspaceSidebarFolderReorderIsEnabled(
+            projectId: workspaceProjectDefaultId,
+            isCompact: false,
+            isSearchFiltering: false,
+            isRenamingWorkspace: false,
+            isInteractive: true
+        ))
+        XCTAssertFalse(workspaceSidebarFolderReorderIsEnabled(
+            projectId: WorkspaceProjectId("project-folder"),
+            isCompact: true,
+            isSearchFiltering: false,
+            isRenamingWorkspace: false,
+            isInteractive: true
+        ))
+        XCTAssertFalse(workspaceSidebarFolderReorderIsEnabled(
+            projectId: WorkspaceProjectId("project-folder"),
+            isCompact: false,
+            isSearchFiltering: true,
+            isRenamingWorkspace: false,
+            isInteractive: true
+        ))
+        XCTAssertFalse(workspaceSidebarFolderReorderIsEnabled(
+            projectId: WorkspaceProjectId("project-folder"),
+            isCompact: false,
+            isSearchFiltering: false,
+            isRenamingWorkspace: true,
+            isInteractive: true
+        ))
+    }
+
     func testWorkspaceReorderPreviewPlacementReflectsConcreteLandingSlot() {
         let folderId = WorkspaceProjectId("project-folder")
 
@@ -1129,6 +1230,37 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertTrue(workspaceSidebarFolderIsExpanded(folder.id))
     }
 
+    func testReorderWorkspaceProjectForSidebarMovesFolderBeforeTargetFolder() {
+        let first = createWorkspaceProjectWithWindow(windowId: 401)
+        let second = createWorkspaceProjectWithWindow(windowId: 402)
+        let third = createWorkspaceProjectWithWindow(windowId: 403)
+
+        XCTAssertTrue(reorderWorkspaceProjectForSidebar(
+            sourceProjectId: third.id,
+            placement: .before(first.id)
+        ))
+
+        XCTAssertEqual(workspaceProjects().map(\.id), [
+            workspaceProjectDefaultId,
+            third.id,
+            first.id,
+            second.id,
+        ])
+    }
+
+    func testReorderWorkspaceProjectForSidebarRejectsDefaultFolder() {
+        let folder = createWorkspaceProjectWithWindow(windowId: 411)
+
+        XCTAssertFalse(reorderWorkspaceProjectForSidebar(
+            sourceProjectId: folder.id,
+            placement: .before(workspaceProjectDefaultId)
+        ))
+        XCTAssertFalse(reorderWorkspaceProjectForSidebar(
+            sourceProjectId: workspaceProjectDefaultId,
+            placement: .before(folder.id)
+        ))
+    }
+
     func testMergeWorkspaceIntoActiveViewFromSidebarUsesPointerMonitorActiveTabAndPosition() {
         let source = Workspace.get(byName: "source")
         source.markAsAutomaticallyNamed()
@@ -1360,6 +1492,31 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             items: []
         )
     }
+
+    private func sidebarFolder(
+        _ rawProjectId: String,
+        displayName: String
+    ) -> WorkspaceSidebarFolderSection {
+        let projectId = WorkspaceProjectId(rawProjectId)
+        return WorkspaceSidebarFolderSection(
+            project: WorkspaceSidebarProjectViewModel(
+                id: projectId,
+                displayName: displayName,
+                colorHex: nil
+            ),
+            workspaces: [sidebarWorkspace("\(rawProjectId)-workspace", projectId: projectId)]
+        )
+    }
+
+    private func createWorkspaceProjectWithWindow(windowId: UInt32) -> WorkspaceProject {
+        let project = createWorkspaceProject()
+        let workspace = Workspace.all.first { $0.projectId == project.id }.orDie()
+        workspace.markAsAutomaticallyNamed()
+        workspace.rootTilingContainer.apply {
+            TestWindow.new(id: windowId, parent: $0)
+        }
+        return project
+    }
 }
 
 private extension WorkspaceSidebarWorkspaceListEntry {
@@ -1369,6 +1526,17 @@ private extension WorkspaceSidebarWorkspaceListEntry {
                 return "\(isDragAnchor ? "drag-anchor" : "workspace"):\(workspace.name)"
             case .placeholder(let workspace, let projectId):
                 return "placeholder:\(projectId.rawValue):\(workspace.name)"
+        }
+    }
+}
+
+private extension WorkspaceSidebarFolderListEntry {
+    var testDescription: String {
+        switch self {
+            case .folder(let section, let isDragAnchor):
+                return "\(isDragAnchor ? "drag-anchor" : "folder"):\(section.id.rawValue)"
+            case .placeholder(let section):
+                return "folder-placeholder:\(section.id.rawValue)"
         }
     }
 }

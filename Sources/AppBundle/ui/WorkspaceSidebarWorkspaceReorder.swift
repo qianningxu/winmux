@@ -51,6 +51,23 @@ enum WorkspaceSidebarWorkspaceDragTarget: Equatable {
     case moveToFolder(WorkspaceSidebarWorkspaceFolderTarget)
 }
 
+enum WorkspaceSidebarFolderReorderPlacement: Equatable {
+    case before(WorkspaceProjectId)
+    case after(WorkspaceProjectId)
+
+    var targetProjectId: WorkspaceProjectId {
+        switch self {
+            case .before(let projectId), .after(let projectId):
+                projectId
+        }
+    }
+}
+
+struct WorkspaceSidebarFolderReorderTarget: Equatable {
+    let targetProjectId: WorkspaceProjectId
+    let placement: WorkspaceSidebarFolderReorderPlacement
+}
+
 func workspaceSidebarWorkspaceDragFinishAction(
     sourceWorkspaceName: String,
     target: WorkspaceSidebarWorkspaceDragTarget
@@ -76,6 +93,12 @@ struct WorkspaceSidebarWorkspaceReorderDragState: Equatable {
     let projectId: WorkspaceProjectId
     var pointer: CGPoint
     var target: WorkspaceSidebarWorkspaceDragTarget?
+}
+
+struct WorkspaceSidebarFolderReorderDragState: Equatable {
+    let sourceProjectId: WorkspaceProjectId
+    var pointer: CGPoint
+    var target: WorkspaceSidebarFolderReorderTarget?
 }
 
 @MainActor
@@ -131,6 +154,51 @@ final class WorkspaceSidebarWorkspaceReorderDriver: ObservableObject {
     }
 }
 
+@MainActor
+final class WorkspaceSidebarFolderReorderDriver: ObservableObject {
+    private var sourceProjectId: WorkspaceProjectId?
+    private var onTick: (@MainActor () -> Void)?
+    private var onFinish: (@MainActor () -> Void)?
+
+    var isTracking: Bool { sourceProjectId != nil }
+
+    func isTracking(sourceProjectId: WorkspaceProjectId) -> Bool {
+        self.sourceProjectId == sourceProjectId
+    }
+
+    func start(
+        sourceProjectId: WorkspaceProjectId,
+        onTick: @escaping @MainActor () -> Void,
+        onFinish: @escaping @MainActor () -> Void
+    ) {
+        self.onTick = onTick
+        self.onFinish = onFinish
+        guard self.sourceProjectId != sourceProjectId else { return }
+        self.sourceProjectId = sourceProjectId
+        DisplayRefreshDriver.shared.add(owner: self) { [weak self] _ in
+            self?.tick()
+        }
+    }
+
+    func stop() {
+        guard sourceProjectId != nil else { return }
+        DisplayRefreshDriver.shared.remove(owner: self)
+        sourceProjectId = nil
+        onTick = nil
+        onFinish = nil
+    }
+
+    private func tick() {
+        guard isLeftMouseButtonDown else {
+            let finish = onFinish
+            stop()
+            finish?()
+            return
+        }
+        onTick?()
+    }
+}
+
 private struct WorkspaceSidebarWorkspaceReorderSession: Equatable {
     let sourceWorkspaceName: String
     let projectId: WorkspaceProjectId
@@ -156,6 +224,20 @@ enum WorkspaceSidebarWorkspaceListEntry: Identifiable, Equatable {
     }
 }
 
+enum WorkspaceSidebarFolderListEntry: Identifiable, Equatable {
+    case folder(WorkspaceSidebarFolderSection, isDragAnchor: Bool)
+    case placeholder(WorkspaceSidebarFolderSection)
+
+    var id: String {
+        switch self {
+            case .folder(let section, _):
+                return "folder:\(section.id.rawValue)"
+            case .placeholder(let section):
+                return "folder-placeholder:\(section.id.rawValue)"
+        }
+    }
+}
+
 func workspaceSidebarWorkspaceReorderIsEnabled(
     isCompact: Bool,
     isSearchFiltering: Bool,
@@ -167,6 +249,20 @@ func workspaceSidebarWorkspaceReorderIsEnabled(
         !isSearchFiltering &&
         !isRenamingWorkspace &&
         !isPinnedActiveWorkspace &&
+        isInteractive
+}
+
+func workspaceSidebarFolderReorderIsEnabled(
+    projectId: WorkspaceProjectId,
+    isCompact: Bool,
+    isSearchFiltering: Bool,
+    isRenamingWorkspace: Bool,
+    isInteractive: Bool
+) -> Bool {
+    projectId != workspaceProjectDefaultId &&
+        !isCompact &&
+        !isSearchFiltering &&
+        !isRenamingWorkspace &&
         isInteractive
 }
 
@@ -299,6 +395,48 @@ func workspaceSidebarWorkspaceFolderTarget(
     )
 }
 
+func workspaceSidebarFolderReorderTarget(
+    sourceProjectId: WorkspaceProjectId,
+    pointer: CGPoint,
+    frames: [WorkspaceSidebarFolderReorderFrame]
+) -> WorkspaceSidebarFolderReorderTarget? {
+    let candidates = frames
+        .filter {
+            $0.isDropTarget &&
+                $0.projectId != workspaceProjectDefaultId &&
+                $0.projectId != sourceProjectId &&
+                $0.frame.minX <= pointer.x &&
+                pointer.x <= $0.frame.maxX
+        }
+        .sorted { $0.frame.midY < $1.frame.midY }
+
+    guard !candidates.isEmpty else { return nil }
+
+    if let containingCandidate = candidates.last(where: { $0.frame.contains(pointer) }) {
+        let placement: WorkspaceSidebarFolderReorderPlacement =
+            workspaceSidebarWorkspacePointerIsBeforeMidline(pointer, frame: containingCandidate.frame)
+                ? .before(containingCandidate.projectId)
+                : .after(containingCandidate.projectId)
+        return WorkspaceSidebarFolderReorderTarget(
+            targetProjectId: containingCandidate.projectId,
+            placement: placement
+        )
+    }
+
+    for candidate in candidates where pointer.y < candidate.frame.midY {
+        return WorkspaceSidebarFolderReorderTarget(
+            targetProjectId: candidate.projectId,
+            placement: .before(candidate.projectId)
+        )
+    }
+
+    guard let last = candidates.last else { return nil }
+    return WorkspaceSidebarFolderReorderTarget(
+        targetProjectId: last.projectId,
+        placement: .after(last.projectId)
+    )
+}
+
 func workspaceSidebarWorkspaceReorderPreviewPlacement(
     sourceWorkspaceName: String,
     target: WorkspaceSidebarWorkspaceDragTarget?
@@ -389,6 +527,77 @@ func workspaceSidebarWorkspaceListEntries(
     }
 }
 
+func workspaceSidebarFolderListEntries(
+    sections: [WorkspaceSidebarFolderSection],
+    sourceProjectId: WorkspaceProjectId?,
+    target: WorkspaceSidebarFolderReorderTarget?
+) -> [WorkspaceSidebarFolderListEntry] {
+    let sourceSection = sourceProjectId.flatMap { projectId in
+        sections.first { $0.id == projectId }
+    }
+    let retainsSourceGestureAnchor = sourceSection != nil && sourceProjectId != nil && target != nil
+    let visibleSections = sections.filter {
+        retainsSourceGestureAnchor || $0.id != sourceProjectId
+    }
+    func sectionEntry(_ section: WorkspaceSidebarFolderSection) -> WorkspaceSidebarFolderListEntry {
+        .folder(
+            section,
+            isDragAnchor: retainsSourceGestureAnchor && section.id == sourceProjectId
+        )
+    }
+    guard let sourceSection, let target else {
+        return visibleSections.map { sectionEntry($0) }
+    }
+
+    var entries: [WorkspaceSidebarFolderListEntry] = []
+    var didInsertPlaceholder = false
+    let targetProjectId = target.placement.targetProjectId
+    let insertsBefore = switch target.placement {
+        case .before: true
+        case .after: false
+    }
+    for section in visibleSections {
+        if insertsBefore && section.id == targetProjectId {
+            entries.append(.placeholder(sourceSection))
+            didInsertPlaceholder = true
+        }
+        entries.append(sectionEntry(section))
+        if !insertsBefore && section.id == targetProjectId {
+            entries.append(.placeholder(sourceSection))
+            didInsertPlaceholder = true
+        }
+    }
+    if !didInsertPlaceholder {
+        entries.append(.placeholder(sourceSection))
+    }
+    return entries
+}
+
+func workspaceSidebarFolderSourcePreview(
+    _ section: WorkspaceSidebarFolderSection
+) -> WorkspaceSidebarDropPreviewViewModel {
+    let tabItems = section.workspaces.flatMap(workspaceSidebarWorkspaceSourcePreviewTabItems)
+    let primaryItem = tabItems.first
+    let windowCount = max(
+        tabItems.count,
+        section.workspaces.reduce(0) { $0 + $1.tabSummary.windowCount },
+        section.workspaces.count,
+        1
+    )
+    return WorkspaceSidebarDropPreviewViewModel(
+        sourceWindowId: workspaceSidebarFolderSourceWindowId(section),
+        label: section.project.displayName,
+        appName: "\(section.workspaces.count) tab\(section.workspaces.count == 1 ? "" : "s")",
+        appBundleIdentifier: primaryItem?.appBundleIdentifier,
+        appBundlePath: primaryItem?.appBundlePath,
+        targetWorkspaceName: nil,
+        targetsNewWorkspace: false,
+        isTabGroup: true,
+        windowCount: windowCount,
+        tabItems: tabItems,
+    )
+}
+
 func workspaceSidebarWorkspaceSourcePreview(
     _ workspace: WorkspaceSidebarWorkspaceViewModel
 ) -> WorkspaceSidebarDropPreviewViewModel {
@@ -423,7 +632,19 @@ private func workspaceSidebarWorkspaceSourceWindowId(
     return 0
 }
 
-private func workspaceSidebarWorkspaceSourcePreviewTabItems(
+private func workspaceSidebarFolderSourceWindowId(
+    _ section: WorkspaceSidebarFolderSection
+) -> UInt32 {
+    for workspace in section.workspaces {
+        let windowId = workspaceSidebarWorkspaceSourceWindowId(workspace)
+        if windowId != 0 {
+            return windowId
+        }
+    }
+    return 0
+}
+
+func workspaceSidebarWorkspaceSourcePreviewTabItems(
     _ workspace: WorkspaceSidebarWorkspaceViewModel
 ) -> [WorkspaceSidebarDropPreviewTabItem] {
     workspace.items.flatMap { item -> [WorkspaceSidebarDropPreviewTabItem] in
@@ -643,6 +864,52 @@ struct WorkspaceSidebarWorkspaceReorderPlaceholder: View {
         .frame(width: width, alignment: .leading)
         .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .center)))
         .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.88), value: nestedContentIndent)
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+}
+
+struct WorkspaceSidebarFolderReorderPlaceholder: View {
+    let width: CGFloat
+    let section: WorkspaceSidebarFolderSection
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+
+    var body: some View {
+        HStack(spacing: workspaceSidebarHeaderSpacing) {
+            Image(systemName: "folder.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(palette.foreground(0.58))
+                .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
+            Text(section.project.displayName)
+                .font(.system(size: 13.5, weight: .semibold))
+                .foregroundStyle(palette.foreground(0.78))
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, workspaceSidebarHeaderRowLeadingPadding)
+        .padding(.trailing, workspaceSidebarRowHorizontalPadding)
+        .frame(height: workspaceSidebarWorkspaceSectionHeaderHeight)
+        .frame(width: width, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
+                .fill(palette.gray200(palette.isDark ? 0.96 : 1))
+            RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
+                .fill(palette.gray300(palette.isDark ? 0.18 : 0.30))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
+                .strokeBorder(palette.tabStroke(active: true), lineWidth: 0.95)
+        }
+        .shadow(
+            color: palette.shadow(0.10, lightOpacity: 0.04),
+            radius: 4,
+            x: 0,
+            y: 1
+        )
+        .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .center)))
         .accessibilityHidden(true)
         .allowsHitTesting(false)
     }

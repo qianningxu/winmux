@@ -120,12 +120,20 @@ struct WorkspaceSidebarFolder<Content: View>: View {
     let dropPreview: WorkspaceSidebarDropPreviewViewModel?
     let isWorkspaceDragTargeted: Bool
     let isShowingProjectedContent: Bool
+    let isFolderReorderEnabled: Bool
+    let isFolderReorderSource: Bool
+    @Binding var renamingProjectId: WorkspaceProjectId?
+    @Binding var renamingProjectText: String
+    let onBeginRenameProject: @MainActor (WorkspaceSidebarProjectViewModel) -> Void
+    let onCommitRenameProject: @MainActor () -> Void
+    let onCancelRenameProject: @MainActor () -> Void
+    let onFolderReorderDragChanged: (CGPoint) -> Void
+    let onFolderReorderDragEnded: (CGPoint) -> Void
     @ViewBuilder let content: () -> Content
 
     @State private var isDropTargeted = false
     @State private var isDropSettling = false
     @State private var isHovered = false
-    @State private var isHeaderHovered = false
     @Environment(\.colorScheme) private var colorScheme
 
     private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
@@ -193,56 +201,83 @@ struct WorkspaceSidebarFolder<Content: View>: View {
             isTargeted: $isDropTargeted,
             isSettling: $isDropSettling,
         ))
+        .contextMenu {
+            if workspaceSidebarFolderMutationIsEnabled(section.project.id) {
+                Button("Rename Folder") {
+                    onBeginRenameProject(section.project)
+                }
+                Button(role: .destructive) {
+                    actions.send(.deleteProject(section.project.id))
+                } label: {
+                    Text("Delete Folder")
+                }
+                .disabled(!canDeleteWorkspaceProject(section.project.id))
+            }
+        }
+        .modifier(WorkspaceSidebarProjectedDragAnchorModifier(isActive: isFolderReorderSource))
         .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.88), value: showsFolderContent)
         .animation(.interactiveSpring(response: 0.18, dampingFraction: 0.86), value: isFolderInteractionActive)
     }
 
+    private var isRenamingProject: Bool {
+        renamingProjectId == section.project.id
+    }
+
     private var folderHeader: some View {
-        Button(action: onToggle) {
-            HStack(spacing: workspaceSidebarHeaderSpacing) {
-                Image(systemName: "folder.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(palette.foreground(0.50))
-                    .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
+        Group {
+            if isRenamingProject {
+                folderHeaderContent
+            } else {
+                Button(action: onToggle) {
+                    folderHeaderContent
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(width: sectionWidth, height: workspaceSidebarWorkspaceSectionHeaderHeight, alignment: .leading)
+        .contentShape(Rectangle())
+        .modifier(WorkspaceSidebarWorkspaceReorderGestureModifier(
+            isEnabled: isFolderReorderEnabled,
+            onChanged: onFolderReorderDragChanged,
+            onEnded: onFolderReorderDragEnded
+        ))
+        .help(isExpanded ? "Hide folder" : "Show folder")
+    }
+
+    private var folderHeaderContent: some View {
+        HStack(spacing: workspaceSidebarHeaderSpacing) {
+            Image(systemName: "folder.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(palette.foreground(0.50))
+                .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
+            if isRenamingProject {
+                WorkspaceSidebarProjectRenameField(
+                    project: section.project,
+                    text: $renamingProjectText,
+                    onCommit: onCommitRenameProject,
+                    onCancel: onCancelRenameProject,
+                )
+                .layoutPriority(1)
+            } else {
                 Text(section.project.displayName)
                     .font(.system(size: 13.5, weight: .semibold))
                     .foregroundStyle(palette.foreground(0.78))
                     .lineLimit(1)
                     .truncationMode(.tail)
+                    .layoutPriority(1)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .bold))
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .foregroundStyle(palette.foreground(0.54))
                     .frame(width: 10, height: 18)
-                Spacer(minLength: 0)
             }
-            .padding(.leading, workspaceSidebarHeaderRowLeadingPadding)
-            .padding(.trailing, workspaceSidebarRowHorizontalPadding)
-            .frame(height: workspaceSidebarWorkspaceSectionHeaderHeight)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.plain)
-        .frame(width: sectionWidth, height: workspaceSidebarWorkspaceSectionHeaderHeight, alignment: .leading)
-        .onHover { isHeaderHovered = $0 }
-        .background {
-            RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
-                .fill(folderHeaderFill)
-        }
-        .overlay {
-            if isFolderTargeted || isHovered || isHeaderHovered {
-                RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
-                    .strokeBorder(folderHeaderBorder, lineWidth: 0.8)
-            }
-        }
-        .shadow(
-            color: folderHeaderShadowColor,
-            radius: folderHeaderShadowRadius,
-            x: 0,
-            y: folderHeaderShadowYOffset
-        )
-        .contentShape(Rectangle())
-        .help(isExpanded ? "Hide folder" : "Show folder")
+        .padding(.leading, workspaceSidebarHeaderRowLeadingPadding)
+        .padding(.trailing, workspaceSidebarRowHorizontalPadding)
+        .frame(height: workspaceSidebarWorkspaceSectionHeaderHeight)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var folderContent: some View {
@@ -263,45 +298,15 @@ struct WorkspaceSidebarFolder<Content: View>: View {
     }
 
     private var isFolderInteractionActive: Bool {
-        isFolderTargeted || isHovered || isHeaderHovered
-    }
-
-    private var folderHeaderFill: Color {
-        if isFolderTargeted {
-            return palette.gray200(palette.isDark ? 0.84 : 0.92)
-        }
-        if isHovered || isHeaderHovered {
-            return palette.gray500(palette.isDark ? 0.44 : 0.52)
-        }
-        return Color.clear
-    }
-
-    private var folderHeaderBorder: Color {
-        palette.tabStroke(active: isFolderTargeted)
-    }
-
-    private var folderHeaderShadowColor: Color {
-        if isFolderTargeted {
-            return palette.shadow(0.12, lightOpacity: 0.07)
-        }
-        guard isHovered || isHeaderHovered else { return Color.clear }
-        return palette.shadow(0.08, lightOpacity: 0.05)
-    }
-
-    private var folderHeaderShadowRadius: CGFloat {
-        isFolderTargeted ? 6 : (isHovered || isHeaderHovered ? 5 : 0)
-    }
-
-    private var folderHeaderShadowYOffset: CGFloat {
-        isFolderTargeted ? 2 : (isHovered || isHeaderHovered ? 1 : 0)
+        isFolderTargeted || isHovered
     }
 
     private var folderBlockFill: Color {
         if isFolderTargeted {
             return palette.gray200(palette.isDark ? 0.58 : 0.70)
         }
-        if isHovered || isHeaderHovered {
-            return palette.gray300(palette.isDark ? 0.54 : 0.66)
+        if isHovered {
+            return palette.gray500(palette.isDark ? 0.42 : 0.50)
         }
         if showsFolderContent {
             return palette.gray100(palette.isDark ? 0.50 : 0.72)
@@ -310,22 +315,28 @@ struct WorkspaceSidebarFolder<Content: View>: View {
     }
 
     private var folderBlockBorder: Color {
-        palette.tabStroke(active: isFolderTargeted)
+        if isFolderTargeted {
+            return palette.tabStroke(active: true)
+        }
+        if isHovered {
+            return palette.contrastingFill(darkOpacity: 0.18, lightOpacity: 0.16)
+        }
+        return palette.contrastingFill(darkOpacity: 0.10, lightOpacity: 0.12)
     }
 
     private var folderBlockShadowColor: Color {
         if isFolderTargeted {
             return palette.shadow(0.12, lightOpacity: 0.065)
         }
-        guard isHovered || isHeaderHovered else { return Color.clear }
+        guard isHovered else { return Color.clear }
         return palette.shadow(0.08, lightOpacity: 0.045)
     }
 
     private var folderBlockShadowRadius: CGFloat {
-        isFolderTargeted ? 7 : (isHovered || isHeaderHovered ? 5 : 0)
+        isFolderTargeted ? 7 : (isHovered ? 5 : 0)
     }
 
     private var folderBlockShadowYOffset: CGFloat {
-        isFolderTargeted ? 2 : (isHovered || isHeaderHovered ? 1 : 0)
+        isFolderTargeted ? 2 : (isHovered ? 1 : 0)
     }
 }

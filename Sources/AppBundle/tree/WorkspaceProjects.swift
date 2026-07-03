@@ -230,6 +230,52 @@ func renameWorkspaceProject(_ projectId: WorkspaceProjectId, displayName: String
 }
 
 @MainActor
+@discardableResult
+func reorderWorkspaceProjectForSidebar(
+    sourceProjectId: WorkspaceProjectId,
+    placement: WorkspaceSidebarFolderReorderPlacement
+) -> Bool {
+    materializePersistedWorkspaceProjects()
+    let targetProjectId = placement.targetProjectId
+    guard sourceProjectId != workspaceProjectDefaultId,
+          targetProjectId != workspaceProjectDefaultId,
+          sourceProjectId != targetProjectId,
+          winMuxWorkspaceState.projectsById[sourceProjectId] != nil,
+          winMuxWorkspaceState.projectsById[targetProjectId] != nil
+    else { return false }
+
+    let sortedProjectIds = workspaceProjects()
+        .map(\.id)
+        .filter { $0 != workspaceProjectDefaultId }
+    guard sortedProjectIds.contains(sourceProjectId),
+          sortedProjectIds.contains(targetProjectId)
+    else { return false }
+
+    var reorderedProjectIds = sortedProjectIds.filter { $0 != sourceProjectId }
+    guard let targetIndex = reorderedProjectIds.firstIndex(of: targetProjectId) else { return false }
+    let insertionIndex = switch placement {
+        case .before: targetIndex
+        case .after: targetIndex + 1
+    }
+    reorderedProjectIds.insert(sourceProjectId, at: insertionIndex)
+    guard reorderedProjectIds != sortedProjectIds else { return false }
+
+    for (offset, projectId) in reorderedProjectIds.enumerated() {
+        guard var project = winMuxWorkspaceState.projectsById[projectId] else { continue }
+        project = WorkspaceProject(
+            id: project.id,
+            name: project.name,
+            order: offset + 1,
+            workspaceOrder: project.workspaceOrder,
+            linkedViewportIds: project.linkedViewportIds
+        )
+        winMuxWorkspaceState.projectsById[projectId] = project
+    }
+    checkWorkspaceHierarchyInvariants()
+    return true
+}
+
+@MainActor
 func canDeleteWorkspaceProject(_ projectId: WorkspaceProjectId) -> Bool {
     materializePersistedWorkspaceProjects()
     return projectId != workspaceProjectDefaultId && winMuxWorkspaceState.projectsById[projectId] != nil

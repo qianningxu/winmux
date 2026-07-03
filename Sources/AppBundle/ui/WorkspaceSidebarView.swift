@@ -31,6 +31,8 @@ struct WorkspaceSidebarView: View {
     @State var folderReorderFrames: [WorkspaceSidebarFolderReorderFrame] = []
     @State var workspaceReorderDrag: WorkspaceSidebarWorkspaceReorderDragState? = nil
     @StateObject var workspaceReorderDriver = WorkspaceSidebarWorkspaceReorderDriver()
+    @State var folderReorderDrag: WorkspaceSidebarFolderReorderDragState? = nil
+    @StateObject var folderReorderDriver = WorkspaceSidebarFolderReorderDriver()
     @State var folderExpansionOverrides: [WorkspaceProjectId: Bool] = [:]
     @State var pendingWorkspaceActivation: WorkspaceSidebarPendingActivation? = nil
 
@@ -204,10 +206,10 @@ struct WorkspaceSidebarView: View {
         setWorkspaceSidebarFolderExpanded(projectId, isExpanded: isExpanded)
     }
 
-    func beginProjectRename(_ project: WorkspaceSidebarProjectViewModel) {
+    func beginProjectRename(_ project: WorkspaceSidebarProjectViewModel, browseIfNeeded: Bool = true) {
         debugWorkspaceSidebarRenameLog("beginProjectRename project=\(project.id.rawValue) displayName=\(project.displayName) active=\(snapshot.activeProjectId.rawValue) visibleWidth=\(snapshot.visibleWidth)")
         finishSidebarSearch(clearText: false)
-        if project.id != snapshot.activeProjectId {
+        if browseIfNeeded && project.id != snapshot.activeProjectId {
             browseMode = .split(otherProjectId: project.id)
         }
         renamingProjectId = project.id

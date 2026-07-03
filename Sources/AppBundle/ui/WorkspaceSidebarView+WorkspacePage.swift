@@ -94,65 +94,96 @@ extension WorkspaceSidebarView {
                         }
                     }
                 }
-                ForEach(sections) { section in
-                    if section.isDefault {
-                        WorkspaceSidebarProjectReorderDropArea(
-                            projectId: workspaceProjectDefaultId,
-                            isDropTarget: isProjectReorderDropTarget(workspaceProjectDefaultId),
-                            minimumHeight: 0
-                        ) {
-                            VStack(alignment: .leading, spacing: workspaceSidebarListItemSpacing) {
-                                workspaceList(
-                                    workspaces: section.workspaces,
-                                    projectId: projectId,
+                ForEach(folderListEntries(sections: sections)) { entry in
+                    switch entry {
+                        case .folder(let section, _):
+                            if section.isDefault {
+                                WorkspaceSidebarProjectReorderDropArea(
+                                    projectId: workspaceProjectDefaultId,
+                                    isDropTarget: isProjectReorderDropTarget(workspaceProjectDefaultId),
+                                    minimumHeight: 0
+                                ) {
+                                    VStack(alignment: .leading, spacing: workspaceSidebarListItemSpacing) {
+                                        workspaceList(
+                                            workspaces: section.workspaces,
+                                            projectId: projectId,
+                                            expansionProgress: expansionProgress,
+                                            isInteractive: isInteractive,
+                                            allowsActivation: allowsActivation,
+                                            nestedContentIndent: 0
+                                        )
+                                    }
+                                }
+                            } else if expansionProgress >= workspaceSidebarRowsRevealProgress {
+                                WorkspaceSidebarFolder(
+                                    section: section,
                                     expansionProgress: expansionProgress,
-                                    isInteractive: isInteractive,
-                                    allowsActivation: allowsActivation,
-                                    nestedContentIndent: 0
+                                    layout: snapshot.configuration,
+                                    monitorScopeId: snapshot.targetMonitorScopeId,
+                                    isExpanded: isFolderExpanded(section.project.id),
+                                    onToggle: {
+                                        setFolderExpanded(section.project.id, !isFolderExpanded(section.project.id))
+                                    },
+                                    onDropPayload: { payload in
+                                        handleFolderPayloadDrop(payload, projectId: section.project.id)
+                                    },
+                                    actions: actions,
+                                    emitsDropTarget: true,
+                                    dropPreview: folderDropPreview(section.project.id),
+                                    isWorkspaceDragTargeted: isWorkspaceFolderInteractionTarget(section.project.id),
+                                    isShowingProjectedContent: isWorkspaceProjectPreviewTarget(section.project.id) || folderDropPreview(section.project.id) != nil,
+                                    isFolderReorderEnabled: isFolderReorderEnabled(
+                                        projectId: section.project.id,
+                                        expansionProgress: expansionProgress,
+                                        isInteractive: isInteractive
+                                    ),
+                                    isFolderReorderSource: isFolderReorderSource(section.project.id),
+                                    renamingProjectId: $renamingProjectId,
+                                    renamingProjectText: $renamingProjectText,
+                                    onBeginRenameProject: { project in
+                                        beginProjectRename(project, browseIfNeeded: false)
+                                    },
+                                    onCommitRenameProject: {
+                                        finishProjectRename()
+                                    },
+                                    onCancelRenameProject: {
+                                        finishProjectRename(cancelled: true)
+                                    },
+                                    onFolderReorderDragChanged: { pointer in
+                                        updateFolderReorderDrag(section: section, pointer: pointer)
+                                    },
+                                    onFolderReorderDragEnded: { pointer in
+                                        finishFolderReorderDrag(section: section, pointer: pointer)
+                                    },
+                                    content: {
+                                        workspaceList(
+                                            workspaces: section.workspaces,
+                                            projectId: section.project.id,
+                                            expansionProgress: expansionProgress,
+                                            isInteractive: isInteractive,
+                                            allowsActivation: allowsActivation,
+                                            nestedContentIndent: workspaceSidebarTabGroupChildLeadingIndent,
+                                        )
+                                        if let dropPreview = folderDropPreview(section.project.id) {
+                                            folderDropPreviewRow(dropPreview, expansionProgress: expansionProgress)
+                                        }
+                                    }
                                 )
-                            }
-                        }
-                    } else if expansionProgress >= workspaceSidebarRowsRevealProgress {
-                        WorkspaceSidebarFolder(
-                            section: section,
-                            expansionProgress: expansionProgress,
-                            layout: snapshot.configuration,
-                            monitorScopeId: snapshot.targetMonitorScopeId,
-                            isExpanded: isFolderExpanded(section.project.id),
-                            onToggle: {
-                                setFolderExpanded(section.project.id, !isFolderExpanded(section.project.id))
-                            },
-                            onDropPayload: { payload in
-                                handleFolderPayloadDrop(payload, projectId: section.project.id)
-                            },
-                            actions: actions,
-                            emitsDropTarget: true,
-                            dropPreview: folderDropPreview(section.project.id),
-                            isWorkspaceDragTargeted: isWorkspaceFolderInteractionTarget(section.project.id),
-                            isShowingProjectedContent: isWorkspaceProjectPreviewTarget(section.project.id) || folderDropPreview(section.project.id) != nil,
-                            content: {
+                            } else {
                                 workspaceList(
                                     workspaces: section.workspaces,
                                     projectId: section.project.id,
                                     expansionProgress: expansionProgress,
                                     isInteractive: isInteractive,
                                     allowsActivation: allowsActivation,
-                                    nestedContentIndent: workspaceSidebarTabGroupChildLeadingIndent,
+                                    nestedContentIndent: 0,
                                 )
-                                if let dropPreview = folderDropPreview(section.project.id) {
-                                    folderDropPreviewRow(dropPreview, expansionProgress: expansionProgress)
-                                }
                             }
-                        )
-                    } else {
-                        workspaceList(
-                            workspaces: section.workspaces,
-                            projectId: section.project.id,
-                            expansionProgress: expansionProgress,
-                            isInteractive: isInteractive,
-                            allowsActivation: allowsActivation,
-                            nestedContentIndent: 0,
-                        )
+                        case .placeholder(let section):
+                            WorkspaceSidebarFolderReorderPlaceholder(
+                                width: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration),
+                                section: section
+                            )
                     }
                 }
                 if showsCreateWorkspace && workspaceSidebarShowsCreateWorkspace(selectedScopeId: snapshot.selectedMonitorScopeId) {

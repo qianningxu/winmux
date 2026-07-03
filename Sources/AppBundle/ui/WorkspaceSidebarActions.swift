@@ -661,6 +661,17 @@ func moveWorkspaceToFolderFromSidebar(
 }
 
 @MainActor
+func reorderWorkspaceSidebarFolder(
+    _ projectId: WorkspaceProjectId,
+    placement: WorkspaceSidebarFolderReorderPlacement
+) {
+    runWorkspaceSidebarSession {
+        guard reorderWorkspaceProjectForSidebar(sourceProjectId: projectId, placement: placement) else { return }
+        await updateWorkspaceSidebarModel()
+    }
+}
+
+@MainActor
 func mergeWorkspacesFromSidebar(
     sourceWorkspaceName: String,
     targetWorkspaceName: String,
