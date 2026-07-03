@@ -257,6 +257,8 @@ struct WorkspaceSidebarFolder<Content: View>: View {
                     text: $renamingProjectText,
                     onCommit: onCommitRenameProject,
                     onCancel: onCancelRenameProject,
+                    showsPlate: false,
+                    font: .systemFont(ofSize: 13.5, weight: .semibold),
                 )
                 .layoutPriority(1)
             } else {

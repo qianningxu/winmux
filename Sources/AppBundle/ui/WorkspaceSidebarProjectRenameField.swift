@@ -144,6 +144,8 @@ struct WorkspaceSidebarProjectRenameField: View {
     @Binding var text: String
     let onCommit: @MainActor @Sendable () -> Void
     let onCancel: @MainActor @Sendable () -> Void
+    var showsPlate = true
+    var font: NSFont = .systemFont(ofSize: 12.5, weight: .medium)
     @State private var shouldReplaceSelection = true
     @Environment(\.colorScheme) private var colorScheme
 
@@ -157,16 +159,21 @@ struct WorkspaceSidebarProjectRenameField: View {
             onPanelReady: { panel in
                 startInlineTextEditing(on: panel)
             },
+            font: font,
         )
-            .padding(.horizontal, 6)
-            .frame(height: workspaceSidebarDropdownHeight)
+            .padding(.horizontal, showsPlate ? 6 : 0)
+            .frame(height: showsPlate ? workspaceSidebarDropdownHeight : 18)
             .background {
-                RoundedRectangle(cornerRadius: workspaceSidebarPlateCornerRadius, style: .continuous)
-                    .fill(palette.contrastingFill(darkOpacity: 0.12, lightOpacity: 0.10))
+                if showsPlate {
+                    RoundedRectangle(cornerRadius: workspaceSidebarPlateCornerRadius, style: .continuous)
+                        .fill(palette.contrastingFill(darkOpacity: 0.12, lightOpacity: 0.10))
+                }
             }
             .overlay {
-                RoundedRectangle(cornerRadius: workspaceSidebarPlateCornerRadius, style: .continuous)
-                    .strokeBorder(workspaceSidebarProjectColor(projectId: project.id, configuredHex: project.colorHex).opacity(0.75), lineWidth: 0.8)
+                if showsPlate {
+                    RoundedRectangle(cornerRadius: workspaceSidebarPlateCornerRadius, style: .continuous)
+                        .strokeBorder(workspaceSidebarProjectColor(projectId: project.id, configuredHex: project.colorHex).opacity(0.75), lineWidth: 0.8)
+                }
             }
             .onAppear {
                 debugWorkspaceSidebarRenameLog("renameField onAppear project=\(project.id.rawValue) text=\(text)")
