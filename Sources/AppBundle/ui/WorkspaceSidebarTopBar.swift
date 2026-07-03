@@ -58,16 +58,7 @@ extension WorkspaceSidebarView {
                 .font(.system(size: isCompact ? 11 : 12, weight: .semibold))
                 .foregroundStyle(isPinned ? palette.foreground(0.88) : palette.foreground(0.68))
                 .frame(width: isCompact ? workspaceSidebarBadgeWidth : 26, height: isCompact ? workspaceSidebarBadgeWidth : 26)
-                .background {
-                    if isPinned {
-                        RoundedRectangle(cornerRadius: isCompact ? 7 : 8, style: .continuous)
-                            .fill(palette.gray100(palette.isDark ? 0.20 : 0.95))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: isCompact ? 7 : 8, style: .continuous)
-                                    .strokeBorder(palette.border(palette.isDark ? 0.55 : 0.78), lineWidth: 0.8)
-                            }
-                    }
-                }
+                .sidebarTopBarIconChrome(palette, isCompact: isCompact, isActive: isPinned)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -84,6 +75,7 @@ extension WorkspaceSidebarView {
                 .font(.system(size: isCompact ? 11 : 12, weight: .semibold))
                 .foregroundStyle(palette.foreground(0.70))
                 .frame(width: isCompact ? workspaceSidebarBadgeWidth : 26, height: isCompact ? workspaceSidebarBadgeWidth : 26)
+                .sidebarTopBarIconChrome(palette, isCompact: isCompact, isActive: false)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -116,5 +108,26 @@ extension WorkspaceSidebarView {
                 focusedScopeId: snapshot.focusedMonitorScopeId,
             )
         )
+    }
+}
+
+private extension View {
+    func sidebarTopBarIconChrome(
+        _ palette: WinMuxOverlayPalette,
+        isCompact: Bool,
+        isActive: Bool
+    ) -> some View {
+        let cornerRadius: CGFloat = isCompact ? 7 : 8
+        return background {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(isActive ? palette.selectedSurface() : Color.clear)
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(
+                            palette.tabStroke(active: isActive),
+                            lineWidth: isActive ? 0.95 : 0.75
+                        )
+                }
+        }
     }
 }

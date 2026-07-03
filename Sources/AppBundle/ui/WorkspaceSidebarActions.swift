@@ -503,14 +503,44 @@ func createWorkspaceSidebarProject(
 @MainActor
 func createWorkspaceSidebarFolder(
     viewModel: TrayMenuModel = TrayMenuModel.shared,
+    targetMonitorScopeId: String? = nil,
 ) {
     runWorkspaceSidebarSession {
-        let project = createWorkspaceSidebarFolderProject()
-        try renameWorkspaceProject(project.id, displayName: workspaceSidebarDefaultFolderName(project))
-        setWorkspaceSidebarFolderExpanded(project.id, isExpanded: true)
-        viewModel.workspaceSidebarActiveProjectId = workspaceProjectDefaultId
+        let monitor = workspaceSidebarTargetMonitor(
+            scopeId: targetMonitorScopeId ?? viewModel.workspaceSidebarTargetMonitorScopeId
+        )
+        guard let folderProjectId = createSidebarFolderFromWorkspace(monitor.activeWorkspace.name) else {
+            showWorkspaceSidebarError("Open a window in this tab before creating a folder.")
+            return
+        }
+        viewModel.workspaceSidebarActiveProjectId = folderProjectId
         await updateWorkspaceSidebarModel()
     }
+}
+
+@MainActor
+@discardableResult
+func createSidebarFolderFromWorkspace(_ workspaceName: String) -> WorkspaceProjectId? {
+    materializePersistedWorkspaceProjects()
+    guard let workspace = Workspace.existing(byName: workspaceName),
+          !workspace.isArchived,
+          workspaceHasLifecycleWindows(workspace) || workspace.isConfiguredPersistent
+    else { return nil }
+
+    let project = createWorkspaceSidebarFolderProject()
+    do {
+        try renameWorkspaceProject(project.id, displayName: workspaceSidebarDefaultFolderName(project))
+    } catch {
+        winMuxWorkspaceState.projectsById.removeValue(forKey: project.id)
+        return nil
+    }
+    workspace.assignProject(project.id)
+    var storedProject = winMuxWorkspaceState.projectsById[project.id].orDie()
+    storedProject.workspaceOrder = [workspace.id]
+    winMuxWorkspaceState.projectsById[project.id] = storedProject
+    setWorkspaceSidebarFolderExpanded(project.id, isExpanded: true)
+    checkWorkspaceHierarchyInvariants()
+    return project.id
 }
 
 @MainActor

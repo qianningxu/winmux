@@ -59,7 +59,7 @@ func handleWorkspaceSidebarAction(
             guard projectsAreEnabled() else { return }
             createWorkspaceSidebarProject(viewModel: viewModel, targetMonitorScopeId: targetMonitorScopeId)
         case .createFolder:
-            createWorkspaceSidebarFolder(viewModel: viewModel)
+            createWorkspaceSidebarFolder(viewModel: viewModel, targetMonitorScopeId: targetMonitorScopeId)
         case .renameProject(let projectId, let displayName):
             guard workspaceSidebarFolderMutationIsEnabled(projectId) else { return }
             renameWorkspaceSidebarProject(projectId, displayName: displayName)

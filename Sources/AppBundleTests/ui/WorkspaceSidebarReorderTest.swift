@@ -866,6 +866,37 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertEqual(focus.workspace, target)
     }
 
+    func testCreateSidebarFolderFromWorkspaceMovesActiveTabIntoVisibleFolder() {
+        let workspace = Workspace.get(byName: "source")
+        workspace.markAsAutomaticallyNamed()
+        workspace.assignProject(workspaceProjectDefaultId)
+        workspace.rootTilingContainer.apply {
+            TestWindow.new(id: 1, parent: $0)
+        }
+        XCTAssertTrue(workspace.focusWorkspace())
+
+        let folderId = createSidebarFolderFromWorkspace(workspace.name)
+
+        XCTAssertNotNil(folderId)
+        XCTAssertEqual(workspace.projectId, folderId)
+        XCTAssertNotEqual(workspace.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(workspaceProjects().first { $0.id == folderId }?.name, "Folder 1")
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspace.projectId))
+        XCTAssertEqual(projectWorkspaces(projectId: workspace.projectId).map(\.name), [workspace.name])
+        XCTAssertEqual(focus.workspace, workspace)
+    }
+
+    func testCreateSidebarFolderFromWorkspaceRejectsEmptyTab() {
+        let workspace = Workspace.get(byName: "empty")
+        workspace.markAsAutomaticallyNamed()
+        workspace.assignProject(workspaceProjectDefaultId)
+        XCTAssertTrue(workspace.focusWorkspace())
+
+        XCTAssertNil(createSidebarFolderFromWorkspace(workspace.name))
+        XCTAssertEqual(workspace.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(workspaceProjects().map(\.id), [workspaceProjectDefaultId])
+    }
+
     func testCreateSidebarFolderFromWorkspacesMovesFlatTabsAcrossLegacyProjects() {
         let project = createWorkspaceProject()
         let source = Workspace.get(byName: "source")
