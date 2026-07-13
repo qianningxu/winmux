@@ -99,16 +99,7 @@ make build VERSION=0.2.1-workspace-preview
 ./.debug/WinMuxApp --config-path ~/.config/winmux/winmux.toml
 ```
 
-### Tab Preview Branch
-This branch adds a tab switcher that behaves like Command-Tab, but switches WinMux tabs instead of macOS apps.
-
-- `Option + Tab` opens the tab preview and cycles forward.
-- `Option + Shift + Tab` cycles backward.
-- Releasing Option switches to the selected tab.
-- Preview cards draw each tab using its actual window layout, with stable card sizing between selected and unselected states.
-- The overlay keeps the area outside the floating preview cards transparent.
-
-This branch also includes sidebar refinements:
+This branch includes sidebar refinements:
 
 - Each window row has a bare `x` close control, without a circular background, for closing exactly that window.
 - Closing a window from the sidebar refreshes the sidebar model afterward.

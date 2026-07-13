@@ -52,11 +52,6 @@ enum GlobalObserver {
         let modifierFlags = event.modifierFlags
         let keyCode = event.keyCode
         Task { @MainActor in
-            if modifierFlags.contains(.option), keyCode == 48 { // Tab key
-                let direction = modifierFlags.contains(.shift) ? -1 : 1
-                WorkspacePreviewPanel.shared.advance(direction: direction)
-                return
-            }
             noteTapBindingKeyDown()
             if modifierFlags.contains(.control), keyCode == 34 { // 'i' key
                 ExposePanel.shared.toggle()
@@ -68,9 +63,6 @@ enum GlobalObserver {
         let keyCode = event.keyCode
         let modifierFlags = event.modifierFlags
         Task { @MainActor in
-            if WorkspacePreviewPanel.shared.isPreviewActive, !modifierFlags.contains(.option) {
-                WorkspacePreviewPanel.shared.commitIfActive()
-            }
             noteTapBindingFlagsChanged(keyCode: keyCode, modifierFlags: modifierFlags)
         }
     }
@@ -159,10 +151,6 @@ enum GlobalObserver {
 
         retainEventMonitor(NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: onKeyDown))
         retainEventMonitor(NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if event.modifierFlags.contains(.option), event.keyCode == 48 {
-                onKeyDown(event)
-                return nil
-            }
             onKeyDown(event)
             // Check if this key matches a recently-pressed prefix (sequence binding)
             if handleSequenceKeyDown(event: event) {
