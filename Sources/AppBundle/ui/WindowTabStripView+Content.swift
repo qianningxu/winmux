@@ -54,46 +54,72 @@ extension WindowTabStripView {
         itemHeight: CGFloat,
         groupDragWindowId: UInt32?,
     ) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: windowTabStripTabSpacing) {
-                ForEach(strip.tabs) { tab in
-                    tabItem(tab, context: context, itemHeight: itemHeight)
+        ScrollViewReader { scrollProxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: windowTabStripTabSpacing) {
+                    ForEach(strip.tabs) { tab in
+                        tabItem(tab, context: context, itemHeight: itemHeight)
+                    }
+                }
+                .padding(.horizontal, windowTabStripContentHorizontalPadding)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: WindowTabStripScrollContentFramePreferenceKey.self,
+                            value: proxy.frame(in: .named(context.scrollCoordinateSpaceName)),
+                        )
+                    }
                 }
             }
-            .padding(.horizontal, windowTabStripContentHorizontalPadding)
-            .background {
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: WindowTabStripScrollContentFramePreferenceKey.self,
-                        value: proxy.frame(in: .named(context.scrollCoordinateSpaceName)),
-                    )
+            .onChange(of: tabAutoScrollDirection) { direction in
+                guard let direction, let target = tabAutoScrollTarget(direction: direction) else { return }
+                withAnimation(.linear(duration: windowTabStripAutoScrollDuration)) {
+                    scrollProxy.scrollTo(target, anchor: direction.anchor)
                 }
             }
-        }
-        .coordinateSpace(name: context.scrollCoordinateSpaceName)
-        .onPreferenceChange(WindowTabStripScrollContentFramePreferenceKey.self) { nextFrame in
-            if abs(tabScrollContentMinX - nextFrame.minX) > 0.5 {
-                tabScrollContentMinX = nextFrame.minX
+            .coordinateSpace(name: context.scrollCoordinateSpaceName)
+            .onPreferenceChange(WindowTabStripScrollContentFramePreferenceKey.self) { nextFrame in
+                if abs(tabScrollContentMinX - nextFrame.minX) > 0.5 {
+                    tabScrollContentMinX = nextFrame.minX
+                }
+                if abs(tabScrollContentMaxX - nextFrame.maxX) > 0.5 {
+                    tabScrollContentMaxX = nextFrame.maxX
+                }
             }
-            if abs(tabScrollContentMaxX - nextFrame.maxX) > 0.5 {
-                tabScrollContentMaxX = nextFrame.maxX
+            .onPreferenceChange(WindowTabStripTabFramePreferenceKey.self) { nextFrames in
+                tabFramesById = nextFrames
             }
+            .mask {
+                WindowTabStripScrollFadeMask(
+                    leadingFadeWidth: context.leadingFadeWidth(contentMinX: tabScrollContentMinX),
+                    trailingFadeWidth: context.trailingFadeWidth(contentMinX: tabScrollContentMinX),
+                )
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard let groupDragWindowId, !isWindowTabStripDragInProgress() else { return }
+                focusWindowFromTabStripClick(groupDragWindowId, fallbackWorkspace: strip.workspaceName)
+            }
+            .simultaneousGesture(tabScrollBackgroundGroupDragGesture(
+                for: groupDragWindowId,
+                context: context,
+            ))
         }
-        .mask {
-            WindowTabStripScrollFadeMask(
-                leadingFadeWidth: context.leadingFadeWidth(contentMinX: tabScrollContentMinX),
-                trailingFadeWidth: context.trailingFadeWidth(contentMinX: tabScrollContentMinX),
-            )
+    }
+
+    func updateTabAutoScroll(context: WindowTabStripLayoutContext, pointerXInViewport: CGFloat) {
+        tabAutoScrollDirection = windowTabAutoScrollDirection(
+            pointerXInViewport: pointerXInViewport,
+            viewportWidth: context.scrollViewportWidth,
+            isScrollable: context.isScrollable,
+        )
+    }
+
+    func tabAutoScrollTarget(direction: WindowTabAutoScrollDirection) -> UInt32? {
+        switch direction {
+            case .leading: strip.tabs.first?.windowId
+            case .trailing: strip.tabs.last?.windowId
         }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            guard let groupDragWindowId, !isWindowTabStripDragInProgress() else { return }
-            focusWindowFromTabStripClick(groupDragWindowId, fallbackWorkspace: strip.workspaceName)
-        }
-        .simultaneousGesture(tabScrollBackgroundGroupDragGesture(
-            for: groupDragWindowId,
-            context: context,
-        ))
     }
 
 }

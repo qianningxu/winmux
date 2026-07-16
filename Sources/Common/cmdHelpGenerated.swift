@@ -51,6 +51,8 @@ let focus_help_generated = """
        OR: focus [-h|--help] --tab-index <tab-index>
        OR: focus [-h|--help] --window-id <window-id>
        OR: focus [-h|--help] --dfs-index <dfs-index>
+
+    Boundary values: tab, all-monitors-outer-frame. Legacy value: workspace.
     """
 let fullscreen_help_generated = """
     USAGE: fullscreen [-h|--help]     [--window-id <window-id>] [--no-outer-gaps]
@@ -110,9 +112,14 @@ let move_node_to_monitor_help_generated = """
                                 [--fail-if-noop] <monitor-pattern>...
     """
 let move_node_to_project_help_generated = """
-    USAGE: move-node-to-project [-h|--help]
+    USAGE: move-node-to-folder [-h|--help] [--focus-follows-window]
+                                     [--fail-if-noop] [--window-id <window-id>]
+                                     (folder-index|default|unfolded)
+       OR: move-node-to-folder [-h|--help] [--focus-follows-window]
+                                     [--wrap-around] (next|prev)
 
-    Disabled legacy folder command. Tabs and folders are managed in the sidebar.
+    Move the focused window to a sidebar folder as a standalone trailing Tab.
+    Legacy spelling: move-node-to-project.
     """
 let move_node_to_workspace_help_generated = """
     USAGE: move-node-to-tab [-h|--help] [--focus-follows-window] [--wrap-around]
@@ -128,12 +135,15 @@ let move_workspace_to_monitor_help_generated = """
     """
 let move_help_generated = """
     USAGE: move [-h|--help] [--window-id <window-id>] [--boundaries <boundary>] [--boundaries-action <boundary-action>] (left|down|up|right)
+
+    Boundary values: tab, all-monitors-outer-frame. Legacy value: workspace.
     """
 let project_help_generated = """
-    USAGE: folder [-h|--help] [--wrap-around] (folder-index|next|prev)
-       OR: project [-h|--help] [--wrap-around] (folder-index|next|prev)
+    USAGE: folder [-h|--help] [--fail-if-noop] (folder-index|default|unfolded)
+       OR: folder [-h|--help] [--wrap-around] (next|prev)
 
-    Focus a sidebar folder. Folders are numbered top to bottom, with root tabs after the last folder.
+    Focus a sidebar folder. Folders are numbered top to bottom in sidebar order, including Unfolded.
+    Legacy spelling: project.
     """
 let reload_config_help_generated = """
     USAGE: reload-config [-h|--help] [--no-gui] [--dry-run]

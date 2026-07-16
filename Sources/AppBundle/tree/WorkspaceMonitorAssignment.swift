@@ -115,7 +115,17 @@ extension CGPoint {
 @MainActor
 func checkWorkspaceHierarchyInvariants(requireActiveMonitorViewports: Bool = false) {
     for workspace in Workspace.all {
-        check(winMuxWorkspaceState.projectsById[workspace.projectId] != nil, "Workspace '\(workspace.name)' references missing project '\(workspace.projectId)'")
+        check(
+            winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(workspace.projectId)] != nil,
+            "Tab '\(workspace.name)' references missing folder '\(workspace.projectId)'",
+        )
+    }
+
+    for (folderId, folder) in winMuxWorkspaceState.workspaceFoldersById {
+        check(
+            winMuxWorkspaceState.projectsById[folder.projectId] != nil,
+            "Folder '\(folderId)' references missing project '\(folder.projectId)'",
+        )
     }
 
     for (viewportId, viewport) in winMuxWorkspaceState.monitorViewportsById {

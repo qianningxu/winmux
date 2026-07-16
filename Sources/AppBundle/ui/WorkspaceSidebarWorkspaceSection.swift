@@ -27,6 +27,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
     let isSearchFiltering: Bool
     let isWorkspaceReorderEnabled: Bool
     let isWorkspaceReorderSource: Bool
+    let isWorkspaceReorderInProgress: Bool
     let onWorkspaceReorderDragChanged: (CGPoint) -> Void
     let onWorkspaceReorderDragEnded: (CGPoint) -> Void
     @Binding var activeInUseOverrideWorkspaceName: String?
@@ -60,6 +61,12 @@ struct WorkspaceSidebarWorkspaceSection: View {
     var isShowingInUseOverlay: Bool { activeInUseOverrideWorkspaceName == workspace.name }
     var isSearchSelectedWorkspace: Bool { selectedSearchTarget == .workspace(workspace.name) }
     var isRenamingWorkspace: Bool { renamingWorkspaceName == workspace.name }
+    var isPointerHoverVisible: Bool {
+        workspaceSidebarPointerHoverIsVisible(
+            isHovered: isHovered,
+            isWorkspaceReorderInProgress: isWorkspaceReorderInProgress
+        )
+    }
     var isVisuallyActiveOnTargetMonitor: Bool {
         isActiveOnTargetMonitor || isPendingActivationOnTargetMonitor
     }
@@ -97,8 +104,16 @@ struct WorkspaceSidebarWorkspaceSection: View {
                 }
             }
             .onHover { hover in
-                isHovered = hover
-                actions.hoverWorkspace(workspace.name, hover)
+                let visibleHover = hover && !isWorkspaceReorderInProgress
+                isHovered = visibleHover
+                actions.hoverWorkspace(workspace.name, visibleHover)
+            }
+            .onChange(of: isWorkspaceReorderInProgress) { isReordering in
+                guard isReordering else { return }
+                isHovered = false
+                hoveredWindowId = nil
+                hoveredTabGroupId = nil
+                actions.hoverWorkspace(workspace.name, false)
             }
             .onDrop(of: [workspaceSidebarDragPayloadType], delegate: WorkspaceSidebarDropDelegate(
                 target: .workspace(workspace.name),
@@ -151,4 +166,11 @@ struct WorkspaceSidebarWorkspaceSection: View {
                 }
             }
     }
+}
+
+func workspaceSidebarPointerHoverIsVisible(
+    isHovered: Bool,
+    isWorkspaceReorderInProgress: Bool
+) -> Bool {
+    isHovered && !isWorkspaceReorderInProgress
 }

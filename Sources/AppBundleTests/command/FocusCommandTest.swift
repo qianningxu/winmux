@@ -28,9 +28,15 @@ final class FocusCommandTest: XCTestCase {
         var expected = FocusCmdArgs(rawArgs: [], targetArg: .direction(.left))
         expected.rawBoundaries = .workspace
         testParseCommandSucc("focus --boundaries workspace left", expected)
+        expected.rawBoundaries = .tab
+        testParseCommandSucc("focus --boundaries tab left", expected)
 
         expected = FocusCmdArgs(rawArgs: [], targetArg: .tabRelative(.tabNext))
         testParseCommandSucc("focus tab-next", expected)
+        expected.rawBoundaries = .tab
+        testParseCommandSucc("focus --boundaries tab tab-next", expected)
+        expected.rawBoundaries = .workspace
+        testParseCommandSucc("focus --boundaries workspace tab-next", expected)
         testParseCommandSucc("focus --tab-index 2", FocusCmdArgs(rawArgs: [], tabIndex: 2))
 
         assertEquals(
@@ -43,11 +49,11 @@ final class FocusCommandTest: XCTestCase {
         )
         assertEquals(
             parseCommand("focus --boundaries all-monitors-outer-frame dfs-next").errorOrNil,
-            "(dfs-next|dfs-prev|tab-next|tab-prev) only supports the current Tab boundary (--boundaries workspace legacy token)",
+            "(dfs-next|dfs-prev|tab-next|tab-prev) only supports the current Tab boundary (--boundaries tab)",
         )
         assertEquals(
             parseCommand("focus --boundaries all-monitors-outer-frame tab-next").errorOrNil,
-            "(dfs-next|dfs-prev|tab-next|tab-prev) only supports the current Tab boundary (--boundaries workspace legacy token)",
+            "(dfs-next|dfs-prev|tab-next|tab-prev) only supports the current Tab boundary (--boundaries tab)",
         )
 
         assertEquals(

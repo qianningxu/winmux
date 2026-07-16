@@ -424,4 +424,28 @@ extension WorkspaceSidebarDragTest {
         XCTAssertTrue(shouldRenderWorkspaceSidebarProjectPage(index: 2, displayIndex: 1, swipeDirection: 1, projectCount: 4))
         XCTAssertFalse(shouldRenderWorkspaceSidebarProjectPage(index: 3, displayIndex: 1, swipeDirection: 1, projectCount: 4))
     }
+
+    func testCompactSidebarHidesProjectPager() {
+        XCTAssertFalse(workspaceSidebarShouldShowProjectPager(projectsEnabled: true, isCompact: true))
+        XCTAssertTrue(workspaceSidebarShouldShowProjectPager(projectsEnabled: true, isCompact: false))
+        XCTAssertFalse(workspaceSidebarShouldShowProjectPager(projectsEnabled: false, isCompact: false))
+    }
+
+    func testCompactSidebarDisablesProjectSwipeCapture() {
+        XCTAssertFalse(workspaceSidebarProjectSwipeCaptureIsEnabled(
+            projectsEnabled: true,
+            projectCount: 3,
+            isCompact: true
+        ))
+        XCTAssertTrue(workspaceSidebarProjectSwipeCaptureIsEnabled(
+            projectsEnabled: true,
+            projectCount: 3,
+            isCompact: false
+        ))
+        XCTAssertFalse(workspaceSidebarProjectSwipeCaptureIsEnabled(
+            projectsEnabled: true,
+            projectCount: 0,
+            isCompact: false
+        ))
+    }
 }

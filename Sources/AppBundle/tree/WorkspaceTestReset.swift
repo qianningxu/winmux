@@ -3,9 +3,9 @@ import Common
 @MainActor
 func resetWorkspaceNameGenerationStateForTests() {
     for workspace in Workspace.all {
-        workspace.projectId = workspaceProjectDefaultId
+        workspace.setFolderIdFromWorkspaceState(workspaceFolderDefaultId)
     }
-    winMuxWorkspaceState.resetProjects(defaultProjectName: workspaceProjectDisplayName(workspaceProjectDefaultId, fallbackName: "Default"))
+    winMuxWorkspaceState.resetProjects(defaultProjectName: workspaceProjectDisplayName(workspaceProjectDefaultId, fallbackName: workspaceDefaultFolderDisplayName))
 }
 
 @MainActor
@@ -14,7 +14,7 @@ func resetWinMuxWorkspaceStateForTests() {
         workspace.lifecycle = .durable
     }
     winMuxWorkspaceState.resetWorkspaceRegistryForTests(
-        defaultProjectName: workspaceProjectDisplayName(workspaceProjectDefaultId, fallbackName: "Default"),
+        defaultProjectName: workspaceProjectDisplayName(workspaceProjectDefaultId, fallbackName: workspaceDefaultFolderDisplayName),
     )
 }
 

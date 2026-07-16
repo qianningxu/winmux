@@ -31,7 +31,7 @@ extension WorkspaceNamingTest {
 
         assertEquals(result.exitCode, 0)
         XCTAssertTrue(secondary.activeWorkspace === projectWorkspace)
-        XCTAssertEqual(main.activeWorkspace.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(main.activeWorkspace.projectId, project.id)
         XCTAssertTrue(main.activeWorkspace !== projectWorkspace)
     }
 
@@ -85,7 +85,7 @@ extension WorkspaceNamingTest {
         assertEquals(result.exitCode, 0)
         XCTAssertTrue(main.activeWorkspace === projectWorkspace)
         XCTAssertTrue(focus.workspace === projectWorkspace)
-        XCTAssertEqual(secondary.activeWorkspace.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(secondary.activeWorkspace.projectId, project.id)
         XCTAssertTrue(secondary.activeWorkspace !== projectWorkspace)
     }
 
@@ -303,23 +303,23 @@ extension WorkspaceNamingTest {
         XCTAssertFalse(inactiveWorkspace.isVisible)
     }
 
-    func testMonitorViewportFallbackWorkspaceUsesDefaultProjectWhenProjectsAreHardDisabled() throws {
+    func testMonitorViewportFallbackWorkspaceUsesActiveFolderWhenProjectsAreHardDisabled() throws {
         let project = createWorkspaceProject()
         let projectWorkspace = try XCTUnwrap(switchWorkspaceProject(project.id, on: mainMonitor))
         XCTAssertTrue(projectWorkspace.isVisible)
 
         let fallback = activateMonitorViewportFallbackWorkspaceForTests(on: mainMonitor)
-        XCTAssertEqual(fallback.projectId, workspaceProjectDefaultId)
-        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), workspaceProjectDefaultId)
+        XCTAssertEqual(fallback.projectId, project.id)
+        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), project.id)
 
         Workspace.reconcileWorkspaceState()
 
-        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), workspaceProjectDefaultId)
-        XCTAssertEqual(mainMonitor.activeWorkspace.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), project.id)
+        XCTAssertEqual(mainMonitor.activeWorkspace.projectId, project.id)
         XCTAssertTrue(userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace).contains(mainMonitor.activeWorkspace))
     }
 
-    func testClosingLastWindowDissolvesVisibleTabGroupAndActivatesDefaultTabWhenProjectsAreHardDisabled() throws {
+    func testClosingLastFolderWindowKeepsVisibleEmptySidebarFolder() throws {
         let defaultWorkspace = Workspace.get(byName: "1")
         defaultWorkspace.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 19, parent: defaultWorkspace.rootTilingContainer)
@@ -331,8 +331,8 @@ extension WorkspaceNamingTest {
         projectWindow.unbindFromParent()
         Workspace.reconcileWorkspaceState()
 
-        XCTAssertNil(Workspace.existing(byName: projectWorkspace.name))
-        XCTAssertNil(winMuxWorkspaceState.projectsById[project.id])
+        XCTAssertTrue(Workspace.existing(byName: projectWorkspace.name) === projectWorkspace)
+        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(project.id)])
         XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), workspaceProjectDefaultId)
         XCTAssertTrue(mainMonitor.activeWorkspace === defaultWorkspace)
         XCTAssertEqual(

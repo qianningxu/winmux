@@ -8,10 +8,13 @@ import Foundation
         isCli = false
         initServerArgs()
         var bootstrappedConfigUrl: URL? = nil
+        interceptTermination(SIGINT)
+        // SIGKILL cannot be intercepted. The development install loop and
+        // many launchers use SIGTERM; handle it so sidebar folders and their
+        // order are persisted before the process exits.
+        interceptTermination(SIGTERM)
         if isDebug {
             await toggleReleaseServerIfDebug(.off)
-            interceptTermination(SIGINT)
-            interceptTermination(SIGKILL)
         }
         do {
             bootstrappedConfigUrl = try ensureBootstrapConfigExistsIfNeeded()
@@ -55,6 +58,7 @@ import Foundation
         Workspace.reconcileWorkspaceState() // init workspaces
         _ = Workspace.all.first?.focusWorkspace()
         let didLoadPersistedFrozenWorld = loadPersistedFrozenWorldForStartupIfPresent()
+        loadPersistedSidebarStateForStartupIfPresent()
         try await runRefreshSessionBlocking(.startup, layoutWorkspaces: false)
         try await runLightSession(.startup, .forceRun) {
             if !didLoadPersistedFrozenWorld {

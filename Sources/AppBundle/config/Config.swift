@@ -112,6 +112,7 @@ enum WorkspaceSidebarWidgetType: String, CaseIterable, Sendable {
     case builtInTimeDate = "built-in/time-date"
     case builtInTogglWeeklyFocus = "built-in/toggl-weekly-focus"
     case builtInTogglWeekFocus = "built-in/toggl-week-focus"
+    case builtInPeriodHeatmap = "built-in/period-heatmap"
     case builtInSpendingCategories = "built-in/spending-categories"
     case builtInScheduleHeatmap = "built-in/schedule-heatmap"
     case plugin
@@ -120,6 +121,7 @@ enum WorkspaceSidebarWidgetType: String, CaseIterable, Sendable {
 let defaultWorkspaceSidebarDataPath = "/Users/side/Documents/now/self/self_data/data"
 let defaultWorkspaceSidebarTogglEntriesPath = defaultWorkspaceSidebarDataPath
 let defaultWorkspaceSidebarTogglWeeklyFocusTargetDate = "2026-09-13"
+let defaultWorkspaceSidebarPeriodEntriesPath = defaultWorkspaceSidebarDataPath
 let defaultWorkspaceSidebarSpendingEntriesPath = defaultWorkspaceSidebarDataPath
 let defaultWorkspaceSidebarSpendingDays = 28
 let defaultWorkspaceSidebarSchedulePath = defaultWorkspaceSidebarDataPath

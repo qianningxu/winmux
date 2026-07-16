@@ -1,9 +1,35 @@
 import Foundation
 
-private let workspaceSidebarSectionHeader = "[workspace-sidebar]"
+private let workspaceSidebarSectionHeader = "[tab-sidebar]"
+private let workspaceSidebarLegacySectionHeaders: Set<String> = ["[workspace-sidebar]"]
 private let workspaceSidebarMenuBarReserveKey = "menu-bar-reserve-height"
 private let workspaceSidebarFolderDeletionActionKey = "folder-deletion-action"
 private let workspaceSidebarLegacyProjectDeletionActionKey = "project-deletion-action"
+
+/// WinMux used `[workspace-sidebar]` before the sidebar was renamed to
+/// `[tab-sidebar]`.  Updating a nested setting used to add a new
+/// `[tab-sidebar.*]` section while leaving the old root in place.  The
+/// resulting mixed-root TOML is rejected at startup, which made WinMux load
+/// defaults and lose the visible folders.  Canonicalize every related header
+/// together so a config always has exactly one sidebar root.
+func canonicalWorkspaceSidebarConfigRoots(in configText: String) -> String {
+    configText
+        .components(separatedBy: "\n")
+        .map { line in
+            let leadingWhitespace = String(line.prefix(while: { $0.isWhitespace }))
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed == "[workspace-sidebar]" ||
+                (trimmed.hasPrefix("[workspace-sidebar.") && trimmed.hasSuffix("]"))
+            else {
+                return line
+            }
+            return leadingWhitespace + trimmed.replacingOccurrences(
+                of: "[workspace-sidebar",
+                with: "[tab-sidebar",
+            )
+        }
+        .joined(separator: "\n")
+}
 
 func updateWorkspaceSidebarMenuBarReserveConfig(
     in configText: String,
@@ -34,9 +60,11 @@ private func updateWorkspaceSidebarScalarConfig(
     legacyKeys: Set<String> = [],
     renderedValue: String,
 ) -> String {
-    let lines = configText.components(separatedBy: "\n")
-    guard let sectionIndex = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == workspaceSidebarSectionHeader }) else {
-        var result = configText
+    let canonicalConfigText = canonicalWorkspaceSidebarConfigRoots(in: configText)
+    let lines = canonicalConfigText.components(separatedBy: "\n")
+    let sectionHeaders = workspaceSidebarLegacySectionHeaders.union([workspaceSidebarSectionHeader])
+    guard let sectionIndex = lines.firstIndex(where: { sectionHeaders.contains($0.trimmingCharacters(in: .whitespaces)) }) else {
+        var result = canonicalConfigText
         if !result.isEmpty, !result.hasSuffix("\n") {
             result += "\n"
         }
@@ -55,6 +83,7 @@ private func updateWorkspaceSidebarScalarConfig(
         }) ?? lines.endIndex
 
     var resultLines = lines
+    resultLines[sectionIndex] = workspaceSidebarSectionHeader
     for lineIndex in (sectionIndex + 1)..<sectionEnd {
         guard workspaceSidebarConfigKey(in: resultLines[lineIndex]).map({ $0 == key || legacyKeys.contains($0) }) == true else {
             continue
@@ -99,9 +128,9 @@ func updateWorkspaceSidebarLabelConfig(
     label: String?,
 ) -> String {
     updateTomlKeyValueSectionConfig(
-        in: configText,
-        sectionHeader: "[workspace-sidebar.tab-labels]",
-        legacySectionHeaders: ["[workspace-sidebar.workspace-labels]"],
+        in: canonicalWorkspaceSidebarConfigRoots(in: configText),
+        sectionHeader: "[tab-sidebar.tab-labels]",
+        legacySectionHeaders: ["[tab-sidebar.workspace-labels]", "[workspace-sidebar.tab-labels]", "[workspace-sidebar.workspace-labels]"],
         key: workspaceName,
         value: label,
     )
@@ -113,9 +142,9 @@ func updateWorkspaceSidebarProjectLabelConfig(
     label: String?,
 ) -> String {
     updateTomlKeyValueSectionConfig(
-        in: configText,
-        sectionHeader: "[workspace-sidebar.folder-labels]",
-        legacySectionHeaders: ["[workspace-sidebar.project-labels]"],
+        in: canonicalWorkspaceSidebarConfigRoots(in: configText),
+        sectionHeader: "[tab-sidebar.folder-labels]",
+        legacySectionHeaders: ["[tab-sidebar.project-labels]", "[workspace-sidebar.folder-labels]", "[workspace-sidebar.project-labels]"],
         key: projectId,
         value: label,
     )
@@ -127,9 +156,9 @@ func updateWorkspaceSidebarProjectColorConfig(
     colorHex: String?,
 ) -> String {
     updateTomlKeyValueSectionConfig(
-        in: configText,
-        sectionHeader: "[workspace-sidebar.folder-colors]",
-        legacySectionHeaders: ["[workspace-sidebar.project-colors]"],
+        in: canonicalWorkspaceSidebarConfigRoots(in: configText),
+        sectionHeader: "[tab-sidebar.folder-colors]",
+        legacySectionHeaders: ["[tab-sidebar.project-colors]", "[workspace-sidebar.folder-colors]", "[workspace-sidebar.project-colors]"],
         key: projectId,
         value: colorHex,
     )

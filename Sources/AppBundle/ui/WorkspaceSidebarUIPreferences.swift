@@ -1,3 +1,4 @@
+import Common
 import Foundation
 
 private let workspaceSidebarPinnedExpandedPreferenceKey = "workspaceSidebar.pinnedExpanded"
@@ -46,6 +47,12 @@ func setWorkspaceSidebarFolderExpanded(_ projectId: WorkspaceProjectId, isExpand
     UserDefaults.standard.setValue(collapsedIds.sorted(), forKey: workspaceSidebarCollapsedFolderIdsPreferenceKey)
     UserDefaults.standard.removeObject(forKey: workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey)
     UserDefaults.standard.synchronize()
+    // Keep the restart snapshot in lockstep with the visible folded state.
+    // Relying only on termination left a stale snapshot behind when macOS
+    // terminated/relaunched the app before its async shutdown hook completed.
+    if !isUnitTest {
+        persistFrozenWorldForRestartIfPossible()
+    }
 }
 
 @MainActor

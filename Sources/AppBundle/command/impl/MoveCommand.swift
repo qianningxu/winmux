@@ -57,7 +57,7 @@ private func moveNodeToSiblingIndex(_ node: TreeNode, _ parent: TilingContainer,
     _ env: CmdEnv,
 ) -> Bool {
     switch args.boundaries {
-        case .workspace:
+        case .tab, .workspace:
             switch args.boundariesAction {
                 case .stop: return true
                 case .fail: return false

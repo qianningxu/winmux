@@ -7,6 +7,63 @@ import XCTest
 final class WorkspaceSidebarReorderTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
 
+    func testWorkspaceDragTargetKeepsLastValidSlotForTransientSidebarFrameMiss() {
+        let stableTarget = WorkspaceSidebarWorkspaceDragTarget.reorder(
+            WorkspaceSidebarWorkspaceReorderTarget(
+                projectId: WorkspaceProjectId("destination-folder"),
+                targetWorkspaceName: "middle",
+                placement: .before("middle")
+            )
+        )
+
+        XCTAssertEqual(
+            workspaceSidebarStableWorkspaceDragTarget(
+                currentTarget: stableTarget,
+                candidateTarget: nil,
+                isPointerInsideSidebar: true
+            ),
+            stableTarget
+        )
+        XCTAssertNil(workspaceSidebarStableWorkspaceDragTarget(
+            currentTarget: stableTarget,
+            candidateTarget: nil,
+            isPointerInsideSidebar: false
+        ))
+    }
+
+    func testWorkspaceDragFinishUsesFinalFrozenFrameTargetForFastRelease() {
+        let initialTarget = WorkspaceSidebarWorkspaceDragTarget.reorder(
+            WorkspaceSidebarWorkspaceReorderTarget(
+                projectId: workspaceProjectDefaultId,
+                targetWorkspaceName: "middle",
+                placement: .before("middle")
+            )
+        )
+        let finalTarget = WorkspaceSidebarWorkspaceDragTarget.reorder(
+            WorkspaceSidebarWorkspaceReorderTarget(
+                projectId: workspaceProjectDefaultId,
+                targetWorkspaceName: "last",
+                placement: .after("last")
+            )
+        )
+
+        XCTAssertEqual(
+            workspaceSidebarWorkspaceDragFinishTarget(
+                finalCandidate: finalTarget,
+                lastValidTarget: initialTarget,
+                currentTarget: initialTarget,
+                hasCanvasDropIntent: false
+            ),
+            finalTarget
+        )
+        XCTAssertNil(workspaceSidebarWorkspaceDragFinishTarget(
+            finalCandidate: finalTarget,
+            lastValidTarget: initialTarget,
+            currentTarget: initialTarget,
+            hasCanvasDropIntent: true
+        ))
+    }
+
     func testReorderWorkspaceMovesItemBeforeTarget() {
         let (first, second, third) = makeOrderedDefaultWorkspaces()
 
@@ -237,7 +294,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         let afterSecond = workspaceSidebarWorkspaceReorderTarget(
             sourceWorkspaceName: "first",
             sourceProjectId: workspaceProjectDefaultId,
-            pointer: CGPoint(x: 12, y: 130),
+            pointer: CGPoint(x: 12, y: 115),
             frames: frames
         )
 
@@ -245,7 +302,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertEqual(afterSecond?.placement, .after("third"))
     }
 
-    func testWorkspaceDragTargetUsesTopBottomForReorderAndIgnoresMiddleDrop() {
+    func testWorkspaceDragTargetUsesWholeRowsAsStableReplacementTargets() {
         let frames = [
             reorderFrame("first", minY: 10, height: 40),
             reorderFrame("second", minY: 60, height: 40),
@@ -261,6 +318,18 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             sourceWorkspaceName: "first",
             sourceProjectId: workspaceProjectDefaultId,
             pointer: CGPoint(x: 198, y: 78),
+            workspaceFrames: frames
+        )
+        let slightlyLeftTarget = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "first",
+            sourceProjectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: -10, y: 78),
+            workspaceFrames: frames
+        )
+        let slightlyRightTarget = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "first",
+            sourceProjectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 210, y: 78),
             workspaceFrames: frames
         )
         let topBandTarget = workspaceSidebarWorkspaceDragTarget(
@@ -282,19 +351,691 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             workspaceFrames: frames
         )
 
-        XCTAssertNil(leftMiddleTarget)
-        XCTAssertNil(rightMiddleTarget)
-        XCTAssertEqual(topBandTarget, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+        let expectedReplacementTarget = WorkspaceSidebarWorkspaceDragTarget.reorder(WorkspaceSidebarWorkspaceReorderTarget(
             projectId: workspaceProjectDefaultId,
             targetWorkspaceName: "second",
-            placement: .before("second")
-        )))
+            placement: .after("second")
+        ))
+        XCTAssertEqual(leftMiddleTarget, expectedReplacementTarget)
+        XCTAssertEqual(rightMiddleTarget, expectedReplacementTarget)
+        XCTAssertEqual(slightlyLeftTarget, expectedReplacementTarget)
+        XCTAssertEqual(slightlyRightTarget, expectedReplacementTarget)
+        XCTAssertEqual(topBandTarget, expectedReplacementTarget)
         XCTAssertEqual(bottomBandTarget, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
             projectId: workspaceProjectDefaultId,
             targetWorkspaceName: "second",
             placement: .after("second")
         )))
-        XCTAssertNil(centerTarget)
+        XCTAssertEqual(centerTarget, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: workspaceProjectDefaultId,
+            targetWorkspaceName: "second",
+            placement: .after("second")
+        )))
+
+        let upwardReplacementTarget = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "second",
+            sourceProjectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 100, y: 28),
+            workspaceFrames: frames
+        )
+        XCTAssertEqual(upwardReplacementTarget, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: workspaceProjectDefaultId,
+            targetWorkspaceName: "first",
+            placement: .before("first")
+        )))
+    }
+
+    func testWorkspaceDragTargetLeavesSourceSlotUnprojected() {
+        let frames = [
+            reorderFrame("first", minY: 10, height: 40),
+            reorderFrame("second", minY: 60, height: 40),
+            reorderFrame("third", minY: 110, height: 40),
+        ]
+
+        let gapBeforeSource = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "second",
+            sourceProjectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 100, y: 55),
+            workspaceFrames: frames
+        )
+        let gapAfterSource = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "second",
+            sourceProjectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 100, y: 105),
+            workspaceFrames: frames
+        )
+        let realMoveUp = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "second",
+            sourceProjectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 100, y: 12),
+            workspaceFrames: frames
+        )
+        let realMoveDown = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "second",
+            sourceProjectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 100, y: 148),
+            workspaceFrames: frames
+        )
+
+        XCTAssertNil(gapBeforeSource)
+        XCTAssertNil(gapAfterSource)
+        XCTAssertEqual(realMoveUp, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: workspaceProjectDefaultId,
+            targetWorkspaceName: "first",
+            placement: .before("first")
+        )))
+        XCTAssertEqual(realMoveDown, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: workspaceProjectDefaultId,
+            targetWorkspaceName: "third",
+            placement: .after("third")
+        )))
+    }
+
+    func testWorkspaceDragTargetDoesNotProjectLastTabWhilePointerIsStillOnIt() {
+        let frames = [
+            reorderFrame("first", minY: 10, height: 40),
+            reorderFrame("second", minY: 60, height: 40),
+            reorderFrame("third", minY: 110, height: 40),
+            reorderFrame("fourth", minY: 160, height: 40),
+        ]
+
+        let sourceTop = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "fourth",
+            sourceProjectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 100, y: 165),
+            workspaceFrames: frames
+        )
+        let sourceBottom = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "fourth",
+            sourceProjectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 100, y: 195),
+            workspaceFrames: frames
+        )
+        let sourceGap = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "fourth",
+            sourceProjectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 100, y: 155),
+            workspaceFrames: frames
+        )
+        let thirdRow = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "fourth",
+            sourceProjectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 100, y: 145),
+            workspaceFrames: frames
+        )
+
+        XCTAssertNil(sourceTop)
+        XCTAssertNil(sourceBottom)
+        XCTAssertNil(sourceGap)
+        XCTAssertEqual(thirdRow, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: workspaceProjectDefaultId,
+            targetWorkspaceName: "third",
+            placement: .before("third")
+        )))
+    }
+
+    func testWorkspaceDragTargetDoesNotLeakIntoPreviousFolderFromInterFolderGap() {
+        let firstFolderId = WorkspaceProjectId("project-first-folder")
+        let secondFolderId = WorkspaceProjectId("project-second-folder")
+        let frames = [
+            reorderFrame("first-folder-tab", minY: 60, height: 40, projectId: firstFolderId),
+            reorderFrame("second-folder-first-tab", minY: 150, height: 40, projectId: secondFolderId),
+            reorderFrame("second-folder-tab", minY: 194, height: 40, projectId: secondFolderId),
+        ]
+        let folderFrames = [
+            folderFrame(firstFolderId, minY: 52, height: 56),
+            folderFrame(secondFolderId, minY: 144, height: 96),
+        ]
+
+        let target = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "second-folder-tab",
+            sourceProjectId: secondFolderId,
+            pointer: CGPoint(x: 100, y: 125),
+            workspaceFrames: frames,
+            folderFrames: folderFrames
+        )
+
+        XCTAssertNil(target)
+    }
+
+    func testWorkspaceDragTargetUsesSourceFolderTopGapAsFirstSlot() {
+        let folderId = WorkspaceProjectId("project-folder")
+        let frames = [
+            reorderFrame("first-tab", minY: 302, height: 32, projectId: folderId),
+            reorderFrame("dragged-tab", minY: 336, height: 32, projectId: folderId),
+            reorderFrame("last-tab", minY: 370, height: 32, projectId: folderId),
+        ]
+        let folderFrames = [
+            folderFrame(folderId, minY: 265, height: 170),
+        ]
+
+        let topGapTarget = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "dragged-tab",
+            sourceProjectId: folderId,
+            pointer: CGPoint(x: 100, y: 290),
+            workspaceFrames: frames,
+            folderFrames: folderFrames
+        )
+        let firstRowBandTarget = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "dragged-tab",
+            sourceProjectId: folderId,
+            pointer: CGPoint(x: 100, y: 304),
+            workspaceFrames: frames,
+            folderFrames: folderFrames
+        )
+
+        XCTAssertEqual(topGapTarget, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: folderId,
+            targetWorkspaceName: "first-tab",
+            placement: .before("first-tab")
+        )))
+        XCTAssertEqual(firstRowBandTarget, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: folderId,
+            targetWorkspaceName: "first-tab",
+            placement: .before("first-tab")
+        )))
+    }
+
+    func testWorkspaceDragTargetUsesSourceFolderGapBetweenTabsAsInsertionSlot() {
+        let folderId = WorkspaceProjectId("project-folder")
+        let frames = [
+            reorderFrame("first-tab", minY: 302, height: 32, projectId: folderId),
+            reorderFrame("second-tab", minY: 348, height: 32, projectId: folderId),
+            reorderFrame("dragged-tab", minY: 394, height: 32, projectId: folderId),
+        ]
+        let folderFrames = [
+            folderFrame(folderId, minY: 265, height: 180),
+        ]
+
+        let gapTarget = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "dragged-tab",
+            sourceProjectId: folderId,
+            pointer: CGPoint(x: 100, y: 340),
+            workspaceFrames: frames,
+            folderFrames: folderFrames
+        )
+        let rowBandTarget = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "dragged-tab",
+            sourceProjectId: folderId,
+            pointer: CGPoint(x: 100, y: 350),
+            workspaceFrames: frames,
+            folderFrames: folderFrames
+        )
+
+        XCTAssertEqual(gapTarget, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: folderId,
+            targetWorkspaceName: "second-tab",
+            placement: .before("second-tab")
+        )))
+        XCTAssertEqual(rowBandTarget, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: folderId,
+            targetWorkspaceName: "second-tab",
+            placement: .before("second-tab")
+        )))
+    }
+
+    func testWorkspaceDragTargetStillMovesAcrossFoldersWhenPointerIsOnTargetRow() {
+        let firstFolderId = WorkspaceProjectId("project-first-folder")
+        let secondFolderId = WorkspaceProjectId("project-second-folder")
+        let frames = [
+            reorderFrame("first-folder-tab", minY: 60, height: 40, projectId: firstFolderId),
+            reorderFrame("second-folder-tab", minY: 150, height: 40, projectId: secondFolderId),
+        ]
+        let folderFrames = [
+            folderFrame(firstFolderId, minY: 52, height: 56),
+            folderFrame(secondFolderId, minY: 144, height: 56),
+        ]
+
+        let target = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "second-folder-tab",
+            sourceProjectId: secondFolderId,
+            pointer: CGPoint(x: 100, y: 62),
+            workspaceFrames: frames,
+            folderFrames: folderFrames
+        )
+
+        XCTAssertEqual(target, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: firstFolderId,
+            targetWorkspaceName: "first-folder-tab",
+            placement: .before("first-folder-tab")
+        )))
+    }
+
+    func testWorkspaceDragPreviewAdvancesDownOneInsertionSlotPerRenderBeat() {
+        let firstFolderId = WorkspaceProjectId("project-first-folder")
+        let secondFolderId = WorkspaceProjectId("project-second-folder")
+        let frames = [
+            reorderFrame("1.1", minY: 10, height: 32, projectId: firstFolderId),
+            reorderFrame("1.2", minY: 46, height: 32, projectId: firstFolderId),
+            reorderFrame("1.3", minY: 82, height: 32, projectId: firstFolderId),
+            reorderFrame("1.4", minY: 118, height: 32, projectId: firstFolderId),
+            reorderFrame("2.1", minY: 180, height: 32, projectId: secondFolderId),
+            reorderFrame("2.2", minY: 216, height: 32, projectId: secondFolderId),
+        ]
+        let crossFolderTarget = WorkspaceSidebarWorkspaceDragTarget.reorder(
+            WorkspaceSidebarWorkspaceReorderTarget(
+                projectId: secondFolderId,
+                targetWorkspaceName: "2.2",
+                placement: .after("2.2")
+            )
+        )
+        let folderFrames = [
+            folderFrame(firstFolderId, minY: 0, height: 160),
+            folderFrame(secondFolderId, minY: 170, height: 90),
+        ]
+        var previewTarget: WorkspaceSidebarWorkspaceDragTarget?
+        var renderedTargets: [WorkspaceSidebarWorkspaceDragTarget?] = []
+        for _ in 0 ..< 6 {
+            previewTarget = workspaceSidebarWorkspaceAdjacentPreviewTarget(
+                currentTarget: previewTarget,
+                desiredTarget: crossFolderTarget,
+                sourceWorkspaceName: "1.1",
+                sourceProjectId: firstFolderId,
+                frames: frames,
+                folderFrames: folderFrames
+            )
+            renderedTargets.append(previewTarget)
+        }
+
+        XCTAssertEqual(renderedTargets, [
+            reorderTarget(firstFolderId, "1.2", .after("1.2")),
+            reorderTarget(firstFolderId, "1.3", .after("1.3")),
+            reorderTarget(firstFolderId, "1.4", .after("1.4")),
+            reorderTarget(secondFolderId, "2.1", .before("2.1")),
+            reorderTarget(secondFolderId, "2.1", .after("2.1")),
+            reorderTarget(secondFolderId, "2.2", .after("2.2")),
+        ])
+    }
+
+    func testWorkspaceDragPreviewAdvancesUpOneInsertionSlotPerRenderBeat() {
+        let firstFolderId = WorkspaceProjectId("project-first-folder")
+        let secondFolderId = WorkspaceProjectId("project-second-folder")
+        let frames = [
+            reorderFrame("1.1", minY: 10, height: 32, projectId: firstFolderId),
+            reorderFrame("1.2", minY: 46, height: 32, projectId: firstFolderId),
+            reorderFrame("1.3", minY: 82, height: 32, projectId: firstFolderId),
+            reorderFrame("1.4", minY: 118, height: 32, projectId: firstFolderId),
+            reorderFrame("2.1", minY: 180, height: 32, projectId: secondFolderId),
+            reorderFrame("2.2", minY: 216, height: 32, projectId: secondFolderId),
+        ]
+        let folderFrames = [
+            folderFrame(firstFolderId, minY: 0, height: 160),
+            folderFrame(secondFolderId, minY: 170, height: 90),
+        ]
+        let finalTarget = reorderTarget(firstFolderId, "1.1", .before("1.1"))
+        var previewTarget: WorkspaceSidebarWorkspaceDragTarget?
+        var renderedTargets: [WorkspaceSidebarWorkspaceDragTarget?] = []
+        for _ in 0 ..< 6 {
+            previewTarget = workspaceSidebarWorkspaceAdjacentPreviewTarget(
+                currentTarget: previewTarget,
+                desiredTarget: finalTarget,
+                sourceWorkspaceName: "2.2",
+                sourceProjectId: secondFolderId,
+                frames: frames,
+                folderFrames: folderFrames
+            )
+            renderedTargets.append(previewTarget)
+        }
+
+        XCTAssertEqual(renderedTargets, [
+            reorderTarget(secondFolderId, "2.1", .before("2.1")),
+            reorderTarget(firstFolderId, "1.4", .after("1.4")),
+            reorderTarget(firstFolderId, "1.3", .after("1.3")),
+            reorderTarget(firstFolderId, "1.2", .after("1.2")),
+            reorderTarget(firstFolderId, "1.1", .after("1.1")),
+            reorderTarget(firstFolderId, "1.1", .before("1.1")),
+        ])
+    }
+
+    func testWorkspaceDragPreviewHoldsEverySiblingSlotLongEnoughToRender() {
+        let firstFolderId = WorkspaceProjectId("project-first-folder")
+        let secondFolderId = WorkspaceProjectId("project-second-folder")
+        let frames = [
+            reorderFrame("1.1", minY: 10, height: 32, projectId: firstFolderId),
+            reorderFrame("1.2", minY: 46, height: 32, projectId: firstFolderId),
+            reorderFrame("1.3", minY: 82, height: 32, projectId: firstFolderId),
+            reorderFrame("1.4", minY: 118, height: 32, projectId: firstFolderId),
+            reorderFrame("2.1", minY: 180, height: 32, projectId: secondFolderId),
+            reorderFrame("2.2", minY: 216, height: 32, projectId: secondFolderId),
+        ]
+        let folderFrames = [
+            folderFrame(firstFolderId, minY: 0, height: 160),
+            folderFrame(secondFolderId, minY: 170, height: 90),
+        ]
+        let finalTarget = reorderTarget(secondFolderId, "2.2", .after("2.2"))
+
+        let firstStep = workspaceSidebarWorkspacePacedPreviewResolution(
+            currentTarget: nil,
+            desiredTarget: finalTarget,
+            nextPreviewStepAt: nil,
+            now: 10,
+            stepInterval: 0.1,
+            sourceWorkspaceName: "1.1",
+            sourceProjectId: firstFolderId,
+            frames: frames,
+            folderFrames: folderFrames
+        )
+        XCTAssertEqual(firstStep.target, reorderTarget(firstFolderId, "1.2", .after("1.2")))
+        XCTAssertEqual(firstStep.nextPreviewStepAt ?? .nan, 10.1, accuracy: 0.000_001)
+
+        let heldStep = workspaceSidebarWorkspacePacedPreviewResolution(
+            currentTarget: firstStep.target,
+            desiredTarget: finalTarget,
+            nextPreviewStepAt: firstStep.nextPreviewStepAt,
+            now: 10.05,
+            stepInterval: 0.1,
+            sourceWorkspaceName: "1.1",
+            sourceProjectId: firstFolderId,
+            frames: frames,
+            folderFrames: folderFrames
+        )
+        XCTAssertEqual(heldStep.target, firstStep.target)
+        XCTAssertEqual(heldStep.nextPreviewStepAt, firstStep.nextPreviewStepAt)
+
+        let secondStep = workspaceSidebarWorkspacePacedPreviewResolution(
+            currentTarget: heldStep.target,
+            desiredTarget: finalTarget,
+            nextPreviewStepAt: heldStep.nextPreviewStepAt,
+            now: 10.1,
+            stepInterval: 0.1,
+            sourceWorkspaceName: "1.1",
+            sourceProjectId: firstFolderId,
+            frames: frames,
+            folderFrames: folderFrames
+        )
+        XCTAssertEqual(secondStep.target, reorderTarget(firstFolderId, "1.3", .after("1.3")))
+        XCTAssertEqual(secondStep.nextPreviewStepAt ?? .nan, 10.2, accuracy: 0.000_001)
+    }
+
+    func testWorkspaceDragPreviewReversesOneSiblingAtATimeWithoutFlashingHome() {
+        let folderId = WorkspaceProjectId("project-folder")
+        let frames = [
+            reorderFrame("1.1", minY: 10, height: 32, projectId: folderId),
+            reorderFrame("1.2", minY: 46, height: 32, projectId: folderId),
+            reorderFrame("1.3", minY: 82, height: 32, projectId: folderId),
+            reorderFrame("1.4", minY: 118, height: 32, projectId: folderId),
+        ]
+        let farTarget = reorderTarget(folderId, "1.4", .after("1.4"))
+        let outward = workspaceSidebarWorkspacePacedPreviewResolution(
+            currentTarget: nil,
+            desiredTarget: farTarget,
+            nextPreviewStepAt: nil,
+            now: 20,
+            stepInterval: 0.1,
+            sourceWorkspaceName: "1.1",
+            sourceProjectId: folderId,
+            frames: frames
+        )
+        XCTAssertEqual(outward.target, reorderTarget(folderId, "1.2", .after("1.2")))
+
+        let heldOnReverse = workspaceSidebarWorkspacePacedPreviewResolution(
+            currentTarget: outward.target,
+            desiredTarget: nil,
+            nextPreviewStepAt: outward.nextPreviewStepAt,
+            now: 20.05,
+            stepInterval: 0.1,
+            sourceWorkspaceName: "1.1",
+            sourceProjectId: folderId,
+            frames: frames
+        )
+        XCTAssertEqual(heldOnReverse.target, outward.target)
+
+        let returnedOneSlot = workspaceSidebarWorkspacePacedPreviewResolution(
+            currentTarget: heldOnReverse.target,
+            desiredTarget: nil,
+            nextPreviewStepAt: heldOnReverse.nextPreviewStepAt,
+            now: 20.1,
+            stepInterval: 0.1,
+            sourceWorkspaceName: "1.1",
+            sourceProjectId: folderId,
+            frames: frames
+        )
+        XCTAssertNil(returnedOneSlot.target)
+        XCTAssertEqual(returnedOneSlot.nextPreviewStepAt ?? .nan, 20.2, accuracy: 0.000_001)
+    }
+
+    func testWorkspaceDragPreviewKeepsItsGateUntilTheVisibleTransitionCompletes() {
+        let folderId = WorkspaceProjectId("project-folder")
+        let frames = [
+            reorderFrame("1.1", minY: 10, height: 32, projectId: folderId),
+            reorderFrame("1.2", minY: 46, height: 32, projectId: folderId),
+            reorderFrame("1.3", minY: 82, height: 32, projectId: folderId),
+        ]
+        let adjacentTarget = reorderTarget(folderId, "1.2", .after("1.2"))
+        let firstStep = workspaceSidebarWorkspacePacedPreviewResolution(
+            currentTarget: nil,
+            desiredTarget: adjacentTarget,
+            nextPreviewStepAt: nil,
+            now: 30,
+            stepInterval: 0.1,
+            sourceWorkspaceName: "1.1",
+            sourceProjectId: folderId,
+            frames: frames
+        )
+        let caughtUp = workspaceSidebarWorkspacePacedPreviewResolution(
+            currentTarget: firstStep.target,
+            desiredTarget: adjacentTarget,
+            nextPreviewStepAt: firstStep.nextPreviewStepAt,
+            now: 30.05,
+            stepInterval: 0.1,
+            sourceWorkspaceName: "1.1",
+            sourceProjectId: folderId,
+            frames: frames
+        )
+        XCTAssertEqual(caughtUp.target, adjacentTarget)
+        XCTAssertEqual(caughtUp.nextPreviewStepAt, firstStep.nextPreviewStepAt)
+
+        let settled = workspaceSidebarWorkspacePacedPreviewResolution(
+            currentTarget: caughtUp.target,
+            desiredTarget: adjacentTarget,
+            nextPreviewStepAt: caughtUp.nextPreviewStepAt,
+            now: 30.1,
+            stepInterval: 0.1,
+            sourceWorkspaceName: "1.1",
+            sourceProjectId: folderId,
+            frames: frames
+        )
+        XCTAssertEqual(settled.target, adjacentTarget)
+        XCTAssertNil(settled.nextPreviewStepAt)
+    }
+
+    func testWorkspaceDragPreviewDoesNotStartTheNextSiblingBeforeTheCurrentTransitionCompletes() {
+        let folderId = WorkspaceProjectId("project-folder")
+        let frames = [
+            reorderFrame("1.1", minY: 10, height: 32, projectId: folderId),
+            reorderFrame("1.2", minY: 46, height: 32, projectId: folderId),
+            reorderFrame("1.3", minY: 82, height: 32, projectId: folderId),
+        ]
+        let firstTarget = reorderTarget(folderId, "1.2", .after("1.2"))
+        let secondTarget = reorderTarget(folderId, "1.3", .after("1.3"))
+        let firstStep = workspaceSidebarWorkspacePacedPreviewResolution(
+            currentTarget: nil,
+            desiredTarget: firstTarget,
+            nextPreviewStepAt: nil,
+            now: 40,
+            stepInterval: 0.05,
+            sourceWorkspaceName: "1.1",
+            sourceProjectId: folderId,
+            frames: frames
+        )
+
+        let heldForCurrentSibling = workspaceSidebarWorkspacePacedPreviewResolution(
+            currentTarget: firstStep.target,
+            desiredTarget: secondTarget,
+            nextPreviewStepAt: firstStep.nextPreviewStepAt,
+            now: 40.04,
+            stepInterval: 0.05,
+            sourceWorkspaceName: "1.1",
+            sourceProjectId: folderId,
+            frames: frames
+        )
+        XCTAssertEqual(heldForCurrentSibling.target, firstTarget)
+
+        let nextSibling = workspaceSidebarWorkspacePacedPreviewResolution(
+            currentTarget: heldForCurrentSibling.target,
+            desiredTarget: secondTarget,
+            nextPreviewStepAt: heldForCurrentSibling.nextPreviewStepAt,
+            now: 40.05,
+            stepInterval: 0.05,
+            sourceWorkspaceName: "1.1",
+            sourceProjectId: folderId,
+            frames: frames
+        )
+        XCTAssertEqual(nextSibling.target, secondTarget)
+        XCTAssertLessThan(
+            workspaceSidebarWorkspacePreviewTransitionDuration,
+            workspaceSidebarWorkspacePreviewStepInterval
+        )
+    }
+
+    func testWorkspaceDragPreviewReplaysEveryCrossFolderSlotInBothDirections() {
+        let firstFolderId = WorkspaceProjectId("project-first-folder")
+        let secondFolderId = WorkspaceProjectId("project-second-folder")
+        let frames = [
+            reorderFrame("1.1", minY: 10, height: 32, projectId: firstFolderId),
+            reorderFrame("1.2", minY: 46, height: 32, projectId: firstFolderId),
+            reorderFrame("1.3", minY: 82, height: 32, projectId: firstFolderId),
+            reorderFrame("1.4", minY: 118, height: 32, projectId: firstFolderId),
+            reorderFrame("2.1", minY: 180, height: 32, projectId: secondFolderId),
+            reorderFrame("2.2", minY: 216, height: 32, projectId: secondFolderId),
+        ]
+        let folderFrames = [
+            folderFrame(firstFolderId, minY: 0, height: 160),
+            folderFrame(secondFolderId, minY: 170, height: 90),
+        ]
+
+        func pacedTargets(
+            sourceWorkspaceName: String,
+            sourceProjectId: WorkspaceProjectId,
+            desiredTarget: WorkspaceSidebarWorkspaceDragTarget,
+            stepCount: Int
+        ) -> [WorkspaceSidebarWorkspaceDragTarget?] {
+            var target: WorkspaceSidebarWorkspaceDragTarget?
+            var nextStepAt: TimeInterval?
+            var now: TimeInterval = 100
+            return (0 ..< stepCount).map { _ in
+                let resolution = workspaceSidebarWorkspacePacedPreviewResolution(
+                    currentTarget: target,
+                    desiredTarget: desiredTarget,
+                    nextPreviewStepAt: nextStepAt,
+                    now: now,
+                    stepInterval: 0.1,
+                    sourceWorkspaceName: sourceWorkspaceName,
+                    sourceProjectId: sourceProjectId,
+                    frames: frames,
+                    folderFrames: folderFrames
+                )
+                target = resolution.target
+                nextStepAt = resolution.nextPreviewStepAt
+                now += 0.1
+                return target
+            }
+        }
+
+        XCTAssertEqual(pacedTargets(
+            sourceWorkspaceName: "1.1",
+            sourceProjectId: firstFolderId,
+            desiredTarget: reorderTarget(secondFolderId, "2.2", .after("2.2")),
+            stepCount: 6
+        ), [
+            reorderTarget(firstFolderId, "1.2", .after("1.2")),
+            reorderTarget(firstFolderId, "1.3", .after("1.3")),
+            reorderTarget(firstFolderId, "1.4", .after("1.4")),
+            reorderTarget(secondFolderId, "2.1", .before("2.1")),
+            reorderTarget(secondFolderId, "2.1", .after("2.1")),
+            reorderTarget(secondFolderId, "2.2", .after("2.2")),
+        ])
+
+        XCTAssertEqual(pacedTargets(
+            sourceWorkspaceName: "2.2",
+            sourceProjectId: secondFolderId,
+            desiredTarget: reorderTarget(firstFolderId, "1.1", .before("1.1")),
+            stepCount: 6
+        ), [
+            reorderTarget(secondFolderId, "2.1", .before("2.1")),
+            reorderTarget(firstFolderId, "1.4", .after("1.4")),
+            reorderTarget(firstFolderId, "1.3", .after("1.3")),
+            reorderTarget(firstFolderId, "1.2", .after("1.2")),
+            reorderTarget(firstFolderId, "1.1", .after("1.1")),
+            reorderTarget(firstFolderId, "1.1", .before("1.1")),
+        ])
+    }
+
+    func testWorkspaceDragTargetKeepsConcreteCrossFolderDestinationInBothDirections() {
+        let firstFolderId = WorkspaceProjectId("project-first-folder")
+        let secondFolderId = WorkspaceProjectId("project-second-folder")
+        let frames = [
+            reorderFrame("1.1", minY: 10, height: 32, projectId: firstFolderId),
+            reorderFrame("1.2", minY: 46, height: 32, projectId: firstFolderId),
+            reorderFrame("1.3", minY: 82, height: 32, projectId: firstFolderId),
+            reorderFrame("1.4", minY: 118, height: 32, projectId: firstFolderId),
+            reorderFrame("2.1", minY: 180, height: 32, projectId: secondFolderId),
+            reorderFrame("2.2", minY: 216, height: 32, projectId: secondFolderId),
+        ]
+        let folderFrames = [
+            folderFrame(firstFolderId, minY: 0, height: 160),
+            folderFrame(secondFolderId, minY: 170, height: 90),
+        ]
+
+        let intoSecondFolder = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "1.1",
+            sourceProjectId: firstFolderId,
+            pointer: CGPoint(x: 100, y: 240),
+            workspaceFrames: frames,
+            folderFrames: folderFrames
+        )
+        let intoFirstFolder = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "2.2",
+            sourceProjectId: secondFolderId,
+            pointer: CGPoint(x: 100, y: 16),
+            workspaceFrames: frames,
+            folderFrames: folderFrames
+        )
+
+        XCTAssertEqual(intoSecondFolder, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: secondFolderId,
+            targetWorkspaceName: "2.2",
+            placement: .after("2.2")
+        )))
+        XCTAssertEqual(intoFirstFolder, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: firstFolderId,
+            targetWorkspaceName: "1.1",
+            placement: .before("1.1")
+        )))
+    }
+
+    func testWorkspaceDragTargetMapsEveryCrossedDestinationRowWithoutSkipping() {
+        let firstFolderId = WorkspaceProjectId("project-first-folder")
+        let secondFolderId = WorkspaceProjectId("project-second-folder")
+        let frames = [
+            reorderFrame("1.1", minY: 10, height: 32, projectId: firstFolderId),
+            reorderFrame("1.2", minY: 46, height: 32, projectId: firstFolderId),
+            reorderFrame("1.3", minY: 82, height: 32, projectId: firstFolderId),
+            reorderFrame("1.4", minY: 118, height: 32, projectId: firstFolderId),
+            reorderFrame("2.1", minY: 180, height: 32, projectId: secondFolderId),
+            reorderFrame("2.2", minY: 216, height: 32, projectId: secondFolderId),
+        ]
+        let folderFrames = [
+            folderFrame(firstFolderId, minY: 0, height: 160),
+            folderFrame(secondFolderId, minY: 170, height: 90),
+        ]
+
+        let targets = ["1.4", "1.3", "1.2", "1.1"].enumerated().map { index, name in
+            workspaceSidebarWorkspaceDragTarget(
+                sourceWorkspaceName: "2.2",
+                sourceProjectId: secondFolderId,
+                pointer: CGPoint(x: 100, y: CGFloat(128 - (index * 36))),
+                workspaceFrames: frames,
+                folderFrames: folderFrames
+            ).map { target in
+                switch target {
+                    case .reorder(let reorderTarget): reorderTarget.targetWorkspaceName
+                    case .moveToFolder: "folder"
+                }
+            }
+        }
+
+        XCTAssertEqual(targets, ["1.4", "1.3", "1.2", "1.1"])
     }
 
     func testWorkspaceDragTargetDoesNotCreateFolderFromHorizontalEdge() {
@@ -310,13 +1051,18 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             workspaceFrames: frames
         )
 
-        XCTAssertNil(target)
+        XCTAssertEqual(target, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: workspaceProjectDefaultId,
+            targetWorkspaceName: "second",
+            placement: .after("second")
+        )))
     }
 
-    func testWorkspaceDragTargetUsesFolderHeaderForMovingTabIntoFolder() {
+    func testWorkspaceDragTargetUsesFolderHeaderForTopInsertionIntoFolder() {
         let folderId = WorkspaceProjectId("project-folder")
         let workspaceFrames = [
             reorderFrame("flat", minY: 10, height: 40),
+            reorderFrame("folder-child", minY: 90, height: 40, projectId: folderId),
         ]
         let folderFrames = [
             folderFrame(folderId, minY: 54, height: 32),
@@ -330,9 +1076,10 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             folderFrames: folderFrames
         )
 
-        XCTAssertEqual(target, .moveToFolder(WorkspaceSidebarWorkspaceFolderTarget(
+        XCTAssertEqual(target, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
             projectId: folderId,
-            sourceWorkspaceName: "flat"
+            targetWorkspaceName: "folder-child",
+            placement: .before("folder-child")
         )))
     }
 
@@ -354,9 +1101,10 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             folderFrames: folderFrames
         )
 
-        XCTAssertEqual(target, .moveToFolder(WorkspaceSidebarWorkspaceFolderTarget(
+        XCTAssertEqual(target, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
             projectId: folderId,
-            sourceWorkspaceName: "flat"
+            targetWorkspaceName: "folder-child",
+            placement: .after("folder-child")
         )))
     }
 
@@ -408,7 +1156,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         )))
     }
 
-    func testWorkspaceDragTargetMovesFolderChildOutOnFlatRowBand() {
+    func testWorkspaceDragTargetRejectsFolderChildOutToFlatRootRowBand() {
         let folderId = WorkspaceProjectId("project-folder")
         let frames = [
             reorderFrame("flat", minY: 10, height: 40),
@@ -422,20 +1170,20 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             workspaceFrames: frames
         )
 
-        XCTAssertEqual(target, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
-            projectId: workspaceProjectDefaultId,
-            targetWorkspaceName: "flat",
-            placement: .before("flat")
-        )))
+        XCTAssertNil(target)
     }
 
-    func testWorkspaceDragTargetUsesDefaultDropAreaForMovingFolderChildOutWhenRootListIsEmpty() {
+    func testWorkspaceDragTargetDoesNotUseEmptyDefaultRootDropAreaWhenRootListIsEmpty() {
         let folderId = WorkspaceProjectId("project-folder")
         let frames = [
             reorderFrame("folder-child", minY: 60, height: 40, projectId: folderId),
         ]
+        let defaultIsDropTarget = workspaceSidebarProjectFrameIsVisibleDropTarget(
+            projectId: workspaceProjectDefaultId,
+            sourceProjectId: folderId
+        )
         let folderFrames = [
-            folderFrame(workspaceProjectDefaultId, minY: 10, height: 32),
+            folderFrame(workspaceProjectDefaultId, minY: 10, height: 32, isDropTarget: defaultIsDropTarget),
             folderFrame(folderId, minY: 54, height: 120),
         ]
 
@@ -447,13 +1195,11 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             folderFrames: folderFrames
         )
 
-        XCTAssertEqual(target, .moveToFolder(WorkspaceSidebarWorkspaceFolderTarget(
-            projectId: workspaceProjectDefaultId,
-            sourceWorkspaceName: "folder-child"
-        )))
+        XCTAssertFalse(defaultIsDropTarget)
+        XCTAssertNil(target)
     }
 
-    func testWorkspaceDragFinishActionAllowsMovingFolderChildOut() {
+    func testWorkspaceDragFinishActionMapsReorderTargetToSidebarAction() {
         let folderId = WorkspaceProjectId("project-folder")
         let target = WorkspaceSidebarWorkspaceDragTarget.reorder(WorkspaceSidebarWorkspaceReorderTarget(
             projectId: workspaceProjectDefaultId,
@@ -474,7 +1220,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertNotEqual(folderId, workspaceProjectDefaultId)
     }
 
-    func testWorkspaceDragTargetMovesFolderChildOutOnFlatRowCenterDrop() {
+    func testWorkspaceDragTargetRejectsFolderChildOutToFlatRootRowCenterDrop() {
         let folderId = WorkspaceProjectId("project-folder")
         let frames = [
             reorderFrame("flat", minY: 10, height: 40),
@@ -488,10 +1234,32 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             workspaceFrames: frames
         )
 
+        XCTAssertNil(target)
+    }
+
+    func testWorkspaceDragTargetCanMoveFolderChildIntoVisibleUnfoldedFolderRow() {
+        let folderId = WorkspaceProjectId("project-folder")
+        let frames = [
+            reorderFrame("unfolded-tab", minY: 10, height: 40),
+            reorderFrame("folder-child", minY: 80, height: 40, projectId: folderId),
+        ]
+        let folderFrames = [
+            folderFrame(workspaceProjectDefaultId, minY: 2, height: 56),
+            folderFrame(folderId, minY: 72, height: 56),
+        ]
+
+        let target = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "folder-child",
+            sourceProjectId: folderId,
+            pointer: CGPoint(x: 100, y: 12),
+            workspaceFrames: frames,
+            folderFrames: folderFrames
+        )
+
         XCTAssertEqual(target, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
             projectId: workspaceProjectDefaultId,
-            targetWorkspaceName: "flat",
-            placement: .after("flat")
+            targetWorkspaceName: "unfolded-tab",
+            placement: .before("unfolded-tab")
         )))
     }
 
@@ -509,7 +1277,11 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             workspaceFrames: frames
         )
 
-        XCTAssertNil(target)
+        XCTAssertEqual(target, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: folderId,
+            targetWorkspaceName: "folder-sibling",
+            placement: .after("folder-sibling")
+        )))
     }
 
     func testFolderReorderTargetUsesFolderFrames() {
@@ -575,6 +1347,24 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ])
     }
 
+    func testFolderListEntriesKeepsSourceFolderWhenReorderHasNoTarget() {
+        let first = sidebarFolder("project-first", displayName: "First")
+        let source = sidebarFolder("project-source", displayName: "Source")
+        let second = sidebarFolder("project-second", displayName: "Second")
+
+        let entries = workspaceSidebarFolderListEntries(
+            sections: [first, source, second],
+            sourceProjectId: source.id,
+            target: nil
+        )
+
+        XCTAssertEqual(entries.map(\.testDescription), [
+            "folder:project-first",
+            "folder:project-source",
+            "folder:project-second",
+        ])
+    }
+
     func testFolderReorderIsDisabledForDefaultAndEditingStates() {
         XCTAssertTrue(workspaceSidebarFolderReorderIsEnabled(
             projectId: WorkspaceProjectId("project-folder"),
@@ -613,6 +1403,24 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ))
     }
 
+    func testDefaultProjectFrameIsNotVisibleWorkspaceDropTarget() {
+        let sourceId = WorkspaceProjectId("project-source")
+        let targetId = WorkspaceProjectId("project-target")
+
+        XCTAssertFalse(workspaceSidebarProjectFrameIsVisibleDropTarget(
+            projectId: workspaceProjectDefaultId,
+            sourceProjectId: sourceId
+        ))
+        XCTAssertFalse(workspaceSidebarProjectFrameIsVisibleDropTarget(
+            projectId: sourceId,
+            sourceProjectId: sourceId
+        ))
+        XCTAssertTrue(workspaceSidebarProjectFrameIsVisibleDropTarget(
+            projectId: targetId,
+            sourceProjectId: sourceId
+        ))
+    }
+
     func testWorkspaceReorderPreviewPlacementReflectsConcreteLandingSlot() {
         let folderId = WorkspaceProjectId("project-folder")
 
@@ -639,7 +1447,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         )
     }
 
-    func testWorkspaceListEntriesPreviewReorderAsRealPlaceholder() {
+    func testWorkspaceListEntriesPreviewSameFolderReorderMovesInterveningTabsIntoSourceSpace() {
         let first = sidebarWorkspace("first")
         let second = sidebarWorkspace("second")
         let third = sidebarWorkspace("third")
@@ -660,7 +1468,6 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             "placeholder:default:third",
             "workspace:first",
             "workspace:second",
-            "drag-anchor:third",
         ])
     }
 
@@ -692,7 +1499,6 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         )
 
         XCTAssertEqual(flatEntries.map(\.testDescription), [
-            "drag-anchor:flat",
         ])
         XCTAssertEqual(folderEntries.map(\.testDescription), [
             "workspace:folder-first",
@@ -701,7 +1507,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ])
     }
 
-    func testWorkspaceListEntriesMarksRetainedSourceAsDragAnchorWhenMovingAcrossFolders() {
+    func testWorkspaceListEntriesRemovesSourceWhileMovingAcrossFolders() {
         let folderId = WorkspaceProjectId("project-folder")
         let flat = sidebarWorkspace("flat")
         let folderTab = sidebarWorkspace("folder-tab", projectId: folderId)
@@ -728,7 +1534,6 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         )
 
         XCTAssertEqual(flatEntries.map(\.testDescription), [
-            "drag-anchor:flat",
         ])
         XCTAssertEqual(folderEntries.map(\.testDescription), [
             "workspace:folder-tab",
@@ -736,66 +1541,80 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ])
     }
 
-    func testWorkspaceListEntriesKeepsFolderChildDragSourceMountedWhenMovingOut() {
+    func testWorkspaceListEntriesDoesNotPreviewInvalidMoveOutToRootList() {
         let folderId = WorkspaceProjectId("project-folder")
         let flat = sidebarWorkspace("flat")
         let folderChild = sidebarWorkspace("folder-child", projectId: folderId)
         let folderSibling = sidebarWorkspace("folder-sibling", projectId: folderId)
+        let target = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "folder-child",
+            sourceProjectId: folderId,
+            pointer: CGPoint(x: 100, y: 12),
+            workspaceFrames: [
+                reorderFrame("flat", minY: 10, height: 40),
+                reorderFrame("folder-child", minY: 60, height: 40, projectId: folderId),
+            ]
+        )
 
         let flatEntries = workspaceSidebarWorkspaceListEntries(
             workspaces: [flat],
             projectId: workspaceProjectDefaultId,
             sourceWorkspaceName: "folder-child",
             sourceWorkspace: folderChild,
-            target: .reorder(WorkspaceSidebarWorkspaceReorderTarget(
-                projectId: workspaceProjectDefaultId,
-                targetWorkspaceName: "flat",
-                placement: .before("flat")
-            ))
+            target: target
         )
         let folderEntries = workspaceSidebarWorkspaceListEntries(
             workspaces: [folderChild, folderSibling],
             projectId: folderId,
             sourceWorkspaceName: "folder-child",
             sourceWorkspace: folderChild,
-            target: .reorder(WorkspaceSidebarWorkspaceReorderTarget(
-                projectId: workspaceProjectDefaultId,
-                targetWorkspaceName: "flat",
-                placement: .before("flat")
-            ))
+            target: target
         )
 
+        XCTAssertNil(target)
         XCTAssertEqual(flatEntries.map(\.testDescription), [
-            "placeholder:default:folder-child",
             "workspace:flat",
         ])
         XCTAssertEqual(folderEntries.map(\.testDescription), [
-            "drag-anchor:folder-child",
+            "workspace:folder-child",
             "workspace:folder-sibling",
         ])
     }
 
-    func testWorkspaceListEntriesPreviewMoveOutToEmptyDefaultList() {
+    func testWorkspaceListEntriesDoesNotPreviewMoveOutToEmptyDefaultRootList() {
         let folderId = WorkspaceProjectId("project-folder")
         let folderChild = sidebarWorkspace("folder-child", projectId: folderId)
+        let defaultIsDropTarget = workspaceSidebarProjectFrameIsVisibleDropTarget(
+            projectId: workspaceProjectDefaultId,
+            sourceProjectId: folderId
+        )
+        let target = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "folder-child",
+            sourceProjectId: folderId,
+            pointer: CGPoint(x: 100, y: 20),
+            workspaceFrames: [
+                reorderFrame("folder-child", minY: 60, height: 40, projectId: folderId),
+            ],
+            folderFrames: [
+                folderFrame(workspaceProjectDefaultId, minY: 10, height: 32, isDropTarget: defaultIsDropTarget),
+                folderFrame(folderId, minY: 54, height: 120),
+            ]
+        )
 
         let entries = workspaceSidebarWorkspaceListEntries(
             workspaces: [],
             projectId: workspaceProjectDefaultId,
             sourceWorkspaceName: "folder-child",
             sourceWorkspace: folderChild,
-            target: .moveToFolder(WorkspaceSidebarWorkspaceFolderTarget(
-                projectId: workspaceProjectDefaultId,
-                sourceWorkspaceName: "folder-child"
-            ))
+            target: target
         )
 
-        XCTAssertEqual(entries.map(\.testDescription), [
-            "placeholder:default:folder-child",
-        ])
+        XCTAssertFalse(defaultIsDropTarget)
+        XCTAssertNil(target)
+        XCTAssertEqual(entries.map(\.testDescription), [])
     }
 
-    func testWorkspaceListEntriesKeepsSameListSourceMountedDuringReorderPreview() {
+    func testWorkspaceListEntriesMovesFollowingTabsIntoSourceSpaceAndCreatesFinalTargetSpace() {
         let first = sidebarWorkspace("first")
         let second = sidebarWorkspace("second")
         let third = sidebarWorkspace("third")
@@ -813,10 +1632,57 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         )
 
         XCTAssertEqual(entries.map(\.testDescription), [
-            "drag-anchor:first",
             "workspace:second",
             "workspace:third",
             "placeholder:default:first",
+        ])
+    }
+
+    func testWorkspaceReorderUsesFrozenFramesAfterPreviewMovesLiveRows() {
+        let frozenFrames = [
+            reorderFrame("first", minY: 10, height: 30),
+            reorderFrame("second", minY: 50, height: 30),
+            reorderFrame("third", minY: 90, height: 30),
+        ]
+        let projectedLiveFrames = [
+            reorderFrame("first", minY: 10, height: 1),
+            reorderFrame("second", minY: 12, height: 30),
+            reorderFrame("third", minY: 52, height: 30),
+        ]
+        let hitTestFrames = workspaceSidebarWorkspaceReorderFramesForHitTesting(
+            liveFrames: projectedLiveFrames,
+            frozenFrames: frozenFrames
+        )
+
+        let target = workspaceSidebarWorkspaceReorderTarget(
+            sourceWorkspaceName: "first",
+            sourceProjectId: workspaceProjectDefaultId,
+            pointer: CGPoint(x: 20, y: 105),
+            frames: hitTestFrames
+        )
+
+        XCTAssertEqual(target, WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: workspaceProjectDefaultId,
+            targetWorkspaceName: "third",
+            placement: .after("third")
+        ))
+    }
+
+    func testWorkspaceListEntriesKeepsSameListSourceMountedWithoutTarget() {
+        let first = sidebarWorkspace("first")
+        let second = sidebarWorkspace("second")
+
+        let entries = workspaceSidebarWorkspaceListEntries(
+            workspaces: [first, second],
+            projectId: workspaceProjectDefaultId,
+            sourceWorkspaceName: "first",
+            sourceWorkspace: first,
+            target: nil
+        )
+
+        XCTAssertEqual(entries.map(\.testDescription), [
+            "workspace:first",
+            "workspace:second",
         ])
     }
 
@@ -1004,10 +1870,10 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             return
         }
         XCTAssertEqual(workspaceProjects().map(\.id), [
-            workspaceProjectDefaultId,
             folderId,
             first.id,
             second.id,
+            workspaceProjectDefaultId,
         ])
     }
 
@@ -1087,7 +1953,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertTrue(workspaceSidebarFolderIsExpanded(folder.id))
     }
 
-    func testMoveWorkspaceToSidebarDefaultListMovesFolderChildOut() {
+    func testMoveWorkspaceToSidebarUnfoldedFolderMovesFolderChild() {
         let folder = createWorkspaceProject()
         let folderWorkspace = Workspace.all.first { $0.projectId == folder.id }.orDie()
         folderWorkspace.markAsAutomaticallyNamed()
@@ -1123,7 +1989,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ])
     }
 
-    func testMoveWorkspaceToSidebarDefaultListIgnoresOtherDisplayDefaultTab() {
+    func testMoveWorkspaceToSidebarUnfoldedFolderKeepsOtherDisplayUnfoldedTab() {
         let main = WorkspaceSidebarDragTestMonitor(
             monitorAppKitNsScreenScreensId: 1,
             name: "Main",
@@ -1174,7 +2040,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ])
     }
 
-    func testReorderWorkspaceCanMoveFolderChildOutToFlatTabList() {
+    func testReorderWorkspaceCanMoveFolderChildIntoUnfoldedFolderAtSpecificPosition() {
         let folder = createWorkspaceProject()
         let folderWorkspace = Workspace.all.first { $0.projectId == folder.id }.orDie()
         folderWorkspace.markAsAutomaticallyNamed()
@@ -1265,10 +2131,10 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ))
 
         XCTAssertEqual(workspaceProjects().map(\.id), [
-            workspaceProjectDefaultId,
             third.id,
             first.id,
             second.id,
+            workspaceProjectDefaultId,
         ])
     }
 
@@ -1442,6 +2308,44 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ))
     }
 
+    func testWorkspaceReorderSuppressesPointerHoverTreatmentOnOtherTabs() {
+        XCTAssertTrue(workspaceSidebarPointerHoverIsVisible(
+            isHovered: true,
+            isWorkspaceReorderInProgress: false
+        ))
+        XCTAssertFalse(workspaceSidebarPointerHoverIsVisible(
+            isHovered: true,
+            isWorkspaceReorderInProgress: true
+        ))
+        XCTAssertFalse(workspaceSidebarPointerHoverIsVisible(
+            isHovered: false,
+            isWorkspaceReorderInProgress: true
+        ))
+    }
+
+    func testWorkspaceSourceOnlyProjectsWhenSidebarTargetExists() {
+        XCTAssertFalse(workspaceSidebarWorkspaceSourceIsProjectedDragAnchor(
+            isSource: true,
+            target: nil
+        ))
+        XCTAssertFalse(workspaceSidebarWorkspaceSourceIsProjectedDragAnchor(
+            isSource: false,
+            target: .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+                projectId: workspaceProjectDefaultId,
+                targetWorkspaceName: "target",
+                placement: .before("target")
+            ))
+        ))
+        XCTAssertTrue(workspaceSidebarWorkspaceSourceIsProjectedDragAnchor(
+            isSource: true,
+            target: .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+                projectId: workspaceProjectDefaultId,
+                targetWorkspaceName: "target",
+                placement: .before("target")
+            ))
+        ))
+    }
+
     private func makeOrderedDefaultWorkspaces() -> (Workspace, Workspace, Workspace) {
         let first = focus.workspace
         let second = Workspace.get(byName: "second")
@@ -1458,9 +2362,10 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
     }
 
     private func setProjectWorkspaceOrder(_ projectId: WorkspaceProjectId, _ workspaces: [Workspace]) {
-        var project = winMuxWorkspaceState.projectsById[projectId].orDie()
-        project.workspaceOrder = workspaces.map(\.id)
-        winMuxWorkspaceState.projectsById[projectId] = project
+        let folderId = WorkspaceFolderId(projectId)
+        var folder = winMuxWorkspaceState.workspaceFoldersById[folderId].orDie()
+        folder.workspaceOrder = workspaces.map(\.id)
+        winMuxWorkspaceState.workspaceFoldersById[folderId] = folder
     }
 
     private func reorderFrame(
@@ -1489,6 +2394,18 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             frame: CGRect(x: 0, y: minY, width: 200, height: height),
             isDropTarget: isDropTarget
         )
+    }
+
+    private func reorderTarget(
+        _ projectId: WorkspaceProjectId,
+        _ workspaceName: String,
+        _ placement: WorkspaceReorderPlacement
+    ) -> WorkspaceSidebarWorkspaceDragTarget {
+        .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: projectId,
+            targetWorkspaceName: workspaceName,
+            placement: placement
+        ))
     }
 
     private func sidebarWorkspace(

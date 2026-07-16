@@ -18,8 +18,11 @@ extension WorkspaceSidebarView {
     }
 
     func isWorkspaceReorderSource(_ workspace: WorkspaceSidebarWorkspaceViewModel) -> Bool {
-        workspaceReorderDrag?.sourceWorkspaceName == workspace.name &&
-            workspaceReorderDrag?.projectId == workspace.projectId
+        workspaceSidebarWorkspaceSourceIsProjectedDragAnchor(
+            isSource: workspaceReorderDrag?.sourceWorkspaceName == workspace.name &&
+                workspaceReorderDrag?.projectId == workspace.projectId,
+            target: workspaceReorderDrag?.target
+        )
     }
 
     func isFolderReorderEnabled(
@@ -116,38 +119,121 @@ extension WorkspaceSidebarView {
         workspace: WorkspaceSidebarWorkspaceViewModel,
         projectId: WorkspaceProjectId,
         pointer: CGPoint,
-        startsTracking: Bool = true
+        startsTracking: Bool = true,
+        advancesPreview: Bool = false,
+        now: TimeInterval = ProcessInfo.processInfo.systemUptime
     ) {
-        if startsTracking {
+        let beginsTracking = startsTracking && !workspaceReorderDriver.isTracking(
+            sourceWorkspaceName: workspace.name,
+            projectId: projectId
+        )
+        if beginsTracking {
+            WindowDragCursorProxyPanel.shared.hide()
             clearFolderReorderDragImmediately()
+            workspaceReorderHitTestFrames = workspaceReorderFrames
+            workspaceReorderHitTestFolderFrames = folderReorderFrames
             startWorkspaceReorderTrackingIfNeeded(workspace: workspace, projectId: projectId)
         }
+        workspaceReorderDriver.note(pointer: pointer)
         if workspaceReorderDrag == nil {
             NotificationCenter.default.post(name: workspaceSidebarDismissProjectMenusNotification, object: nil)
             isProjectMenuOpen = false
         }
-        let target = workspaceSidebarWorkspaceDragTarget(
+        let candidateTarget = workspaceSidebarWorkspaceDragTarget(
             sourceWorkspaceName: workspace.name,
             sourceProjectId: projectId,
             pointer: pointer,
-            workspaceFrames: workspaceReorderFrames,
-            folderFrames: folderReorderFrames
+            workspaceFrames: workspaceSidebarWorkspaceReorderFramesForHitTesting(
+                liveFrames: workspaceReorderFrames,
+                frozenFrames: workspaceReorderHitTestFrames
+            ),
+            folderFrames: workspaceSidebarFolderReorderFramesForHitTesting(
+                liveFrames: folderReorderFrames,
+                frozenFrames: workspaceReorderHitTestFolderFrames
+            )
+        )
+        let hitTestFrames = workspaceSidebarWorkspaceReorderFramesForHitTesting(
+            liveFrames: workspaceReorderFrames,
+            frozenFrames: workspaceReorderHitTestFrames
+        )
+        let hitTestFolderFrames = workspaceSidebarFolderReorderFramesForHitTesting(
+            liveFrames: folderReorderFrames,
+            frozenFrames: workspaceReorderHitTestFolderFrames
+        )
+        let isPointerInsideSidebar = WorkspaceSidebarPanel.panel(
+            containing: MousePointerTracker.shared.currentSample.point
+        ) != nil
+        let isPointerInSourceOriginalSlot = candidateTarget == nil &&
+            workspaceSidebarWorkspacePointerIsInSourceOriginalSlot(
+                sourceWorkspaceName: workspace.name,
+                sourceProjectId: projectId,
+                pointer: pointer,
+                frames: hitTestFrames
+            )
+        let lastValidTarget: WorkspaceSidebarWorkspaceDragTarget? = if let candidateTarget {
+            candidateTarget
+        } else if isPointerInSourceOriginalSlot {
+            nil
+        } else {
+            workspaceReorderDrag?.lastValidTarget
+        }
+        let desiredPreviewTarget = candidateTarget ?? (
+            isPointerInSourceOriginalSlot ? nil : lastValidTarget ?? workspaceReorderDrag?.target
+        )
+        let target: WorkspaceSidebarWorkspaceDragTarget?
+        let nextPreviewStepAt: TimeInterval?
+        if !isPointerInsideSidebar {
+            target = nil
+            nextPreviewStepAt = nil
+        } else if advancesPreview {
+            let resolution = workspaceSidebarWorkspacePacedPreviewResolution(
+                currentTarget: workspaceReorderDrag?.target,
+                desiredTarget: desiredPreviewTarget,
+                nextPreviewStepAt: workspaceReorderDrag?.nextPreviewStepAt,
+                now: now,
+                sourceWorkspaceName: workspace.name,
+                sourceProjectId: projectId,
+                frames: hitTestFrames,
+                folderFrames: hitTestFolderFrames
+            )
+            target = resolution.target
+            nextPreviewStepAt = resolution.nextPreviewStepAt
+        } else {
+            target = workspaceReorderDrag?.target
+            // Pointer events update the exact destination without advancing
+            // structural presentation. Keep the current transition deadline
+            // so another sibling cannot start before this one has completed.
+            nextPreviewStepAt = workspaceReorderDrag?.nextPreviewStepAt
+        }
+        let exactSidebarTarget = candidateTarget ?? (
+            isPointerInSourceOriginalSlot ? nil : lastValidTarget
         )
         updateWorkspaceCanvasDropIntentOverlay(
             sourceWorkspaceName: workspace.name,
             screenPoint: MousePointerTracker.shared.currentSample.point,
-            hasSidebarTarget: target != nil
+            hasSidebarTarget: isPointerInsideSidebar && exactSidebarTarget != nil
         )
-        WindowDragCursorProxyPanel.shared.show(
-            preview: workspaceSidebarWorkspaceSourcePreview(workspace),
-            mouseScreenPoint: NSEvent.mouseLocation
-        )
-        workspaceReorderDrag = WorkspaceSidebarWorkspaceReorderDragState(
-            sourceWorkspaceName: workspace.name,
-            projectId: projectId,
-            pointer: pointer,
-            target: target
-        )
+        if let current = workspaceReorderDrag,
+           current.sourceWorkspaceName == workspace.name,
+           current.projectId == projectId,
+           current.target == target,
+           current.lastValidTarget == lastValidTarget,
+           current.nextPreviewStepAt == nextPreviewStepAt
+        {
+            return
+        }
+        let targetChanged = workspaceReorderDrag?.target != target
+        var transaction = Transaction()
+        transaction.animation = targetChanged ? workspaceSidebarWorkspaceReorderAnimation : nil
+        withTransaction(transaction) {
+            workspaceReorderDrag = WorkspaceSidebarWorkspaceReorderDragState(
+                sourceWorkspaceName: workspace.name,
+                projectId: projectId,
+                target: target,
+                lastValidTarget: lastValidTarget,
+                nextPreviewStepAt: nextPreviewStepAt
+            )
+        }
     }
 
     func startWorkspaceReorderTrackingIfNeeded(
@@ -166,12 +252,36 @@ extension WorkspaceSidebarView {
                     projectId: projectId
                 )
             },
+            onPointer: { screenPoint in
+                continueWorkspaceReorderDragFromPointerEvent(
+                    sourceWorkspaceName: workspace.name,
+                    projectId: projectId,
+                    screenPoint: screenPoint
+                )
+            },
             onFinish: {
                 finishWorkspaceReorderDragFromMouse(
                     sourceWorkspaceName: workspace.name,
                     projectId: projectId
                 )
             }
+        )
+    }
+
+    func continueWorkspaceReorderDragFromPointerEvent(
+        sourceWorkspaceName: String,
+        projectId: WorkspaceProjectId,
+        screenPoint: CGPoint
+    ) {
+        guard let workspace = snapshot.workspaces.first(where: { $0.name == sourceWorkspaceName }),
+              let pointer = workspaceReorderContentPointer(screenPoint: screenPoint)
+        else { return }
+        updateWorkspaceReorderDrag(
+            workspace: workspace,
+            projectId: projectId,
+            pointer: pointer,
+            startsTracking: false,
+            advancesPreview: false
         )
     }
 
@@ -187,7 +297,8 @@ extension WorkspaceSidebarView {
             workspace: workspace,
             projectId: projectId,
             pointer: pointer,
-            startsTracking: false
+            startsTracking: false,
+            advancesPreview: true
         )
     }
 
@@ -207,30 +318,80 @@ extension WorkspaceSidebarView {
         finishWorkspaceReorderDrag(
             workspace: workspace,
             projectId: projectId,
-            pointer: currentWorkspaceReorderContentPointer() ?? drag.pointer
+            pointer: currentWorkspaceReorderContentPointer() ?? workspaceReorderDriver.latestPointer ?? .zero
         )
     }
 
     func currentWorkspaceReorderContentPointer() -> CGPoint? {
-        currentPanel()?.convertScreenPointToSidebarContentPoint(NSEvent.mouseLocation)
+        workspaceReorderContentPointer(screenPoint: MousePointerTracker.shared.currentSample.point)
+    }
+
+    /// Reorder frames live in the sidebar's named SwiftUI content space while
+    /// the mouse tracker stores normalized screen coordinates.  Keep this
+    /// conversion at the boundary so every mouse-up path hits the same slot.
+    func workspaceReorderContentPointer(screenPoint: CGPoint) -> CGPoint? {
+        currentPanel()?.convertScreenPointToSidebarContentPoint(
+            denormalizedAppKitScreenPoint(screenPoint)
+        )
     }
 
     func finishWorkspaceReorderDrag(
         workspace: WorkspaceSidebarWorkspaceViewModel,
         projectId: WorkspaceProjectId,
-        pointer: CGPoint
+        pointer: CGPoint,
+        screenPoint: CGPoint? = nil
     ) {
-        let target = workspaceSidebarWorkspaceDragTarget(
+        guard let drag = workspaceReorderDrag,
+              drag.sourceWorkspaceName == workspace.name,
+              drag.projectId == projectId,
+              !drag.isCommitting
+        else { return }
+        // The display-link tick has already resolved the last valid sidebar
+        // slot. Re-hit-testing on mouse-up races the preview animation and was
+        // the source of drops unexpectedly jumping to a folder edge.
+        let screenPoint = screenPoint ?? MousePointerTracker.shared.currentSample.point
+        // The only intentional reason to discard the sidebar slot is a real
+        // canvas destination. Treat every other mouse-up (including a panel
+        // hit-test miss during the release frame) as a commit to the last
+        // concrete sidebar slot.
+        let hasCanvasDropIntent = workspaceCanvasDropIntent(
+            sourceWorkspaceName: workspace.name,
+            screenPoint: screenPoint
+        ) != nil
+        let finalCandidate = workspaceSidebarWorkspaceDragTarget(
             sourceWorkspaceName: workspace.name,
             sourceProjectId: projectId,
             pointer: pointer,
-            workspaceFrames: workspaceReorderFrames,
-            folderFrames: folderReorderFrames
-        ) ?? workspaceReorderDrag?.target
-        clearWorkspaceReorderDragImmediately()
-        WindowDropIntentOverlayPanelController.shared.hide()
+            workspaceFrames: workspaceSidebarWorkspaceReorderFramesForHitTesting(
+                liveFrames: workspaceReorderFrames,
+                frozenFrames: workspaceReorderHitTestFrames
+            ),
+            folderFrames: workspaceSidebarFolderReorderFramesForHitTesting(
+                liveFrames: folderReorderFrames,
+                frozenFrames: workspaceReorderHitTestFolderFrames
+            )
+        )
+        let finalPointerIsInSourceOriginalSlot = finalCandidate == nil &&
+            workspaceSidebarWorkspacePointerIsInSourceOriginalSlot(
+                sourceWorkspaceName: workspace.name,
+                sourceProjectId: projectId,
+                pointer: pointer,
+                frames: workspaceSidebarWorkspaceReorderFramesForHitTesting(
+                    liveFrames: workspaceReorderFrames,
+                    frozenFrames: workspaceReorderHitTestFrames
+                )
+            )
+        let target = finalPointerIsInSourceOriginalSlot
+            ? nil
+            : workspaceSidebarWorkspaceDragFinishTarget(
+                finalCandidate: finalCandidate,
+                lastValidTarget: drag.lastValidTarget,
+                currentTarget: drag.target,
+                hasCanvasDropIntent: hasCanvasDropIntent
+            )
         guard let target else {
-            let screenPoint = MousePointerTracker.shared.currentSample.point
+            clearWorkspaceReorderDragImmediately()
+            WindowDropIntentOverlayPanelController.shared.hide()
             guard let dropIntent = workspaceCanvasDropIntent(
                 sourceWorkspaceName: workspace.name,
                 screenPoint: screenPoint
@@ -252,8 +413,38 @@ extension WorkspaceSidebarView {
         guard let action = workspaceSidebarWorkspaceDragFinishAction(
             sourceWorkspaceName: workspace.name,
             target: target
-        ) else { return }
+        ) else {
+            clearWorkspaceReorderDragImmediately()
+            WindowDropIntentOverlayPanelController.shared.hide()
+            return
+        }
+
+        // Stop sampling immediately, but keep the projected landing slot on
+        // screen until the authoritative sidebar snapshot reflects the move.
+        // Clearing the preview before that refresh produces a visible snap
+        // back to the old order on mouse-up.
+        var committingDrag = drag
+        // The one-step preview may still be catching up. Mouse-up must retain
+        // the exact final hit-test destination instead of that visual waypoint.
+        committingDrag.target = target
+        committingDrag.lastValidTarget = target
+        committingDrag.nextPreviewStepAt = nil
+        committingDrag.isCommitting = true
+        var transaction = Transaction()
+        transaction.animation = nil
+        withTransaction(transaction) {
+            workspaceReorderDrag = committingDrag
+        }
+        workspaceReorderDriver.stop()
+        WindowDropIntentOverlayPanelController.shared.hide()
         actions.send(action)
+        Task { @MainActor in
+            await updateWorkspaceSidebarModel()
+            guard workspaceReorderDrag?.sourceWorkspaceName == workspace.name,
+                  workspaceReorderDrag?.projectId == projectId
+            else { return }
+            clearWorkspaceReorderDragImmediately()
+        }
     }
 
     func activateWorkspaceAfterUncommittedReorderDrag(
@@ -292,6 +483,8 @@ extension WorkspaceSidebarView {
         withTransaction(transaction) {
             workspaceReorderDrag = nil
         }
+        workspaceReorderHitTestFrames = []
+        workspaceReorderHitTestFolderFrames = []
         if hadWorkspaceReorderDrag {
             WindowDragCursorProxyPanel.shared.hide()
         }
@@ -303,9 +496,12 @@ extension WorkspaceSidebarView {
         startsTracking: Bool = true
     ) {
         if startsTracking {
+            WindowDragCursorProxyPanel.shared.hide()
             clearWorkspaceReorderDragImmediately()
+            folderReorderHitTestFrames = folderReorderFrames
             startFolderReorderTrackingIfNeeded(projectId: section.project.id)
         }
+        folderReorderDriver.note(pointer: pointer)
         if folderReorderDrag == nil {
             NotificationCenter.default.post(name: workspaceSidebarDismissProjectMenusNotification, object: nil)
             isProjectMenuOpen = false
@@ -313,17 +509,25 @@ extension WorkspaceSidebarView {
         let target = workspaceSidebarFolderReorderTarget(
             sourceProjectId: section.project.id,
             pointer: pointer,
-            frames: folderReorderFrames
+            frames: workspaceSidebarFolderReorderFramesForHitTesting(
+                liveFrames: folderReorderFrames,
+                frozenFrames: folderReorderHitTestFrames
+            )
         )
-        WindowDragCursorProxyPanel.shared.show(
-            preview: workspaceSidebarFolderSourcePreview(section),
-            mouseScreenPoint: NSEvent.mouseLocation
-        )
-        folderReorderDrag = WorkspaceSidebarFolderReorderDragState(
-            sourceProjectId: section.project.id,
-            pointer: pointer,
-            target: target
-        )
+        if let current = folderReorderDrag,
+           current.sourceProjectId == section.project.id,
+           current.target == target
+        {
+            return
+        }
+        var transaction = Transaction()
+        transaction.animation = nil
+        withTransaction(transaction) {
+            folderReorderDrag = WorkspaceSidebarFolderReorderDragState(
+                sourceProjectId: section.project.id,
+                target: target
+            )
+        }
     }
 
     func startFolderReorderTrackingIfNeeded(projectId: WorkspaceProjectId) {
@@ -358,7 +562,7 @@ extension WorkspaceSidebarView {
         }
         finishFolderReorderDrag(
             section: section,
-            pointer: currentWorkspaceReorderContentPointer() ?? drag.pointer
+            pointer: currentWorkspaceReorderContentPointer() ?? folderReorderDriver.latestPointer ?? .zero
         )
     }
 
@@ -369,7 +573,10 @@ extension WorkspaceSidebarView {
         let target = workspaceSidebarFolderReorderTarget(
             sourceProjectId: section.project.id,
             pointer: pointer,
-            frames: folderReorderFrames
+            frames: workspaceSidebarFolderReorderFramesForHitTesting(
+                liveFrames: folderReorderFrames,
+                frozenFrames: folderReorderHitTestFrames
+            )
         ) ?? folderReorderDrag?.target
         clearFolderReorderDragImmediately()
         guard let target else { return }
@@ -388,6 +595,7 @@ extension WorkspaceSidebarView {
         withTransaction(transaction) {
             folderReorderDrag = nil
         }
+        folderReorderHitTestFrames = []
         if hadFolderReorderDrag {
             WindowDragCursorProxyPanel.shared.hide()
         }

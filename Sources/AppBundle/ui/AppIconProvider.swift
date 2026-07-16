@@ -27,3 +27,12 @@ func appIconImage(bundleIdentifier: String?, bundlePath: String?) -> NSImage? {
     appIconCache[cacheKey] = icon
     return icon
 }
+
+@MainActor
+func winMuxApplicationIconImage() -> NSImage? {
+    let image = NSImage(named: NSImage.Name("AppIcon")) ??
+        Bundle.main.url(forResource: "AppIcon", withExtension: "icns").flatMap(NSImage.init(contentsOf:))
+    guard let image else { return nil }
+    image.isTemplate = false
+    return image
+}

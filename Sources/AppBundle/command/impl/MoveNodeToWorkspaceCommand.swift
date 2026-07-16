@@ -10,6 +10,13 @@ struct MoveNodeToWorkspaceCommand: Command {
         let subjectWs = window.nodeWorkspace
         let targetWorkspace: Workspace
         switch args.target.val {
+            case .fresh:
+                guard let subjectWs else { return io.err("Window \(window.windowId) doesn't belong to any Tab") }
+                targetWorkspace = createFreshAdjacentBlankWorkspace(
+                    projectId: subjectWs.projectId,
+                    monitor: window.nodeMonitor ?? subjectWs.workspaceMonitor,
+                    after: subjectWs,
+                )
             case .relative(let nextPrev):
                 guard let subjectWs else { return io.err("Window \(window.windowId) doesn't belong to any Tab") }
                 let ws = getNextPrevWorkspace(
@@ -48,15 +55,14 @@ private func createNextTransientBlankWorkspaceForMoveIfAllowed(
     usesStdin: Bool,
 ) -> Workspace? {
     guard isNext, !wrapAround, !usesStdin else { return nil }
-    let projectId = projectsAreEnabled() ? current.projectId : workspaceProjectDefaultId
     let nextWorkspaceIndex = monitorScopedAutomaticDisplayWorkspacesInExactProject(
-        projectId: projectId,
+        projectId: current.projectId,
         monitor: current.workspaceMonitor,
         focusedWorkspace: current,
     ).count + 1
     return createAdjacentTransientBlankWorkspaceIfAllowed(
         named: String(nextWorkspaceIndex),
-        projectId: projectId,
+        projectId: current.projectId,
         monitor: current.workspaceMonitor,
         focusedWorkspace: current,
     )
@@ -69,9 +75,8 @@ private func resolveMoveTargetWorkspace(
     sourceMonitor: Monitor,
 ) -> Workspace? {
     if let targetIndex = parsePositiveWorkspaceDisplayIndex(workspaceName) {
-        let defaultProjectId = workspaceProjectDefaultId
         let automaticDisplayWorkspaces = monitorScopedAutomaticDisplayWorkspacesInExactProject(
-            projectId: defaultProjectId,
+            projectId: sourceWorkspace.projectId,
             monitor: sourceMonitor,
             focusedWorkspace: sourceWorkspace,
         )
@@ -80,7 +85,7 @@ private func resolveMoveTargetWorkspace(
         }
         return createAdjacentTransientBlankWorkspaceIfAllowed(
             named: workspaceName,
-            projectId: defaultProjectId,
+            projectId: sourceWorkspace.projectId,
             monitor: sourceMonitor,
             focusedWorkspace: sourceWorkspace,
         )
@@ -89,7 +94,7 @@ private func resolveMoveTargetWorkspace(
     let existedBefore = Workspace.existing(byName: workspaceName) != nil
     let workspace = Workspace.get(byName: workspaceName)
     if !existedBefore {
-        workspace.assignProject(projectsAreEnabled() ? sourceWorkspace.projectId : workspaceProjectDefaultId)
+        workspace.assignProject(sourceWorkspace.projectId)
     }
     workspace.seedMonitorIfNeeded(sourceMonitor)
     return workspace

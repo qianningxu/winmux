@@ -5,11 +5,11 @@ import SwiftUI
 extension WorkspaceSidebarView {
     func sidebarContent(expansionProgress: CGFloat) -> some View {
         let projectsEnabled = projectsAreEnabled()
-        let isCompact = expansionProgress < workspaceSidebarRowsRevealProgress
+        let isCompact = workspaceSidebarIsCompact(expansionProgress: expansionProgress)
         let leadingInset = workspaceSidebarOuterLeadingPadding(isCompact: isCompact)
         let trailingInset = workspaceSidebarOuterTrailingPadding(isCompact: isCompact)
         let showsMonitorSelector = !isCompact && shouldShowTopFilterBar
-        let projectSwipeDirection = projectsEnabled ? workspaceSidebarProjectSwipeDirection(
+        let projectSwipeDirection = projectsEnabled && !isCompact ? workspaceSidebarProjectSwipeDirection(
             horizontalTranslation: projectSwipeTranslation,
             verticalTranslation: 0,
             minimumDistance: 1,
@@ -90,7 +90,10 @@ extension WorkspaceSidebarView {
                 )
                 Color.clear
                     .frame(height: isCompact ? compactProjectReserveHeight + 8 : workspaceSidebarCollapseReservedProjectPagerHeight)
-            } else if projectsEnabled {
+            } else if workspaceSidebarShouldShowProjectPager(
+                projectsEnabled: projectsEnabled,
+                isCompact: isCompact
+            ) {
                 projectPagerSection(
                     expansionProgress: expansionProgress,
                     leadingInset: leadingInset,
@@ -127,6 +130,14 @@ extension WorkspaceSidebarView {
 }
 
 private let workspaceSidebarCollapseReservedProjectPagerHeight = (workspaceSidebarPagerHeight * 2) + 10
+
+func workspaceSidebarIsCompact(expansionProgress: CGFloat) -> Bool {
+    expansionProgress < workspaceSidebarRowsRevealProgress
+}
+
+func workspaceSidebarShouldShowProjectPager(projectsEnabled: Bool, isCompact: Bool) -> Bool {
+    projectsEnabled && !isCompact
+}
 
 extension WorkspaceSidebarView {
     var shouldShowTopFilterBar: Bool {

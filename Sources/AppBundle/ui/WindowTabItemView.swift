@@ -7,28 +7,31 @@ struct WindowTabItemView: View {
     let height: CGFloat
     let isDragSource: Bool
     let isHovered: Bool
+    let showsTitle: Bool
     let reservesCloseButtonSpace: Bool
     @Environment(\.colorScheme) var colorScheme
 
     var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     var body: some View {
-        HStack(spacing: 6) {
-            appIcon(size: 14)
+        HStack(spacing: showsTitle ? 6 : 0) {
+            appIcon(size: iconSize)
 
-            Text(tab.title)
-                .font(.system(size: 12, weight: tab.isActive ? .semibold : .medium))
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Spacer(minLength: 0)
-            if reservesCloseButtonSpace {
-                Color.clear
-                    .frame(width: windowTabStripCloseButtonReservedWidth)
+            if showsTitle {
+                Text(tab.title)
+                    .font(.system(size: 12, weight: tab.isActive ? .semibold : .medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 0)
+                if reservesCloseButtonSpace {
+                    Color.clear
+                        .frame(width: windowTabStripCloseButtonReservedWidth)
+                }
             }
         }
         .foregroundStyle(tabForegroundStyle)
-        .padding(.horizontal, 10)
-        .frame(width: width, height: height, alignment: .leading)
+        .padding(.horizontal, showsTitle ? 10 : 0)
+        .frame(width: width, height: height, alignment: showsTitle ? .leading : .center)
         .background {
             RoundedRectangle(cornerRadius: windowTabStripInnerCornerRadius, style: .continuous)
                 .fill(tab.isActive
@@ -52,6 +55,10 @@ struct WindowTabItemView: View {
 
     private var tabStrokeStyle: Color {
         palette.tabStroke(active: tab.isActive || isHovered)
+    }
+
+    private var iconSize: CGFloat {
+        showsTitle ? 14 : min(16, max(10, width - 14))
     }
 }
 

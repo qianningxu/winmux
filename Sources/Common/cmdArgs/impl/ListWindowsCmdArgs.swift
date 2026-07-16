@@ -68,7 +68,6 @@ extension ListWindowsCmdArgs {
                 .interVar("app-name"),
                 .interVar("window-title"),
                 .interVar("tab"),
-                .interVar("workspace"),
             ]
             : _format
     }

@@ -40,11 +40,6 @@ struct ReloadConfigCommand: Command {
             result = true
         case .failure(let msg):
             stdout.append(msg)
-            if !args.noGui {
-                Task { @MainActor in
-                    MessageModel.shared.message = Message(description: "WinMux Config Error", body: msg)
-                }
-            }
             result = false
     }
     if !args.dryRun {

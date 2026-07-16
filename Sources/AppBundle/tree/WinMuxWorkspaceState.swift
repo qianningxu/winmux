@@ -13,24 +13,56 @@ struct WinMuxWorkspaceState {
     var workspaceById: [WorkspaceId: Workspace] = [:]
     var workspaceIdByName: [String: WorkspaceId] = [:]
     var projectsById: [WorkspaceProjectId: WorkspaceProject] = [
-        workspaceProjectDefaultId: WorkspaceProject(id: workspaceProjectDefaultId, name: "Default", order: 0),
-    ]
+        workspaceProjectDefaultId: WorkspaceProject(
+            id: workspaceProjectDefaultId,
+            name: "Default Project",
+            order: 0,
+            folderOrder: [workspaceFolderDefaultId],
+        ),
+    ] {
+        didSet { scheduleSidebarStatePersistenceForRestart() }
+    }
+    var workspaceFoldersById: [WorkspaceFolderId: WorkspaceFolder] = [
+        workspaceFolderDefaultId: WorkspaceFolder(
+            id: workspaceFolderDefaultId,
+            name: workspaceDefaultFolderDisplayName,
+            order: 0,
+        ),
+    ] {
+        didSet { scheduleSidebarStatePersistenceForRestart() }
+    }
     var monitorViewportsById: [MonitorViewportId: MonitorViewport] = [:]
 
     private var nextWorkspaceCounter = 1
     private var nextProjectCounter = 1
     private var nextProjectOrderCounter = 1
+    private var nextFolderCounter = 1
+    private var nextFolderOrderCounter = 1
 
     mutating func resetProjects(defaultProjectName: String) {
         projectsById = [
-            workspaceProjectDefaultId: WorkspaceProject(id: workspaceProjectDefaultId, name: defaultProjectName, order: 0),
+            workspaceProjectDefaultId: WorkspaceProject(
+                id: workspaceProjectDefaultId,
+                name: "Default Project",
+                order: 0,
+                folderOrder: [workspaceFolderDefaultId],
+            ),
+        ]
+        workspaceFoldersById = [
+            workspaceFolderDefaultId: WorkspaceFolder(
+                id: workspaceFolderDefaultId,
+                name: defaultProjectName,
+                order: 0,
+            ),
         ]
         nextProjectCounter = 1
         nextProjectOrderCounter = 1
+        nextFolderCounter = 1
+        nextFolderOrderCounter = 1
         for workspace in workspaceById.values {
-            workspace.projectId = workspaceProjectDefaultId
+            workspace.setFolderIdFromWorkspaceState(workspaceFolderDefaultId)
         }
-        rebuildProjectWorkspaceIndexes()
+        rebuildFolderWorkspaceIndexes()
     }
 
     mutating func resetDisplayAssignments() {
@@ -42,11 +74,25 @@ struct WinMuxWorkspaceState {
         workspaceIdByName = [:]
         monitorViewportsById = [:]
         projectsById = [
-            workspaceProjectDefaultId: WorkspaceProject(id: workspaceProjectDefaultId, name: defaultProjectName, order: 0),
+            workspaceProjectDefaultId: WorkspaceProject(
+                id: workspaceProjectDefaultId,
+                name: "Default Project",
+                order: 0,
+                folderOrder: [workspaceFolderDefaultId],
+            ),
+        ]
+        workspaceFoldersById = [
+            workspaceFolderDefaultId: WorkspaceFolder(
+                id: workspaceFolderDefaultId,
+                name: defaultProjectName,
+                order: 0,
+            ),
         ]
         nextWorkspaceCounter = 1
         nextProjectCounter = 1
         nextProjectOrderCounter = 1
+        nextFolderCounter = 1
+        nextFolderOrderCounter = 1
     }
 
     mutating func nextWorkspaceId() -> WorkspaceId {
@@ -70,12 +116,35 @@ struct WinMuxWorkspaceState {
         nextProjectOrderCounter = max(nextProjectOrderCounter, project.order + 1)
     }
 
+    mutating func nextFolderOrder() -> Int {
+        while workspaceFoldersById.values.contains(where: { $0.order == nextFolderOrderCounter }) {
+            nextFolderOrderCounter += 1
+        }
+        defer { nextFolderOrderCounter += 1 }
+        return nextFolderOrderCounter
+    }
+
+    mutating func registerFolder(_ folder: WorkspaceFolder) {
+        workspaceFoldersById[folder.id] = folder
+        nextFolderOrderCounter = max(nextFolderOrderCounter, folder.order + 1)
+        ensureProjectExists(folder.projectId)
+        insertFolder(folder.id, intoProject: folder.projectId)
+    }
+
     mutating func nextGeneratedProjectIdentity() -> (id: WorkspaceProjectId, name: String) {
         while projectsById[WorkspaceProjectId("project-\(nextProjectCounter)")] != nil {
             nextProjectCounter += 1
         }
         defer { nextProjectCounter += 1 }
         return (WorkspaceProjectId("project-\(nextProjectCounter)"), "Folder \(nextProjectCounter)")
+    }
+
+    mutating func nextGeneratedFolderIdentity() -> (id: WorkspaceFolderId, name: String) {
+        while workspaceFoldersById[WorkspaceFolderId("project-\(nextFolderCounter)")] != nil {
+            nextFolderCounter += 1
+        }
+        defer { nextFolderCounter += 1 }
+        return (WorkspaceFolderId("project-\(nextFolderCounter)"), "Folder \(nextFolderCounter)")
     }
 
     func workspace(named name: String) -> Workspace? {
@@ -85,14 +154,14 @@ struct WinMuxWorkspaceState {
     mutating func registerWorkspace(_ workspace: Workspace) {
         workspaceById[workspace.id] = workspace
         workspaceIdByName[workspace.name] = workspace.id
-        ensureProjectExists(workspace.projectId)
-        insertWorkspace(workspace.id, intoProject: workspace.projectId)
+        ensureFolderExists(workspace.folderId)
+        insertWorkspace(workspace.id, intoFolder: workspace.folderId)
     }
 
     mutating func removeWorkspace(_ workspace: Workspace) -> MonitorViewportId? {
         workspaceById.removeValue(forKey: workspace.id)
         workspaceIdByName.removeValue(forKey: workspace.name)
-        removeWorkspaceFromProjectIndexes(workspace.id)
+        removeWorkspaceFromFolderIndexes(workspace.id)
 
         var removedViewport: MonitorViewportId?
         for (viewportId, viewport) in monitorViewportsById {
@@ -115,7 +184,17 @@ struct WinMuxWorkspaceState {
     mutating func ensureProjectExists(_ projectId: WorkspaceProjectId) {
         if projectsById[projectId] == nil {
             let order = nextProjectOrder()
-            registerProject(WorkspaceProject(id: projectId, name: "Folder", order: order))
+            registerProject(WorkspaceProject(id: projectId, name: "Project", order: order))
+        }
+    }
+
+    mutating func ensureFolderExists(_ folderId: WorkspaceFolderId, projectId: WorkspaceProjectId = workspaceProjectDefaultId) {
+        if workspaceFoldersById[folderId] == nil {
+            let order = nextFolderOrder()
+            registerFolder(WorkspaceFolder(id: folderId, projectId: projectId, name: "Folder", order: order))
+        } else if let folder = workspaceFoldersById[folderId] {
+            ensureProjectExists(folder.projectId)
+            insertFolder(folderId, intoProject: folder.projectId)
         }
     }
 
@@ -145,7 +224,7 @@ struct WinMuxWorkspaceState {
 
     mutating func setActiveWorkspace(_ workspace: Workspace, on viewportId: MonitorViewportId) -> Bool {
         ensureMonitorViewportExists(viewportId)
-        ensureProjectExists(workspace.projectId)
+        ensureFolderExists(workspace.folderId)
 
         var viewport = monitorViewportsById[viewportId] ?? MonitorViewport(id: viewportId)
         if viewport.activeWorkspaceId != workspace.id {
@@ -158,28 +237,33 @@ struct WinMuxWorkspaceState {
     }
 
     mutating func assignWorkspace(_ workspace: Workspace, to projectId: WorkspaceProjectId) {
-        ensureProjectExists(projectId)
-        removeWorkspaceFromProjectIndexes(workspace.id)
-        workspace.projectId = projectId
-        insertWorkspace(workspace.id, intoProject: projectId)
+        assignWorkspace(workspace, toFolder: WorkspaceFolderId(projectId))
+    }
+
+    mutating func assignWorkspace(_ workspace: Workspace, toFolder folderId: WorkspaceFolderId) {
+        ensureFolderExists(folderId)
+        removeWorkspaceFromFolderIndexes(workspace.id)
+        workspace.setFolderIdFromWorkspaceState(folderId)
+        insertWorkspace(workspace.id, intoFolder: folderId)
     }
 
     mutating func reorderWorkspace(_ workspaceId: WorkspaceId, inProject projectId: WorkspaceProjectId, destination: WorkspaceOrderDestination) -> Bool {
         pruneProjectWorkspaceIndexes()
-        guard var project = projectsById[projectId],
+        let folderId = WorkspaceFolderId(projectId)
+        guard var folder = workspaceFoldersById[folderId],
               let workspace = workspaceById[workspaceId],
-              workspace.projectId == projectId,
+              workspace.folderId == folderId,
               !workspace.isArchived
         else { return false }
 
         let targetWorkspaceId = destination.targetWorkspaceId
         guard workspaceId != targetWorkspaceId,
               let targetWorkspace = workspaceById[targetWorkspaceId],
-              targetWorkspace.projectId == projectId,
+              targetWorkspace.folderId == folderId,
               !targetWorkspace.isArchived
         else { return false }
 
-        var reordered = project.workspaceOrder
+        var reordered = folder.workspaceOrder
         guard reordered.contains(workspaceId), reordered.contains(targetWorkspaceId) else { return false }
         reordered.removeAll { $0 == workspaceId }
         guard let targetIndex = reordered.firstIndex(of: targetWorkspaceId) else { return false }
@@ -189,21 +273,22 @@ struct WinMuxWorkspaceState {
             case .after(_): targetIndex + 1
         }
         reordered.insert(workspaceId, at: insertionIndex)
-        guard reordered != project.workspaceOrder else { return false }
+        guard reordered != folder.workspaceOrder else { return false }
 
-        project.workspaceOrder = reordered
-        projectsById[projectId] = project
+        folder.workspaceOrder = reordered
+        workspaceFoldersById[folderId] = folder
         return true
     }
 
     mutating func reorderWorkspaces(_ workspaceIds: [WorkspaceId], inProject projectId: WorkspaceProjectId, before anchorWorkspaceId: WorkspaceId?) {
         pruneProjectWorkspaceIndexes()
-        guard var project = projectsById[projectId] else { return }
+        let folderId = WorkspaceFolderId(projectId)
+        guard var folder = workspaceFoldersById[folderId] else { return }
         var orderedIds: [WorkspaceId] = []
         var seen: Set<WorkspaceId> = []
         for workspaceId in workspaceIds {
             guard let workspace = workspaceById[workspaceId],
-                  workspace.projectId == projectId,
+                  workspace.folderId == folderId,
                   !workspace.isArchived,
                   seen.insert(workspaceId).inserted
             else { continue }
@@ -211,18 +296,18 @@ struct WinMuxWorkspaceState {
         }
         guard !orderedIds.isEmpty else { return }
 
-        var remainingOrder = project.workspaceOrder.filter { !seen.contains($0) }
+        var remainingOrder = folder.workspaceOrder.filter { !seen.contains($0) }
         let insertionIndex = anchorWorkspaceId
             .flatMap { remainingOrder.firstIndex(of: $0) }
             ?? remainingOrder.count
         remainingOrder.insert(contentsOf: orderedIds, at: insertionIndex)
-        project.workspaceOrder = remainingOrder
-        projectsById[projectId] = project
+        folder.workspaceOrder = remainingOrder
+        workspaceFoldersById[folderId] = folder
     }
 
     mutating func pruneProjectWorkspaceIndexes() {
         for workspace in workspaceById.values {
-            ensureProjectExists(workspace.projectId)
+            ensureFolderExists(WorkspaceFolderId(workspace.projectId))
         }
         for (viewportId, viewport) in monitorViewportsById {
             var viewport = viewport
@@ -239,12 +324,12 @@ struct WinMuxWorkspaceState {
         }
 
         let orderedWorkspaces = workspaceById.values.sorted()
-        for (projectId, project) in projectsById {
-            var project = project
+        for (folderId, folder) in workspaceFoldersById {
+            var folder = folder
             var seen: Set<WorkspaceId> = []
-            project.workspaceOrder = project.workspaceOrder.filter { workspaceId in
+            folder.workspaceOrder = folder.workspaceOrder.filter { workspaceId in
                 guard let workspace = workspaceById[workspaceId],
-                      workspace.projectId == projectId,
+                      workspace.folderId == folderId,
                       !seen.contains(workspaceId)
                 else {
                     return false
@@ -252,23 +337,23 @@ struct WinMuxWorkspaceState {
                 seen.insert(workspaceId)
                 return true
             }
-            for workspace in orderedWorkspaces where workspace.projectId == projectId && !seen.contains(workspace.id) {
-                project.workspaceOrder.append(workspace.id)
+            for workspace in orderedWorkspaces where workspace.folderId == folderId && !seen.contains(workspace.id) {
+                folder.workspaceOrder.append(workspace.id)
                 seen.insert(workspace.id)
             }
-            projectsById[projectId] = project
+            workspaceFoldersById[folderId] = folder
         }
     }
 
-    private mutating func rebuildProjectWorkspaceIndexes() {
-        for (projectId, project) in projectsById {
-            var project = project
-            project.workspaceOrder = []
-            projectsById[projectId] = project
+    private mutating func rebuildFolderWorkspaceIndexes() {
+        for (folderId, folder) in workspaceFoldersById {
+            var folder = folder
+            folder.workspaceOrder = []
+            workspaceFoldersById[folderId] = folder
         }
         for workspace in workspaceById.values.sorted() {
-            ensureProjectExists(workspace.projectId)
-            insertWorkspace(workspace.id, intoProject: workspace.projectId)
+            ensureFolderExists(WorkspaceFolderId(workspace.projectId))
+            insertWorkspace(workspace.id, intoFolder: WorkspaceFolderId(workspace.projectId))
         }
         for (viewportId, viewport) in monitorViewportsById {
             guard let workspaceId = viewport.activeWorkspaceId,
@@ -280,19 +365,55 @@ struct WinMuxWorkspaceState {
         }
     }
 
-    private mutating func insertWorkspace(_ workspaceId: WorkspaceId, intoProject projectId: WorkspaceProjectId) {
+    private mutating func insertFolder(_ folderId: WorkspaceFolderId, intoProject projectId: WorkspaceProjectId) {
         var project = projectsById[projectId].orDie()
-        if !project.workspaceOrder.contains(workspaceId) {
-            project.workspaceOrder.append(workspaceId)
+        if !project.folderOrder.contains(folderId) {
+            if projectId == workspaceProjectDefaultId,
+               folderId != workspaceFolderDefaultId,
+               let defaultIndex = project.folderOrder.firstIndex(of: workspaceFolderDefaultId)
+            {
+                project.folderOrder.insert(folderId, at: defaultIndex)
+            } else {
+                project.folderOrder.append(folderId)
+            }
         }
         projectsById[projectId] = project
     }
 
-    private mutating func removeWorkspaceFromProjectIndexes(_ workspaceId: WorkspaceId) {
-        for (projectId, project) in projectsById {
-            var project = project
-            project.workspaceOrder = project.workspaceOrder.filter { $0 != workspaceId }
-            projectsById[projectId] = project
+    mutating func normalizeDefaultProjectFolderOrder() {
+        guard var project = projectsById[workspaceProjectDefaultId] else { return }
+        var seen: Set<WorkspaceFolderId> = []
+        var orderedIds = project.folderOrder.filter { folderId in
+            workspaceFoldersById[folderId] != nil && seen.insert(folderId).inserted
+        }
+        let missingIds = workspaceFoldersById.values
+            .filter { $0.projectId == workspaceProjectDefaultId && !seen.contains($0.id) }
+            .sorted(by: workspaceFolderOrderPrecedes)
+            .map(\.id)
+        orderedIds.append(contentsOf: missingIds)
+        if orderedIds.contains(workspaceFolderDefaultId) {
+            orderedIds.removeAll { $0 == workspaceFolderDefaultId }
+            orderedIds.append(workspaceFolderDefaultId)
+        } else if workspaceFoldersById[workspaceFolderDefaultId] != nil {
+            orderedIds.append(workspaceFolderDefaultId)
+        }
+        project.folderOrder = orderedIds
+        projectsById[workspaceProjectDefaultId] = project
+    }
+
+    private mutating func insertWorkspace(_ workspaceId: WorkspaceId, intoFolder folderId: WorkspaceFolderId) {
+        var folder = workspaceFoldersById[folderId].orDie()
+        if !folder.workspaceOrder.contains(workspaceId) {
+            folder.workspaceOrder.append(workspaceId)
+        }
+        workspaceFoldersById[folderId] = folder
+    }
+
+    private mutating func removeWorkspaceFromFolderIndexes(_ workspaceId: WorkspaceId) {
+        for (folderId, folder) in workspaceFoldersById {
+            var folder = folder
+            folder.workspaceOrder = folder.workspaceOrder.filter { $0 != workspaceId }
+            workspaceFoldersById[folderId] = folder
         }
     }
 }

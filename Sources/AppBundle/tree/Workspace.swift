@@ -3,13 +3,80 @@ import Foundation
 let sidebarDraftWorkspacePrefix = "__sidebar_draft_workspace_"
 let internalAutomaticWorkspacePrefix = "__internal_auto_workspace_"
 let workspaceProjectDefaultId = WorkspaceProjectId.defaultProject
+let workspaceDefaultFolderDisplayName = "Unfolded"
+let workspaceFolderDefaultId = WorkspaceFolderId(workspaceProjectDefaultId)
 
 struct WorkspaceProject: Hashable, Identifiable {
     let id: WorkspaceProjectId
     let name: String
     let order: Int
+    var folderOrder: [WorkspaceFolderId] = []
+    /// Legacy compatibility mirror for call sites that still render folders through
+    /// the old project view model. Real tab ordering lives on WorkspaceFolder.
     var workspaceOrder: [WorkspaceId] = []
     var linkedViewportIds: Set<MonitorViewportId> = []
+}
+
+struct WorkspaceFolderId: RawRepresentable, Hashable, Identifiable, Sendable, Codable, ExpressibleByStringLiteral, CustomStringConvertible, Comparable {
+    let rawValue: String
+
+    var id: Self { self }
+    var backingProjectId: WorkspaceProjectId { WorkspaceProjectId(rawValue) }
+    var description: String { rawValue }
+
+    init(rawValue: String) {
+        self.rawValue = rawValue
+    }
+
+    init(_ rawValue: String) {
+        self.init(rawValue: rawValue)
+    }
+
+    init(_ backingProjectId: WorkspaceProjectId) {
+        self.init(rawValue: backingProjectId.rawValue)
+    }
+
+    init(stringLiteral value: String) {
+        self.init(value)
+    }
+
+    static func < (lhs: WorkspaceFolderId, rhs: WorkspaceFolderId) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+}
+
+struct WorkspaceFolder: Hashable, Identifiable {
+    let id: WorkspaceFolderId
+    var projectId: WorkspaceProjectId
+    var name: String
+    var order: Int
+    var workspaceOrder: [WorkspaceId] = []
+    var linkedViewportIds: Set<MonitorViewportId> = []
+
+    init(
+        id: WorkspaceFolderId,
+        projectId: WorkspaceProjectId = workspaceProjectDefaultId,
+        name: String,
+        order: Int,
+        workspaceOrder: [WorkspaceId] = [],
+        linkedViewportIds: Set<MonitorViewportId> = []
+    ) {
+        self.id = id
+        self.projectId = projectId
+        self.name = name
+        self.order = order
+        self.workspaceOrder = workspaceOrder
+        self.linkedViewportIds = linkedViewportIds
+    }
+
+    init(backingProject project: WorkspaceProject) {
+        id = WorkspaceFolderId(project.id)
+        projectId = workspaceProjectDefaultId
+        name = project.name
+        order = project.order
+        workspaceOrder = project.workspaceOrder
+        linkedViewportIds = project.linkedViewportIds
+    }
 }
 
 enum WorkspaceMutationError: LocalizedError {

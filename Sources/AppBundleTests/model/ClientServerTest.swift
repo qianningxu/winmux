@@ -67,10 +67,10 @@ final class ClientServerTest: XCTestCase {
         encoder.outputFormatting = [.sortedKeys]
         let testData = [
             (ClientRequest(args: ["args"], stdin: "stdin", windowId: 0, workspace: "foo"), """
-                {"args":["args"],"stdin":"stdin","windowId":0,"workspace":"foo"}
+                {"args":["args"],"stdin":"stdin","tab":"foo","windowId":0,"workspace":"foo"}
                 """),
             (ClientRequest(args: ["args"], stdin: "stdin", windowId: nil, workspace: nil), """
-                {"args":["args"],"stdin":"stdin","windowId":null,"workspace":null}
+                {"args":["args"],"stdin":"stdin","tab":null,"windowId":null,"workspace":null}
                 """),
         ]
         for (req, expectedJson) in testData {

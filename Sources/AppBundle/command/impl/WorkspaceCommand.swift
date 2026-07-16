@@ -28,6 +28,12 @@ struct WorkspaceCommand: Command {
     @MainActor
     private func resolveWorkspaceTarget(from focusedWs: Workspace, io: CmdIo) -> ResolvedWorkspaceTarget {
         switch args.target.val {
+            case .fresh:
+                return .focus(createFreshAdjacentBlankWorkspace(
+                    projectId: focusedWs.projectId,
+                    monitor: focusedWs.workspaceMonitor,
+                    after: focusedWs,
+                ))
             case .relative(let nextPrev):
                 guard let workspace = getNextPrevWorkspace(
                     current: focusedWs,
@@ -89,15 +95,14 @@ private func createNextTransientBlankWorkspaceIfAllowed(
     usesStdin: Bool,
 ) -> Workspace? {
     guard isNext, !wrapAround, !usesStdin else { return nil }
-    let projectId = projectsAreEnabled() ? current.projectId : workspaceProjectDefaultId
     let nextWorkspaceIndex = monitorScopedAutomaticDisplayWorkspacesInExactProject(
-        projectId: projectId,
+        projectId: current.projectId,
         monitor: current.workspaceMonitor,
         focusedWorkspace: current,
     ).count + 1
     return createAdjacentTransientBlankWorkspaceIfAllowed(
         named: String(nextWorkspaceIndex),
-        projectId: projectId,
+        projectId: current.projectId,
         monitor: current.workspaceMonitor,
         focusedWorkspace: current,
     )

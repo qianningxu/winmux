@@ -135,6 +135,13 @@ private struct WorkspaceSidebarWidgetStackItemView: View {
                     entriesPath: widget.entriesPath ?? defaultWorkspaceSidebarTogglEntriesPath,
                     targetDate: widget.targetDate ?? defaultWorkspaceSidebarTogglWeeklyFocusTargetDate,
                 )
+            case .builtInPeriodHeatmap:
+                WorkspaceSidebarPeriodHeatmapWidget(
+                    id: widget.id,
+                    sectionWidth: sectionWidth,
+                    isCompact: isCompact,
+                    entriesPath: widget.entriesPath ?? defaultWorkspaceSidebarPeriodEntriesPath,
+                )
             case .builtInSpendingCategories:
                 WorkspaceSidebarSpendingCategoriesWidget(
                     id: widget.id,

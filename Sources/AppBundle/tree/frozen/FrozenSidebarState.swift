@@ -9,15 +9,15 @@ struct FrozenSidebarState: Codable, Sendable {
     @MainActor
     init(restorableWorkspaces: [Workspace]) {
         let restorableWorkspaceIds = Set(restorableWorkspaces.map(\.id))
-        let restorableProjectIds = Set(restorableWorkspaces.map(\.projectId))
         let restorableWorkspaceNames = Set(restorableWorkspaces.map(\.name))
-        let restorableProjectRawIds = Set(restorableProjectIds.map(\.rawValue))
-        projects = winMuxWorkspaceState.projectsById.values
-            .filter { restorableProjectIds.contains($0.id) }
-            .sorted(by: workspaceProjectOrderPrecedes)
-            .map { project in
+        winMuxWorkspaceState.normalizeDefaultProjectFolderOrder()
+        let folders = workspaceFoldersInSidebarOrder()
+        // Folder identity/order is UI state in its own right. Do not discard a
+        // folder merely because its tabs currently have no restorable windows;
+        // doing so made user-created folders vanish after a restart.
+        projects = folders.map { folder in
                 FrozenSidebarProject(
-                    project: project,
+                    folder: folder,
                     restorableWorkspaces: restorableWorkspaces,
                     restorableWorkspaceIds: restorableWorkspaceIds,
                 )
@@ -28,8 +28,9 @@ struct FrozenSidebarState: Codable, Sendable {
         workspaceLabels = Dictionary(uniqueKeysWithValues: config.workspaceSidebar.workspaceLabels.filter {
             restorableWorkspaceNames.contains($0.key)
         })
+        let folderProjectRawIds = Set(folders.map { $0.id.rawValue })
         projectLabels = Dictionary(uniqueKeysWithValues: config.workspaceSidebar.projectLabels.filter {
-            restorableProjectRawIds.contains($0.key)
+            folderProjectRawIds.contains($0.key)
         })
     }
 
@@ -58,24 +59,24 @@ struct FrozenSidebarProject: Codable, Sendable {
 
     @MainActor
     init(
-        project: WorkspaceProject,
+        folder: WorkspaceFolder,
         restorableWorkspaces: [Workspace],
         restorableWorkspaceIds: Set<WorkspaceId>
     ) {
-        id = project.id
-        name = project.name
-        order = project.order
-        linkedViewportIds = project.linkedViewportIds
+        id = folder.id.backingProjectId
+        name = folder.name
+        order = folder.order
+        linkedViewportIds = folder.linkedViewportIds
 
         var seen: Set<WorkspaceId> = []
-        var names = project.workspaceOrder.compactMap { workspaceId -> String? in
+        var names = folder.workspaceOrder.compactMap { workspaceId -> String? in
             guard restorableWorkspaceIds.contains(workspaceId),
                   seen.insert(workspaceId).inserted
             else { return nil }
             return winMuxWorkspaceState.workspaceById[workspaceId]?.name
         }
         names.append(contentsOf: restorableWorkspaces.compactMap { workspace in
-            guard workspace.projectId == project.id,
+            guard workspace.folderId == folder.id,
                   seen.insert(workspace.id).inserted
             else { return nil }
             return workspace.name
@@ -93,19 +94,18 @@ func restoreFrozenSidebarState(_ sidebar: FrozenSidebarState?, restoredWorkspace
             guard restoredWorkspaceNames.contains(workspaceName) else { return nil }
             return Workspace.existing(byName: workspaceName)
         }
-        guard !restoredWorkspaces.isEmpty || frozenProject.id == workspaceProjectDefaultId else { continue }
-
-        for workspace in restoredWorkspaces where workspace.projectId != frozenProject.id {
-            workspace.assignProject(frozenProject.id)
+        let folderId = WorkspaceFolderId(frozenProject.id)
+        for workspace in restoredWorkspaces where workspace.folderId != folderId {
+            workspace.assignFolder(folderId)
         }
 
-        winMuxWorkspaceState.projectsById[frozenProject.id] = WorkspaceProject(
-            id: frozenProject.id,
+        winMuxWorkspaceState.registerFolder(WorkspaceFolder(
+            id: folderId,
             name: frozenProject.name,
             order: frozenProject.order,
             workspaceOrder: restoredWorkspaces.map(\.id),
             linkedViewportIds: frozenProject.linkedViewportIds,
-        )
+        ))
     }
 
     restoreFrozenSidebarLabels(sidebar, restoredWorkspaceNames: restoredWorkspaceNames)
@@ -123,8 +123,8 @@ private func restoreFrozenSidebarLabels(_ sidebar: FrozenSidebarState, restoredW
         }
     }
     for (rawProjectId, label) in sidebar.projectLabels {
-        let projectId = WorkspaceProjectId(rawProjectId)
-        guard winMuxWorkspaceState.projectsById[projectId] != nil else { continue }
+        let folderId = WorkspaceFolderId(rawProjectId)
+        guard winMuxWorkspaceState.workspaceFoldersById[folderId] != nil else { continue }
         let currentLabel = config.workspaceSidebar.projectLabels[rawProjectId]?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if currentLabel?.isEmpty ?? true {

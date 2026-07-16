@@ -32,7 +32,6 @@ extension WorkspaceSidebarView {
                 .lineLimit(1)
                 .frame(height: 26, alignment: .center)
             Spacer(minLength: 0)
-            sidebarNewFolderButton(isCompact: false)
             sidebarPinButton(expansionProgress: expansionProgress, isCompact: false)
         }
         .padding(.leading, 8)
@@ -42,7 +41,6 @@ extension WorkspaceSidebarView {
 
     func compactSidebarPinButton(expansionProgress: CGFloat) -> some View {
         HStack(spacing: 0) {
-            sidebarNewFolderButton(isCompact: true)
             sidebarPinButton(expansionProgress: expansionProgress, isCompact: true)
         }
             .frame(width: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration), height: workspaceSidebarWorkspaceSectionHeightCompact)
@@ -58,7 +56,7 @@ extension WorkspaceSidebarView {
                 .font(.system(size: isCompact ? 11 : 12, weight: .semibold))
                 .foregroundStyle(isPinned ? palette.foreground(0.88) : palette.foreground(0.68))
                 .frame(width: isCompact ? workspaceSidebarBadgeWidth : 26, height: isCompact ? workspaceSidebarBadgeWidth : 26)
-                .sidebarTopBarIconChrome(palette, isCompact: isCompact, isActive: isPinned)
+                .sidebarTopBarIconChrome(palette, isCompact: isCompact, isActive: false)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

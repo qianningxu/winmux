@@ -1,5 +1,6 @@
 import AppKit
 import Common
+import Darwin
 import Foundation
 import os
 
@@ -8,6 +9,7 @@ let signposter = OSSignposter(subsystem: winMuxAppId, category: .pointsOfInteres
 let myPid = NSRunningApplication.current.processIdentifier
 let lockScreenAppBundleId = "com.apple.loginwindow"
 @MainActor private var didPrepareAppBundleTermination = false
+public let terminationPreparationTimeoutNanoseconds: UInt64 = 2_000_000_000
 
 func interceptTermination(_ _signal: Int32) {
     signal(_signal, { signal in
@@ -44,6 +46,52 @@ public func prepareAppBundleForTerminationIfNeeded() async {
 }
 
 @MainActor
+public final class TerminationPreparationCoordinator {
+    private let timeoutNanoseconds: UInt64
+    private let prepare: @MainActor @Sendable () async -> Void
+    private let reply: @MainActor @Sendable (Bool) -> Void
+    private var cleanupTask: Task<Void, Never>?
+    private var timeoutTask: Task<Void, Never>?
+    private var didReply = false
+
+    public init(
+        timeoutNanoseconds: UInt64 = terminationPreparationTimeoutNanoseconds,
+        prepare: @escaping @MainActor @Sendable () async -> Void = prepareAppBundleForTerminationIfNeeded,
+        reply: @escaping @MainActor @Sendable (Bool) -> Void,
+    ) {
+        self.timeoutNanoseconds = timeoutNanoseconds
+        self.prepare = prepare
+        self.reply = reply
+    }
+
+    public func start() {
+        guard cleanupTask == nil, timeoutTask == nil else { return }
+        let prepare = prepare
+        let timeoutNanoseconds = timeoutNanoseconds
+        cleanupTask = Task { @MainActor [weak self, prepare] in
+            await prepare()
+            self?.replyOnce(true)
+        }
+        timeoutTask = Task.detached { [weak self] in
+            try? await Task.sleep(nanoseconds: timeoutNanoseconds)
+            await self?.replyOnce(true, cancelCleanup: true)
+        }
+    }
+
+    private func replyOnce(_ shouldTerminate: Bool, cancelCleanup: Bool = false) {
+        guard !didReply else { return }
+        didReply = true
+        timeoutTask?.cancel()
+        if cancelCleanup {
+            cleanupTask?.cancel()
+        }
+        cleanupTask = nil
+        timeoutTask = nil
+        reply(shouldTerminate)
+    }
+}
+
+@MainActor
 private func makeAllWindowsVisibleAndRestoreSize() async throws {
     // Make all windows fullscreen before Quit
     for (_, window) in MacWindow.allWindowsMap {
@@ -57,6 +105,19 @@ private func makeAllWindowsVisibleAndRestoreSize() async throws {
             y: (monitorVisibleRect.height - windowSize.height) / 2,
         )
         try await window.setAxFrameBlocking(point, windowSize)
+    }
+}
+
+@MainActor
+public func quitWinMuxFromMenuBar(
+    forceExitAfterNanoseconds: UInt64 = terminationPreparationTimeoutNanoseconds + 500_000_000,
+    terminate: @MainActor @Sendable @escaping () -> Void = { NSApplication.shared.terminate(nil) },
+    forceExit: @Sendable @escaping () -> Void = { Darwin.exit(0) }
+) {
+    terminate()
+    Task.detached(priority: .background) {
+        try? await Task.sleep(nanoseconds: forceExitAfterNanoseconds)
+        forceExit()
     }
 }
 

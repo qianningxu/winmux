@@ -25,7 +25,6 @@ private func workspaceRetentionScope(_ workspace: Workspace) -> WorkspaceScope {
 
 @MainActor
 func retainedEmptyWorkspaceId(in scope: WorkspaceScope) -> WorkspaceId? {
-    guard projectsAreEnabled() || scope.projectId == workspaceProjectDefaultId else { return nil }
     let orderedWorkspaces = orderedWorkspaces(in: scope)
     let ordinaryEmptyWorkspaces = orderedWorkspaces.filter {
         $0.isOrdinaryEmptySlot && !workspaceHasSidebarDisplayNameOverride($0.name)

@@ -1,7 +1,7 @@
 VERSION ?= 0.0.0-SNAPSHOT
-CODESIGN_IDENTITY ?= Apple Development
-EXPECTED_CODESIGN_AUTHORITY ?= Apple Development: zxzimeng@gmail.com (4F7GA4MB42)
-DEVELOPMENT_TEAM ?= W9C2P3N7Q2
+CODESIGN_IDENTITY ?= $(shell git -C "$(CURDIR)" config --get winmux.codesignIdentity 2>/dev/null || printf '%s' 'Apple Development')
+EXPECTED_CODESIGN_AUTHORITY ?= $(shell git -C "$(CURDIR)" config --get winmux.codesignAuthority 2>/dev/null || printf '%s' '$(CODESIGN_IDENTITY)')
+DEVELOPMENT_TEAM ?= $(shell git -C "$(CURDIR)" config --get winmux.developmentTeam 2>/dev/null || printf '%s' 'W9C2P3N7Q2')
 RELEASE_DIR ?= .release
 RELEASE_TAG ?= v$(VERSION)
 RELEASE_NOTES ?= auto
@@ -80,6 +80,7 @@ cli:
 	/bin/bash -lc 'cd "$(CURDIR)" && exec ./.debug/winmux $(ARGS)'
 
 release:
+	/bin/bash ./script/assert-codesign-identity.sh "$(CODESIGN_IDENTITY)"
 	$(MAKE) xcodeproj VERSION="$(VERSION)" CODESIGN_IDENTITY="$(CODESIGN_IDENTITY)"
 	/bin/bash -lc 'cd "$(CURDIR)" && \
 	set -euo pipefail && \
@@ -100,11 +101,12 @@ release:
 	    -configuration Release \
 	    -archivePath "$$archive_path" \
 	    -derivedDataPath "$$derived_data_path" \
-	    CODE_SIGN_IDENTITY="$(CODESIGN_IDENTITY)" \
-	    DEVELOPMENT_TEAM="$(DEVELOPMENT_TEAM)" \
-	    CODE_SIGN_STYLE=Automatic \
+	    CODE_SIGNING_ALLOWED=NO \
 	    archive; \
 	test -d "$$app_path"; \
+	codesign --force --deep --sign "$(CODESIGN_IDENTITY)" \
+	    --entitlements resources/WinMux.entitlements \
+	    "$$app_path"; \
 	codesign --verify --deep --strict --verbose=2 "$$app_path"; \
 	codesign -dv --verbose=4 "$$app_path" 2>&1 | grep -F "Authority=$(EXPECTED_CODESIGN_AUTHORITY)" >/dev/null; \
 	ditto -c -k --sequesterRsrc --keepParent "$$app_path" "$$zip_path"; \
@@ -135,6 +137,7 @@ install:
 	install_path="$$install_dir/$$app_name.app"; \
 	test -d "$$app_path"; \
 	mkdir -p "$$install_dir"; \
+	ALLOW_TCC_REAUTH=0 /bin/bash ./script/assert-accessibility-grant-will-survive.sh "$$app_path/Contents/MacOS/$$app_name" "com.zimengxiong.winmux" "$$install_path"; \
 	osascript -e "tell application \"$$app_name\" to quit" >/dev/null 2>&1 || true; \
 	rm -rf "$$install_path"; \
 	ditto "$$app_path" "$$install_path"; \

@@ -2,7 +2,6 @@ config-version = 2
 
 start-at-login = false
 auto-reload-config = true
-enable-projects = false
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true
 folder-padding = 30
@@ -32,7 +31,7 @@ on-mode-changed = []
     outer.top = 8
     outer.right = 8
 
-[workspace-sidebar]
+[tab-sidebar]
     enabled = true
     collapsed-width = 44
     width = 212
@@ -43,6 +42,7 @@ on-mode-changed = []
     folder-deletion-action = 'close-windows'
     widgets = [
         { id = 'time-date', type = 'built-in/time-date', enabled = false, show-date = true },
+        { id = 'period-heatmap', type = 'built-in/period-heatmap', enabled = false, entries-path = '/Users/side/Documents/now/self/self_data/data' },
         { id = 'toggl-week-focus', type = 'built-in/toggl-week-focus', enabled = false, entries-path = '/Users/side/Documents/now/self/self_data/data', target-date = '2026-09-13' },
         { id = 'toggl-weekly-focus', type = 'built-in/toggl-weekly-focus', enabled = false, entries-path = '/Users/side/Documents/now/self/self_data/data', target-date = '2026-09-13' },
     ]
@@ -76,6 +76,7 @@ on-mode-changed = []
     alt-shift-l = 'move right'
     alt-shift-t = 'layout floating tiling'
     alt-shift-m = 'fullscreen'
+    alt-shift-n = 'move-node-to-tab new'
     cmd-shift-h = 'join-with left'
     cmd-shift-j = 'join-with down'
     cmd-shift-k = 'join-with up'
@@ -83,16 +84,16 @@ on-mode-changed = []
     cmd-shift-i = 'balance-sizes'
     alt-cmd-j = 'swap down'
     alt-cmd-k = 'swap up'
-    ctrl-0 = 'tab 10'
-    ctrl-1 = 'tab 1'
-    ctrl-2 = 'tab 2'
-    ctrl-3 = 'tab 3'
-    ctrl-4 = 'tab 4'
-    ctrl-5 = 'tab 5'
-    ctrl-6 = 'tab 6'
-    ctrl-7 = 'tab 7'
-    ctrl-8 = 'tab 8'
-    ctrl-9 = 'tab 9'
+    ctrl-0 = 'folder 10'
+    ctrl-1 = 'folder 1'
+    ctrl-2 = 'folder 2'
+    ctrl-3 = 'folder 3'
+    ctrl-4 = 'folder 4'
+    ctrl-5 = 'folder 5'
+    ctrl-6 = 'folder 6'
+    ctrl-7 = 'folder 7'
+    ctrl-8 = 'folder 8'
+    ctrl-9 = 'folder 9'
     ctrl-q = 'tab 11'
     ctrl-w = 'tab 12'
     ctrl-e = 'tab 13'
@@ -102,15 +103,26 @@ on-mode-changed = []
     ctrl-l = 'tab next'
     cmd-ctrl-h = 'tab prev'
     cmd-ctrl-l = 'tab next'
-    alt-shift-1 = 'folder 1'
-    alt-shift-2 = 'folder 2'
-    alt-shift-3 = 'folder 3'
-    alt-shift-4 = 'folder 4'
-    alt-shift-5 = 'folder 5'
-    alt-shift-6 = 'folder 6'
-    alt-shift-7 = 'folder 7'
-    alt-shift-8 = 'folder 8'
-    alt-shift-9 = 'folder 9'
-    ctrl-shift-0 = 'move-node-to-tab 10'
+    alt-shift-0 = 'move-node-to-tab 10'
+    alt-shift-1 = 'move-node-to-tab 1'
+    alt-shift-2 = 'move-node-to-tab 2'
+    alt-shift-3 = 'move-node-to-tab 3'
+    alt-shift-4 = 'move-node-to-tab 4'
+    alt-shift-5 = 'move-node-to-tab 5'
+    alt-shift-6 = 'move-node-to-tab 6'
+    alt-shift-7 = 'move-node-to-tab 7'
+    alt-shift-8 = 'move-node-to-tab 8'
+    alt-shift-9 = 'move-node-to-tab 9'
+    ctrl-shift-0 = 'move-node-to-folder 10'
+    ctrl-shift-1 = 'move-node-to-folder 1'
+    ctrl-shift-2 = 'move-node-to-folder 2'
+    ctrl-shift-3 = 'move-node-to-folder 3'
+    ctrl-shift-4 = 'move-node-to-folder 4'
+    ctrl-shift-5 = 'move-node-to-folder 5'
+    ctrl-shift-6 = 'move-node-to-folder 6'
+    ctrl-shift-7 = 'move-node-to-folder 7'
+    ctrl-shift-8 = 'move-node-to-folder 8'
+    ctrl-shift-9 = 'move-node-to-folder 9'
     ctrl-shift-h = 'move-node-to-tab --focus-follows-window prev'
     ctrl-shift-l = 'move-node-to-tab --focus-follows-window next'
+    ctrl-shift-n = 'move-node-to-folder default'

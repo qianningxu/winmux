@@ -51,8 +51,13 @@ public struct FocusCmdArgs: CmdArgs {
     }
 
     public enum Boundaries: String, CaseIterable, Equatable, Sendable {
+        case tab
         case workspace
         case allMonitorsOuterFrame = "all-monitors-outer-frame"
+
+        var isCurrentTab: Bool {
+            self == .tab || self == .workspace
+        }
     }
     public enum WhenBoundariesCrossed: String, CaseIterable, Equatable, Sendable {
         case stop = "stop"
@@ -99,7 +104,7 @@ extension FocusCmdArgs {
         die("Parser invariants are broken")
     }
 
-    public var boundaries: Boundaries { rawBoundaries ?? .workspace }
+    public var boundaries: Boundaries { rawBoundaries ?? .tab }
     public var boundariesAction: WhenBoundariesCrossed {
         wrapAroundAlias ? .wrapAroundTheWorkspace : (rawBoundariesAction ?? .stop)
     }
@@ -108,7 +113,7 @@ extension FocusCmdArgs {
 func parseFocusCmdArgs(_ args: StrArrSlice) -> ParsedCmd<FocusCmdArgs> {
     return parseSpecificCmdArgs(FocusCmdArgs(rawArgs: args), args)
         .flatMap { (raw: FocusCmdArgs) -> ParsedCmd<FocusCmdArgs> in
-            raw.boundaries == .workspace && raw.boundariesAction == .wrapAroundAllMonitors
+            raw.boundaries.isCurrentTab && raw.boundariesAction == .wrapAroundAllMonitors
                 ? .failure("\(raw.boundaries.rawValue) and \(raw.boundariesAction.rawValue) is an invalid combination of values")
                 : .cmd(raw)
         }
@@ -124,8 +129,8 @@ func parseFocusCmdArgs(_ args: StrArrSlice) -> ParsedCmd<FocusCmdArgs> {
         .filter("--tab-index is incompatible with other options") {
             $0.tabIndex == nil || $0 == FocusCmdArgs(rawArgs: args, tabIndex: $0.tabIndex.orDie())
         }
-        .filter("(dfs-next|dfs-prev|tab-next|tab-prev) only supports the current Tab boundary (--boundaries workspace legacy token)") {
-            $0.target.requiresWorkspaceBoundaries.implies($0.boundaries == .workspace)
+        .filter("(dfs-next|dfs-prev|tab-next|tab-prev) only supports the current Tab boundary (--boundaries tab)") {
+            $0.target.requiresWorkspaceBoundaries.implies($0.boundaries.isCurrentTab)
         }
 }
 

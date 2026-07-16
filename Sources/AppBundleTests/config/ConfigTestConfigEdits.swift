@@ -14,7 +14,7 @@ extension ConfigTest {
             label: "Code",
         )
 
-        XCTAssertTrue(updated.contains("[workspace-sidebar.tab-labels]"))
+        XCTAssertTrue(updated.contains("[tab-sidebar.tab-labels]"))
         XCTAssertTrue(updated.contains("\"1\" = \"Code\""))
     }
 
@@ -32,14 +32,14 @@ extension ConfigTest {
         XCTAssertTrue(updated.contains("\"1\" = \"Code\""))
         XCTAssertFalse(updated.contains("\"1\" = \"Old\""))
         XCTAssertTrue(updated.contains("\"2\" = \"Web\""))
-        XCTAssertTrue(updated.contains("[workspace-sidebar.tab-labels]"))
+        XCTAssertTrue(updated.contains("[tab-sidebar.tab-labels]"))
         XCTAssertFalse(updated.contains("[workspace-sidebar.workspace-labels]"))
     }
 
     func testUpdateWorkspaceSidebarLabelConfigAddsNewLabelWithoutExtraBlankLine() {
         let updated = updateWorkspaceSidebarLabelConfig(
             in: """
-            [workspace-sidebar.workspace-labels]
+            [tab-sidebar.workspace-labels]
             "1" = "Code"
             """,
             workspaceName: "2",
@@ -49,7 +49,7 @@ extension ConfigTest {
         XCTAssertEqual(
             updated,
             """
-            [workspace-sidebar.tab-labels]
+            [tab-sidebar.tab-labels]
             "1" = "Code"
             "2" = "Web"
             """,
@@ -59,7 +59,7 @@ extension ConfigTest {
     func testUpdateWorkspaceSidebarLabelConfigRemovesLastLabelSection() {
         let updated = updateWorkspaceSidebarLabelConfig(
             in: """
-            [workspace-sidebar.workspace-labels]
+            [tab-sidebar.workspace-labels]
             "1" = "Code"
 
             [mode.main.binding]
@@ -69,22 +69,22 @@ extension ConfigTest {
             label: nil,
         )
 
-        XCTAssertFalse(updated.contains("[workspace-sidebar.workspace-labels]"))
-        XCTAssertFalse(updated.contains("[workspace-sidebar.tab-labels]"))
+        XCTAssertFalse(updated.contains("[tab-sidebar.workspace-labels]"))
+        XCTAssertFalse(updated.contains("[tab-sidebar.tab-labels]"))
         XCTAssertTrue(updated.contains("[mode.main.binding]"))
     }
 
     func testUpdateWorkspaceSidebarProjectColorConfigAddsAndReplacesColor() {
         let added = updateWorkspaceSidebarProjectColorConfig(
             in: """
-            [workspace-sidebar]
+            [tab-sidebar]
                 enabled = true
             """,
             projectId: "project-1",
             colorHex: "#60A5FA",
         )
 
-        XCTAssertTrue(added.contains("[workspace-sidebar.folder-colors]"))
+        XCTAssertTrue(added.contains("[tab-sidebar.folder-colors]"))
         XCTAssertTrue(added.contains("\"project-1\" = \"#60A5FA\""))
 
         let replaced = updateWorkspaceSidebarProjectColorConfig(
@@ -100,7 +100,7 @@ extension ConfigTest {
     func testUpdateWorkspaceSidebarProjectColorConfigRemovesLastColorSection() {
         let updated = updateWorkspaceSidebarProjectColorConfig(
             in: """
-            [workspace-sidebar.folder-colors]
+            [tab-sidebar.folder-colors]
             "project-1" = "#60A5FA"
 
             [mode.main.binding]
@@ -110,7 +110,7 @@ extension ConfigTest {
             colorHex: nil,
         )
 
-        XCTAssertFalse(updated.contains("[workspace-sidebar.folder-colors]"))
+        XCTAssertFalse(updated.contains("[tab-sidebar.folder-colors]"))
         XCTAssertTrue(updated.contains("[mode.main.binding]"))
     }
 
@@ -124,9 +124,28 @@ extension ConfigTest {
             colorHex: "#F87171",
         )
 
-        XCTAssertTrue(updated.contains("[workspace-sidebar.folder-colors]"))
+        XCTAssertTrue(updated.contains("[tab-sidebar.folder-colors]"))
         XCTAssertFalse(updated.contains("[workspace-sidebar.project-colors]"))
         XCTAssertTrue(updated.contains("\"project-1\" = \"#F87171\""))
+    }
+
+    func testSidebarConfigEditMigratesAllLegacyHeadersBeforeAddingFolderMetadata() {
+        let updated = updateWorkspaceSidebarProjectLabelConfig(
+            in: """
+            [workspace-sidebar]
+                enabled = true
+
+            [workspace-sidebar.project-colors]
+            "default" = "#9B8FC4"
+            """,
+            projectId: "project-1",
+            label: "Work",
+        )
+
+        XCTAssertTrue(updated.contains("[tab-sidebar]"))
+        XCTAssertTrue(updated.contains("[tab-sidebar.project-colors]"))
+        XCTAssertTrue(updated.contains("[tab-sidebar.folder-labels]"))
+        XCTAssertFalse(updated.contains("[workspace-sidebar"))
     }
 
     func testUpdateWindowTabLabelConfigAddsReplacesEscapesAndRemoves() {
@@ -175,14 +194,14 @@ extension ConfigTest {
             height: 32,
         )
 
-        XCTAssertTrue(updated.contains("[workspace-sidebar]\n    menu-bar-reserve-height = 32\n    enabled = true"))
+        XCTAssertTrue(updated.contains("[tab-sidebar]\n    menu-bar-reserve-height = 32\n    enabled = true"))
         XCTAssertTrue(updated.contains("[mode.main.binding]"))
     }
 
     func testUpdateWorkspaceSidebarMenuBarReserveConfigReplacesValueAndPreservesComment() {
         let updated = updateWorkspaceSidebarMenuBarReserveConfig(
             in: """
-            [workspace-sidebar]
+            [tab-sidebar]
                 menu-bar-reserve-height = 28 # visible menu bar
                 enabled = true
             """,

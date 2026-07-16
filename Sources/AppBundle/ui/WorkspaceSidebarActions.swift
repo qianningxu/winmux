@@ -51,6 +51,21 @@ func runWorkspaceSidebarSession(_ body: @escaping @MainActor () async throws -> 
             try await runLightSession(.menuBarButton, token) {
                 try await body()
             }
+            persistSidebarStateForRestartIfPossible()
+        } catch {
+            showWorkspaceSidebarError(error.localizedDescription)
+        }
+    }
+}
+
+@MainActor
+func runWorkspaceSidebarPostMutationSession() {
+    guard let token: RunSessionGuard = .isServerEnabled else { return }
+    Task { @MainActor in
+        do {
+            await updateWorkspaceSidebarModel()
+            try await runLightSession(.menuBarButton, token) {}
+            persistSidebarStateForRestartIfPossible()
         } catch {
             showWorkspaceSidebarError(error.localizedDescription)
         }
@@ -363,7 +378,11 @@ func previewWorkspaceSidebarDrop(_ windowId: UInt32, subject: WindowDragSubject,
 
 @MainActor
 func clearWorkspaceSidebarDropPreview() {
-    setWorkspaceSidebarDropPreviewIfChanged(nil)
+    var transaction = Transaction()
+    transaction.animation = nil
+    withTransaction(transaction) {
+        setWorkspaceSidebarDropPreviewIfChanged(nil)
+    }
 }
 
 @MainActor
@@ -531,13 +550,14 @@ func createSidebarFolderFromWorkspace(_ workspaceName: String) -> WorkspaceProje
     do {
         try renameWorkspaceProject(project.id, displayName: workspaceSidebarDefaultFolderName(project))
     } catch {
-        winMuxWorkspaceState.projectsById.removeValue(forKey: project.id)
+        winMuxWorkspaceState.workspaceFoldersById.removeValue(forKey: WorkspaceFolderId(project.id))
         return nil
     }
     workspace.assignProject(project.id)
-    var storedProject = winMuxWorkspaceState.projectsById[project.id].orDie()
-    storedProject.workspaceOrder = [workspace.id]
-    winMuxWorkspaceState.projectsById[project.id] = storedProject
+    let folderId = WorkspaceFolderId(project.id)
+    var storedFolder = winMuxWorkspaceState.workspaceFoldersById[folderId].orDie()
+    storedFolder.workspaceOrder = [workspace.id]
+    winMuxWorkspaceState.workspaceFoldersById[folderId] = storedFolder
     setWorkspaceSidebarFolderExpanded(project.id, isExpanded: true)
     checkWorkspaceHierarchyInvariants()
     return project.id
@@ -546,34 +566,44 @@ func createSidebarFolderFromWorkspace(_ workspaceName: String) -> WorkspaceProje
 @MainActor
 private func createWorkspaceSidebarFolderProject() -> WorkspaceProject {
     materializePersistedWorkspaceProjects()
-    let identity = winMuxWorkspaceState.nextGeneratedProjectIdentity()
-    let order = winMuxWorkspaceState.nextProjectOrder()
-    let project = WorkspaceProject(id: identity.id, name: identity.name, order: order)
-    winMuxWorkspaceState.registerProject(project)
+    let identity = winMuxWorkspaceState.nextGeneratedFolderIdentity()
+    let order = winMuxWorkspaceState.nextFolderOrder()
+    let folder = WorkspaceFolder(id: identity.id, name: identity.name, order: order)
+    winMuxWorkspaceState.registerFolder(folder)
+    let project = WorkspaceProject(
+        id: folder.id.backingProjectId,
+        name: folder.name,
+        order: folder.order,
+        workspaceOrder: folder.workspaceOrder,
+        linkedViewportIds: folder.linkedViewportIds,
+    )
     moveWorkspaceSidebarFolderProjectToTop(project.id)
-    return winMuxWorkspaceState.projectsById[project.id] ?? project
+    return project
 }
 
 @MainActor
 private func moveWorkspaceSidebarFolderProjectToTop(_ projectId: WorkspaceProjectId) {
-    let orderedProjectIds = winMuxWorkspaceState.projectsById.values
-        .filter { $0.id != workspaceProjectDefaultId }
-        .sorted(by: workspaceProjectOrderPrecedes)
+    winMuxWorkspaceState.normalizeDefaultProjectFolderOrder()
+    let orderedFolderIds = workspaceFoldersInSidebarOrder()
+        .filter { $0.id != workspaceFolderDefaultId }
         .map(\.id)
-    guard orderedProjectIds.first != projectId,
-          orderedProjectIds.contains(projectId)
+    let folderId = WorkspaceFolderId(projectId)
+    guard orderedFolderIds.first != folderId,
+          orderedFolderIds.contains(folderId)
     else { return }
 
-    let reorderedProjectIds = [projectId] + orderedProjectIds.filter { $0 != projectId }
-    for (offset, projectId) in reorderedProjectIds.enumerated() {
-        guard let project = winMuxWorkspaceState.projectsById[projectId] else { continue }
-        winMuxWorkspaceState.projectsById[projectId] = WorkspaceProject(
-            id: project.id,
-            name: project.name,
-            order: offset + 1,
-            workspaceOrder: project.workspaceOrder,
-            linkedViewportIds: project.linkedViewportIds
-        )
+    let reorderedFolderIds = [folderId] + orderedFolderIds.filter { $0 != folderId }
+    for (offset, folderId) in reorderedFolderIds.enumerated() {
+        guard var folder = winMuxWorkspaceState.workspaceFoldersById[folderId] else { continue }
+        folder.order = offset + 1
+        winMuxWorkspaceState.workspaceFoldersById[folderId] = folder
+    }
+    if var project = winMuxWorkspaceState.projectsById[workspaceProjectDefaultId] {
+        project.folderOrder = reorderedFolderIds
+        if winMuxWorkspaceState.workspaceFoldersById[workspaceFolderDefaultId] != nil {
+            project.folderOrder.append(workspaceFolderDefaultId)
+        }
+        winMuxWorkspaceState.projectsById[workspaceProjectDefaultId] = project
     }
 }
 
@@ -662,15 +692,14 @@ func deleteWorkspaceFromSidebar(_ workspace: WorkspaceSidebarWorkspaceViewModel)
 
 @MainActor
 func reorderWorkspaceFromSidebar(_ workspaceName: String, projectId: WorkspaceProjectId, placement: WorkspaceReorderPlacement) {
-    runWorkspaceSidebarSession {
-        let didReorder = reorderWorkspaceForSidebar(
-            sourceWorkspaceName: workspaceName,
-            projectId: projectId,
-            placement: placement
-        )
-        guard didReorder else { return }
-        await updateWorkspaceSidebarModel()
-    }
+    guard RunSessionGuard.isServerEnabled != nil else { return }
+    let didReorder = reorderWorkspaceForSidebar(
+        sourceWorkspaceName: workspaceName,
+        projectId: projectId,
+        placement: placement
+    )
+    guard didReorder else { return }
+    runWorkspaceSidebarPostMutationSession()
 }
 
 @MainActor
@@ -678,10 +707,9 @@ func moveWorkspaceToFolderFromSidebar(
     _ workspaceName: String,
     projectId: WorkspaceProjectId
 ) {
-    runWorkspaceSidebarSession {
-        guard moveWorkspaceToSidebarFolder(workspaceName, projectId: projectId) else { return }
-        await updateWorkspaceSidebarModel()
-    }
+    guard RunSessionGuard.isServerEnabled != nil else { return }
+    guard moveWorkspaceToSidebarFolder(workspaceName, projectId: projectId) else { return }
+    runWorkspaceSidebarPostMutationSession()
 }
 
 @MainActor
@@ -743,9 +771,10 @@ func createSidebarFolderFromWorkspaces(
     for workspace in orderedFolderWorkspaces {
         workspace.assignProject(project.id)
     }
-    var storedProject = winMuxWorkspaceState.projectsById[project.id].orDie()
-    storedProject.workspaceOrder = orderedFolderWorkspaces.map(\.id)
-    winMuxWorkspaceState.projectsById[project.id] = storedProject
+    let folderId = WorkspaceFolderId(project.id)
+    var storedFolder = winMuxWorkspaceState.workspaceFoldersById[folderId].orDie()
+    storedFolder.workspaceOrder = orderedFolderWorkspaces.map(\.id)
+    winMuxWorkspaceState.workspaceFoldersById[folderId] = storedFolder
     setWorkspaceSidebarFolderExpanded(project.id, isExpanded: true)
     checkWorkspaceHierarchyInvariants()
     return true
@@ -758,15 +787,16 @@ func moveWorkspaceToSidebarFolder(
     projectId: WorkspaceProjectId
 ) -> Bool {
     materializePersistedWorkspaceProjects()
-    guard var project = winMuxWorkspaceState.projectsById[projectId],
+    let folderId = WorkspaceFolderId(projectId)
+    guard var folder = winMuxWorkspaceState.workspaceFoldersById[folderId],
           let workspace = Workspace.existing(byName: workspaceName),
           workspace.projectId != projectId,
           !workspace.isArchived
     else { return false }
     workspace.assignProject(projectId)
-    project.workspaceOrder.removeAll { $0 == workspace.id }
-    project.workspaceOrder.append(workspace.id)
-    winMuxWorkspaceState.projectsById[projectId] = project
+    folder.workspaceOrder.removeAll { $0 == workspace.id }
+    folder.workspaceOrder.append(workspace.id)
+    winMuxWorkspaceState.workspaceFoldersById[folderId] = folder
     if projectId != workspaceProjectDefaultId {
         setWorkspaceSidebarFolderExpanded(projectId, isExpanded: true)
     }
@@ -851,9 +881,6 @@ func mergeWorkspaceTab(
         _ = setFocus(to: targetWorkspace.toLiveFocus())
     }
     _ = targetWorkspace.focusWorkspace()
-    if !projectsAreEnabled(), targetWorkspace.projectId != workspaceProjectDefaultId {
-        targetWorkspace.assignProject(workspaceProjectDefaultId)
-    }
     removeWorkspaceFromRegistry(sourceWorkspace)
     checkWorkspaceHierarchyInvariants()
     return true

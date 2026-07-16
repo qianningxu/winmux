@@ -28,21 +28,23 @@ func parseProjectCmdArgs(_ args: StrArrSlice) -> ParsedCmd<ProjectCmdArgs> {
 }
 
 public enum ProjectTarget: Equatable, Sendable {
+    case defaultFolder
     case relative(NextPrev)
     case index(Int)
 
     public var isRelative: Bool {
         switch self {
             case .relative: true
-            case .index: false
+            case .defaultFolder, .index: false
         }
     }
 }
 
-let projectTargetPlaceholder = "(folder-index|next|prev)"
+let projectTargetPlaceholder = "(folder-index|default|unfolded|next|prev)"
 
 func parseProjectTarget(i: PosArgParserInput) -> ParsedCliArgs<ProjectTarget> {
     switch i.arg {
+        case "default", "unfolded", "Unfolded": return ParsedCliArgs<ProjectTarget>.succ(.defaultFolder, advanceBy: 1)
         case "next": return ParsedCliArgs<ProjectTarget>.succ(.relative(.next), advanceBy: 1)
         case "prev": return ParsedCliArgs<ProjectTarget>.succ(.relative(.prev), advanceBy: 1)
         default:

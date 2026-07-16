@@ -89,7 +89,7 @@ final class ListWorkspacesTest: XCTestCase {
     }
 
     @MainActor
-    func testListTabsDefaultJsonIsTabFirstAndKeepsLegacyWorkspaceKey() async throws {
+    func testListTabsDefaultJsonUsesTabOnly() async throws {
         setUpWorkspacesForTests()
         let workspace = Workspace.get(byName: "10")
         workspace.markAsAutomaticallyNamed()
@@ -103,9 +103,10 @@ final class ListWorkspacesTest: XCTestCase {
         let objects = try JSONSerialization.jsonObject(
             with: Data(io.stdout.joined(separator: "\n").utf8)
         ) as? [[String: Any]]
-        let tab = try XCTUnwrap(objects?.first { ($0["workspace"] as? String) == "10" })
+        let tab = try XCTUnwrap(objects?.first { ($0["tab"] as? String) == "Tab 1" })
         XCTAssertEqual(tab["tab"] as? String, "Tab 1")
-        XCTAssertEqual(tab["workspace"] as? String, "10")
+        XCTAssertNil(tab["workspace"])
+        XCTAssertEqual(Set(tab.keys), ["tab"])
     }
 
     @MainActor

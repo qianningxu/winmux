@@ -112,6 +112,7 @@ func initSubcommands() -> [String: any SubCommandParserProtocol] {
                 result[kind.rawValue] = SubCommandParser(parseMoveNodeToMonitorCmdArgs)
             case .moveNodeToProject:
                 result[kind.rawValue] = SubCommandParser(parseMoveNodeToProjectCmdArgs)
+                result["move-node-to-folder"] = SubCommandParser(parseMoveNodeToProjectCmdArgs)
             case .moveNodeToWorkspace:
                 result[kind.rawValue] = SubCommandParser(parseMoveNodeToWorkspaceCmdArgs)
                 result["move-node-to-tab"] = SubCommandParser(parseMoveNodeToWorkspaceCmdArgs)

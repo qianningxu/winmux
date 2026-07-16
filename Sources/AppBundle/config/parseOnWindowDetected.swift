@@ -45,7 +45,7 @@ struct WindowDetectedCallbackMatcher: ConvenienceCopyable, Equatable {
             resultParts.append("windowTitleRegexSubstring=Regex")
         }
         if let workspace {
-            resultParts.append("workspace=\"\(workspace)\"")
+            resultParts.append("tab=\"\(workspace)\"")
         }
         if let duringWinMuxStartup {
             resultParts.append("duringWinMuxStartup=\(duringWinMuxStartup)")
@@ -60,7 +60,9 @@ struct WindowDetectedCallbackMatcher: ConvenienceCopyable, Equatable {
                 rhs.appNameRegexSubstring == nil &&
                 rhs.windowTitleRegexSubstring == nil,
         )
-        return lhs.appId == rhs.appId
+        return lhs.appId == rhs.appId &&
+            lhs.workspace == rhs.workspace &&
+            lhs.duringWinMuxStartup == rhs.duringWinMuxStartup
     }
 }
 
@@ -72,6 +74,7 @@ private let windowDetectedParser: [String: any ParserProtocol<WindowDetectedCall
 
 private let matcherParsers: [String: any ParserProtocol<WindowDetectedCallbackMatcher>] = [
     "app-id": Parser(\.appId, upcast(parseString)),
+    "tab": Parser(\.workspace, upcast(parseString)),
     "workspace": Parser(\.workspace, upcast(parseString)),
     "app-name-regex-substring": Parser(\.appNameRegexSubstring, upcast(parseCasInsensitiveRegex)),
     "window-title-regex-substring": Parser(\.windowTitleRegexSubstring, upcast(parseCasInsensitiveRegex)),

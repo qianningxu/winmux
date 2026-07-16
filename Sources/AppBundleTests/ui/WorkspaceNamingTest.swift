@@ -148,9 +148,9 @@ final class WorkspaceNamingTest: XCTestCase {
         second.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 212, parent: second.rootTilingContainer)
 
-        var project = winMuxWorkspaceState.projectsById[first.projectId].orDie()
-        project.workspaceOrder = [first.id]
-        winMuxWorkspaceState.projectsById[first.projectId] = project
+        var folder = winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(first.projectId)].orDie()
+        folder.workspaceOrder = [first.id]
+        winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(first.projectId)] = folder
 
         Workspace.reconcileWorkspaceState()
 
@@ -484,7 +484,7 @@ final class WorkspaceNamingTest: XCTestCase {
         XCTAssertNil(config.workspaceSidebar.projectColors[project.id.rawValue])
     }
 
-    func testCreatedProjectPersistsIdentityAndDeleteRemovesPersistedIdentity() throws {
+    func testCreatedFolderPersistsIdentityAndDeleteRemovesPersistedIdentity() throws {
         let project = createWorkspaceProject()
 
         XCTAssertEqual(config.workspaceSidebar.projectLabels[project.id.rawValue], project.id.rawValue)
@@ -496,35 +496,35 @@ final class WorkspaceNamingTest: XCTestCase {
         XCTAssertNil(config.workspaceSidebar.projectLabels[project.id.rawValue])
         XCTAssertNil(config.workspaceSidebar.projectColors[project.id.rawValue])
         XCTAssertFalse(workspaceProjects().contains { $0.id == project.id })
-        XCTAssertNil(winMuxWorkspaceState.projectsById[WorkspaceProjectId("Work")])
+        XCTAssertNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId("Work")])
     }
 
-    func testPersistedLegacyProjectLabelStaysHiddenButIsPreservedWhenProjectsAreDisabled() {
+    func testPersistedFolderLabelMaterializesAsSwitchableFolderWhenProjectsAreDisabled() {
         config.workspaceSidebar.projectLabels["project-7"] = "Research"
 
         let projects = workspaceProjects()
 
-        XCTAssertEqual(projects.map(\.id), [workspaceProjectDefaultId])
-        XCTAssertNil(winMuxWorkspaceState.projectsById["project-7"])
+        XCTAssertEqual(projects.map(\.id), [WorkspaceProjectId("project-7"), workspaceProjectDefaultId])
+        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId("project-7")])
         XCTAssertEqual(config.workspaceSidebar.projectLabels["project-7"], "Research")
-        XCTAssertFalse(canDeleteWorkspaceProject("project-7"))
+        XCTAssertTrue(canDeleteWorkspaceProject("project-7"))
     }
 
-    func testPersistedLegacyProjectDoesNotMaterializeEmptyFolderButKeepsMetadataWhenProjectsAreDisabled() {
+    func testPersistedFolderLabelMaterializesWithoutCreatingWorkspaceWhenProjectsAreDisabled() {
         let originalFocus = focus.workspace
         let projectId = WorkspaceProjectId("project-empty")
-        config.workspaceSidebar.projectLabels[projectId.rawValue] = "Empty Project"
+        config.workspaceSidebar.projectLabels[projectId.rawValue] = "Empty Folder"
 
         _ = workspaceProjects()
 
         let projectWorkspaces = Workspace.all.filter { $0.projectId == projectId }
         XCTAssertEqual(projectWorkspaces.count, 0)
-        XCTAssertNil(winMuxWorkspaceState.projectsById[projectId])
-        XCTAssertEqual(config.workspaceSidebar.projectLabels[projectId.rawValue], "Empty Project")
+        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(projectId)])
+        XCTAssertEqual(config.workspaceSidebar.projectLabels[projectId.rawValue], "Empty Folder")
         XCTAssertEqual(focus.workspace, originalFocus)
     }
 
-    func testCreatedEmptyTabGroupDissolvesWhenQueriedForSidebarPresentation() {
+    func testCreatedEmptySidebarFolderPersistsWhenQueriedForSidebarPresentation() {
         let originalFocus = focus.workspace
 
         let project = createWorkspaceProject()
@@ -534,8 +534,8 @@ final class WorkspaceNamingTest: XCTestCase {
         _ = workspaceProjects()
 
         let projectWorkspaces = Workspace.all.filter { $0.projectId == project.id }
-        XCTAssertEqual(projectWorkspaces.count, 0)
-        XCTAssertNil(winMuxWorkspaceState.projectsById[project.id])
+        XCTAssertEqual(projectWorkspaces.count, 1)
+        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(project.id)])
         XCTAssertEqual(focus.workspace, originalFocus)
     }
 
@@ -601,23 +601,23 @@ final class WorkspaceNamingTest: XCTestCase {
         let first = createWorkspaceProject()
         let second = createWorkspaceProject()
 
-        XCTAssertEqual(workspaceProjectFallbackForDeletion(excluding: first.id), workspaceProjectDefaultId)
+        XCTAssertEqual(workspaceProjectFallbackForDeletion(excluding: first.id), second.id)
         XCTAssertEqual(workspaceProjectFallbackForDeletion(excluding: second.id), workspaceProjectDefaultId)
     }
 
-    func testDeletingActiveProjectKeepsDefaultProjectActiveWhenProjectsAreHardDisabled() throws {
+    func testDeletingActiveFolderActivatesNextSidebarFolderWhenProjectsAreHardDisabled() throws {
         let first = createWorkspaceProject()
         let second = createWorkspaceProject()
         XCTAssertNotNil(switchWorkspaceProject(first.id, on: mainMonitor))
 
         try deleteWorkspaceProject(first.id)
 
-        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), workspaceProjectDefaultId)
+        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), second.id)
         XCTAssertFalse(workspaceProjects().contains { $0.id == first.id })
-        XCTAssertFalse(workspaceProjects().contains { $0.id == second.id })
+        XCTAssertTrue(workspaceProjects().contains { $0.id == second.id })
     }
 
-    func testProjectSwitchUsesDefaultActiveProjectOnMultipleDisplaysWhenHardDisabled() {
+    func testFolderSwitchTracksActiveFolderOnMultipleDisplaysWhenProjectsAreHardDisabled() {
         let main = WorkspaceNamingTestMonitor(
             monitorAppKitNsScreenScreensId: 1,
             name: "Left",
@@ -641,8 +641,8 @@ final class WorkspaceNamingTest: XCTestCase {
         XCTAssertNotNil(mainWorkspace)
         XCTAssertNotNil(secondaryWorkspace)
         XCTAssertFalse(mainWorkspace === secondaryWorkspace)
-        XCTAssertEqual(activeWorkspaceProjectId(for: main), workspaceProjectDefaultId)
-        XCTAssertEqual(activeWorkspaceProjectId(for: secondary), workspaceProjectDefaultId)
+        XCTAssertEqual(activeWorkspaceProjectId(for: main), project.id)
+        XCTAssertEqual(activeWorkspaceProjectId(for: secondary), project.id)
         XCTAssertEqual(main.activeWorkspace.projectId, project.id)
         XCTAssertEqual(secondary.activeWorkspace.projectId, project.id)
         XCTAssertFalse(main.activeWorkspace === secondary.activeWorkspace)

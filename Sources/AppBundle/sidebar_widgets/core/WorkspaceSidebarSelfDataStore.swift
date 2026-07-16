@@ -21,6 +21,13 @@ struct SidebarSelfDataSpendingTransaction: Sendable {
     let amount: Double
 }
 
+struct SidebarSelfDataPeriod: Sendable {
+    let id: Int64
+    let name: String
+    let from: Date
+    let to: Date
+}
+
 enum SidebarSelfDataStore {
     static func sqliteURL(for source: URL) -> URL? {
         if source.pathExtension == "sqlite", FileManager.default.fileExists(atPath: source.path) {
@@ -103,6 +110,29 @@ enum SidebarSelfDataStore {
         }
     }
 
+    static func loadCurrentPeriod(from sqliteURL: URL, now: Date) -> SidebarSelfDataPeriod? {
+        guard let periods = withDatabase(sqliteURL, { database in
+            query(
+                database,
+                sql: """
+                    select id, name, "from", "to"
+                    from period
+                    order by "from" desc
+                    """,
+            ) { statement in
+                periodColumn(statement, now: now)
+            }
+        }) else {
+            return nil
+        }
+        let today = Calendar.current.startOfDay(for: now)
+        return periods.first { period in
+            period.from <= today && period.to >= today
+        } ?? periods.min { lhs, rhs in
+            abs(lhs.from.timeIntervalSince(today)) < abs(rhs.from.timeIntervalSince(today))
+        }
+    }
+
     private static func withDatabase<T>(_ url: URL, _ body: (OpaquePointer) -> T?) -> T? {
         var database: OpaquePointer?
         guard sqlite3_open_v2(url.path, &database, SQLITE_OPEN_READONLY, nil) == SQLITE_OK,
@@ -161,6 +191,23 @@ enum SidebarSelfDataStore {
             return nil
         }
         return (fileDate, sessionNumber)
+    }
+
+    private static func periodColumn(_ statement: OpaquePointer, now _: Date) -> SidebarSelfDataPeriod? {
+        guard let name = textColumn(statement, 1),
+              let fromRaw = textColumn(statement, 2),
+              let toRaw = textColumn(statement, 3),
+              let from = makeLocalDateFormatter().date(from: fromRaw),
+              let to = makeLocalDateFormatter().date(from: toRaw)
+        else {
+            return nil
+        }
+        return SidebarSelfDataPeriod(
+            id: sqlite3_column_int64(statement, 0),
+            name: name,
+            from: from,
+            to: to,
+        )
     }
 
     private static func makeUTCDateFormatter() -> ISO8601DateFormatter {

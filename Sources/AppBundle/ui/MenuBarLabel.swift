@@ -1,5 +1,6 @@
 import Common
 import Foundation
+import AppKit
 import SwiftUI
 
 @MainActor
@@ -25,45 +26,67 @@ struct MenuBarLabel: View {
 
     var body: some View {
         if #available(macOS 14, *) { // https://github.com/nikitabobko/WinMux/issues/1122
-            let renderer = ImageRenderer(content: menuBarContent)
-            if let cgImage = renderer.cgImage {
-                // Using scale: 1 results in a blurry image for unknown reasons
-                Image(cgImage, scale: 2, label: Text(viewModel.trayText))
+            if let image = renderedMenuBarImage() {
+                Image(nsImage: image)
+                    .accessibilityLabel(Text(viewModel.trayText.isEmpty ? "WinMux" : viewModel.trayText))
             } else {
-                // In case image can't be rendered fallback to plain text
-                Text(viewModel.trayText)
+                fallbackMenuBarContent
             }
         } else { // macOS 13 and lower
-            Text(viewModel.trayText)
+            fallbackMenuBarContent
         }
+    }
+
+    private func renderedMenuBarImage() -> NSImage? {
+        let renderer = ImageRenderer(content: menuBarContent)
+        guard let cgImage = renderer.cgImage else { return nil }
+        // Using scale: 1 results in a blurry image for unknown reasons.
+        let image = NSImage(cgImage: cgImage, size: NSSize(width: CGFloat(cgImage.width) / 2, height: CGFloat(cgImage.height) / 2))
+        // Default menu bar labels must be template images so macOS can tint them for light/dark menu bars.
+        image.isTemplate = color == nil
+        return image
     }
 
     var menuBarContent: some View {
         return HStack(spacing: hStackSpacing) {
             let style = style ?? viewModel.experimentalUISettings.displayStyle
-            switch style {
-                case .monospacedText: getText(for: .monospaced)
-                case .systemText: getText(for: .default)
-                case .squares:
-                    if viewModel.trayItems.isEmpty {
-                        appIndicator
-                    } else {
-                        squares
-                    }
-                case .i3:
-                    if viewModel.trayItems.isEmpty {
-                        appIndicator
-                    } else {
-                        squares
-                    }
-                case .i3Ordered:
-                    let modeItem = viewModel.trayItems.first { $0.type == .mode }
-                    if let modeItem {
-                        itemView(for: modeItem)
-                    } else {
-                        appIndicator
-                    }
+            if menuBarLabelShouldUseAppIndicator(trayText: viewModel.trayText, trayItems: viewModel.trayItems) {
+                appIndicator
+            } else {
+                switch style {
+                    case .monospacedText: getText(for: .monospaced)
+                    case .systemText: getText(for: .default)
+                    case .squares:
+                        if viewModel.trayItems.isEmpty {
+                            appIndicator
+                        } else {
+                            squares
+                        }
+                    case .i3:
+                        if viewModel.trayItems.isEmpty {
+                            appIndicator
+                        } else {
+                            squares
+                        }
+                    case .i3Ordered:
+                        let modeItem = viewModel.trayItems.first { $0.type == .mode }
+                        if let modeItem {
+                            itemView(for: modeItem)
+                        } else {
+                            appIndicator
+                        }
+                }
             }
+        }
+        .fixedSize()
+    }
+
+    @ViewBuilder
+    private var fallbackMenuBarContent: some View {
+        if menuBarLabelShouldUseAppIndicator(trayText: viewModel.trayText, trayItems: viewModel.trayItems) {
+            appIndicator
+        } else {
+            getText(for: .default)
         }
     }
 
@@ -83,10 +106,9 @@ struct MenuBarLabel: View {
     }
 
     private var appIndicator: some View {
-        Text("A")
-            .font(.system(.largeTitle, design: .monospaced))
-            .foregroundStyle(finalColor)
-            .bold()
+        WinMuxMenuBarMark(color: finalColor)
+        .frame(width: itemSize, height: itemSize)
+        .accessibilityLabel("WinMux")
     }
 
     private func otherWorkspaces(with otherWorkspaces: [WorkspaceViewModel]) -> some View {
@@ -178,8 +200,44 @@ struct MenuBarLabel: View {
     }
 }
 
+func menuBarLabelShouldUseAppIndicator(trayText: String, trayItems: [TrayItem]) -> Bool {
+    trayText.isEmpty && trayItems.isEmpty
+}
+
 extension String {
     fileprivate func containsEmoji() -> Bool {
         unicodeScalars.contains { $0.properties.isEmoji && $0.properties.isEmojiPresentation }
+    }
+}
+
+private struct WinMuxMenuBarMark: View {
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geometry in
+            let side = min(geometry.size.width, geometry.size.height)
+            let lineWidth = max(1.8, side * 0.055)
+            ZStack {
+                menuBarWindow(width: side * 0.48, height: side * 0.28, lineWidth: lineWidth)
+                    .rotationEffect(.degrees(-10))
+                    .offset(x: -side * 0.04, y: -side * 0.11)
+                menuBarWindow(width: side * 0.34, height: side * 0.38, lineWidth: lineWidth)
+                    .rotationEffect(.degrees(12))
+                    .offset(x: side * 0.18, y: -side * 0.03)
+                menuBarWindow(width: side * 0.50, height: side * 0.30, lineWidth: lineWidth)
+                    .rotationEffect(.degrees(8))
+                    .offset(x: -side * 0.10, y: side * 0.16)
+                menuBarWindow(width: side * 0.30, height: side * 0.30, lineWidth: lineWidth)
+                    .rotationEffect(.degrees(-8))
+                    .offset(x: side * 0.20, y: side * 0.18)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+        }
+    }
+
+    private func menuBarWindow(width: CGFloat, height: CGFloat, lineWidth: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: min(width, height) * 0.23, style: .continuous)
+            .stroke(color, lineWidth: lineWidth)
+            .frame(width: width, height: height)
     }
 }

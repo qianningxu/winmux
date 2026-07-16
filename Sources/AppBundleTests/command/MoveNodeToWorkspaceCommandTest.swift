@@ -9,6 +9,7 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
     func testParse() {
         testParseCommandSucc("move-node-to-workspace next", MoveNodeToWorkspaceCmdArgs(target: .relative(.next)))
         testParseCommandSucc("move-node-to-tab next", MoveNodeToWorkspaceCmdArgs(target: .relative(.next)))
+        testParseCommandSucc("move-node-to-tab new", MoveNodeToWorkspaceCmdArgs(target: .fresh))
         assertEquals(parseCommand("move-node-to-workspace --fail-if-noop next").errorOrNil, "--fail-if-noop is incompatible with (next|prev)")
         assertEquals(parseCommand("move-node-to-workspace --stdin foo").errorOrNil, "--stdin and --no-stdin require using (next|prev) argument")
         testParseCommandSucc("move-node-to-workspace --stdin next", MoveNodeToWorkspaceCmdArgs(target: .relative(.next)).copy(\.explicitStdinFlag, true))
@@ -114,17 +115,17 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
         XCTAssertEqual(forced.workspaceMonitor.rect.topLeftCorner, secondary.rect.topLeftCorner)
     }
 
-    func testNewWorkspaceUsesDefaultProjectWhenProjectsAreHardDisabled() async throws {
+    func testNewWorkspaceUsesCurrentFolderWhenProjectsAreHardDisabled() async throws {
         let project = createWorkspaceProject()
         let sourceWorkspace = try XCTUnwrap(switchWorkspaceProject(project.id, on: mainMonitor))
         _ = TestWindow.new(id: 1, parent: sourceWorkspace.rootTilingContainer).focusWindow()
 
         try await MoveNodeToWorkspaceCommand(args: MoveNodeToWorkspaceCmdArgs(workspace: "b")).run(.defaultEnv, .emptyStdin)
 
-        XCTAssertEqual(Workspace.get(byName: "b").projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(Workspace.get(byName: "b").projectId, project.id)
     }
 
-    func testNewWorkspaceUsesDefaultProjectWhenProjectsDisabled() async throws {
+    func testNewWorkspaceUsesCurrentFolderWhenProjectsDisabled() async throws {
         let project = createWorkspaceProject()
         let sourceWorkspace = try XCTUnwrap(switchWorkspaceProject(project.id, on: mainMonitor))
         _ = TestWindow.new(id: 2, parent: sourceWorkspace.rootTilingContainer).focusWindow()
@@ -132,7 +133,7 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
 
         try await MoveNodeToWorkspaceCommand(args: MoveNodeToWorkspaceCmdArgs(workspace: "b")).run(.defaultEnv, .emptyStdin)
 
-        XCTAssertEqual(Workspace.get(byName: "b").projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(Workspace.get(byName: "b").projectId, project.id)
     }
 
     func testDirectNumericMoveCreatesOnlyAdjacentWorkspace() async throws {
@@ -149,7 +150,7 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
         XCTAssertEqual(workspaceDisplayName("2"), "Tab 2")
     }
 
-    func testDirectNumericMoveFromGroupedTabCreatesDefaultFlatTab() async throws {
+    func testDirectNumericMoveFromFolderedTabCreatesTabInSameFolder() async throws {
         let defaultWorkspace = Workspace.get(byName: "1")
         defaultWorkspace.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 21, parent: defaultWorkspace.rootTilingContainer)
@@ -166,7 +167,7 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
             .run(.defaultEnv, .emptyStdin)
 
         assertEquals(result.exitCode, 0)
-        XCTAssertEqual(window.nodeWorkspace?.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(window.nodeWorkspace?.projectId, groupProject.id)
         XCTAssertEqual(workspaceDisplayName(window.nodeWorkspace?.name ?? ""), "Tab 2")
     }
 
@@ -287,6 +288,32 @@ final class MoveNodeToWorkspaceCommandTest: XCTestCase {
 
         assertEquals(result.exitCode, 0)
         XCTAssertEqual(window.nodeWorkspace?.name, "2")
+    }
+
+    func testFreshMoveAlwaysCreatesNewAdjacentWorkspaceInCurrentFolder() async throws {
+        let folder = createWorkspaceProject()
+        let first = projectWorkspaces(projectId: folder.id).first.orDie()
+        first.markAsAutomaticallyNamed()
+        let window = TestWindow.new(id: 15, parent: first.rootTilingContainer)
+        let second = Workspace.get(byName: "already-there")
+        second.markAsAutomaticallyNamed()
+        second.assignProject(folder.id)
+        second.seedMonitorIfNeeded(mainMonitor)
+        _ = TestWindow.new(id: 16, parent: second.rootTilingContainer)
+        _ = window.focusWindow()
+
+        let result = try await MoveNodeToWorkspaceCommand(args: MoveNodeToWorkspaceCmdArgs(target: .fresh))
+            .run(.defaultEnv, .emptyStdin)
+
+        assertEquals(result.exitCode, 0)
+        let freshWorkspace = try XCTUnwrap(window.nodeWorkspace)
+        XCTAssertEqual(freshWorkspace.projectId, folder.id)
+        XCTAssertNotEqual(freshWorkspace, first)
+        XCTAssertNotEqual(freshWorkspace, second)
+        XCTAssertEqual(
+            projectWorkspaces(projectId: folder.id).map(\.name),
+            [first.name, freshWorkspace.name, second.name],
+        )
     }
 
     func testMoveWindowToWorkspaceWrapsRootTabGroupInsteadOfTabbingIntoIt() async throws {

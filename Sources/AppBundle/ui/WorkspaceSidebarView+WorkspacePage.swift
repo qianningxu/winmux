@@ -54,10 +54,16 @@ extension WorkspaceSidebarView {
         showsCreateWorkspace: Bool = true,
         allowsActivation: Bool? = nil,
     ) -> some View {
-        let sections = folderSections(projectId: projectId, workspaces: workspaces)
-        let showsEmptyRootDropArea = projectId == workspaceProjectDefaultId &&
-            !sections.contains(where: \.isDefault) &&
-            isProjectReorderDropTarget(workspaceProjectDefaultId)
+        let allSections = folderSections(projectId: projectId, workspaces: workspaces)
+        let sections = workspaceSidebarIsCompact(expansionProgress: expansionProgress)
+            ? workspaceSidebarCompactFolderSections(
+                allSections,
+                currentProjectId: workspaceSidebarCurrentFolderProjectId(
+                    workspaces: workspaces,
+                    targetMonitorScopeId: snapshot.targetMonitorScopeId
+                )
+            )
+            : allSections
         return ScrollView {
             VStack(alignment: .leading, spacing: workspaceSidebarListItemSpacing) {
                 if showsPinnedActiveWorkspace,
@@ -76,45 +82,10 @@ extension WorkspaceSidebarView {
                         projectContextColor: projectColor(snapshot.activeProjectId)
                     )
                 }
-                if showsEmptyRootDropArea {
-                    WorkspaceSidebarProjectReorderDropArea(
-                        projectId: workspaceProjectDefaultId,
-                        isDropTarget: true,
-                        minimumHeight: workspaceSidebarTabRowHeight
-                    ) {
-                        VStack(alignment: .leading, spacing: workspaceSidebarListItemSpacing) {
-                            workspaceList(
-                                workspaces: [],
-                                projectId: workspaceProjectDefaultId,
-                                expansionProgress: expansionProgress,
-                                isInteractive: isInteractive,
-                                allowsActivation: allowsActivation,
-                                nestedContentIndent: 0
-                            )
-                        }
-                    }
-                }
                 ForEach(folderListEntries(sections: sections)) { entry in
                     switch entry {
                         case .folder(let section, _):
-                            if section.isDefault {
-                                WorkspaceSidebarProjectReorderDropArea(
-                                    projectId: workspaceProjectDefaultId,
-                                    isDropTarget: isProjectReorderDropTarget(workspaceProjectDefaultId),
-                                    minimumHeight: 0
-                                ) {
-                                    VStack(alignment: .leading, spacing: workspaceSidebarListItemSpacing) {
-                                        workspaceList(
-                                            workspaces: section.workspaces,
-                                            projectId: projectId,
-                                            expansionProgress: expansionProgress,
-                                            isInteractive: isInteractive,
-                                            allowsActivation: allowsActivation,
-                                            nestedContentIndent: 0
-                                        )
-                                    }
-                                }
-                            } else if expansionProgress >= workspaceSidebarRowsRevealProgress {
+                            if expansionProgress >= workspaceSidebarRowsRevealProgress {
                                 WorkspaceSidebarFolder(
                                     section: section,
                                     expansionProgress: expansionProgress,
@@ -197,10 +168,7 @@ extension WorkspaceSidebarView {
                         layout: snapshot.configuration,
                         emitsDropTarget: true,
                         onCreateWorkspace: {
-                            actions.send(.createWorkspace(
-                                projectId: projectId,
-                                monitorScopeId: createMonitorScopeId
-                            ))
+                            actions.send(.createFolder)
                         },
                         onDropPayload: { payload in
                             switch payload {
@@ -222,11 +190,18 @@ extension WorkspaceSidebarView {
                     )
                 }
             }
+            // Structural changes in a VStack do not reliably inherit a
+            // transaction through every nested folder on every SwiftUI frame.
+            // Bind the reorder animation at the list container so each stable
+            // tab ID visibly moves into the source gap / around the insertion
+            // slot instead of jumping after a dragged tab.
+            // Exact pointer/drop state changes at native event frequency. Only
+            // the paced visual slot should retarget the structural list spring.
+            .animation(workspaceSidebarWorkspaceReorderAnimation, value: workspaceReorderDrag?.target)
             .padding(.leading, leadingInset)
             .padding(.trailing, trailingInset)
             .padding(.top, topPadding)
             .padding(.bottom, workspaceSidebarMinimumTopPadding)
-            .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.88), value: workspaceReorderDrag?.target)
             .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.88), value: snapshot.dropPreview)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -405,6 +380,7 @@ extension WorkspaceSidebarView {
                 isInteractive: isInteractive
             ),
             isWorkspaceReorderSource: isWorkspaceReorderSource(workspace),
+            isWorkspaceReorderInProgress: workspaceReorderDrag != nil,
             onWorkspaceReorderDragChanged: { pointer in
                 updateWorkspaceReorderDrag(workspace: workspace, projectId: workspace.projectId, pointer: pointer)
             },

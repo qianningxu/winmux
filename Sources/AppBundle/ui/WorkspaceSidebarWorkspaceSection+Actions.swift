@@ -17,6 +17,21 @@ extension WorkspaceSidebarWorkspaceSection {
         }
     }
 
+    func handleComposedHeaderTabClick(_ tab: WorkspaceSidebarWindowViewModel) {
+        guard allowsWorkspaceActivation else { return }
+        guard shouldHandleWorkspaceSidebarActivation(
+            isEditing: false,
+            isSidebarDragInProgress: isWorkspaceSidebarDragInProgress()
+        ) else { return }
+        if isInUseOnOtherDisplay {
+            activeInUseOverrideWorkspaceName = workspace.name
+            return
+        }
+        activeInUseOverrideWorkspaceName = nil
+        onBeginWorkspaceActivation(workspace.name)
+        actions.send(.selectWindow(tab.windowId))
+    }
+
     func handlePayloadDrop(_ payload: WorkspaceSidebarDragPayload) {
         guard !workspaceSidebarPayload(payload, comesFromWorkspace: workspace.name) else {
             actions.send(.clearDropPreview)

@@ -141,7 +141,7 @@ private func normalizeSingleChildContainerAroundMigratedTab(
 @MainActor
 private func reorderMigratedWorkspaceTabs(_ workspaces: [Workspace], projectId: WorkspaceProjectId) {
     let workspaceIds = workspaces.map(\.id)
-    let anchor = winMuxWorkspaceState.projectsById[projectId]?.workspaceOrder.first {
+    let anchor = winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(projectId)]?.workspaceOrder.first {
         !workspaceIds.contains($0)
     }
     winMuxWorkspaceState.reorderWorkspaces(workspaceIds, inProject: projectId, before: anchor)

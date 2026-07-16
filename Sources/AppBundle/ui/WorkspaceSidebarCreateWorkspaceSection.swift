@@ -94,7 +94,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
                         Image(systemName: "plus")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(palette.mutedForeground(0.80))
-                        Text("New Tab")
+                        Text("New Folder")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(palette.mutedForeground(0.86))
                             .lineLimit(1)
@@ -123,5 +123,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help("New Folder")
+        .accessibilityLabel("New Folder")
     }
 }

@@ -7,14 +7,18 @@ import SwiftUI
 @MainActor
 final class WinMuxAppDelegate: NSObject, NSApplicationDelegate {
     private var isTerminating = false
+    private var terminationCoordinator: TerminationPreparationCoordinator?
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard !isTerminating else { return .terminateNow }
         isTerminating = true
-        Task { @MainActor in
-            await prepareAppBundleForTerminationIfNeeded()
-            sender.reply(toApplicationShouldTerminate: true)
+        terminationCoordinator = TerminationPreparationCoordinator { [weak self] shouldTerminate in
+            sender.reply(toApplicationShouldTerminate: shouldTerminate)
+            if shouldTerminate {
+                self?.terminationCoordinator = nil
+            }
         }
+        terminationCoordinator?.start()
         return .terminateLater
     }
 }

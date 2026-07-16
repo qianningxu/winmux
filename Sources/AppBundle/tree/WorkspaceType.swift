@@ -6,7 +6,8 @@ final class Workspace: TreeNode, NonLeafTreeNodeObject, Hashable, Comparable {
     private(set) var name: String
     nonisolated private var nameLogicalSegments: StringLogicalSegments
     private(set) var namingStyle: WorkspaceNamingStyle = .explicit
-    var projectId: WorkspaceProjectId = workspaceProjectDefaultId
+    private(set) var folderId: WorkspaceFolderId = workspaceFolderDefaultId
+    var projectId: WorkspaceProjectId { folderId.backingProjectId }
     var preferredMonitorPoint: CGPoint?
     var lifecycle: WorkspaceLifecycle = .durable
 
@@ -53,6 +54,7 @@ final class Workspace: TreeNode, NonLeafTreeNodeObject, Hashable, Comparable {
         let description = [
             ("id", id.rawValue),
             ("name", name),
+            ("folderId", folderId.rawValue),
             ("projectId", projectId.rawValue),
             ("lifecycle", lifecycle.rawValue),
             ("isVisible", String(isVisible)),
@@ -96,9 +98,19 @@ extension Workspace {
     }
 
     @MainActor
+    func assignFolder(_ folderId: WorkspaceFolderId) {
+        guard self.folderId != folderId else { return }
+        winMuxWorkspaceState.assignWorkspace(self, toFolder: folderId)
+    }
+
+    @MainActor
     func assignProject(_ projectId: WorkspaceProjectId) {
-        guard self.projectId != projectId else { return }
-        winMuxWorkspaceState.assignWorkspace(self, to: projectId)
+        assignFolder(WorkspaceFolderId(projectId))
+    }
+
+    @MainActor
+    func setFolderIdFromWorkspaceState(_ folderId: WorkspaceFolderId) {
+        self.folderId = folderId
     }
 
     @MainActor

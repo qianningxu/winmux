@@ -178,6 +178,112 @@ import XCTest
         )
     }
 
+    func testTabReorderTargetIndexMovesFirstTabToExplicitFinalInsertionSlot() {
+        let tabWidth: CGFloat = 96
+        let firstTabMinX: CGFloat = 5
+        let effectiveTabWidth = tabWidth + windowTabStripTabSpacing
+        let lastTabCenterX = firstTabMinX + CGFloat(3) * effectiveTabWidth + tabWidth / 2
+
+        XCTAssertEqual(
+            tabReorderTargetIndex(
+                pointerX: lastTabCenterX + 1,
+                firstTabMinX: firstTabMinX,
+                tabWidth: tabWidth,
+                tabCount: 4,
+                sourceIndex: 0,
+            ),
+            3
+        )
+        XCTAssertEqual(
+            tabReorderTargetIndex(
+                pointerX: lastTabCenterX + tabWidth,
+                firstTabMinX: firstTabMinX,
+                tabWidth: tabWidth,
+                tabCount: 4,
+                sourceIndex: 0,
+            ),
+            3
+        )
+    }
+
+    func testTabReorderTargetIndexUsesTabMidpointsInBothDirections() {
+        let tabWidth: CGFloat = 100
+        let firstTabMinX: CGFloat = 5
+        let effectiveTabWidth = tabWidth + windowTabStripTabSpacing
+        let firstTabCenterX = firstTabMinX + tabWidth / 2
+        let thirdTabCenterX = firstTabMinX + CGFloat(2) * effectiveTabWidth + tabWidth / 2
+
+        XCTAssertEqual(
+            tabReorderTargetIndex(
+                pointerX: firstTabCenterX - 1,
+                firstTabMinX: firstTabMinX,
+                tabWidth: tabWidth,
+                tabCount: 4,
+                sourceIndex: 3,
+            ),
+            0
+        )
+        XCTAssertEqual(
+            tabReorderTargetIndex(
+                pointerX: thirdTabCenterX - 1,
+                firstTabMinX: firstTabMinX,
+                tabWidth: tabWidth,
+                tabCount: 4,
+                sourceIndex: 0,
+            ),
+            1
+        )
+        XCTAssertEqual(
+            tabReorderTargetIndex(
+                pointerX: thirdTabCenterX + 1,
+                firstTabMinX: firstTabMinX,
+                tabWidth: tabWidth,
+                tabCount: 4,
+                sourceIndex: 0,
+            ),
+            2
+        )
+    }
+
+    func testTabReorderFrameTargetMovesSiblingsAroundDraggedTab() {
+        let order: [UInt32] = [10, 20, 30, 40]
+        let frames = Dictionary(uniqueKeysWithValues: order.enumerated().map { index, id in
+            (id, CGRect(x: CGFloat(index) * 106, y: 0, width: 100, height: 24))
+        })
+
+        XCTAssertEqual(
+            tabReorderTargetIndexForFrames(
+                pointerXInViewport: 370,
+                tabOrder: order,
+                tabFramesById: frames,
+                sourceIndex: 0,
+            ),
+            3
+        )
+        XCTAssertEqual(
+            tabReorderTargetIndexForFrames(
+                pointerXInViewport: 35,
+                tabOrder: order,
+                tabFramesById: frames,
+                sourceIndex: 3,
+            ),
+            0
+        )
+    }
+
+    func testWindowTabAutoScrollDirectionActivatesOnlyAtScrollableEdges() {
+        XCTAssertEqual(
+            windowTabAutoScrollDirection(pointerXInViewport: 27, viewportWidth: 180, isScrollable: true),
+            .leading
+        )
+        XCTAssertEqual(
+            windowTabAutoScrollDirection(pointerXInViewport: 152, viewportWidth: 180, isScrollable: true),
+            .trailing
+        )
+        XCTAssertNil(windowTabAutoScrollDirection(pointerXInViewport: 90, viewportWidth: 180, isScrollable: true))
+        XCTAssertNil(windowTabAutoScrollDirection(pointerXInViewport: 1, viewportWidth: 180, isScrollable: false))
+    }
+
     func testTabStripReentrySourceVisualOffsetTracksPointerSmoothly() {
         let stripRect = Rect(topLeftX: 100, topLeftY: 20, width: 420, height: 54)
         let middle = tabReentrySourceVisualOffset(

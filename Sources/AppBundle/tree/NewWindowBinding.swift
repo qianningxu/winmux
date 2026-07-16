@@ -39,12 +39,10 @@ func workspaceForNewTilingWindow(
     guard placement == .freshTabWhenTargetOccupied else { return workspace }
     guard !workspace.isEffectivelyEmpty else { return workspace }
 
-    let projectId = projectsAreEnabled() ? workspace.projectId : workspaceProjectDefaultId
-    let anchor = workspace.projectId == projectId ? workspace : nil
     let freshWorkspace = createFreshAdjacentBlankWorkspace(
-        projectId: projectId,
+        projectId: workspace.projectId,
         monitor: workspace.workspaceMonitor,
-        after: anchor
+        after: workspace
     )
     guard freshWorkspace.workspaceMonitor.setActiveWorkspace(freshWorkspace) else {
         return workspace

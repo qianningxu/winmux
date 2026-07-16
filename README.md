@@ -5,7 +5,7 @@
 
 # WinMux
 
-This is a fork of [ZimengXiong/winmux](https://github.com/ZimengXiong/winmux), used for experimenting with workspace preview switching and sidebar workflow improvements.
+This is a fork of [ZimengXiong/winmux](https://github.com/ZimengXiong/winmux), used for experimenting with sidebar workflow improvements.
 
 <p align="left">A powerful sidebar-first window manager for macOS.</p>
 
@@ -16,7 +16,7 @@ https://github.com/user-attachments/assets/51983568-a168-494f-8ae3-5f50ca1efce1
 Tabs are the top-level working views in WinMux. A tab can hold one window or a composed split layout with multiple windows.
 
 ### Sidebar
-The sidebar is a more interactively-performant and useful alternative to [Sketchybar](https://github.com/felixkratz/sketchybar) and traditional workspace menu bar dropdowns for most everyday tasks. It provides better visibility into spaces and spatial awareness on the desktop.
+The sidebar is a more interactively-performant and useful alternative to [Sketchybar](https://github.com/felixkratz/sketchybar) and traditional tab menu bar dropdowns for most everyday tasks. It provides better visibility into spaces and spatial awareness on the desktop.
 
 You can drag windows in and out of the sidebar from and to the current tab. You can rearrange windows across all tabs using the sidebar, including folders.
 
@@ -95,7 +95,7 @@ xattr -dr com.apple.quarantine /Applications/WinMux.app/
 Build and run this fork locally:
 
 ```bash
-make build VERSION=0.2.1-workspace-preview
+make build VERSION=0.2.1
 ./.debug/WinMuxApp --config-path ~/.config/winmux/winmux.toml
 ```
 

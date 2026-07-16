@@ -112,9 +112,9 @@ extension TreeNodeTest {
         let folder = createWorkspaceProject()
         first.assignProject(folder.id)
         second.assignProject(folder.id)
-        var storedFolder = winMuxWorkspaceState.projectsById[folder.id].orDie()
+        var storedFolder = winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(folder.id)].orDie()
         storedFolder.workspaceOrder = [second.id, first.id]
-        winMuxWorkspaceState.projectsById[folder.id] = storedFolder
+        winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(folder.id)] = storedFolder
         setWorkspaceSidebarFolderExpanded(folder.id, isExpanded: false)
 
         let frozenWorld = snapshotCurrentFrozenWorld()
@@ -122,6 +122,32 @@ extension TreeNodeTest {
 
         XCTAssertEqual(frozenFolder?.workspaceNames, ["second", "first"])
         XCTAssertTrue(frozenWorld.sidebar?.collapsedFolderIds.contains(folder.id) == true)
+    }
+
+    func testSnapshotCurrentFrozenWorldKeepsEmptySidebarFoldersForRestart() {
+        let workspace = Workspace.get(byName: "retained")
+        workspace.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 54, parent: workspace.rootTilingContainer)
+        let emptyFolder = createWorkspaceProject()
+
+        let frozenWorld = snapshotCurrentFrozenWorld()
+
+        XCTAssertTrue(frozenWorld.sidebar?.projects.contains(where: { $0.id == emptyFolder.id }) == true)
+    }
+
+    func testRestoreFrozenSidebarStateRestoresFolderWithoutMatchingWindowIds() {
+        let first = Workspace.get(byName: "first")
+        first.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 55, parent: first.rootTilingContainer)
+        let folder = createWorkspaceProject()
+        first.assignProject(folder.id)
+        let sidebar = FrozenSidebarState(restorableWorkspaces: [first])
+
+        first.assignProject(workspaceProjectDefaultId)
+        restoreFrozenSidebarState(sidebar, restoredWorkspaceNames: [first.name])
+
+        XCTAssertEqual(first.projectId, folder.id)
+        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(folder.id)])
     }
 
     func testSnapshotCurrentFrozenWorldCapturesSidebarRenamedTabsAndFolders() throws {
@@ -147,11 +173,12 @@ extension TreeNodeTest {
         second.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 62, parent: second.rootTilingContainer)
         let folder = createWorkspaceProject()
+        let retainedFolderTab = try XCTUnwrap(projectWorkspaces(projectId: folder.id).first)
         first.assignProject(folder.id)
         second.assignProject(folder.id)
-        var storedFolder = winMuxWorkspaceState.projectsById[folder.id].orDie()
+        var storedFolder = winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(folder.id)].orDie()
         storedFolder.workspaceOrder = [second.id, first.id]
-        winMuxWorkspaceState.projectsById[folder.id] = storedFolder
+        winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(folder.id)] = storedFolder
         setWorkspaceSidebarFolderExpanded(folder.id, isExpanded: false)
         let frozenWorld = snapshotCurrentFrozenWorld()
 
@@ -165,8 +192,8 @@ extension TreeNodeTest {
         XCTAssertEqual(first.projectId, folder.id)
         XCTAssertEqual(second.projectId, folder.id)
         XCTAssertEqual(
-            winMuxWorkspaceState.projectsById[folder.id]?.workspaceOrder,
-            [second.id, first.id],
+            winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(folder.id)]?.workspaceOrder,
+            [second.id, first.id, retainedFolderTab.id],
         )
         XCTAssertFalse(workspaceSidebarFolderIsExpanded(folder.id))
     }

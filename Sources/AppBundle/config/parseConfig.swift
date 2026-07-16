@@ -21,7 +21,15 @@ func readConfig(forceConfigUrl: URL? = nil) -> Result<(Config, URL), String> {
                 return .failure(msg)
         }
     }
-    let (parsedConfig, errors) = (try? String(contentsOf: configUrl, encoding: .utf8)).map { parseConfig($0) } ?? (defaultConfig, [])
+    let configText = try? String(contentsOf: configUrl, encoding: .utf8)
+    let canonicalConfigText = configText.map(canonicalWorkspaceSidebarConfigRoots)
+    // Repair the legacy/new mixed-root configuration produced by older
+    // sidebar edits before parsing.  Parsing the canonical text keeps the
+    // running app safe even if this best-effort write cannot succeed.
+    if let configText, let canonicalConfigText, configText != canonicalConfigText {
+        try? canonicalConfigText.write(to: configUrl, atomically: true, encoding: .utf8)
+    }
+    let (parsedConfig, errors) = canonicalConfigText.map(parseConfig) ?? (defaultConfig, [])
 
     if errors.isEmpty {
         return .success((parsedConfig, configUrl))
@@ -41,6 +49,10 @@ private let persistentTabsKey = "persistent-tabs"
 private let legacyPersistentWorkspacesKey = "persistent-workspaces"
 private let tabToMonitorForceAssignmentKey = "tab-to-monitor-force-assignment"
 private let legacyWorkspaceToMonitorForceAssignmentKey = "workspace-to-monitor-force-assignment"
+private let execOnTabChangeKey = "exec-on-tab-change"
+private let legacyExecOnWorkspaceChangeKey = "exec-on-workspace-change"
+private let tabSidebarConfigRootKey = "tab-sidebar"
+private let legacyWorkspaceSidebarConfigRootKey = "workspace-sidebar"
 
 // For every new config option you add, think:
 // 1. Does it make sense to have different value
@@ -70,7 +82,8 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     "folder-padding": Parser(\.tabGroupPadding, parseInt),
     persistentTabsKey: Parser(\.persistentWorkspaces, parsePersistentTabs),
     legacyPersistentWorkspacesKey: Parser(\.persistentWorkspaces, parsePersistentTabs),
-    "exec-on-workspace-change": Parser(\.execOnWorkspaceChange, parseArrayOfStrings),
+    execOnTabChangeKey: Parser(\.execOnWorkspaceChange, parseArrayOfStrings),
+    legacyExecOnWorkspaceChangeKey: Parser(\.execOnWorkspaceChange, parseArrayOfStrings),
     "exec": Parser(\.execConfig, parseExecConfig),
 
     keyMappingConfigRootKey: Parser(\.keyMapping, skipParsing(Config().keyMapping)), // Parsed manually
@@ -78,7 +91,8 @@ private let configParser: [String: any ParserProtocol<Config>] = [
 
     "auto-add-new-windows-to-folder": Parser(\.autoAddNewWindowsToTabGroup, parseBool),
     "gaps": Parser(\.gaps, parseGaps),
-    "workspace-sidebar": Parser(\.workspaceSidebar, parseWorkspaceSidebar),
+    tabSidebarConfigRootKey: Parser(\.workspaceSidebar, parseWorkspaceSidebar),
+    legacyWorkspaceSidebarConfigRootKey: Parser(\.workspaceSidebar, parseWorkspaceSidebar),
     "window-tabs": Parser(\.windowTabs, parseWindowTabs),
     tabToMonitorForceAssignmentKey: Parser(\.workspaceToMonitorForceAssignment, parseWorkspaceToMonitorAssignment),
     legacyWorkspaceToMonitorForceAssignmentKey: Parser(\.workspaceToMonitorForceAssignment, parseWorkspaceToMonitorAssignment),
@@ -173,6 +187,22 @@ func parseCommandOrCommands(_ raw: TOMLValueConvertible) -> Parsed<[any Command]
         errors += [.semantic(
             .rootKey(tabToMonitorForceAssignmentKey),
             "Use either '\(tabToMonitorForceAssignmentKey)' or legacy '\(legacyWorkspaceToMonitorForceAssignmentKey)', not both"
+        )]
+    }
+    if rawTable.contains(key: execOnTabChangeKey),
+       rawTable.contains(key: legacyExecOnWorkspaceChangeKey)
+    {
+        errors += [.semantic(
+            .rootKey(execOnTabChangeKey),
+            "Use either '\(execOnTabChangeKey)' or legacy '\(legacyExecOnWorkspaceChangeKey)', not both"
+        )]
+    }
+    if rawTable.contains(key: tabSidebarConfigRootKey),
+       rawTable.contains(key: legacyWorkspaceSidebarConfigRootKey)
+    {
+        errors += [.semantic(
+            .rootKey(tabSidebarConfigRootKey),
+            "Use either '\(tabSidebarConfigRootKey)' or legacy '\(legacyWorkspaceSidebarConfigRootKey)', not both"
         )]
     }
 

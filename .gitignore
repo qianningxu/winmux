@@ -25,3 +25,5 @@
 # XCode User settings
 xcuserdata/
 xcshareddata/
+
+/AGENTS.md

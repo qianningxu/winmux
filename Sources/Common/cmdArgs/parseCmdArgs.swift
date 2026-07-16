@@ -48,6 +48,8 @@ extension CmdArgs {
                 "list-tabs"
             case .moveNodeToWorkspace:
                 "move-node-to-tab"
+            case .moveNodeToProject:
+                "move-node-to-folder"
             case .moveWorkspaceToMonitor:
                 "move-tab-to-monitor"
             case .project:

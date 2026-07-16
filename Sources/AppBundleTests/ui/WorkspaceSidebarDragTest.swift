@@ -312,7 +312,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
-    func testFolderSectionsKeepDefaultTabsFlatAndFolderTabsGrouped() {
+    func testFolderSectionsKeepUnfoldedAtBottom() {
         let projectId = WorkspaceProjectId("project-1")
         let emptyProjectId = WorkspaceProjectId("project-empty")
         var workspaces = makeWorkspaceSidebarSearchFixture()
@@ -365,21 +365,87 @@ final class WorkspaceSidebarDragTest: XCTestCase {
             projectId: workspaceProjectDefaultId,
             workspaces: workspaces,
             projects: [
-                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Tabs", colorHex: nil),
+                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: workspaceDefaultFolderDisplayName, colorHex: nil),
                 WorkspaceSidebarProjectViewModel(id: projectId, displayName: "Client", colorHex: nil),
                 WorkspaceSidebarProjectViewModel(id: emptyProjectId, displayName: "Empty", colorHex: nil),
             ],
         )
 
-        XCTAssertEqual(sections.map(\.project.id), [projectId, workspaceProjectDefaultId])
+        XCTAssertEqual(sections.map(\.project.id), [projectId, emptyProjectId, workspaceProjectDefaultId])
         XCTAssertEqual(sections[0].project.displayName, "Client")
         XCTAssertEqual(sections[0].workspaces.map(\.name), ["grouped"])
-        XCTAssertTrue(sections[1].isDefault)
-        XCTAssertEqual(sections[1].workspaces.map(\.name), ["coding", "research"])
+        XCTAssertEqual(sections[1].project.displayName, "Empty")
+        XCTAssertEqual(sections[1].workspaces.map(\.name), [])
+        XCTAssertTrue(sections[2].isDefault)
+        XCTAssertEqual(sections[2].workspaces.map(\.name), ["coding", "research"])
+    }
+
+    func testCompactFolderSectionsKeepOnlyCurrentFolder() {
+        let currentProjectId = WorkspaceProjectId("project-current")
+        let targetScopeId = "monitor:0.0,0.0"
+        let currentFolderWorkspace = WorkspaceSidebarWorkspaceViewModel(
+            name: "active-codex",
+            projectId: currentProjectId,
+            displayName: "Codex",
+            sidebarLabel: "",
+            isGeneratedName: false,
+            tabSummary: WorkspaceSidebarTabSummaryViewModel(
+                title: "Codex",
+                subtitle: nil,
+                appBundleId: "com.openai.codex",
+                appBundlePath: "/Applications/Codex.app",
+                windowCount: 1,
+                isEmpty: false,
+            ),
+            monitorScopeId: targetScopeId,
+            monitorName: nil,
+            isFocused: true,
+            isVisible: true,
+            items: [],
+        )
+        let unfoldedWorkspace = WorkspaceSidebarWorkspaceViewModel(
+            name: "self",
+            projectId: workspaceProjectDefaultId,
+            displayName: "Self",
+            sidebarLabel: "",
+            isGeneratedName: false,
+            tabSummary: WorkspaceSidebarTabSummaryViewModel(
+                title: "Self",
+                subtitle: nil,
+                appBundleId: "dev.self",
+                appBundlePath: "/Applications/Self.app",
+                windowCount: 1,
+                isEmpty: false,
+            ),
+            monitorScopeId: targetScopeId,
+            monitorName: nil,
+            isFocused: false,
+            isVisible: false,
+            items: [],
+        )
+        let sections = workspaceSidebarFolderSections(
+            projectId: workspaceProjectDefaultId,
+            workspaces: [currentFolderWorkspace, unfoldedWorkspace],
+            projects: [
+                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: workspaceDefaultFolderDisplayName, colorHex: nil),
+                WorkspaceSidebarProjectViewModel(id: currentProjectId, displayName: "s&p backtest", colorHex: nil),
+            ]
+        )
+        let compactSections = workspaceSidebarCompactFolderSections(
+            sections,
+            currentProjectId: workspaceSidebarCurrentFolderProjectId(
+                workspaces: [currentFolderWorkspace, unfoldedWorkspace],
+                targetMonitorScopeId: targetScopeId
+            )
+        )
+
+        XCTAssertEqual(sections.map(\.project.id), [currentProjectId, workspaceProjectDefaultId])
+        XCTAssertEqual(compactSections.map(\.project.id), [currentProjectId])
+        XCTAssertEqual(compactSections.singleOrNil()?.workspaces.map(\.name), ["active-codex"])
     }
 
     @MainActor
-    func testFolderSectionsHideEmptyDefaultTabWhenAllTabsAreFoldered() {
+    func testFolderSectionsKeepEmptyUnfoldedFolderWhenAllTabsAreFoldered() {
         let projectId = WorkspaceProjectId("project-1")
         let emptyDefault = WorkspaceSidebarWorkspaceViewModel(
             name: "empty-default",
@@ -419,13 +485,14 @@ final class WorkspaceSidebarDragTest: XCTestCase {
             projectId: workspaceProjectDefaultId,
             workspaces: [emptyDefault, foldered],
             projects: [
-                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: "Tabs", colorHex: nil),
+                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: workspaceDefaultFolderDisplayName, colorHex: nil),
                 WorkspaceSidebarProjectViewModel(id: projectId, displayName: "Folder", colorHex: nil),
             ],
         )
 
-        XCTAssertEqual(sections.map(\.project.id), [projectId])
-        XCTAssertEqual(sections.singleOrNil()?.workspaces.map(\.name), ["foldered"])
+        XCTAssertEqual(sections.map(\.project.id), [projectId, workspaceProjectDefaultId])
+        XCTAssertEqual(sections[0].workspaces.map(\.name), ["foldered"])
+        XCTAssertEqual(sections[1].workspaces.map(\.name), [])
     }
 
     @MainActor
@@ -925,10 +992,26 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     func testProjectSwipeCaptureIsDisabledForSidebarFoldersWhenProjectsAreDisabled() {
-        XCTAssertFalse(workspaceSidebarProjectSwipeCaptureIsEnabled(projectsEnabled: false, projectCount: 0))
-        XCTAssertFalse(workspaceSidebarProjectSwipeCaptureIsEnabled(projectsEnabled: false, projectCount: 2))
-        XCTAssertFalse(workspaceSidebarProjectSwipeCaptureIsEnabled(projectsEnabled: true, projectCount: 0))
-        XCTAssertTrue(workspaceSidebarProjectSwipeCaptureIsEnabled(projectsEnabled: true, projectCount: 1))
+        XCTAssertFalse(workspaceSidebarProjectSwipeCaptureIsEnabled(
+            projectsEnabled: false,
+            projectCount: 0,
+            isCompact: false
+        ))
+        XCTAssertFalse(workspaceSidebarProjectSwipeCaptureIsEnabled(
+            projectsEnabled: false,
+            projectCount: 2,
+            isCompact: false
+        ))
+        XCTAssertFalse(workspaceSidebarProjectSwipeCaptureIsEnabled(
+            projectsEnabled: true,
+            projectCount: 0,
+            isCompact: false
+        ))
+        XCTAssertTrue(workspaceSidebarProjectSwipeCaptureIsEnabled(
+            projectsEnabled: true,
+            projectCount: 1,
+            isCompact: false
+        ))
     }
 
     func testProjectSwipeNavigatesWithoutWrapping() {

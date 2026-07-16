@@ -23,8 +23,13 @@ public struct MoveCmdArgs: CmdArgs {
     }
 
     public enum Boundaries: String, CaseIterable, Equatable, Sendable {
+        case tab
         case workspace
         case allMonitorsOuterFrame = "all-monitors-outer-frame"
+
+        var isCurrentTab: Bool {
+            self == .tab || self == .workspace
+        }
     }
 
     public enum WhenBoundariesCrossed: String, CaseIterable, Equatable, Sendable {
@@ -35,7 +40,7 @@ public struct MoveCmdArgs: CmdArgs {
 }
 
 extension MoveCmdArgs {
-    public var boundaries: Boundaries { rawBoundaries ?? .workspace }
+    public var boundaries: Boundaries { rawBoundaries ?? .tab }
     public var boundariesAction: WhenBoundariesCrossed { rawBoundariesAction ?? .createImplicitContainer }
 }
 

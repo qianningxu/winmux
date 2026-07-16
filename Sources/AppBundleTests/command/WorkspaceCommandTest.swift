@@ -9,7 +9,8 @@ final class WorkspaceCommandTest: XCTestCase {
     func testParseWorkspaceCommand() {
         testParseCommandFail("workspace my mail", msg: "ERROR: Unknown argument 'mail'")
         testParseCommandFail("workspace 'my mail'", msg: "ERROR: Whitespace characters are forbidden in Tab names")
-        assertEquals(parseCommand("workspace").errorOrNil, "ERROR: Argument '(<tab-name>|next|prev)' is mandatory")
+        assertEquals(parseCommand("workspace").errorOrNil, "ERROR: Argument '(<tab-name>|new|next|prev)' is mandatory")
+        testParseCommandSucc("tab new", WorkspaceCmdArgs(target: .fresh))
         testParseCommandSucc("workspace next", WorkspaceCmdArgs(target: .relative(.next)))
         testParseCommandSucc("tab next", WorkspaceCmdArgs(target: .relative(.next)))
         testParseCommandSucc("workspace --auto-back-and-forth W", WorkspaceCmdArgs(target: .direct(.parse("W").getOrDie()), autoBackAndForth: true))
@@ -367,7 +368,7 @@ final class WorkspaceCommandTest: XCTestCase {
         XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Tab 2")
     }
 
-    func testWorkspaceNextTraversesCurrentMonitorLegacyProjectTabsWhenProjectsDisabled() async throws {
+    func testWorkspaceNextCreatesDefaultFolderTabAfterBottomDefaultFolderWhenProjectsDisabled() async throws {
         let defaultWorkspace = Workspace.get(byName: "1")
         defaultWorkspace.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 59, parent: defaultWorkspace.rootTilingContainer)
@@ -383,7 +384,9 @@ final class WorkspaceCommandTest: XCTestCase {
         ).run(.defaultEnv, .emptyStdin)
 
         assertEquals(result.exitCode, 0)
-        XCTAssertTrue(focus.workspace === projectWorkspace)
+        XCTAssertEqual(focus.workspace.projectId, workspaceProjectDefaultId)
+        XCTAssertFalse(focus.workspace === projectWorkspace)
+        XCTAssertTrue(focus.workspace.usesAutomaticDisplayName)
     }
 
     func testWorkspaceNextIgnoresOtherMonitorTabsWhenProjectsDisabled() async throws {
@@ -448,7 +451,7 @@ final class WorkspaceCommandTest: XCTestCase {
         XCTAssertEqual(workspaceDisplayName(focus.workspace.name), "Tab 2")
     }
 
-    func testWorkspaceNextCreatesDefaultProjectWorkspaceWhenProjectsDisabled() async throws {
+    func testWorkspaceNextCreatesCurrentFolderWorkspaceWhenProjectsDisabled() async throws {
         let project = createWorkspaceProject()
         let projectWorkspace = try XCTUnwrap(switchWorkspaceProject(project.id, on: mainMonitor))
         projectWorkspace.markAsAutomaticallyNamed()
@@ -461,7 +464,7 @@ final class WorkspaceCommandTest: XCTestCase {
         ).run(.defaultEnv, .emptyStdin)
 
         assertEquals(result.exitCode, 0)
-        XCTAssertEqual(focus.workspace.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(focus.workspace.projectId, project.id)
     }
 
     func testWorkspaceNextDoesNotCreateBlankWorkspaceWhenWrapping() async throws {

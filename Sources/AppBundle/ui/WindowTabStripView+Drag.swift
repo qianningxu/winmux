@@ -6,10 +6,15 @@ extension WindowTabStripView {
         for tab: WindowTabItemViewModel,
         context: WindowTabStripLayoutContext,
     ) -> some Gesture {
-        DragGesture(minimumDistance: 4, coordinateSpace: .global)
+        DragGesture(minimumDistance: 5, coordinateSpace: .named(context.scrollCoordinateSpaceName))
             .onChanged { value in
                 noteCurrentMousePointerSample()
-                handleTabDragChanged(tab: tab, translation: value.translation)
+                handleTabDragChanged(
+                    tab: tab,
+                    context: context,
+                    translation: value.translation,
+                    pointerXInViewport: value.location.x,
+                )
             }
             .onEnded { _ in
                 noteCurrentMousePointerSample()
@@ -17,13 +22,19 @@ extension WindowTabStripView {
             }
     }
 
-    func handleTabDragChanged(tab: WindowTabItemViewModel, translation: CGSize) {
+    func handleTabDragChanged(
+        tab: WindowTabItemViewModel,
+        context: WindowTabStripLayoutContext,
+        translation: CGSize,
+        pointerXInViewport: CGFloat,
+    ) {
         if shouldPromoteTabStripDragToGroup(windowId: tab.windowId) {
             clearTabDragState()
             updateMoveFromTabStrip(tab.windowId)
             return
         }
         if hasCommittedToDetach {
+            tabAutoScrollDirection = nil
             updateDetachedTabFromTabStrip(tab.windowId)
             return
         }
@@ -32,12 +43,20 @@ extension WindowTabStripView {
             draggingTabId = nil
             hoveredTabId = nil
             dragTranslationX = 0
+            tabAutoScrollDirection = nil
             updateDetachedTabFromTabStrip(tab.windowId)
             return
         }
         draggingTabId = tab.windowId
         hoveredTabId = nil
         dragTranslationX = translation.width
+        reorderPreviewTargetIndex = tabReorderTargetIndexForFrames(
+            pointerXInViewport: pointerXInViewport,
+            tabOrder: context.tabOrder,
+            tabFramesById: tabFramesById,
+            sourceIndex: draggingIndex(context: context),
+        )
+        updateTabAutoScroll(context: context, pointerXInViewport: pointerXInViewport)
     }
 
     func handleTabDragEnded(tab: WindowTabItemViewModel, context: WindowTabStripLayoutContext) {
@@ -49,7 +68,7 @@ extension WindowTabStripView {
                 try? await resetManipulatedWithMouseIfPossible()
             }
         } else if let srcIdx = draggingIndex(context: context),
-                  let tgtIdx = reorderTargetIndex(context: context),
+                  let tgtIdx = reorderPreviewTargetIndex,
                   srcIdx != tgtIdx {
             settleReorderedTab(
                 windowId: tab.windowId,
@@ -67,6 +86,8 @@ extension WindowTabStripView {
         draggingTabId = nil
         hoveredTabId = nil
         dragTranslationX = 0
+        reorderPreviewTargetIndex = nil
+        tabAutoScrollDirection = nil
         hasCommittedToDetach = false
     }
 }

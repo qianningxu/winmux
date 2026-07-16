@@ -40,7 +40,6 @@ func workspaceSidebarFolderSections(
     let projectById = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
     if projectId != workspaceProjectDefaultId {
         let visibleFolderWorkspaces = workspaceSidebarNonEmptyFolderWorkspaces(workspaces)
-        guard !visibleFolderWorkspaces.isEmpty else { return [] }
         return [
             WorkspaceSidebarFolderSection(
                 project: projectById[projectId] ?? WorkspaceSidebarProjectViewModel(
@@ -64,19 +63,22 @@ func workspaceSidebarFolderSections(
         }
     }
 
-    let orderedProjects = projects.filter { $0.id != workspaceProjectDefaultId }
-    for project in orderedProjects {
-        guard let folderWorkspaces = folderWorkspacesByProject.removeValue(forKey: project.id)
-        else { continue }
+    let realFolderProjectIds = Set(folderWorkspacesByProject.keys).union([workspaceProjectDefaultId])
+    for project in projects {
+        guard project.id != workspaceProjectDefaultId else {
+            continue
+        }
+        guard realFolderProjectIds.contains(project.id) else {
+            continue
+        }
+        let folderWorkspaces = folderWorkspacesByProject.removeValue(forKey: project.id) ?? []
         let visibleFolderWorkspaces = workspaceSidebarNonEmptyFolderWorkspaces(folderWorkspaces)
-        guard !visibleFolderWorkspaces.isEmpty else { continue }
         sections.append(WorkspaceSidebarFolderSection(project: project, workspaces: visibleFolderWorkspaces))
     }
     for projectId in folderWorkspacesByProject.keys.sorted() {
         let visibleFolderWorkspaces = workspaceSidebarNonEmptyFolderWorkspaces(
             folderWorkspacesByProject[projectId] ?? []
         )
-        guard !visibleFolderWorkspaces.isEmpty else { continue }
         sections.append(WorkspaceSidebarFolderSection(
             project: projectById[projectId] ?? WorkspaceSidebarProjectViewModel(
                 id: projectId,
@@ -88,16 +90,14 @@ func workspaceSidebarFolderSections(
     }
     let defaultProject = projectById[workspaceProjectDefaultId] ?? WorkspaceSidebarProjectViewModel(
         id: workspaceProjectDefaultId,
-        displayName: "Tabs",
+        displayName: workspaceDefaultFolderDisplayName,
         colorHex: nil,
     )
     let visibleDefaultWorkspaces = workspaceSidebarNonEmptyFolderWorkspaces(defaultWorkspaces)
-    if !visibleDefaultWorkspaces.isEmpty {
-        sections.append(WorkspaceSidebarFolderSection(
-            project: defaultProject,
-            workspaces: visibleDefaultWorkspaces,
-        ))
-    }
+    sections.append(WorkspaceSidebarFolderSection(
+        project: defaultProject,
+        workspaces: visibleDefaultWorkspaces,
+    ))
     return sections
 }
 
@@ -105,6 +105,27 @@ func workspaceSidebarNonEmptyFolderWorkspaces(
     _ workspaces: [WorkspaceSidebarWorkspaceViewModel]
 ) -> [WorkspaceSidebarWorkspaceViewModel] {
     workspaces.filter { !$0.tabSummary.isEmpty || !$0.items.isEmpty }
+}
+
+func workspaceSidebarCurrentFolderProjectId(
+    workspaces: [WorkspaceSidebarWorkspaceViewModel],
+    targetMonitorScopeId: String
+) -> WorkspaceProjectId? {
+    workspaces.first {
+        $0.isVisible && $0.monitorScopeId == targetMonitorScopeId
+    }?.projectId ?? workspaces.first(where: \.isFocused)?.projectId
+}
+
+func workspaceSidebarCompactFolderSections(
+    _ sections: [WorkspaceSidebarFolderSection],
+    currentProjectId: WorkspaceProjectId?
+) -> [WorkspaceSidebarFolderSection] {
+    guard let currentProjectId,
+          let currentSection = sections.first(where: { $0.project.id == currentProjectId })
+    else {
+        return sections
+    }
+    return [currentSection]
 }
 
 struct WorkspaceSidebarFolder<Content: View>: View {
@@ -144,12 +165,15 @@ struct WorkspaceSidebarFolder<Content: View>: View {
             folderHeader
 
             if showsFolderContent {
-                if isExpanded || isShowingProjectedContent {
+                if isExpanded {
                     folderContent
                         .transition(.opacity.combined(with: .move(edge: .top)))
-                } else if isWorkspaceDragTargeted {
+                } else {
+                    // A reorder preview can move between folders on adjacent
+                    // display frames. Do not animate that transient reveal:
+                    // opacity/move transitions here were the last source of
+                    // the visible folder flash during a drag.
                     folderContent
-                        .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
         }
@@ -297,18 +321,30 @@ struct WorkspaceSidebarFolder<Content: View>: View {
     }
 
     private var isFolderTargeted: Bool {
-        isDropTargeted || isWorkspaceDragTargeted || isShowingProjectedContent
+        isDropTargeted
     }
 
     private var isFolderInteractionActive: Bool {
+        // Reorder targeting is represented by the insertion slot itself.
+        // Do not animate the surrounding folder plate, border, or shadow as
+        // the pointer crosses folders: that visual churn is perceived as a
+        // flash even with a stable row layout.
         isFolderTargeted || isHovered
+    }
+
+    private var usesFolderHoverTreatment: Bool {
+        // Reorder previews may switch folders many times per second. They
+        // should reveal an insertion slot, not repaint an entire folder as a
+        // drop target; that made the background flash unpredictably. Keep the
+        // ordinary folder hover treatment tied to the actual pointer hover.
+        isHovered
     }
 
     private var folderBlockFill: Color {
         if isFolderTargeted {
             return palette.contrastingFill(darkOpacity: 0.18, lightOpacity: 0.15)
         }
-        if isHovered {
+        if usesFolderHoverTreatment {
             return palette.contrastingFill(darkOpacity: 0.14, lightOpacity: 0.12)
         }
         return palette.contrastingFill(darkOpacity: 0.095, lightOpacity: 0.08)
@@ -318,7 +354,7 @@ struct WorkspaceSidebarFolder<Content: View>: View {
         if isFolderTargeted {
             return palette.tabStroke(active: true)
         }
-        if isHovered {
+        if usesFolderHoverTreatment {
             return palette.contrastingFill(darkOpacity: 0.18, lightOpacity: 0.16)
         }
         return palette.contrastingFill(darkOpacity: 0.10, lightOpacity: 0.12)
@@ -328,15 +364,15 @@ struct WorkspaceSidebarFolder<Content: View>: View {
         if isFolderTargeted {
             return palette.shadow(0.12, lightOpacity: 0.065)
         }
-        guard isHovered else { return Color.clear }
+        guard usesFolderHoverTreatment else { return Color.clear }
         return palette.shadow(0.08, lightOpacity: 0.045)
     }
 
     private var folderBlockShadowRadius: CGFloat {
-        isFolderTargeted ? 7 : (isHovered ? 5 : 0)
+        isFolderTargeted ? 7 : (usesFolderHoverTreatment ? 5 : 0)
     }
 
     private var folderBlockShadowYOffset: CGFloat {
-        isFolderTargeted ? 2 : (isHovered ? 1 : 0)
+        isFolderTargeted ? 2 : (usesFolderHoverTreatment ? 1 : 0)
     }
 }

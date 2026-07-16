@@ -7,7 +7,7 @@ extension ConfigTest {
     func testParseWorkspaceSidebar() {
         let (parsed, errors) = parseConfig(
             """
-            [workspace-sidebar]
+            [tab-sidebar]
                 enabled = true
                 enable-focus = true
                 width = 280
@@ -17,14 +17,14 @@ extension ConfigTest {
                 menu-bar-reserve-height = 30
                 folder-deletion-action = 'move-windows-to-fallback'
 
-            [workspace-sidebar.tab-labels]
+            [tab-sidebar.tab-labels]
                 1 = 'Code'
                 2 = 'Web'
 
-            [workspace-sidebar.folder-labels]
+            [tab-sidebar.folder-labels]
                 default = 'Personal'
 
-            [workspace-sidebar.folder-colors]
+            [tab-sidebar.folder-colors]
                 default = '#ff8844'
             """,
         )
@@ -50,36 +50,36 @@ extension ConfigTest {
 
         let (_, widthErrors) = parseConfig(
             """
-            [workspace-sidebar]
+            [tab-sidebar]
                 collapsed-width = 0
                 width = 0
                 menu-bar-reserve-height = -1
             """,
         )
         assertEquals(widthErrors.descriptions, [
-            "workspace-sidebar.collapsed-width: Must be greater than 0",
-            "workspace-sidebar.menu-bar-reserve-height: Must be greater than or equal to 0",
-            "workspace-sidebar.width: Must be greater than 0",
+            "tab-sidebar.collapsed-width: Must be greater than 0",
+            "tab-sidebar.menu-bar-reserve-height: Must be greater than or equal to 0",
+            "tab-sidebar.width: Must be greater than 0",
         ])
 
         let (_, colorErrors) = parseConfig(
             """
-            [workspace-sidebar.folder-colors]
+            [tab-sidebar.folder-colors]
                 default = 'not-a-color'
             """,
         )
         assertEquals(colorErrors.descriptions, [
-            "workspace-sidebar.folder-colors.default: Must be a hex color like '#RRGGBB'",
+            "tab-sidebar.folder-colors.default: Must be a hex color like '#RRGGBB'",
         ])
 
         let (_, actionErrors) = parseConfig(
             """
-            [workspace-sidebar]
+            [tab-sidebar]
                 folder-deletion-action = 'explode'
             """,
         )
         assertEquals(actionErrors.descriptions, [
-            "workspace-sidebar.folder-deletion-action: Possible values: close-windows, move-windows-to-fallback",
+            "tab-sidebar.folder-deletion-action: Possible values: close-windows, move-windows-to-fallback",
         ])
     }
 
@@ -115,10 +115,26 @@ extension ConfigTest {
         XCTAssertEqual(parsed.workspaceSidebar.workspaceLabels, ["1": "Code"])
     }
 
+    func testParseWorkspaceSidebarRejectsPrimaryAndLegacyRootTogether() {
+        let (_, errors) = parseConfig(
+            """
+            [tab-sidebar]
+                enabled = true
+
+            [workspace-sidebar]
+                enabled = false
+            """,
+        )
+
+        assertEquals(errors.descriptions, [
+            "tab-sidebar: Use either 'tab-sidebar' or legacy 'workspace-sidebar', not both",
+        ])
+    }
+
     func testWorkspaceSidebarDoesNotRequireThemeConfig() {
         let (parsed, errors) = parseConfig(
             """
-            [workspace-sidebar]
+            [tab-sidebar]
                 enabled = true
                 menu-bar-reserve-height = 0
             """,
@@ -156,12 +172,13 @@ extension ConfigTest {
     func testParseWorkspaceSidebarWidgets() {
         let (parsed, errors) = parseConfig(
             """
-            [workspace-sidebar]
+            [tab-sidebar]
                 widgets = [
                     { id = 'time-date', type = 'built-in/time-date', enabled = true, show-date = false },
                     { id = 'schedule-heatmap', type = 'built-in/schedule-heatmap', enabled = true, schedule-path = '/tmp/schedule', toggl-entries-path = '/tmp/toggl/entries', deviation-path = '/tmp/deviation', days = 7 },
                     { id = 'toggl-weekly-focus', type = 'built-in/toggl-weekly-focus', enabled = true, entries-path = '/tmp/toggl/entries', target-date = '2026-09-13' },
                     { id = 'toggl-week-focus', type = 'built-in/toggl-week-focus', enabled = true, entries-path = '/tmp/toggl/entries', target-date = '2026-09-13' },
+                    { id = 'period-heatmap', type = 'built-in/period-heatmap', enabled = true, entries-path = '/tmp/period' },
                     { id = 'spending-categories', type = 'built-in/spending-categories', enabled = true, entries-path = '/tmp/spending', days = 28, rotation-group = 'focus' },
                     { id = 'custom', type = 'plugin', enabled = false, bundle = 'CustomWidget.bundle' },
                 ]
@@ -202,6 +219,13 @@ extension ConfigTest {
                 targetDate: "2026-09-13",
             ),
             WorkspaceSidebarWidgetConfig(
+                id: "period-heatmap",
+                type: .builtInPeriodHeatmap,
+                enabled: true,
+                showDate: true,
+                entriesPath: "/tmp/period",
+            ),
+            WorkspaceSidebarWidgetConfig(
                 id: "spending-categories",
                 type: .builtInSpendingCategories,
                 enabled: true,
@@ -220,7 +244,7 @@ extension ConfigTest {
 
         let (legacyParsed, legacyErrors) = parseConfig(
             """
-            [workspace-sidebar]
+            [tab-sidebar]
                 show-date = false
             """,
         )
@@ -238,7 +262,7 @@ extension ConfigTest {
     func testParseWorkspaceSidebarWidgetErrors() {
         let (_, errors) = parseConfig(
             """
-            [workspace-sidebar]
+            [tab-sidebar]
                 widgets = [
                     { id = 'time-date', type = 'built-in/time-date', bundle = 'Nope.bundle' },
                     { id = 'time-date', type = 'plugin' },
@@ -251,19 +275,19 @@ extension ConfigTest {
             """,
         )
         assertEquals(errors.descriptions, [
-            "workspace-sidebar.widgets[0].bundle: Only plugin widgets can specify bundle",
-            "workspace-sidebar.widgets[1].id: Duplicate widget id 'time-date'",
-            "workspace-sidebar.widgets[2].type: Possible values: built-in/time-date, built-in/toggl-weekly-focus, built-in/toggl-week-focus, built-in/spending-categories, built-in/schedule-heatmap, plugin",
-            "workspace-sidebar.widgets[3].entries-path: Only data widgets can specify entries-path",
-            "workspace-sidebar.widgets[3].schedule-path: Only schedule heatmap widgets can specify schedule-path",
-            "workspace-sidebar.widgets[3].toggl-entries-path: Only schedule heatmap widgets can specify toggl-entries-path",
-            "workspace-sidebar.widgets[3].deviation-path: Only schedule heatmap widgets can specify deviation-path",
-            "workspace-sidebar.widgets[3].days: Only data widgets can specify days",
-            "workspace-sidebar.widgets[3].target-date: Only target-date widgets can specify target-date",
-            "workspace-sidebar.widgets[4].days: Must be greater than 0",
-            "workspace-sidebar.widgets[5].bundle: Only plugin widgets can specify bundle",
-            "workspace-sidebar.widgets[5].entries-path: Schedule heatmap widgets use toggl-entries-path",
-            "workspace-sidebar.widgets[6].target-date: Must be YYYY-MM-DD",
+            "tab-sidebar.widgets[0].bundle: Only plugin widgets can specify bundle",
+            "tab-sidebar.widgets[1].id: Duplicate widget id 'time-date'",
+            "tab-sidebar.widgets[2].type: Possible values: built-in/time-date, built-in/toggl-weekly-focus, built-in/toggl-week-focus, built-in/period-heatmap, built-in/spending-categories, built-in/schedule-heatmap, plugin",
+            "tab-sidebar.widgets[3].entries-path: Only data widgets can specify entries-path",
+            "tab-sidebar.widgets[3].schedule-path: Only schedule heatmap widgets can specify schedule-path",
+            "tab-sidebar.widgets[3].toggl-entries-path: Only schedule heatmap widgets can specify toggl-entries-path",
+            "tab-sidebar.widgets[3].deviation-path: Only schedule heatmap widgets can specify deviation-path",
+            "tab-sidebar.widgets[3].days: Only data widgets can specify days",
+            "tab-sidebar.widgets[3].target-date: Only target-date widgets can specify target-date",
+            "tab-sidebar.widgets[4].days: Must be greater than 0",
+            "tab-sidebar.widgets[5].bundle: Only plugin widgets can specify bundle",
+            "tab-sidebar.widgets[5].entries-path: Schedule heatmap widgets use toggl-entries-path",
+            "tab-sidebar.widgets[6].target-date: Must be YYYY-MM-DD",
         ])
     }
 
@@ -274,12 +298,13 @@ extension ConfigTest {
 
         config = parseConfig(
             """
-            [workspace-sidebar]
+            [tab-sidebar]
                 widgets = [
                     { id = 'time-date', type = 'built-in/time-date', enabled = true, show-date = true },
                     { id = 'schedule-heatmap', type = 'built-in/schedule-heatmap', enabled = true, schedule-path = '/tmp/schedule', toggl-entries-path = '/tmp/toggl/entries', deviation-path = '/tmp/deviation', days = 7 },
                     { id = 'toggl-weekly-focus', type = 'built-in/toggl-weekly-focus', enabled = true, entries-path = '/tmp/toggl/entries', target-date = '2026-09-13' },
                     { id = 'toggl-week-focus', type = 'built-in/toggl-week-focus', enabled = true, entries-path = '/tmp/toggl/entries', target-date = '2026-09-13' },
+                    { id = 'period-heatmap', type = 'built-in/period-heatmap', enabled = true, entries-path = '/tmp/period' },
                     { id = 'spending-categories', type = 'built-in/spending-categories', enabled = true, entries-path = '/tmp/spending', days = 28, rotation-group = 'focus' },
                     { id = 'custom', type = 'plugin', enabled = false, bundle = 'CustomWidget.bundle' },
                 ]
@@ -291,12 +316,14 @@ extension ConfigTest {
             XCTFail("Expected config map to encode as JSON")
             return
         }
-        XCTAssertTrue(json.contains("\"workspace-sidebar\""))
+        XCTAssertTrue(json.contains("\"tab-sidebar\""))
         XCTAssertTrue(json.contains("\"widgets\""))
         XCTAssertTrue(json.contains("\"time-date\""))
         XCTAssertTrue(json.contains("\"/tmp/toggl/entries\""))
         XCTAssertTrue(json.contains("\"toggl-weekly-focus\""))
         XCTAssertTrue(json.contains("\"toggl-week-focus\""))
+        XCTAssertTrue(json.contains("\"period-heatmap\""))
+        XCTAssertTrue(json.contains("\"/tmp/period\""))
         XCTAssertTrue(json.contains("\"spending-categories\""))
         XCTAssertTrue(json.contains("\"/tmp/spending\""))
         XCTAssertTrue(json.contains("\"schedule-heatmap\""))
@@ -307,19 +334,23 @@ extension ConfigTest {
         XCTAssertFalse(json.contains("\"rotation-interval-seconds\""))
         XCTAssertTrue(json.contains("\"CustomWidget.bundle\""))
         assertEquals(
-            try? configMap.find(keyPath: ["workspace-sidebar", "widgets", "3", "enabled"].slice).get(),
+            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "3", "enabled"].slice).get(),
             .scalar(.bool(true)),
         )
         assertEquals(
-            try? configMap.find(keyPath: ["workspace-sidebar", "widgets", "2", "target-date"].slice).get(),
+            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "2", "target-date"].slice).get(),
             .scalar(.string("2026-09-13")),
         )
         assertEquals(
-            try? configMap.find(keyPath: ["workspace-sidebar", "widgets", "4", "rotation-group"].slice).get(),
+            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "4", "entries-path"].slice).get(),
+            .scalar(.string("/tmp/period")),
+        )
+        assertEquals(
+            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "5", "rotation-group"].slice).get(),
             .scalar(.string("focus")),
         )
         assertEquals(
-            try? configMap.find(keyPath: ["workspace-sidebar", "widgets", "5", "enabled"].slice).get(),
+            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "6", "enabled"].slice).get(),
             .scalar(.bool(false)),
         )
     }
@@ -381,18 +412,20 @@ extension ConfigTest {
         let (parsed, errors) = parseConfig(
             """
             [[on-window-detected]] # 0
+                if.tab = 'W'
                 check-further-callbacks = true
-                run = ['layout floating', 'move-node-to-workspace W']
+                run = ['layout floating', 'move-node-to-tab W']
             [[on-window-detected]] # 1
                 if.app-id = 'com.apple.systempreferences'
+                if.workspace = 'Legacy'
                 run = []
             [[on-window-detected]] # 2
             [[on-window-detected]] # 3
-                run = ['move-node-to-workspace S', 'layout tiling']
+                run = ['move-node-to-tab S', 'layout tiling']
             [[on-window-detected]] # 4
-                run = ['move-node-to-workspace S', 'move-node-to-workspace W']
+                run = ['move-node-to-tab S', 'move-node-to-tab W']
             [[on-window-detected]] # 5
-                run = ['move-node-to-workspace S', 'layout h_tiles']
+                run = ['move-node-to-tab S', 'layout h_tiles']
             """,
         )
         assertEquals(parsed.onWindowDetected, [
@@ -401,6 +434,7 @@ extension ConfigTest {
                     appId: nil,
                     appNameRegexSubstring: nil,
                     windowTitleRegexSubstring: nil,
+                    workspace: "W",
                 ),
                 checkFurtherCallbacks: true,
                 rawRun: [
@@ -413,6 +447,7 @@ extension ConfigTest {
                     appId: "com.apple.systempreferences",
                     appNameRegexSubstring: nil,
                     windowTitleRegexSubstring: nil,
+                    workspace: "Legacy",
                 ),
                 rawRun: [],
             ),

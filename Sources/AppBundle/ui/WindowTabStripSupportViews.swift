@@ -28,6 +28,14 @@ struct WindowTabStripScrollContentFramePreferenceKey: PreferenceKey {
     }
 }
 
+struct WindowTabStripTabFramePreferenceKey: PreferenceKey {
+    static let defaultValue: [UInt32: CGRect] = [:]
+
+    static func reduce(value: inout [UInt32: CGRect], nextValue: () -> [UInt32: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, next in next })
+    }
+}
+
 struct WindowTabGroupHandleView: View {
     let windowId: UInt32?
     let workspaceName: String

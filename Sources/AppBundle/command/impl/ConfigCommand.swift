@@ -13,7 +13,7 @@ struct ConfigCommand: Command {
                 let modeKeys = config.modes.keys.sorted().flatMap { ["mode.\($0).binding", "mode.\($0).binding-tap"] }
                 let out = """
                     .
-                    workspace-sidebar
+                    tab-sidebar
                     mode
                     \(modeKeys.joined(separator: "\n"))
                     """
@@ -46,8 +46,9 @@ extension String {
         case .failure(let error):
             return io.err(error)
     }
+    let canonicalKeyPath = canonicalConfigKeyPath(keyPath)
     var configMap: ConfigMapValue
-    switch buildConfigMap().find(keyPath: keyPath.slice) {
+    switch buildConfigMap().find(keyPath: canonicalKeyPath.slice) {
         case .success(let value):
             configMap = value
         case .failure(let error):
@@ -90,6 +91,13 @@ extension String {
                 }
         }
     }
+}
+
+private func canonicalConfigKeyPath(_ keyPath: [String]) -> [String] {
+    guard keyPath.first == "workspace-sidebar" else { return keyPath }
+    var canonical = keyPath
+    canonical[0] = "tab-sidebar"
+    return canonical
 }
 
 extension ConfigMapValue {
@@ -163,7 +171,7 @@ extension [Command] {
     }
     return .map([
         "mode": .map(mode),
-        "workspace-sidebar": workspaceSidebarConfigMap(config.workspaceSidebar),
+        "tab-sidebar": workspaceSidebarConfigMap(config.workspaceSidebar),
     ])
 }
 
@@ -185,6 +193,8 @@ private func workspaceSidebarWidgetConfigMap(_ widget: WorkspaceSidebarWidgetCon
         case .builtInTogglWeeklyFocus, .builtInTogglWeekFocus:
             map["entries-path"] = .scalar(.string(widget.entriesPath ?? defaultWorkspaceSidebarTogglEntriesPath))
             map["target-date"] = .scalar(.string(widget.targetDate ?? defaultWorkspaceSidebarTogglWeeklyFocusTargetDate))
+        case .builtInPeriodHeatmap:
+            map["entries-path"] = .scalar(.string(widget.entriesPath ?? defaultWorkspaceSidebarPeriodEntriesPath))
         case .builtInSpendingCategories:
             map["entries-path"] = .scalar(.string(widget.entriesPath ?? defaultWorkspaceSidebarSpendingEntriesPath))
             map["days"] = .scalar(.int(widget.days ?? defaultWorkspaceSidebarSpendingDays))

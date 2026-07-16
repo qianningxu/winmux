@@ -27,13 +27,16 @@ final class ConfigBootstrapTest: XCTestCase {
         XCTAssertEqual(bindingMap["alt-cmd-j"], "swap down")
         XCTAssertEqual(bindingMap["alt-cmd-k"], "swap up")
         XCTAssertEqual(bindingMap["cmd-shift-i"], "balance-sizes")
-        XCTAssertEqual(bindingMap["ctrl-1"], "tab 1")
-        XCTAssertEqual(bindingMap["ctrl-0"], "tab 10")
+        XCTAssertEqual(bindingMap["ctrl-1"], "folder 1")
+        XCTAssertEqual(bindingMap["ctrl-0"], "folder 10")
         XCTAssertEqual(bindingMap["ctrl-t"], "tab 15")
         XCTAssertEqual(bindingMap["ctrl-h"], "tab prev")
         XCTAssertEqual(bindingMap["cmd-ctrl-h"], "tab prev")
-        XCTAssertEqual(bindingMap["alt-shift-1"], "folder 1")
-        XCTAssertEqual(bindingMap["ctrl-shift-0"], "move-node-to-tab 10")
+        XCTAssertEqual(bindingMap["alt-shift-1"], "move-node-to-tab 1")
+        XCTAssertEqual(bindingMap["alt-shift-0"], "move-node-to-tab 10")
+        XCTAssertEqual(bindingMap["ctrl-shift-1"], "move-node-to-folder 1")
+        XCTAssertEqual(bindingMap["ctrl-shift-2"], "move-node-to-folder 2")
+        XCTAssertEqual(bindingMap["ctrl-shift-0"], "move-node-to-folder 10")
         XCTAssertEqual(bindingMap["ctrl-shift-h"], "move-node-to-tab --focus-follows-window prev")
         XCTAssertEqual(bindingMap["alt-shift-t"], "layout floating tiling")
         XCTAssertEqual(bindingMap["alt-shift-m"], "fullscreen")
@@ -147,7 +150,7 @@ final class ConfigBootstrapTest: XCTestCase {
             [mode.main.binding]
             alt-h = 'layout accordion tiles'
             alt-j = 'layout h_accordion v_accordion'
-            alt-l = 'exec-and-forget echo $AEROSPACE_WINDOW_ID'
+            alt-l = 'exec-and-forget echo $AEROSPACE_WINDOW_ID $AEROSPACE_FOCUSED_WORKSPACE $AEROSPACE_PREV_WORKSPACE $AEROSPACE_WORKSPACE'
             alt-1 = 'workspace 1'
             alt-shift-1 = 'move-node-to-workspace 1'
             """
@@ -165,16 +168,20 @@ final class ConfigBootstrapTest: XCTestCase {
         XCTAssertTrue(migratedText.contains("default-root-container-layout = 'tiles'"))
         XCTAssertTrue(migratedText.contains("folder-padding = 30"))
         XCTAssertTrue(migratedText.contains("window-tabs.enabled = false"))
-        XCTAssertTrue(migratedText.contains("[workspace-sidebar]"))
+        XCTAssertTrue(migratedText.contains("[tab-sidebar]"))
         XCTAssertTrue(migratedText.contains("enabled = true"))
         XCTAssertTrue(migratedText.contains("layout tiles tiles"))
         XCTAssertTrue(migratedText.contains("layout h_tiles v_tiles"))
         XCTAssertTrue(migratedText.contains("alt-1 = 'tab 1'"))
-        XCTAssertTrue(migratedText.contains("alt-shift-1 = 'folder 1'"))
+        XCTAssertTrue(migratedText.contains("alt-shift-1 = 'move-node-to-tab 1'"))
         XCTAssertTrue(migratedText.contains("$WINMUX_WINDOW_ID"))
+        XCTAssertTrue(migratedText.contains("$WINMUX_FOCUSED_TAB $WINMUX_PREV_TAB $WINMUX_TAB"))
         XCTAssertFalse(migratedText.contains("exec-on-workspace-change"))
         XCTAssertFalse(migratedText.contains("move-node-to-workspace"))
         XCTAssertFalse(migratedText.contains("'workspace 1'"))
+        XCTAssertFalse(migratedText.contains("WINMUX_WORKSPACE"))
+        XCTAssertFalse(migratedText.contains("WINMUX_FOCUSED_WORKSPACE"))
+        XCTAssertFalse(migratedText.contains("WINMUX_PREV_WORKSPACE"))
         XCTAssertFalse(migratedText.contains("accordion"))
         XCTAssertFalse(migratedText.contains("AEROSPACE_"))
 

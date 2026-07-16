@@ -40,6 +40,7 @@ final class ConfigTest: XCTestCase {
         assertEquals(errors, [])
         XCTAssertFalse(parsed.enableProjects)
         XCTAssertFalse(parsed.windowTabs.enabled)
+        XCTAssertFalse(toml.contains("enable-projects"))
     }
 
     func testParseEnableProjects() {
@@ -103,13 +104,41 @@ final class ConfigTest: XCTestCase {
         assertEquals(errors.descriptions, ["config-version: Must be in [1, 2] range"])
     }
 
-    func testExecOnWorkspaceChangeDifferentTypesError() {
-        let (_, errors) = parseConfig(
+    func testExecOnTabChangeParsesWithLegacyWorkspaceAlias() {
+        let (tabConfig, tabErrors) = parseConfig(
             """
-            exec-on-workspace-change = ['', 1]
+            exec-on-tab-change = ['/bin/sh', '-c', 'echo $WINMUX_TAB']
             """,
         )
-        assertEquals(errors.descriptions, ["exec-on-workspace-change[1]: Expected type is \'string\'. But actual type is \'integer\'"])
+        assertEquals(tabErrors.descriptions, [])
+        assertEquals(tabConfig.execOnWorkspaceChange, ["/bin/sh", "-c", "echo $WINMUX_TAB"])
+
+        let (legacyConfig, legacyErrors) = parseConfig(
+            """
+            exec-on-workspace-change = ['/bin/sh', '-c', 'echo $WINMUX_WORKSPACE']
+            """,
+        )
+        assertEquals(legacyErrors.descriptions, [])
+        assertEquals(legacyConfig.execOnWorkspaceChange, ["/bin/sh", "-c", "echo $WINMUX_WORKSPACE"])
+    }
+
+    func testExecOnTabChangeRejectsDuplicateLegacyAlias() {
+        let (_, errors) = parseConfig(
+            """
+            exec-on-tab-change = ['/bin/sh']
+            exec-on-workspace-change = ['/bin/zsh']
+            """,
+        )
+        assertEquals(errors.descriptions, ["exec-on-tab-change: Use either 'exec-on-tab-change' or legacy 'exec-on-workspace-change', not both"])
+    }
+
+    func testExecOnTabChangeDifferentTypesError() {
+        let (_, errors) = parseConfig(
+            """
+            exec-on-tab-change = ['', 1]
+            """,
+        )
+        assertEquals(errors.descriptions, ["exec-on-tab-change[1]: Expected type is \'string\'. But actual type is \'integer\'"])
     }
 
     func testParsePersistentTabs() {

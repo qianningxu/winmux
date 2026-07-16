@@ -16,13 +16,21 @@ extension WindowTabStripView {
                 tabButton(tab, context: context, itemHeight: itemHeight, isHovered: isHovered)
             }
 
-            if isHovered && draggingTabId == nil && !isEditing {
+            if isHovered && draggingTabId == nil && !isEditing && context.showsTabTitles {
                 tabCloseButton(tab)
                     .padding(.trailing, windowTabStripCloseButtonTrailingInset)
                     .transition(.opacity)
             }
         }
         .frame(width: context.tabWidth, height: itemHeight, alignment: .leading)
+        .background {
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: WindowTabStripTabFramePreferenceKey.self,
+                    value: [tab.windowId: proxy.frame(in: .named(context.scrollCoordinateSpaceName))],
+                )
+            }
+        }
         .offset(x: tabVisualOffset(for: tab, context: context))
         .zIndex(draggingTabId == tab.windowId || isEditing ? 1 : 0)
         .shadow(
@@ -30,9 +38,7 @@ extension WindowTabStripView {
             radius: draggingTabId == tab.windowId ? 7 : 0,
             y: draggingTabId == tab.windowId ? 2 : 0,
         )
-        .animation(.interactiveSpring(response: 0.2, dampingFraction: 0.8), value: reorderTargetIndex(context: context))
-        .animation(.interactiveSpring(response: 0.2, dampingFraction: 0.8), value: trayModel.windowTabReentryPreview?.targetIndex)
-        .animation(nil, value: trayModel.windowTabReentryPreview?.sourceVisualOffset)
+        .transaction { $0.animation = nil }
         .onHover { hovering in
             updateHoveredTab(tab.windowId, hovering: hovering)
         }
@@ -65,7 +71,8 @@ extension WindowTabStripView {
                 height: itemHeight,
                 isDragSource: draggingTabId == tab.windowId,
                 isHovered: isHovered,
-                reservesCloseButtonSpace: true
+                showsTitle: context.showsTabTitles,
+                reservesCloseButtonSpace: context.showsTabTitles
             )
         }
         .buttonStyle(.plain)
@@ -87,6 +94,7 @@ extension WindowTabStripView {
                 height: itemHeight,
                 isDragSource: false,
                 isHovered: true,
+                showsTitle: true,
                 reservesCloseButtonSpace: false
             )
             WindowTabRenameTextField(

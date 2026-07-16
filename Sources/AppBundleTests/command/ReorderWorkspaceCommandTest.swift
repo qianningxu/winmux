@@ -119,8 +119,9 @@ final class ReorderWorkspaceCommandTest: XCTestCase {
     }
 
     private func setProjectWorkspaceOrder(_ projectId: WorkspaceProjectId, _ workspaces: [Workspace]) {
-        var project = winMuxWorkspaceState.projectsById[projectId].orDie()
-        project.workspaceOrder = workspaces.map(\.id)
-        winMuxWorkspaceState.projectsById[projectId] = project
+        let folderId = WorkspaceFolderId(projectId)
+        var folder = winMuxWorkspaceState.workspaceFoldersById[folderId].orDie()
+        folder.workspaceOrder = workspaces.map(\.id)
+        winMuxWorkspaceState.workspaceFoldersById[folderId] = folder
     }
 }

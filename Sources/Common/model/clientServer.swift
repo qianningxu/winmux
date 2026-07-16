@@ -34,7 +34,8 @@ public struct ClientRequest: Codable, Sendable, ConvenienceCopyable, Equatable {
 
     // Double Optional to encode explicit null into JSON
     public var windowId: UInt32??  // Please forward WINMUX_WINDOW_ID env variable here
-    public var workspace: String?? // Please forward WINMUX_WORKSPACE env variable here
+    // Please forward WINMUX_TAB here. Legacy clients may still use WINMUX_WORKSPACE.
+    public var workspace: String??
 
     public init(
         args: [String],
@@ -91,8 +92,10 @@ public struct ClientRequest: Codable, Sendable, ConvenienceCopyable, Equatable {
             case .none:
                 break
             case .some(.none):
+                try container.encodeNil(forKey: .tab)
                 try container.encodeNil(forKey: .workspace)
             case .some(.some(let value)):
+                try container.encode(value, forKey: .tab)
                 try container.encode(value, forKey: .workspace)
         }
     }

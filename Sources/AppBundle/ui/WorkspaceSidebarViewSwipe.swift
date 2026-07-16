@@ -75,6 +75,7 @@ extension WorkspaceSidebarView {
     ) -> Bool {
         guard projectsAreEnabled(),
               !snapshot.projects.isEmpty,
+              !workspaceSidebarIsCompact(expansionProgress: expansionProgress),
               !isWorkspaceSidebarDragInProgress()
         else {
             return false

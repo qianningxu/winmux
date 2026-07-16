@@ -119,7 +119,7 @@ final class ListWindowsTest: XCTestCase {
         assertEquals(result.stdout, ["1"])
     }
 
-    func testListWindowsDefaultJsonIncludesTabDisplayNameAndLegacyWorkspaceKey() async throws {
+    func testListWindowsDefaultJsonIncludesTabDisplayNameOnly() async throws {
         let workspace = Workspace.get(byName: "10")
         workspace.markAsAutomaticallyNamed()
         workspace.rootTilingContainer.apply {
@@ -139,7 +139,7 @@ final class ListWindowsTest: XCTestCase {
         ) as? [[String: Any]]
         let window = try XCTUnwrap(objects?.first { ($0["window-id"] as? UInt32) == 42 || ($0["window-id"] as? Int) == 42 })
         XCTAssertEqual(window["tab"] as? String, "Tab 1")
-        XCTAssertEqual(window["workspace"] as? String, "10")
+        XCTAssertNil(window["workspace"])
         XCTAssertEqual(window["window-title"] as? String, "TestWindow(42)")
         XCTAssertEqual(window["app-name"] as? String, "bobko.WinMux.test-app")
     }

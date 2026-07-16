@@ -10,11 +10,14 @@ final class CliDescriptionGeneratedTest: XCTestCase {
         XCTAssertTrue(descriptions.contains(#"["  list-workspaces", "Legacy alias for list-tabs"]"#))
         XCTAssertTrue(descriptions.contains(#"["  folder", "Focus the specified sidebar folder"]"#))
         XCTAssertTrue(descriptions.contains(#"["  project", "Legacy alias for folder"]"#))
+        XCTAssertTrue(descriptions.contains(#"["  move-node-to-folder", "Move the focused window to the specified sidebar folder"]"#))
+        XCTAssertTrue(descriptions.contains(#"["  move-node-to-project", "Legacy alias for move-node-to-folder"]"#))
         XCTAssertTrue(descriptions.contains(#"["  move-node-to-tab", "Move the focused window to the specified Tab"]"#))
         XCTAssertTrue(descriptions.contains(#"["  move-node-to-workspace", "Legacy alias for move-node-to-tab"]"#))
         XCTAssertTrue(descriptions.contains(#"["  reorder-tab", "Reorder a Tab before or after another Tab"]"#))
         XCTAssertTrue(descriptions.contains(#"["  reorder-workspace", "Legacy alias for reorder-tab"]"#))
         XCTAssertTrue(descriptions.contains(#"["  stack-with", "Disabled legacy center stacking command"]"#))
+        XCTAssertFalse(descriptions.contains(#"["  move-node-to-project", "Disabled legacy folder command"]"#))
         XCTAssertFalse(descriptions.contains("Alias for flatten-workspace-tree"))
         XCTAssertFalse(descriptions.contains("legacy folder stacking"))
     }
@@ -25,10 +28,12 @@ final class CliDescriptionGeneratedTest: XCTestCase {
         XCTAssertTrue(help.contains("USAGE: tab [-h|--help]"))
         XCTAssertTrue(help.contains("USAGE: list-tabs [-h|--help]"))
         XCTAssertTrue(help.contains("USAGE: folder [-h|--help]"))
+        XCTAssertTrue(help.contains("USAGE: move-node-to-folder [-h|--help]"))
         XCTAssertTrue(help.contains("USAGE: move-node-to-tab [-h|--help]"))
         XCTAssertTrue(help.contains("USAGE: move-tab-to-monitor [-h|--help]"))
         XCTAssertTrue(help.contains("USAGE: reorder-tab [-h|--help]"))
         XCTAssertTrue(help.contains("USAGE: summon-tab [-h|--help]"))
+        XCTAssertTrue(help.contains("Folders are numbered top to bottom in sidebar order, including Unfolded."))
 
         XCTAssertFalse(help.contains("workspace [-h|--help]"))
         XCTAssertFalse(help.contains("list-workspaces [-h|--help]"))
@@ -38,6 +43,9 @@ final class CliDescriptionGeneratedTest: XCTestCase {
         XCTAssertFalse(help.contains("summon-workspace [-h|--help]"))
         XCTAssertFalse(help.contains("workspace-back-and-forth [-h|--help]"))
         XCTAssertFalse(help.contains("flatten-workspace-tree [-h|--help]"))
+        XCTAssertFalse(help.contains("project [-h|--help]"))
         XCTAssertFalse(help.contains("--workspace <tab>"))
+        XCTAssertFalse(help.contains("Disabled legacy folder command"))
+        XCTAssertFalse(help.contains("with Unfolded after the last folder"))
     }
 }

@@ -41,9 +41,7 @@ struct WorkspaceSidebarDropDelegate: DropDelegate {
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        isTargeted = false
-        isSettling = true
-        clearPreviewAfterProviderCallbacksSettle()
+        finishCommittedDropVisualState()
         if isWorkspaceSidebarDragInProgress(
             kind: getCurrentMouseManipulationKind(),
             startedInSidebar: getCurrentMouseDragStartedInSidebar()
@@ -62,6 +60,7 @@ struct WorkspaceSidebarDropDelegate: DropDelegate {
             return true
         }
         loadPayload(from: info, completion: performPayloadDrop)
+        clearPreviewAfterProviderCallbacksSettle()
         return true
     }
 
@@ -85,6 +84,14 @@ struct WorkspaceSidebarDropDelegate: DropDelegate {
                 completion(payload)
             }
         }
+    }
+
+    private func finishCommittedDropVisualState() {
+        isTargeted = false
+        isSettling = true
+        actions.send(.clearDropPreview)
+        WindowDragCursorProxyPanel.shared.hide()
+        resetWorkspaceSidebarItemDrag()
     }
 
     private func clearPreviewAfterProviderCallbacksSettle() {

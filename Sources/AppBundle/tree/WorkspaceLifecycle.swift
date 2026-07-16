@@ -4,17 +4,23 @@ import Common
 @MainActor
 func switchWorkspaceProject(_ projectId: WorkspaceProjectId, on monitor: Monitor) -> Workspace? {
     materializePersistedWorkspaceProjects()
-    guard winMuxWorkspaceState.projectsById[projectId] != nil else {
+    guard winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(projectId)] != nil else {
         debugWorkspaceSidebarProjectLog("switchProjectAbort unknownProject=\(projectId.rawValue)")
         return nil
     }
     let viewportId = MonitorViewportId(monitor)
+    let preferredWorkspace = availablePreferredWorkspace(projectId: projectId, monitor: monitor)
     let rememberedWorkspace = winMuxWorkspaceState.monitorViewportsById[viewportId]?
         .lastActiveWorkspaceByProject[projectId]
         .flatMap { winMuxWorkspaceState.workspaceById[$0] }
-        .flatMap { workspaceIsAvailableForMonitor($0, monitor: monitor) ? $0 : nil }
+        .flatMap {
+            workspaceIsAvailableForMonitor($0, monitor: monitor) &&
+                workspaceIsPreferredProjectSwitchTarget($0, preferredWorkspace: preferredWorkspace)
+                ? $0
+                : nil
+        }
     let workspace = rememberedWorkspace
-        ?? availablePreferredWorkspace(projectId: projectId, monitor: monitor)
+        ?? preferredWorkspace
         ?? createBlankWorkspace(projectId: projectId, monitor: monitor)
     let didSetActive = monitor.setActiveWorkspace(workspace)
     debugWorkspaceSidebarProjectLog(
@@ -290,10 +296,7 @@ func workspaceShouldSurviveReconciliation(
 
 @MainActor
 private func shouldRetainVisibleWorkspaceDuringPrune(_ workspace: Workspace) -> Bool {
-    if projectsAreEnabled() || workspace.projectId == workspaceProjectDefaultId {
-        return true
-    }
-    return !workspace.isOrdinaryEmptySlot
+    true
 }
 
 @MainActor
@@ -301,7 +304,7 @@ private func shouldRetainLastEmptyWorkspaceInProject(_ workspace: Workspace) -> 
     guard projectWorkspaces(projectId: workspace.projectId).filter({ !$0.isArchived }).count == 1 else {
         return false
     }
-    return projectsAreEnabled() || workspace.projectId == workspaceProjectDefaultId
+    return true
 }
 
 @MainActor
@@ -377,17 +380,33 @@ private func fallbackProjectIdForMissingActiveWorkspace(on viewportId: MonitorVi
 
 @MainActor
 func availablePreferredWorkspace(projectId: WorkspaceProjectId, monitor: Monitor) -> Workspace? {
-    orderedWorkspacesForPresentation()
+    let candidates = orderedWorkspacesForPresentation()
         .filter { $0.projectId == projectId }
         .filter { !$0.isArchived }
         .filter { isValidAssignment(workspace: $0, screen: monitor.rect.topLeftCorner) }
-        .first { workspaceIsAvailableForMonitor($0, monitor: monitor) }
+        .filter { workspaceIsAvailableForMonitor($0, monitor: monitor) }
+    return candidates.first(where: workspaceIsPreferredProjectSwitchContent) ?? candidates.first
 }
 
 @MainActor
 func workspaceIsAvailableForMonitor(_ workspace: Workspace, monitor: Monitor) -> Bool {
     isValidAssignment(workspace: workspace, screen: monitor.rect.topLeftCorner) &&
         (!workspace.isVisible || workspace.workspaceMonitor.rect.topLeftCorner == monitor.rect.topLeftCorner)
+}
+
+@MainActor
+private func workspaceIsPreferredProjectSwitchTarget(
+    _ workspace: Workspace,
+    preferredWorkspace: Workspace?
+) -> Bool {
+    workspaceIsPreferredProjectSwitchContent(workspace) || preferredWorkspace == nil || preferredWorkspace == workspace
+}
+
+@MainActor
+private func workspaceIsPreferredProjectSwitchContent(_ workspace: Workspace) -> Bool {
+    workspaceHasSidebarVisibleWindows(workspace) ||
+        workspace.isConfiguredPersistent ||
+        !workspaceOwnedMinimizedWindows(workspace).isEmpty
 }
 
 @MainActor

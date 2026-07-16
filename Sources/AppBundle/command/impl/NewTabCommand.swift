@@ -8,9 +8,8 @@ struct NewTabCommand: Command {
     @MainActor
     func run(_ env: CmdEnv, _ io: CmdIo) async throws -> Bool {
         let current = focus.workspace
-        let projectId = projectsAreEnabled() ? current.projectId : workspaceProjectDefaultId
         let workspace = createFreshAdjacentBlankWorkspace(
-            projectId: projectId,
+            projectId: current.projectId,
             monitor: current.workspaceMonitor,
             after: current
         )

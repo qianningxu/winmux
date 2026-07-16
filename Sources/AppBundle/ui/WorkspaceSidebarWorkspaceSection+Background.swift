@@ -21,7 +21,7 @@ extension WorkspaceSidebarWorkspaceSection {
             return palette.tabStroke(active: true)
         }
         if allowsWorkspaceActivation && isInUseOnOtherDisplay {
-            return palette.destructive(isHovered ? 0.54 : 0.36)
+            return palette.destructive(isPointerHoverVisible ? 0.54 : 0.36)
         }
         if isVisuallyActiveOnTargetMonitor && showsWindowRows {
             return Color.clear
@@ -30,10 +30,10 @@ extension WorkspaceSidebarWorkspaceSection {
             return Color.clear
         }
         if isVisuallyActiveOnTargetMonitor || isPinnedActiveWorkspace {
-            return palette.tabStroke(active: isHovered)
+            return palette.tabStroke(active: isPointerHoverVisible)
         }
         if isFromOtherDisplay {
-            return palette.otherDisplay(isHovered ? 0.32 : 0.22)
+            return palette.otherDisplay(isPointerHoverVisible ? 0.32 : 0.22)
         }
         return Color.clear
     }
@@ -42,7 +42,7 @@ extension WorkspaceSidebarWorkspaceSection {
         if isPinnedActiveWorkspace && !isSearchFiltering {
             return StrokeStyle(lineWidth: 1, dash: [5, 4])
         }
-        return StrokeStyle(lineWidth: isHovered || isVisuallyActiveOnTargetMonitor || isDropTarget ? 0.75 : 0.6)
+        return StrokeStyle(lineWidth: isPointerHoverVisible || isVisuallyActiveOnTargetMonitor || isDropTarget ? 0.75 : 0.6)
     }
 
     var sectionBackgroundFill: Color {
@@ -53,12 +53,12 @@ extension WorkspaceSidebarWorkspaceSection {
             return palette.card()
         }
         if isSearchFiltering {
-            return palette.contrastingFill(darkOpacity: isHovered ? 0.045 : 0.015, lightOpacity: isHovered ? 0.04 : 0.025)
+            return palette.contrastingFill(darkOpacity: isPointerHoverVisible ? 0.045 : 0.015, lightOpacity: isPointerHoverVisible ? 0.04 : 0.025)
         }
         if allowsWorkspaceActivation && isInUseOnOtherDisplay {
             let redOpacity: Double = workspace.isFocused ? 0.16 : 0.065
             let hoveredRedOpacity: Double = workspace.isFocused ? 0.24 : 0.13
-            return palette.destructive(isHovered ? hoveredRedOpacity : redOpacity)
+            return palette.destructive(isPointerHoverVisible ? hoveredRedOpacity : redOpacity)
         }
         if isPinnedActiveWorkspace {
             return Color.clear
@@ -70,7 +70,7 @@ extension WorkspaceSidebarWorkspaceSection {
             return Color.clear
         }
         if isFromOtherDisplay {
-            return palette.otherDisplay(isHovered ? 0.10 : 0.05)
+            return palette.otherDisplay(isPointerHoverVisible ? 0.10 : 0.05)
         }
         return Color.clear
     }

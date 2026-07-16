@@ -5,19 +5,19 @@ import PrivateApi
 @MainActor
 func checkAccessibilityPermissions() {
     let options = [axTrustedCheckOptionPrompt: true]
-    if !AXIsProcessTrustedWithOptions(options as CFDictionary) {
-        resetAccessibility() // Because macOS doesn't reset it for us when the app signature changes...
-        terminateApp()
-    }
+    guard !AXIsProcessTrustedWithOptions(options as CFDictionary) else { return }
+    exit(
+        1,
+        err: """
+        WinMux needs Accessibility permission to organize windows.
+        macOS should have opened System Settings. Enable WinMux there, then reopen WinMux.
+        """
+    )
 }
 
 func requestScreenRecordingPermissionsIfNeeded() {
     guard !CGPreflightScreenCaptureAccess() else { return }
     _ = CGRequestScreenCaptureAccess()
-}
-
-private func resetAccessibility() {
-    _ = try? Process.run(URL(filePath: "/usr/bin/tccutil"), arguments: ["reset", "Accessibility", winMuxAppId])
 }
 
 protocol ReadableAttr: Sendable {

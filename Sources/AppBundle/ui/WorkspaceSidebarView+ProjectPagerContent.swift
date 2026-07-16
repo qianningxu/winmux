@@ -13,8 +13,8 @@ extension WorkspaceSidebarView {
     ) -> some View {
         if !projectsAreEnabled() {
             workspacePage(
-                projectId: snapshot.activeProjectId,
-                workspaces: visibleWorkspacesByProject[snapshot.activeProjectId] ?? snapshot.workspaces,
+                projectId: workspaceFolderDefaultId.backingProjectId,
+                workspaces: visibleWorkspacesByProject[workspaceFolderDefaultId.backingProjectId] ?? snapshot.workspaces,
                 expansionProgress: expansionProgress,
                 leadingInset: leadingInset,
                 trailingInset: trailingInset,

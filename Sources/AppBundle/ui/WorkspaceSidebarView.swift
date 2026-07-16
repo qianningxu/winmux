@@ -28,7 +28,10 @@ struct WorkspaceSidebarView: View {
     @State var lastProjectEdgeDragSwitchAt: Date = .distantPast
     @State var showsPinnedActiveWorkspaceForBrowsedProject = true
     @State var workspaceReorderFrames: [WorkspaceSidebarWorkspaceReorderFrame] = []
+    @State var workspaceReorderHitTestFrames: [WorkspaceSidebarWorkspaceReorderFrame] = []
+    @State var workspaceReorderHitTestFolderFrames: [WorkspaceSidebarFolderReorderFrame] = []
     @State var folderReorderFrames: [WorkspaceSidebarFolderReorderFrame] = []
+    @State var folderReorderHitTestFrames: [WorkspaceSidebarFolderReorderFrame] = []
     @State var workspaceReorderDrag: WorkspaceSidebarWorkspaceReorderDragState? = nil
     @StateObject var workspaceReorderDriver = WorkspaceSidebarWorkspaceReorderDriver()
     @State var folderReorderDrag: WorkspaceSidebarFolderReorderDragState? = nil
@@ -156,9 +159,30 @@ struct WorkspaceSidebarView: View {
             guard let pointer = workspaceSidebarDragPointer(from: notification) else { return }
             handleProjectEdgeDrag(pointer: pointer, expansionProgress: expansionProgress)
         }
-        .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarDragPointerEndedNotification)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarDragPointerEndedNotification)) { notification in
             resetProjectEdgeDrag()
-            cancelWorkspaceReorderDrag()
+            // The global mouse-up monitor can arrive before SwiftUI delivers
+            // the gesture's final `onChanged`/`onEnded` pair.  Cancelling
+            // synchronously in that gap is exactly why a quick release could
+            // return a tab to its origin.  Let that event turn finish first,
+            // then use this exact mouse-up point as the fallback commit.
+            let screenPoint = workspaceSidebarDragPointer(from: notification) ??
+                MousePointerTracker.shared.currentSample.point
+            Task { @MainActor in
+                await Task.yield()
+                guard let drag = workspaceReorderDrag,
+                      !drag.isCommitting,
+                      let workspace = snapshot.workspaces.first(where: { $0.name == drag.sourceWorkspaceName })
+                else { return }
+                finishWorkspaceReorderDrag(
+                    workspace: workspace,
+                    projectId: drag.projectId,
+                    pointer: workspaceReorderContentPointer(screenPoint: screenPoint) ??
+                        workspaceReorderDriver.latestPointer ??
+                        .zero,
+                    screenPoint: screenPoint
+                )
+            }
             resetWorkspaceSidebarItemDrag()
         }
     }

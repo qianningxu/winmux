@@ -51,7 +51,7 @@ extension ListWorkspacesCmdArgs {
     public var format: [StringInterToken] { _format.isEmpty ? [.interVar("tab")] : _format }
 
     public var jsonFormat: [StringInterToken] {
-        _format.isEmpty ? [.interVar("tab"), .literal(" "), .interVar("workspace")] : _format
+        _format.isEmpty ? [.interVar("tab")] : _format
     }
 }
 

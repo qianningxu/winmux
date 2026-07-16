@@ -42,28 +42,30 @@ extension WorkspaceCmdArgs {
 }
 
 public enum WorkspaceTarget: Equatable, Sendable {
+    case fresh
     case relative(NextPrev)
     case direct(WorkspaceName)
 
     public var isRelative: Bool {
         switch self {
             case .relative: true
-            default: false
+            case .fresh, .direct: false
         }
     }
 
     public func workspaceNameOrNil() -> WorkspaceName? {
         switch self {
             case .direct(let name): name
-            case .relative: nil
+            case .fresh, .relative: nil
         }
     }
 }
 
-let workspaceTargetPlaceholder = "(<tab-name>|next|prev)"
+let workspaceTargetPlaceholder = "(<tab-name>|new|next|prev)"
 
 func parseWorkspaceTarget(i: PosArgParserInput) -> ParsedCliArgs<WorkspaceTarget> {
     switch i.arg {
+        case "new": .succ(.fresh, advanceBy: 1)
         case "next": .succ(.relative(.next), advanceBy: 1)
         case "prev": .succ(.relative(.prev), advanceBy: 1)
         default: .init(WorkspaceName.parse(i.arg).map(WorkspaceTarget.direct), advanceBy: 1)

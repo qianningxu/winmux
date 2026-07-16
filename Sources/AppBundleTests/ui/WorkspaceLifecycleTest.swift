@@ -147,7 +147,7 @@ final class WorkspaceLifecycleTest: XCTestCase {
         XCTAssertTrue(emptyUserFacingWorkspaces(in: sourceWorkspace.projectId).isEmpty)
     }
 
-    func testMovingLastTabGroupWindowAwayDissolvesEmptyTabGroup() async throws {
+    func testMovingLastFolderWindowAwayKeepsEmptySidebarFolder() async throws {
         let defaultTarget = Workspace.get(byName: "default-target")
         _ = TestWindow.new(id: 5, parent: defaultTarget.rootTilingContainer)
         let project = createWorkspaceProject()
@@ -163,11 +163,11 @@ final class WorkspaceLifecycleTest: XCTestCase {
         )
         Workspace.reconcileWorkspaceState()
 
-        XCTAssertEqual(mainMonitor.activeWorkspace.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(mainMonitor.activeWorkspace.projectId, project.id)
         XCTAssertEqual(projectWindow.nodeWorkspace?.projectId, workspaceProjectDefaultId)
-        XCTAssertNil(Workspace.existing(byName: projectWorkspace.name))
-        XCTAssertNil(winMuxWorkspaceState.projectsById[project.id])
-        XCTAssertEqual(emptyUserFacingWorkspaces(in: project.id), [])
+        XCTAssertTrue(Workspace.existing(byName: projectWorkspace.name) === projectWorkspace)
+        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(project.id)])
+        XCTAssertEqual(emptyUserFacingWorkspaces(in: project.id), [projectWorkspace])
     }
 
     func testWorkspaceNextFromExistingBlankDoesNotCreateAnotherBlank() async throws {
@@ -301,12 +301,12 @@ final class WorkspaceLifecycleTest: XCTestCase {
         Workspace.reconcileWorkspaceState()
 
         XCTAssertTrue(main.activeWorkspace === defaultWorkspace)
-        XCTAssertFalse(secondary.activeWorkspace === projectWorkspace)
+        XCTAssertTrue(secondary.activeWorkspace === projectWorkspace)
         XCTAssertEqual(defaultWorkspace.projectId, workspaceProjectDefaultId)
-        XCTAssertEqual(secondary.activeWorkspace.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(secondary.activeWorkspace.projectId, project.id)
         XCTAssertTrue(secondary.activeWorkspace.isOrdinaryEmptySlot)
-        XCTAssertNil(Workspace.existing(byName: projectWorkspace.name))
-        XCTAssertNil(winMuxWorkspaceState.projectsById[project.id])
+        XCTAssertTrue(Workspace.existing(byName: projectWorkspace.name) === projectWorkspace)
+        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(project.id)])
     }
 
     func testSameProjectCanBeActiveOnDifferentMonitorsWithDifferentWorkspaces() {

@@ -1,4 +1,19 @@
+import AppKit
 import SwiftUI
+
+/// Complete one sibling's layout transition before the presentation clock can
+/// advance to the next insertion slot. A short deterministic curve avoids the
+/// overlapping springs that made two rows appear to move as one jump.
+let workspaceSidebarWorkspacePreviewTransitionDuration: TimeInterval = 0.040
+let workspaceSidebarWorkspaceReorderAnimation = Animation.easeInOut(
+    duration: workspaceSidebarWorkspacePreviewTransitionDuration
+)
+
+/// Keep each insertion slot on screen long enough for SwiftUI to render a
+/// the full row transition plus a small rendered hold before the next sibling
+/// is released. The first step remains immediate, and 50 ms keeps queued
+/// catch-up perceptibly closer to the mouse than the previous 60 ms spring.
+let workspaceSidebarWorkspacePreviewStepInterval: TimeInterval = 0.050
 
 struct WorkspaceSidebarWorkspaceReorderFrame: Equatable {
     let workspaceName: String
@@ -91,13 +106,318 @@ func workspaceSidebarWorkspaceDragFinishAction(
 struct WorkspaceSidebarWorkspaceReorderDragState: Equatable {
     let sourceWorkspaceName: String
     let projectId: WorkspaceProjectId
-    var pointer: CGPoint
     var target: WorkspaceSidebarWorkspaceDragTarget?
+    /// Unlike `target`, this is never cleared by a single missed geometry
+    /// sample. It is the slot we commit if mouse-up happens inside the sidebar.
+    var lastValidTarget: WorkspaceSidebarWorkspaceDragTarget? = nil
+    /// Native drag events can cross several rows between rendered frames. The
+    /// exact pointer target above remains immediate, while this deadline gates
+    /// only the next visual insertion-slot step.
+    var nextPreviewStepAt: TimeInterval? = nil
+    /// Both the global mouse observer and SwiftUI's DragGesture can report the
+    /// same mouse-up. Commit exactly once so the final model refresh cannot
+    /// briefly replay the reorder.
+    var isCommitting: Bool = false
+}
+
+/// A reorder target is deliberately sticky while the pointer remains in the
+/// sidebar. SwiftUI is animating the preview rows while the pointer is moving,
+/// so a single transient frame miss must not erase the last concrete slot.
+/// Leaving the sidebar is the one explicit way to clear the sidebar target and
+/// enable a canvas drop instead.
+func workspaceSidebarStableWorkspaceDragTarget(
+    currentTarget: WorkspaceSidebarWorkspaceDragTarget?,
+    candidateTarget: WorkspaceSidebarWorkspaceDragTarget?,
+    isPointerInsideSidebar: Bool
+) -> WorkspaceSidebarWorkspaceDragTarget? {
+    guard isPointerInsideSidebar else { return candidateTarget }
+    return candidateTarget ?? currentTarget
+}
+
+private struct WorkspaceSidebarWorkspaceInsertionSlot: Equatable {
+    let projectId: WorkspaceProjectId
+    let insertionIndex: Int
+    let previewTarget: WorkspaceSidebarWorkspaceDragTarget?
+}
+
+/// Build every visible insertion slot in vertical order. The source's original
+/// position is represented by a nil preview target, while the terminal slot of
+/// one folder and the first slot of the next remain distinct. This gives the
+/// preview a deterministic ladder that cannot omit a sibling when pointer
+/// events arrive faster than SwiftUI can render them.
+private func workspaceSidebarWorkspaceInsertionSlots(
+    sourceWorkspaceName: String,
+    sourceProjectId: WorkspaceProjectId,
+    frames: [WorkspaceSidebarWorkspaceReorderFrame],
+    folderFrames: [WorkspaceSidebarFolderReorderFrame]
+) -> [WorkspaceSidebarWorkspaceInsertionSlot] {
+    let reorderableFrames = frames.filter(\.isReorderable)
+    let visibleDestinationProjectIds = Set(
+        folderFrames.lazy.filter(\.isDropTarget).map(\.projectId)
+    )
+    let includesEveryFramedProject = folderFrames.isEmpty
+    let projectIds = Set(reorderableFrames.map(\.projectId))
+        .union(visibleDestinationProjectIds)
+        .filter {
+            $0 == sourceProjectId ||
+                includesEveryFramedProject ||
+                visibleDestinationProjectIds.contains($0)
+        }
+
+    func projectMinimumY(_ projectId: WorkspaceProjectId) -> CGFloat {
+        let folderMinimumY = folderFrames
+            .filter { $0.projectId == projectId }
+            .map(\.frame.minY)
+            .min()
+        let workspaceMinimumY = reorderableFrames
+            .filter { $0.projectId == projectId }
+            .map(\.frame.minY)
+            .min()
+        return folderMinimumY ?? workspaceMinimumY ?? .greatestFiniteMagnitude
+    }
+
+    let orderedProjectIds = projectIds.sorted {
+        let leftY = projectMinimumY($0)
+        let rightY = projectMinimumY($1)
+        if leftY != rightY { return leftY < rightY }
+        return $0.rawValue < $1.rawValue
+    }
+
+    return orderedProjectIds.flatMap { projectId -> [WorkspaceSidebarWorkspaceInsertionSlot] in
+        let projectFrames = reorderableFrames
+            .filter { $0.projectId == projectId }
+            .sorted { $0.frame.midY < $1.frame.midY }
+        let sourceIndex = projectId == sourceProjectId
+            ? projectFrames.firstIndex(where: { $0.workspaceName == sourceWorkspaceName })
+            : nil
+        let remainingFrames = projectFrames.filter {
+            projectId != sourceProjectId || $0.workspaceName != sourceWorkspaceName
+        }
+
+        return (0 ... remainingFrames.count).map { insertionIndex in
+            let previewTarget: WorkspaceSidebarWorkspaceDragTarget?
+            if projectId == sourceProjectId, insertionIndex == sourceIndex {
+                previewTarget = nil
+            } else if remainingFrames.isEmpty {
+                previewTarget = projectId == sourceProjectId
+                    ? nil
+                    : .moveToFolder(WorkspaceSidebarWorkspaceFolderTarget(
+                        projectId: projectId,
+                        sourceWorkspaceName: sourceWorkspaceName
+                    ))
+            } else {
+                let targetFrame = insertionIndex == 0
+                    ? remainingFrames[0]
+                    : remainingFrames[insertionIndex - 1]
+                previewTarget = .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+                    projectId: projectId,
+                    targetWorkspaceName: targetFrame.workspaceName,
+                    placement: insertionIndex == 0
+                        ? .before(targetFrame.workspaceName)
+                        : .after(targetFrame.workspaceName)
+                ))
+            }
+            return WorkspaceSidebarWorkspaceInsertionSlot(
+                projectId: projectId,
+                insertionIndex: insertionIndex,
+                previewTarget: previewTarget
+            )
+        }
+    }
+}
+
+private func workspaceSidebarWorkspaceInsertionSlotIndex(
+    target: WorkspaceSidebarWorkspaceDragTarget?,
+    sourceWorkspaceName: String,
+    sourceProjectId: WorkspaceProjectId,
+    frames: [WorkspaceSidebarWorkspaceReorderFrame],
+    slots: [WorkspaceSidebarWorkspaceInsertionSlot]
+) -> Int? {
+    guard let target else {
+        return slots.firstIndex {
+            $0.projectId == sourceProjectId && $0.previewTarget == nil
+        }
+    }
+
+    let projectId: WorkspaceProjectId
+    let insertionIndex: Int
+    switch target {
+        case .moveToFolder(let folderTarget):
+            projectId = folderTarget.projectId
+            insertionIndex = frames.filter {
+                $0.isReorderable &&
+                    $0.projectId == projectId &&
+                    $0.workspaceName != sourceWorkspaceName
+            }.count
+        case .reorder(let reorderTarget):
+            projectId = reorderTarget.projectId
+            let remainingFrames = frames
+                .filter {
+                    $0.isReorderable &&
+                        $0.projectId == projectId &&
+                        (projectId != sourceProjectId || $0.workspaceName != sourceWorkspaceName)
+                }
+                .sorted { $0.frame.midY < $1.frame.midY }
+            guard let targetIndex = remainingFrames.firstIndex(where: {
+                $0.workspaceName == reorderTarget.targetWorkspaceName
+            }) else { return nil }
+            insertionIndex = switch reorderTarget.placement {
+                case .before: targetIndex
+                case .after: targetIndex + 1
+            }
+    }
+
+    return slots.firstIndex {
+        $0.projectId == projectId && $0.insertionIndex == insertionIndex
+    }
+}
+
+/// Advance the visual placeholder by exactly one adjacent insertion slot.
+/// The exact pointer target is kept separately and is still used for mouse-up,
+/// so a fast release remains precise even while the preview is catching up.
+func workspaceSidebarWorkspaceAdjacentPreviewTarget(
+    currentTarget: WorkspaceSidebarWorkspaceDragTarget?,
+    desiredTarget: WorkspaceSidebarWorkspaceDragTarget?,
+    sourceWorkspaceName: String,
+    sourceProjectId: WorkspaceProjectId,
+    frames: [WorkspaceSidebarWorkspaceReorderFrame],
+    folderFrames: [WorkspaceSidebarFolderReorderFrame] = []
+) -> WorkspaceSidebarWorkspaceDragTarget? {
+    let slots = workspaceSidebarWorkspaceInsertionSlots(
+        sourceWorkspaceName: sourceWorkspaceName,
+        sourceProjectId: sourceProjectId,
+        frames: frames,
+        folderFrames: folderFrames
+    )
+    guard let currentIndex = workspaceSidebarWorkspaceInsertionSlotIndex(
+        target: currentTarget,
+        sourceWorkspaceName: sourceWorkspaceName,
+        sourceProjectId: sourceProjectId,
+        frames: frames,
+        slots: slots
+    ), let desiredIndex = workspaceSidebarWorkspaceInsertionSlotIndex(
+        target: desiredTarget,
+        sourceWorkspaceName: sourceWorkspaceName,
+        sourceProjectId: sourceProjectId,
+        frames: frames,
+        slots: slots
+    ) else { return desiredTarget }
+    guard currentIndex != desiredIndex else { return slots[currentIndex].previewTarget }
+    let nextIndex = currentIndex + (desiredIndex > currentIndex ? 1 : -1)
+    return slots[nextIndex].previewTarget
+}
+
+struct WorkspaceSidebarWorkspacePacedPreviewResolution: Equatable {
+    let target: WorkspaceSidebarWorkspaceDragTarget?
+    let nextPreviewStepAt: TimeInterval?
+}
+
+/// Advance at most one slot and hold that slot for a short render window. This
+/// prevents multiple correct state transitions from being visually coalesced
+/// into one jump while keeping the exact mouse-up target completely unpaced.
+func workspaceSidebarWorkspacePacedPreviewResolution(
+    currentTarget: WorkspaceSidebarWorkspaceDragTarget?,
+    desiredTarget: WorkspaceSidebarWorkspaceDragTarget?,
+    nextPreviewStepAt: TimeInterval?,
+    now: TimeInterval,
+    stepInterval: TimeInterval = workspaceSidebarWorkspacePreviewStepInterval,
+    sourceWorkspaceName: String,
+    sourceProjectId: WorkspaceProjectId,
+    frames: [WorkspaceSidebarWorkspaceReorderFrame],
+    folderFrames: [WorkspaceSidebarFolderReorderFrame] = []
+) -> WorkspaceSidebarWorkspacePacedPreviewResolution {
+    let slots = workspaceSidebarWorkspaceInsertionSlots(
+        sourceWorkspaceName: sourceWorkspaceName,
+        sourceProjectId: sourceProjectId,
+        frames: frames,
+        folderFrames: folderFrames
+    )
+    guard let currentIndex = workspaceSidebarWorkspaceInsertionSlotIndex(
+        target: currentTarget,
+        sourceWorkspaceName: sourceWorkspaceName,
+        sourceProjectId: sourceProjectId,
+        frames: frames,
+        slots: slots
+    ), let desiredIndex = workspaceSidebarWorkspaceInsertionSlotIndex(
+        target: desiredTarget,
+        sourceWorkspaceName: sourceWorkspaceName,
+        sourceProjectId: sourceProjectId,
+        frames: frames,
+        slots: slots
+    ) else {
+        return WorkspaceSidebarWorkspacePacedPreviewResolution(
+            target: desiredTarget,
+            nextPreviewStepAt: now + stepInterval
+        )
+    }
+
+    if currentIndex == desiredIndex {
+        let retainedDeadline = nextPreviewStepAt.flatMap { now < $0 ? $0 : nil }
+        return WorkspaceSidebarWorkspacePacedPreviewResolution(
+            target: slots[currentIndex].previewTarget,
+            nextPreviewStepAt: retainedDeadline
+        )
+    }
+    if let nextPreviewStepAt, now < nextPreviewStepAt {
+        return WorkspaceSidebarWorkspacePacedPreviewResolution(
+            target: slots[currentIndex].previewTarget,
+            nextPreviewStepAt: nextPreviewStepAt
+        )
+    }
+
+    let nextIndex = currentIndex + (desiredIndex > currentIndex ? 1 : -1)
+    return WorkspaceSidebarWorkspacePacedPreviewResolution(
+        target: slots[nextIndex].previewTarget,
+        nextPreviewStepAt: now + stepInterval
+    )
+}
+
+/// Nil hit-test targets are intentional while the pointer is over the source's
+/// original insertion band, but can also be transient misses elsewhere. Keep
+/// those cases separate so returning to the source closes the preview while a
+/// brief gap between folders does not snap it back.
+func workspaceSidebarWorkspacePointerIsInSourceOriginalSlot(
+    sourceWorkspaceName: String,
+    sourceProjectId: WorkspaceProjectId,
+    pointer: CGPoint,
+    frames: [WorkspaceSidebarWorkspaceReorderFrame]
+) -> Bool {
+    let sourceFrames = frames
+        .filter {
+            $0.isReorderable &&
+                $0.projectId == sourceProjectId &&
+                workspaceSidebarPointerIsInsideWorkspaceReorderXBand(pointer, frame: $0.frame)
+        }
+        .sorted { $0.frame.midY < $1.frame.midY }
+    guard let sourceIndex = sourceFrames.firstIndex(where: {
+        $0.workspaceName == sourceWorkspaceName
+    }) else { return false }
+
+    let sourceFrame = sourceFrames[sourceIndex].frame
+    let lowerBound = sourceIndex > 0
+        ? (sourceFrames[sourceIndex - 1].frame.midY + sourceFrame.midY) / 2
+        : sourceFrame.minY - sourceFrame.height / 2
+    let upperBound = sourceIndex + 1 < sourceFrames.count
+        ? (sourceFrame.midY + sourceFrames[sourceIndex + 1].frame.midY) / 2
+        : sourceFrame.maxY + sourceFrame.height / 2
+    return lowerBound <= pointer.y && pointer.y <= upperBound
+}
+
+/// Resolve mouse-up from the final frozen-frame hit first. This covers a very
+/// fast drag where the display-link has not sampled the final pointer yet;
+/// the last stable target remains the fallback for a transient frame miss.
+func workspaceSidebarWorkspaceDragFinishTarget(
+    finalCandidate: WorkspaceSidebarWorkspaceDragTarget?,
+    lastValidTarget: WorkspaceSidebarWorkspaceDragTarget?,
+    currentTarget: WorkspaceSidebarWorkspaceDragTarget?,
+    hasCanvasDropIntent: Bool
+) -> WorkspaceSidebarWorkspaceDragTarget? {
+    guard !hasCanvasDropIntent else { return nil }
+    return finalCandidate ?? lastValidTarget ?? currentTarget
 }
 
 struct WorkspaceSidebarFolderReorderDragState: Equatable {
     let sourceProjectId: WorkspaceProjectId
-    var pointer: CGPoint
     var target: WorkspaceSidebarFolderReorderTarget?
 }
 
@@ -105,7 +425,10 @@ struct WorkspaceSidebarFolderReorderDragState: Equatable {
 final class WorkspaceSidebarWorkspaceReorderDriver: ObservableObject {
     private var session: WorkspaceSidebarWorkspaceReorderSession?
     private var onTick: (@MainActor () -> Void)?
+    private var onPointer: (@MainActor (CGPoint) -> Void)?
     private var onFinish: (@MainActor () -> Void)?
+    private var pointerEventMonitors: [Any] = []
+    private(set) var latestPointer: CGPoint?
 
     var isTracking: Bool { session != nil }
 
@@ -120,27 +443,75 @@ final class WorkspaceSidebarWorkspaceReorderDriver: ObservableObject {
         sourceWorkspaceName: String,
         projectId: WorkspaceProjectId,
         onTick: @escaping @MainActor () -> Void,
+        onPointer: @escaping @MainActor (CGPoint) -> Void,
         onFinish: @escaping @MainActor () -> Void
     ) {
         self.onTick = onTick
+        self.onPointer = onPointer
         self.onFinish = onFinish
         let nextSession = WorkspaceSidebarWorkspaceReorderSession(
             sourceWorkspaceName: sourceWorkspaceName,
             projectId: projectId
         )
         guard session != nextSession else { return }
+        latestPointer = nil
         session = nextSession
+        startPointerEventMonitoring()
         DisplayRefreshDriver.shared.add(owner: self) { [weak self] _ in
             self?.tick()
         }
     }
 
+    func note(pointer: CGPoint) {
+        latestPointer = pointer
+    }
+
     func stop() {
         guard session != nil else { return }
         DisplayRefreshDriver.shared.remove(owner: self)
+        stopPointerEventMonitoring()
         session = nil
         onTick = nil
+        onPointer = nil
         onFinish = nil
+    }
+
+    /// SwiftUI can unmount the source row as soon as the first placeholder is
+    /// projected. Continue consuming native drag events after that point so a
+    /// compact sidebar row cannot be crossed between two display-link ticks.
+    private func startPointerEventMonitoring() {
+        stopPointerEventMonitoring()
+        let handlePointerEvent: (NSEvent) -> Void = { [weak self] event in
+            let timestamp = event.timestamp
+            let point = normalizeAppKitScreenPoint(NSEvent.mouseLocation)
+            Task { @MainActor [weak self] in
+                guard let self, self.session != nil, isLeftMouseButtonDown else { return }
+                MousePointerTracker.shared.note(point: point, timestamp: timestamp)
+                self.onPointer?(point)
+            }
+        }
+        if let globalMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: .leftMouseDragged,
+            handler: handlePointerEvent
+        ) {
+            pointerEventMonitors.append(globalMonitor)
+        }
+        if let localMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: .leftMouseDragged,
+            handler: { event in
+                handlePointerEvent(event)
+                return event
+            }
+        ) {
+            pointerEventMonitors.append(localMonitor)
+        }
+    }
+
+    private func stopPointerEventMonitoring() {
+        for monitor in pointerEventMonitors {
+            NSEvent.removeMonitor(monitor)
+        }
+        pointerEventMonitors.removeAll()
     }
 
     private func tick() {
@@ -159,6 +530,7 @@ final class WorkspaceSidebarFolderReorderDriver: ObservableObject {
     private var sourceProjectId: WorkspaceProjectId?
     private var onTick: (@MainActor () -> Void)?
     private var onFinish: (@MainActor () -> Void)?
+    private(set) var latestPointer: CGPoint?
 
     var isTracking: Bool { sourceProjectId != nil }
 
@@ -174,10 +546,15 @@ final class WorkspaceSidebarFolderReorderDriver: ObservableObject {
         self.onTick = onTick
         self.onFinish = onFinish
         guard self.sourceProjectId != sourceProjectId else { return }
+        latestPointer = nil
         self.sourceProjectId = sourceProjectId
         DisplayRefreshDriver.shared.add(owner: self) { [weak self] _ in
             self?.tick()
         }
+    }
+
+    func note(pointer: CGPoint) {
+        latestPointer = pointer
     }
 
     func stop() {
@@ -273,37 +650,72 @@ func workspaceSidebarHeaderRowIsHighlighted(
     isSelected || isReorderSource
 }
 
+func workspaceSidebarWorkspaceSourceIsProjectedDragAnchor(
+    isSource: Bool,
+    target: WorkspaceSidebarWorkspaceDragTarget?
+) -> Bool {
+    isSource && target != nil
+}
+
 func workspaceSidebarWorkspaceReorderTarget(
     sourceWorkspaceName: String,
     sourceProjectId: WorkspaceProjectId,
     pointer: CGPoint,
-    frames: [WorkspaceSidebarWorkspaceReorderFrame]
+    frames: [WorkspaceSidebarWorkspaceReorderFrame],
+    folderFrames: [WorkspaceSidebarFolderReorderFrame] = []
 ) -> WorkspaceSidebarWorkspaceReorderTarget? {
     let candidates = frames
         .filter {
             $0.isReorderable &&
                 $0.workspaceName != sourceWorkspaceName &&
-                $0.frame.minX <= pointer.x &&
-                pointer.x <= $0.frame.maxX
+                workspaceSidebarWorkspaceReorderCandidateHasVisibleProjectFrame(
+                    $0,
+                    sourceProjectId: sourceProjectId,
+                    folderFrames: folderFrames
+                ) &&
+                workspaceSidebarPointerIsInsideWorkspaceReorderXBand(pointer, frame: $0.frame)
         }
         .sorted { $0.frame.midY < $1.frame.midY }
 
     guard !candidates.isEmpty else { return nil }
 
-    if let containingCandidate = candidates.last(where: { $0.frame.contains(pointer) }) {
+    let sourceProjectFrames = frames
+        .filter {
+            $0.isReorderable &&
+                $0.projectId == sourceProjectId &&
+                workspaceSidebarPointerIsInsideWorkspaceReorderXBand(pointer, frame: $0.frame)
+        }
+        .sorted { $0.frame.midY < $1.frame.midY }
+    guard let sourceIndex = sourceProjectFrames.firstIndex(where: {
+        $0.workspaceName == sourceWorkspaceName
+    }) else { return nil }
+    let sourceFrame = sourceProjectFrames[sourceIndex]
+
+    // A drag begins inside the source row. Treating that point as a nearby
+    // target projects the source into the first/last slot before it has moved
+    // over another row, which is especially visible when dragging the last
+    // tab upward. Keep the original order until the pointer reaches a real
+    // target row or a different insertion slot.
+    guard !workspaceSidebarWorkspaceReorderFrameContains(sourceFrame.frame, pointer: pointer) else {
+        return nil
+    }
+
+    if let containingCandidate = candidates.last(where: { workspaceSidebarWorkspaceReorderFrameContains($0.frame, pointer: pointer) }) {
         if containingCandidate.projectId != sourceProjectId {
+            let placement: WorkspaceReorderPlacement = workspaceSidebarWorkspacePointerIsBeforeMidline(pointer, frame: containingCandidate.frame)
+                ? .before(containingCandidate.workspaceName)
+                : .after(containingCandidate.workspaceName)
             return WorkspaceSidebarWorkspaceReorderTarget(
                 projectId: containingCandidate.projectId,
                 targetWorkspaceName: containingCandidate.workspaceName,
-                placement: workspaceSidebarWorkspacePointerIsBeforeMidline(pointer, frame: containingCandidate.frame)
-                    ? .before(containingCandidate.workspaceName)
-                    : .after(containingCandidate.workspaceName)
+                placement: placement
             )
         }
         guard let placement = workspaceSidebarWorkspaceReorderPlacement(
-            pointer,
-            frame: containingCandidate.frame,
-            targetWorkspaceName: containingCandidate.workspaceName
+            sourceWorkspaceName: sourceWorkspaceName,
+            sourceProjectId: sourceProjectId,
+            targetWorkspaceName: containingCandidate.workspaceName,
+            frames: frames
         ) else {
             return nil
         }
@@ -314,20 +726,39 @@ func workspaceSidebarWorkspaceReorderTarget(
         )
     }
 
-    for candidate in candidates where pointer.y < candidate.frame.midY {
-        return WorkspaceSidebarWorkspaceReorderTarget(
-            projectId: candidate.projectId,
-            targetWorkspaceName: candidate.workspaceName,
-            placement: .before(candidate.workspaceName)
-        )
-    }
+    // Gaps next to the source are still its original position. Do not replace
+    // the source with a placeholder there: that is a no-op that causes a
+    // flash. Every other gap maps to the adjacent stable row.
+    let insertionIndex = sourceProjectFrames.firstIndex(where: {
+        pointer.y < $0.frame.midY
+    }) ?? sourceProjectFrames.count
+    let destinationIndex = insertionIndex > sourceIndex
+        ? insertionIndex - 1
+        : insertionIndex
+    guard destinationIndex != sourceIndex else { return nil }
 
-    guard let last = candidates.last else { return nil }
+    let target = sourceProjectFrames[destinationIndex]
     return WorkspaceSidebarWorkspaceReorderTarget(
-        projectId: last.projectId,
-        targetWorkspaceName: last.workspaceName,
-        placement: .after(last.workspaceName)
+        projectId: sourceProjectId,
+        targetWorkspaceName: target.workspaceName,
+        placement: destinationIndex < sourceIndex
+            ? .before(target.workspaceName)
+            : .after(target.workspaceName)
     )
+}
+
+func workspaceSidebarWorkspaceReorderFramesForHitTesting(
+    liveFrames: [WorkspaceSidebarWorkspaceReorderFrame],
+    frozenFrames: [WorkspaceSidebarWorkspaceReorderFrame]
+) -> [WorkspaceSidebarWorkspaceReorderFrame] {
+    frozenFrames.isEmpty ? liveFrames : frozenFrames
+}
+
+func workspaceSidebarFolderReorderFramesForHitTesting(
+    liveFrames: [WorkspaceSidebarFolderReorderFrame],
+    frozenFrames: [WorkspaceSidebarFolderReorderFrame]
+) -> [WorkspaceSidebarFolderReorderFrame] {
+    frozenFrames.isEmpty ? liveFrames : frozenFrames
 }
 
 func workspaceSidebarWorkspaceDragTarget(
@@ -337,6 +768,11 @@ func workspaceSidebarWorkspaceDragTarget(
     workspaceFrames: [WorkspaceSidebarWorkspaceReorderFrame],
     folderFrames: [WorkspaceSidebarFolderReorderFrame] = []
 ) -> WorkspaceSidebarWorkspaceDragTarget? {
+    let isOverWorkspaceRow = workspaceSidebarPointerIsOverWorkspaceRow(
+        sourceWorkspaceName: sourceWorkspaceName,
+        pointer: pointer,
+        frames: workspaceFrames
+    )
     let folderTarget = workspaceSidebarWorkspaceFolderTarget(
         sourceWorkspaceName: sourceWorkspaceName,
         sourceProjectId: sourceProjectId,
@@ -344,26 +780,79 @@ func workspaceSidebarWorkspaceDragTarget(
         frames: folderFrames
     )
     if let folderTarget,
-       !workspaceSidebarPointerIsOverWorkspaceRow(
-        sourceWorkspaceName: sourceWorkspaceName,
-        pointer: pointer,
-        frames: workspaceFrames
+       let insertionTarget = workspaceSidebarWorkspaceInsertionTarget(
+            sourceWorkspaceName: sourceWorkspaceName,
+            sourceProjectId: sourceProjectId,
+            targetProjectId: folderTarget.projectId,
+            pointer: pointer,
+            frames: workspaceFrames
        )
     {
+        return .reorder(insertionTarget)
+    }
+    if let folderTarget, !isOverWorkspaceRow {
         return .moveToFolder(folderTarget)
     }
-    if let reorderTarget = workspaceSidebarWorkspaceReorderTarget(
-        sourceWorkspaceName: sourceWorkspaceName,
-        sourceProjectId: sourceProjectId,
+    let sourceProjectFrameExists = workspaceSidebarProjectFrameExists(projectId: sourceProjectId, frames: folderFrames)
+    let isInsideSourceProjectFrame = workspaceSidebarProjectFrameContains(
+        projectId: sourceProjectId,
         pointer: pointer,
-        frames: workspaceFrames
-    ) {
-        return .reorder(reorderTarget)
+        frames: folderFrames
+    )
+    if isOverWorkspaceRow || !sourceProjectFrameExists || isInsideSourceProjectFrame {
+        if let reorderTarget = workspaceSidebarWorkspaceReorderTarget(
+            sourceWorkspaceName: sourceWorkspaceName,
+            sourceProjectId: sourceProjectId,
+            pointer: pointer,
+            frames: workspaceFrames,
+            folderFrames: folderFrames
+        ) {
+            return .reorder(reorderTarget)
+        }
     }
     if let folderTarget {
         return .moveToFolder(folderTarget)
     }
     return nil
+}
+
+private func workspaceSidebarWorkspaceInsertionTarget(
+    sourceWorkspaceName: String,
+    sourceProjectId: WorkspaceProjectId,
+    targetProjectId: WorkspaceProjectId,
+    pointer: CGPoint,
+    frames: [WorkspaceSidebarWorkspaceReorderFrame]
+) -> WorkspaceSidebarWorkspaceReorderTarget? {
+    let candidates = frames
+        .filter {
+            $0.isReorderable &&
+                $0.projectId == targetProjectId &&
+                $0.workspaceName != sourceWorkspaceName &&
+                workspaceSidebarPointerIsInsideWorkspaceReorderXBand(pointer, frame: $0.frame)
+        }
+        .sorted { $0.frame.midY < $1.frame.midY }
+    guard let last = candidates.last else { return nil }
+
+    let target = candidates.first(where: { pointer.y < $0.frame.midY }) ?? last
+    let placement: WorkspaceReorderPlacement
+    if targetProjectId == sourceProjectId {
+        guard let sameProjectPlacement = workspaceSidebarWorkspaceReorderPlacement(
+            sourceWorkspaceName: sourceWorkspaceName,
+            sourceProjectId: sourceProjectId,
+            targetWorkspaceName: target.workspaceName,
+            frames: frames
+        ) else { return nil }
+        placement = sameProjectPlacement
+    } else if pointer.y < target.frame.midY {
+        placement = .before(target.workspaceName)
+    } else {
+        placement = .after(target.workspaceName)
+    }
+    return WorkspaceSidebarWorkspaceReorderTarget(
+        projectId: targetProjectId,
+        targetWorkspaceName: target.workspaceName,
+        placement: placement
+    )
 }
 
 private func workspaceSidebarPointerIsOverWorkspaceRow(
@@ -374,7 +863,7 @@ private func workspaceSidebarPointerIsOverWorkspaceRow(
     frames.contains {
         $0.isReorderable &&
             $0.workspaceName != sourceWorkspaceName &&
-            $0.frame.contains(pointer)
+            workspaceSidebarWorkspaceReorderFrameContains($0.frame, pointer: pointer)
     }
 }
 
@@ -465,17 +954,17 @@ func workspaceSidebarWorkspaceListEntries(
     sourceWorkspace: WorkspaceSidebarWorkspaceViewModel?,
     target: WorkspaceSidebarWorkspaceDragTarget?
 ) -> [WorkspaceSidebarWorkspaceListEntry] {
-    let retainsSourceGestureAnchor = sourceWorkspace?.projectId == projectId &&
-        sourceWorkspaceName != nil &&
-        target != nil
+    let isPreviewingTarget = sourceWorkspaceName != nil && target != nil
     let visibleWorkspaces = workspaces.filter {
-        retainsSourceGestureAnchor || $0.name != sourceWorkspaceName
+        // Once there is a concrete landing slot, remove the source from the
+        // layout. This is what lets every intervening row animate into its
+        // new position instead of merely adding a duplicate preview at the
+        // destination. The global reorder driver owns mouse-up, so this does
+        // not sacrifice the gesture when SwiftUI unmounts the source row.
+        !isPreviewingTarget || $0.name != sourceWorkspaceName
     }
     func workspaceEntry(_ workspace: WorkspaceSidebarWorkspaceViewModel) -> WorkspaceSidebarWorkspaceListEntry {
-        .workspace(
-            workspace,
-            isDragAnchor: retainsSourceGestureAnchor && workspace.name == sourceWorkspaceName
-        )
+        .workspace(workspace, isDragAnchor: false)
     }
     guard let sourceWorkspace,
           let placement = workspaceSidebarWorkspaceReorderPreviewPlacement(
@@ -483,9 +972,6 @@ func workspaceSidebarWorkspaceListEntries(
             target: target
           )
     else {
-        guard target != nil else {
-            return workspaces.map { .workspace($0, isDragAnchor: false) }
-        }
         return visibleWorkspaces.map { workspaceEntry($0) }
     }
 
@@ -502,7 +988,7 @@ func workspaceSidebarWorkspaceListEntries(
                 projectId: projectId,
                 targetWorkspaceName: targetWorkspaceName,
                 insertBefore: true,
-                retainsSourceGestureAnchor: retainsSourceGestureAnchor
+                retainsSourceGestureAnchor: false
             )
         case .after(let targetWorkspaceName):
             guard case .reorder(let reorderTarget)? = target,
@@ -516,7 +1002,7 @@ func workspaceSidebarWorkspaceListEntries(
                 projectId: projectId,
                 targetWorkspaceName: targetWorkspaceName,
                 insertBefore: false,
-                retainsSourceGestureAnchor: retainsSourceGestureAnchor
+                retainsSourceGestureAnchor: false
             )
         case .intoFolder(let folderProjectId):
             guard folderProjectId == projectId else {
@@ -535,7 +1021,10 @@ func workspaceSidebarFolderListEntries(
     let sourceSection = sourceProjectId.flatMap { projectId in
         sections.first { $0.id == projectId }
     }
-    let retainsSourceGestureAnchor = sourceSection != nil && sourceProjectId != nil && target != nil
+    guard let sourceSection, let target else {
+        return sections.map { .folder($0, isDragAnchor: false) }
+    }
+    let retainsSourceGestureAnchor = true
     let visibleSections = sections.filter {
         retainsSourceGestureAnchor || $0.id != sourceProjectId
     }
@@ -545,10 +1034,6 @@ func workspaceSidebarFolderListEntries(
             isDragAnchor: retainsSourceGestureAnchor && section.id == sourceProjectId
         )
     }
-    guard let sourceSection, let target else {
-        return visibleSections.map { sectionEntry($0) }
-    }
-
     var entries: [WorkspaceSidebarFolderListEntry] = []
     var didInsertPlaceholder = false
     let targetProjectId = target.placement.targetProjectId
@@ -726,28 +1211,77 @@ func workspaceSidebarProjectFrameIsVisibleDropTarget(
     sourceProjectId: WorkspaceProjectId?
 ) -> Bool {
     guard let sourceProjectId else { return false }
-    return projectId != sourceProjectId
+    return projectId != workspaceProjectDefaultId && projectId != sourceProjectId
 }
 
 func workspaceSidebarWorkspacePointerIsBeforeMidline(_ pointer: CGPoint, frame: CGRect) -> Bool {
     pointer.y < frame.midY
 }
 
+private let workspaceSidebarWorkspaceReorderHorizontalTolerance: CGFloat = 160
+private let workspaceSidebarWorkspaceReorderVerticalTolerance: CGFloat = 0
+
+private func workspaceSidebarPointerIsInsideWorkspaceReorderXBand(_ pointer: CGPoint, frame: CGRect) -> Bool {
+    frame.minX - workspaceSidebarWorkspaceReorderHorizontalTolerance <= pointer.x &&
+        pointer.x <= frame.maxX + workspaceSidebarWorkspaceReorderHorizontalTolerance
+}
+
+private func workspaceSidebarWorkspaceReorderFrameContains(_ frame: CGRect, pointer: CGPoint) -> Bool {
+    workspaceSidebarPointerIsInsideWorkspaceReorderXBand(pointer, frame: frame) &&
+        frame.minY - workspaceSidebarWorkspaceReorderVerticalTolerance <= pointer.y &&
+        pointer.y <= frame.maxY + workspaceSidebarWorkspaceReorderVerticalTolerance
+}
+
+private func workspaceSidebarProjectFrameExists(
+    projectId: WorkspaceProjectId,
+    frames: [WorkspaceSidebarFolderReorderFrame]
+) -> Bool {
+    frames.contains { $0.projectId == projectId }
+}
+
+private func workspaceSidebarProjectFrameContains(
+    projectId: WorkspaceProjectId,
+    pointer: CGPoint,
+    frames: [WorkspaceSidebarFolderReorderFrame]
+) -> Bool {
+    frames.contains { $0.projectId == projectId && $0.frame.contains(pointer) }
+}
+
+private func workspaceSidebarProjectFrameIsWorkspaceDropTarget(
+    projectId: WorkspaceProjectId,
+    frames: [WorkspaceSidebarFolderReorderFrame]
+) -> Bool {
+    frames.contains { $0.projectId == projectId && $0.isDropTarget }
+}
+
+private func workspaceSidebarWorkspaceReorderCandidateHasVisibleProjectFrame(
+    _ candidate: WorkspaceSidebarWorkspaceReorderFrame,
+    sourceProjectId: WorkspaceProjectId,
+    folderFrames: [WorkspaceSidebarFolderReorderFrame]
+) -> Bool {
+    guard candidate.projectId != sourceProjectId else { return true }
+    return workspaceSidebarProjectFrameIsWorkspaceDropTarget(
+        projectId: candidate.projectId,
+        frames: folderFrames
+    )
+}
+
 func workspaceSidebarWorkspaceReorderPlacement(
-    _ pointer: CGPoint,
-    frame: CGRect,
-    targetWorkspaceName: String
+    sourceWorkspaceName: String,
+    sourceProjectId: WorkspaceProjectId,
+    targetWorkspaceName: String,
+    frames: [WorkspaceSidebarWorkspaceReorderFrame]
 ) -> WorkspaceReorderPlacement? {
-    guard frame.width > 0, frame.height > 0 else { return nil }
-    let y = (pointer.y - frame.minY) / frame.height
-    let reorderBand: CGFloat = 0.24
-    if y < reorderBand {
-        return .before(targetWorkspaceName)
+    let projectFrames = frames
+        .filter { $0.isReorderable && $0.projectId == sourceProjectId }
+        .sorted { $0.frame.midY < $1.frame.midY }
+    guard let sourceIndex = projectFrames.firstIndex(where: { $0.workspaceName == sourceWorkspaceName }),
+          let targetIndex = projectFrames.firstIndex(where: { $0.workspaceName == targetWorkspaceName }),
+          sourceIndex != targetIndex
+    else {
+        return nil
     }
-    if y > 1 - reorderBand {
-        return .after(targetWorkspaceName)
-    }
-    return nil
+    return sourceIndex < targetIndex ? .after(targetWorkspaceName) : .before(targetWorkspaceName)
 }
 
 struct WorkspaceSidebarWorkspaceReorderGestureModifier: ViewModifier {
@@ -862,7 +1396,6 @@ struct WorkspaceSidebarWorkspaceReorderPlaceholder: View {
         .padding(.leading, workspaceSidebarSectionInnerHorizontalInset + nestedContentIndent)
         .padding(.trailing, workspaceSidebarSectionInnerHorizontalInset)
         .frame(width: width, alignment: .leading)
-        .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .center)))
         .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.88), value: nestedContentIndent)
         .accessibilityHidden(true)
         .allowsHitTesting(false)
@@ -909,7 +1442,6 @@ struct WorkspaceSidebarFolderReorderPlaceholder: View {
             x: 0,
             y: 1
         )
-        .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .center)))
         .accessibilityHidden(true)
         .allowsHitTesting(false)
     }
@@ -919,14 +1451,10 @@ struct WorkspaceSidebarProjectedDragAnchorModifier: ViewModifier {
     let isActive: Bool
 
     func body(content: Content) -> some View {
-        if isActive {
-            content
-                .frame(height: 1, alignment: .top)
-                .clipped()
-                .opacity(0.001)
-                .accessibilityHidden(true)
-        } else {
-            content
-        }
+        // Keep the source row mounted so its DragGesture continues to own the
+        // mouse, but never turn it into a ghost. A translucent or collapsed
+        // source makes the interaction look broken and changes the measured
+        // row geometry mid-drag.
+        content
     }
 }

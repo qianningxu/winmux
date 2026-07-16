@@ -1,3 +1,4 @@
+    import AppKit
     import Common
     import Foundation
     import SwiftUI
@@ -32,10 +33,7 @@ private let winmuxNewIssueURL = "https://github.com/zimengxiong/winmux/issues/ne
             openURLString(winmuxNewIssueURL)
         }
         Button("Quit \(winMuxAppName)") {
-            Task {
-                defer { terminateApp() }
-                await prepareAppBundleForTerminationIfNeeded()
-            }
+            quitWinMuxFromMenuBar()
         }.keyboardShortcut("Q", modifiers: .command)
     } label: {
         if viewModel.isEnabled {

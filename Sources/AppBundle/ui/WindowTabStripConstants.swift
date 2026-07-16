@@ -18,6 +18,8 @@ let windowTabStripCloseButtonSize: CGFloat = 18
 let windowTabStripCloseButtonReservedWidth: CGFloat = 22
 let windowTabStripCloseButtonTrailingInset: CGFloat = 5
 let windowTabStripScrollFadeWidth: CGFloat = 22
+let windowTabStripAutoScrollEdgeWidth: CGFloat = 28
+let windowTabStripAutoScrollDuration: TimeInterval = 0.12
 let windowTabStripScrollOriginTolerance: CGFloat = 0.5
 let windowTabStripGroupDragMinimumDistance: CGFloat = 1
 let windowTabGroupFrameStrokeWidth: CGFloat = 0.5
@@ -94,3 +96,26 @@ func windowTabTrailingScrollFadeWidth(
 // MARK: - Tab Strip View (manages reorder drag state for all tabs)
 
 let tabReorderVerticalEscapeThreshold: CGFloat = 18
+
+enum WindowTabAutoScrollDirection: Equatable {
+    case leading
+    case trailing
+
+    var anchor: UnitPoint {
+        switch self {
+            case .leading: .leading
+            case .trailing: .trailing
+        }
+    }
+}
+
+func windowTabAutoScrollDirection(
+    pointerXInViewport: CGFloat,
+    viewportWidth: CGFloat,
+    isScrollable: Bool,
+) -> WindowTabAutoScrollDirection? {
+    guard isScrollable, viewportWidth > 0 else { return nil }
+    if pointerXInViewport <= windowTabStripAutoScrollEdgeWidth { return .leading }
+    if pointerXInViewport >= viewportWidth - windowTabStripAutoScrollEdgeWidth { return .trailing }
+    return nil
+}

@@ -86,9 +86,9 @@ private let agentSkillText = """
        `/tmp/winmux-agent.json`
        Important: `query --path` writes the JSON to the path. It does not print the JSON to stdout. Running `ls /tmp/winmux-agent.json` is not enough; you must read the file contents.
     3. Edit only the `edit` object inside `/tmp/winmux-agent.json`.
-       Treat `schemaVersion`, `snapshotId`, `worldId`, `inventory`, and `reasoning` as read-only context. Do not edit titles, app names, frames, panes, workspace inventory, or the world id.
+       Treat `schemaVersion`, `snapshotId`, `worldId`, `inventory`, and `reasoning` as read-only context. Do not edit titles, app names, frames, panes, Tab inventory, or the world id.
     4. For a small change, replace the entire `edit.operations` array with only the operations for the current user request. Do not append to operations left by an earlier request.
-    5. For a full workspace redesign, edit `edit.layout.workspaces` instead of `edit.operations`.
+    5. For a full Tab redesign, edit `edit.layout.tabs` instead of `edit.operations`. Legacy `edit.layout.workspaces` is still accepted.
     6. Apply the same file:
        `winmux agent apply --path /tmp/winmux-agent.json`
     7. If apply says the JSON is stale or the `worldId` does not match, discard `/tmp/winmux-agent.json`, run the query command again, read the new file, redo the edit, and apply again.

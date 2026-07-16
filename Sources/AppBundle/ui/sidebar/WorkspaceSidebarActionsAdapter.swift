@@ -50,7 +50,6 @@ func handleWorkspaceSidebarAction(
         case .closeWindow(let windowId):
             closeWindowFromSidebar(windowId)
         case .selectProject(let projectId):
-            guard projectsAreEnabled() else { return }
             debugWorkspaceSidebarProjectLog(
                 "adapterSelectProject project=\(projectId.rawValue) targetScope=\(targetMonitorScopeId ?? "nil") modelActive=\(viewModel.workspaceSidebarActiveProjectId.rawValue)"
             )
@@ -64,7 +63,7 @@ func handleWorkspaceSidebarAction(
             guard workspaceSidebarFolderMutationIsEnabled(projectId) else { return }
             renameWorkspaceSidebarProject(projectId, displayName: displayName)
         case .setProjectColor(let projectId, let colorHex):
-            guard projectsAreEnabled() else { return }
+            guard workspaceSidebarFolderMutationIsEnabled(projectId) else { return }
             if let project = workspaceSidebarProjectViewModel(projectId) {
                 setWorkspaceSidebarProjectColor(project, colorHex: colorHex)
             }

@@ -14,7 +14,7 @@ extension WindowTabStripView {
             return pendingReorderOffset(for: tab, context: context, drop: pendingReorderDrop)
         }
         guard let draggingIndex = draggingIndex(context: context),
-              let targetIndex = reorderTargetIndex(context: context)
+              let targetIndex = reorderPreviewTargetIndex
         else {
             return tab.windowId == draggingTabId ? dragTranslationX : 0
         }
@@ -31,13 +31,6 @@ extension WindowTabStripView {
 
     func draggingIndex(context: WindowTabStripLayoutContext) -> Int? {
         draggingTabId.flatMap { context.tabIndicesById[$0] }
-    }
-
-    func reorderTargetIndex(context: WindowTabStripLayoutContext) -> Int? {
-        draggingIndex(context: context).map { sourceIndex in
-            let delta = Int(round(dragTranslationX / context.effectiveTabWidth))
-            return max(0, min(sourceIndex + delta, strip.tabs.count - 1))
-        }
     }
 
     func pendingReorderOffset(
@@ -91,4 +84,40 @@ extension WindowTabStripView {
         return 0
     }
 
+}
+
+func tabReorderTargetIndexForFrames(
+    pointerXInViewport: CGFloat,
+    tabOrder: [UInt32],
+    tabFramesById: [UInt32: CGRect],
+    sourceIndex: Int?,
+) -> Int? {
+    guard tabOrder.count > 1,
+          let sourceIndex,
+          tabOrder.allSatisfy({ tabFramesById[$0] != nil })
+    else { return nil }
+    let insertionSlot = tabOrder.firstIndex { tabId in
+        guard let frame = tabFramesById[tabId] else { return false }
+        return pointerXInViewport < frame.midX
+    } ?? tabOrder.count
+    let adjustedTarget = insertionSlot > sourceIndex ? insertionSlot - 1 : insertionSlot
+    return max(0, min(adjustedTarget, tabOrder.count - 1))
+}
+
+func tabReorderTargetIndex(
+    pointerX: CGFloat,
+    firstTabMinX: CGFloat,
+    tabWidth: CGFloat,
+    tabCount: Int,
+    sourceIndex: Int?,
+) -> Int {
+    guard tabCount > 1, tabWidth > 0 else { return 0 }
+    let effectiveTabWidth = tabWidth + windowTabStripTabSpacing
+    let localX = pointerX - firstTabMinX
+    let hoveredTabIndex = max(0, min(Int(floor(localX / effectiveTabWidth)), tabCount - 1))
+    let hoveredTabCenterX = firstTabMinX + CGFloat(hoveredTabIndex) * effectiveTabWidth + tabWidth / 2
+    let insertionSlot = hoveredTabIndex + (pointerX >= hoveredTabCenterX ? 1 : 0)
+    guard let sourceIndex else { return max(0, min(insertionSlot, tabCount - 1)) }
+    let adjustedTarget = insertionSlot > sourceIndex ? insertionSlot - 1 : insertionSlot
+    return max(0, min(adjustedTarget, tabCount - 1))
 }

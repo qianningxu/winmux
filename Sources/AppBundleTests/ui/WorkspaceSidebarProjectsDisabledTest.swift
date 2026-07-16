@@ -21,8 +21,8 @@ final class WorkspaceSidebarProjectsDisabledTest: XCTestCase {
         let folderId = first.projectId
 
         XCTAssertEqual(buildWorkspaceSidebarProjectViewModels().map(\.id), [
-            workspaceProjectDefaultId,
             folderId,
+            workspaceProjectDefaultId,
         ])
     }
 
@@ -108,9 +108,26 @@ final class WorkspaceSidebarProjectsDisabledTest: XCTestCase {
         XCTAssertEqual(visibleNames, [secondaryDefault.name, secondaryFoldered.name])
         XCTAssertEqual(grouped.keys.sorted(by: { $0.rawValue < $1.rawValue }), [workspaceProjectDefaultId])
         XCTAssertEqual(grouped[workspaceProjectDefaultId]?.map(\.name), [
-            secondaryDefault.name,
             secondaryFoldered.name,
+            secondaryDefault.name,
         ])
+    }
+
+    func testSidebarModelTracksActiveFolderWhenProjectsDisabled() async {
+        let defaultTab = Workspace.get(byName: "default")
+        defaultTab.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 31, parent: defaultTab.rootTilingContainer)
+        let folder = createWorkspaceProject()
+        let folderTab = projectWorkspaces(projectId: folder.id).first.orDie()
+        folderTab.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 32, parent: folderTab.rootTilingContainer)
+        XCTAssertTrue(folderTab.focusWorkspace())
+
+        let state = await buildWorkspaceSidebarModelState()
+
+        XCTAssertFalse(projectsAreEnabled())
+        XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), folder.id)
+        XCTAssertEqual(state.activeProjectId, folder.id)
     }
 
     func testFolderMutationGateAllowsExistingFoldersWhenProjectsDisabled() {
@@ -158,22 +175,27 @@ final class WorkspaceSidebarProjectsDisabledTest: XCTestCase {
         XCTAssertEqual(workspaceProjectName(folderId), "Client")
     }
 
-    func testLabelOnlyFoldersStayHiddenButPersistWhenProjectsDisabled() {
+    func testLabelOnlyFolderMetadataDoesNotRenderWithoutAWorkspace() {
         let orphanedProjectId = WorkspaceProjectId("project-orphaned")
         config.enableProjects = false
         config.workspaceSidebar.projectLabels[orphanedProjectId.rawValue] = "Old Folder"
         config.workspaceSidebar.projectColors[orphanedProjectId.rawValue] = "#60A5FA"
         setWorkspaceSidebarFolderExpanded(orphanedProjectId, isExpanded: false)
 
-        XCTAssertEqual(buildWorkspaceSidebarProjectViewModels().map(\.id), [workspaceProjectDefaultId])
+        XCTAssertEqual(buildWorkspaceSidebarProjectViewModels().map(\.id), [orphanedProjectId, workspaceProjectDefaultId])
 
-        XCTAssertNil(winMuxWorkspaceState.projectsById[orphanedProjectId])
+        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(orphanedProjectId)])
         XCTAssertEqual(config.workspaceSidebar.projectLabels[orphanedProjectId.rawValue], "Old Folder")
         XCTAssertEqual(config.workspaceSidebar.projectColors[orphanedProjectId.rawValue], "#60A5FA")
         XCTAssertFalse(workspaceSidebarFolderIsExpanded(orphanedProjectId))
+        XCTAssertEqual(workspaceSidebarFolderSections(
+            projectId: workspaceProjectDefaultId,
+            workspaces: [],
+            projects: buildWorkspaceSidebarProjectViewModels()
+        ).map(\.id), [workspaceProjectDefaultId])
     }
 
-    func testFolderDissolvesWhenItsLastTabBecomesEmpty() {
+    func testFolderPersistsWhenItsLastTabBecomesEmpty() {
         let defaultTab = Workspace.get(byName: "default")
         defaultTab.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 10, parent: defaultTab.rootTilingContainer)
@@ -191,18 +213,63 @@ final class WorkspaceSidebarProjectsDisabledTest: XCTestCase {
         groupedWindow.closeAxWindow()
         Workspace.reconcileWorkspaceState()
 
-        XCTAssertNil(Workspace.existing(byName: groupedTab.name))
-        XCTAssertNil(winMuxWorkspaceState.projectsById[project.id])
-        XCTAssertNil(config.workspaceSidebar.projectLabels[project.id.rawValue])
-        XCTAssertNil(config.workspaceSidebar.projectColors[project.id.rawValue])
-        XCTAssertTrue(workspaceSidebarFolderIsExpanded(project.id))
-        XCTAssertEqual(buildWorkspaceSidebarProjectViewModels().map(\.id), [workspaceProjectDefaultId])
+        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(project.id)])
+        XCTAssertTrue(Workspace.all.contains { $0.projectId == project.id && $0.isOrdinaryEmptySlot })
+        XCTAssertEqual(config.workspaceSidebar.projectLabels[project.id.rawValue], "Client")
+        XCTAssertEqual(config.workspaceSidebar.projectColors[project.id.rawValue], "#60A5FA")
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(project.id))
+        XCTAssertEqual(buildWorkspaceSidebarProjectViewModels().map(\.id), [project.id, workspaceProjectDefaultId])
+    }
+
+    func testFolderSectionsIncludeRealEmptyFoldersAndIgnoreLabelOnlyFolders() {
+        let firstId = WorkspaceProjectId("project-first")
+        let secondId = WorkspaceProjectId("project-second")
+        let labelOnlyId = WorkspaceProjectId("project-label-only")
+        let sections = workspaceSidebarFolderSections(
+            projectId: workspaceProjectDefaultId,
+            workspaces: [
+                sidebarWorkspace("first-empty-tab", projectId: firstId, monitorScopeId: workspaceSidebarDefaultScopeId),
+                sidebarWorkspace("second-tab", projectId: secondId, monitorScopeId: workspaceSidebarDefaultScopeId, isEmpty: false),
+            ],
+            projects: [
+                WorkspaceSidebarProjectViewModel(id: firstId, displayName: "First", colorHex: nil),
+                WorkspaceSidebarProjectViewModel(id: labelOnlyId, displayName: "Label Only", colorHex: nil),
+                WorkspaceSidebarProjectViewModel(id: secondId, displayName: "Second", colorHex: nil),
+                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: workspaceDefaultFolderDisplayName, colorHex: nil),
+            ]
+        )
+
+        XCTAssertEqual(sections.map(\.id), [firstId, secondId, workspaceProjectDefaultId])
+        XCTAssertEqual(sections[0].workspaces.map(\.name), [])
+        XCTAssertEqual(sections[1].workspaces.map(\.name), ["second-tab"])
+        XCTAssertEqual(sections[2].workspaces.map(\.name), [])
+    }
+
+    func testFolderSectionsKeepUnfoldedLastWhenProvidedBetweenFolders() {
+        let firstId = WorkspaceProjectId("project-first")
+        let secondId = WorkspaceProjectId("project-second")
+        let sections = workspaceSidebarFolderSections(
+            projectId: workspaceProjectDefaultId,
+            workspaces: [
+                sidebarWorkspace("first-tab", projectId: firstId, monitorScopeId: workspaceSidebarDefaultScopeId, isEmpty: false),
+                sidebarWorkspace("unfolded-tab", projectId: workspaceProjectDefaultId, monitorScopeId: workspaceSidebarDefaultScopeId, isEmpty: false),
+                sidebarWorkspace("second-tab", projectId: secondId, monitorScopeId: workspaceSidebarDefaultScopeId, isEmpty: false),
+            ],
+            projects: [
+                WorkspaceSidebarProjectViewModel(id: firstId, displayName: "First", colorHex: nil),
+                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: workspaceDefaultFolderDisplayName, colorHex: nil),
+                WorkspaceSidebarProjectViewModel(id: secondId, displayName: "Second", colorHex: nil),
+            ]
+        )
+
+        XCTAssertEqual(sections.map(\.id), [firstId, secondId, workspaceProjectDefaultId])
     }
 
     private func sidebarWorkspace(
         _ name: String,
         projectId: WorkspaceProjectId,
-        monitorScopeId: String
+        monitorScopeId: String,
+        isEmpty: Bool = true
     ) -> WorkspaceSidebarWorkspaceViewModel {
         WorkspaceSidebarWorkspaceViewModel(
             name: name,
@@ -210,6 +277,14 @@ final class WorkspaceSidebarProjectsDisabledTest: XCTestCase {
             displayName: name,
             sidebarLabel: "",
             isGeneratedName: true,
+            tabSummary: isEmpty ? .empty : WorkspaceSidebarTabSummaryViewModel(
+                title: name,
+                subtitle: nil,
+                appBundleId: nil,
+                appBundlePath: nil,
+                windowCount: 1,
+                isEmpty: false
+            ),
             monitorScopeId: monitorScopeId,
             monitorName: nil,
             isFocused: false,

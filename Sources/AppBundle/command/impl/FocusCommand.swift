@@ -73,7 +73,7 @@ struct FocusCommand: Command {
     _ direction: CardinalDirection,
 ) -> Bool {
     switch args.boundaries {
-        case .workspace:
+        case .tab, .workspace:
             return switch args.boundariesAction {
                 case .stop: true
                 case .fail: false

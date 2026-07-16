@@ -5,19 +5,21 @@ struct MoveNodeToProjectCommand: Command {
     /*conforms*/ let shouldResetClosedWindowsCache = true
 
     func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
-        guard projectsAreEnabled() else {
-            return io.err(projectFeatureDisabledMessage())
-        }
         guard let target = args.resolveTargetOrReportError(env, io) else { return false }
         guard let window = target.windowOrNil else { return io.err(noWindowIsFocused) }
         guard let sourceWorkspace = window.nodeWorkspace else {
             return io.err("Window \(window.windowId) doesn't belong to any Tab")
         }
-        guard let project = resolveProjectTarget(args.target.val, currentProjectId: sourceWorkspace.projectId, wrapAround: args.wrapAround) else {
+        guard let folderId = resolveWorkspaceSidebarFolderTarget(
+            args.target.val,
+            currentFolderId: WorkspaceFolderId(sourceWorkspace.projectId),
+            wrapAround: args.wrapAround,
+            monitor: window.nodeMonitor ?? sourceWorkspace.workspaceMonitor
+        ) else {
             return io.err("Can't resolve folder target")
         }
         let monitor = window.nodeMonitor ?? sourceWorkspace.workspaceMonitor
-        let targetWorkspace = firstWorkspaceForProjectMove(projectId: project.id, monitor: monitor)
+        let targetWorkspace = trailingWorkspaceForProjectMove(projectId: folderId.backingProjectId, monitor: monitor)
         return moveWindowToWorkspace(
             window,
             targetWorkspace,
@@ -38,6 +40,8 @@ func resolveProjectTarget(
     let projects = workspaceProjects()
     guard !projects.isEmpty else { return nil }
     switch target {
+        case .defaultFolder:
+            return projects.first { $0.id == workspaceProjectDefaultId }
         case .index(let index):
             return projects.getOrNil(atIndex: index - 1)
         case .relative(let nextPrev):
@@ -48,7 +52,6 @@ func resolveProjectTarget(
 }
 
 @MainActor
-private func firstWorkspaceForProjectMove(projectId: WorkspaceProjectId, monitor: Monitor) -> Workspace {
-    availablePreferredWorkspace(projectId: projectId, monitor: monitor)
-        ?? createBlankWorkspace(projectId: projectId, monitor: monitor)
+private func trailingWorkspaceForProjectMove(projectId: WorkspaceProjectId, monitor: Monitor) -> Workspace {
+    createBlankWorkspace(projectId: projectId, monitor: monitor)
 }

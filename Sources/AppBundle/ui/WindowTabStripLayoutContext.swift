@@ -13,11 +13,26 @@ struct WindowTabStripLayoutContext {
     }
 
     var tabWidth: CGFloat {
-        windowTabStripTabWidth(stripWidth: width, count: max(strip.tabs.count, 1))
+        if packsTabsIntoSingleSlot {
+            let count = max(strip.tabs.count, 1)
+            let availableWidth = singleTabSlotWidth - CGFloat(max(count - 1, 0)) * windowTabStripTabSpacing
+            return max(24, availableWidth / CGFloat(count))
+        }
+        return singleTabSlotWidth
+    }
+
+    var showsTabTitles: Bool {
+        strip.tabs.count <= 2
     }
 
     var effectiveTabWidth: CGFloat {
         tabWidth + windowTabStripTabSpacing
+    }
+
+    func pointerXInContent(sourceIndex: Int, pointerXInSourceTab: CGFloat) -> CGFloat {
+        windowTabStripContentHorizontalPadding
+            + CGFloat(sourceIndex) * effectiveTabWidth
+            + pointerXInSourceTab
     }
 
     var scrollViewportWidth: CGFloat {
@@ -28,6 +43,10 @@ struct WindowTabStripLayoutContext {
         CGFloat(strip.tabs.count) * tabWidth
             + CGFloat(max(strip.tabs.count - 1, 0)) * windowTabStripTabSpacing
             + windowTabStripContentHorizontalPadding * 2
+    }
+
+    var isScrollable: Bool {
+        scrollContentWidth > scrollViewportWidth + 1
     }
 
     var scrollCoordinateSpaceName: String {
@@ -57,7 +76,13 @@ struct WindowTabStripLayoutContext {
         )
     }
 
-    private var shouldFadeTabScroll: Bool {
-        scrollContentWidth > scrollViewportWidth + 1
+    private var shouldFadeTabScroll: Bool { isScrollable }
+
+    private var packsTabsIntoSingleSlot: Bool {
+        strip.tabs.count > 1
+    }
+
+    private var singleTabSlotWidth: CGFloat {
+        windowTabStripTabWidth(stripWidth: width, count: 1)
     }
 }
