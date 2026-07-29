@@ -7,6 +7,9 @@ struct WorkspaceSidebarView: View {
 
     let snapshot: WorkspaceSidebarSnapshot
     let actions: WorkspaceSidebarActions
+    let showsNotePad: Bool
+    let onToggleSidebarAppearance: (ColorScheme) -> Void
+    let onToggleNotePad: () -> Void
     @State var projectSwipeTranslation: CGFloat = 0
     @State var projectSwipeStartProjectId: WorkspaceProjectId? = nil
     @State var projectSwipeDidCrossBreakPoint = false
@@ -39,9 +42,18 @@ struct WorkspaceSidebarView: View {
     @State var folderExpansionOverrides: [WorkspaceProjectId: Bool] = [:]
     @State var pendingWorkspaceActivation: WorkspaceSidebarPendingActivation? = nil
 
-    init(snapshot: WorkspaceSidebarSnapshot, actions: WorkspaceSidebarActions = WorkspaceSidebarActions()) {
+    init(
+        snapshot: WorkspaceSidebarSnapshot,
+        actions: WorkspaceSidebarActions = WorkspaceSidebarActions(),
+        showsNotePad: Bool = true,
+        onToggleSidebarAppearance: @escaping (ColorScheme) -> Void = { _ in },
+        onToggleNotePad: @escaping () -> Void = {},
+    ) {
         self.snapshot = snapshot
         self.actions = actions
+        self.showsNotePad = showsNotePad
+        self.onToggleSidebarAppearance = onToggleSidebarAppearance
+        self.onToggleNotePad = onToggleNotePad
     }
 
     var body: some View {
@@ -456,11 +468,24 @@ private func notificationPanel(from notification: Notification) -> WorkspaceSide
 struct WorkspaceSidebarContainerView: View {
     @ObservedObject var viewModel: TrayMenuModel
     let actions: WorkspaceSidebarActions
+    @AppStorage(workspaceSidebarAppearancePreferenceKey) private var sidebarAppearanceRawValue = ""
+    @AppStorage(workspaceSidebarShowsNotePadPreferenceKey) private var showsNotePad = true
 
     var body: some View {
+        let sidebarAppearance = workspaceSidebarAppearancePreference(rawValue: sidebarAppearanceRawValue)
         WorkspaceSidebarView(
             snapshot: workspaceSidebarSnapshot(from: viewModel),
-            actions: actions
+            actions: actions,
+            showsNotePad: showsNotePad,
+            onToggleSidebarAppearance: { currentColorScheme in
+                sidebarAppearanceRawValue = currentColorScheme == .dark
+                    ? WorkspaceSidebarAppearancePreference.light.rawValue
+                    : WorkspaceSidebarAppearancePreference.dark.rawValue
+            },
+            onToggleNotePad: {
+                showsNotePad.toggle()
+            }
         )
+        .preferredColorScheme(sidebarAppearance?.colorScheme)
     }
 }

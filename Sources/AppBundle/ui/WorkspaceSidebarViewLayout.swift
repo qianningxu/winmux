@@ -104,7 +104,10 @@ extension WorkspaceSidebarView {
                 )
             }
 
-            if snapshot.configuration.widgets.contains(where: \.enabled) {
+            if workspaceSidebarHasVisibleWidgets(
+                snapshot.configuration.widgets,
+                showsNotePad: showsNotePad
+            ) {
                 widgetSection(
                     expansionProgress: expansionProgress,
                     isCompact: isCompact,

@@ -68,6 +68,7 @@ extension WorkspaceSidebarView {
             widgets: snapshot.configuration.widgets,
             sectionWidth: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration),
             isCompact: isCompact,
+            showsNotePad: showsNotePad,
         )
         .fixedSize(horizontal: false, vertical: true)
         .layoutPriority(1)

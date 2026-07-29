@@ -4,10 +4,11 @@ struct WorkspaceSidebarWidgetStack: View {
     let widgets: [WorkspaceSidebarWidgetConfig]
     let sectionWidth: CGFloat
     let isCompact: Bool
+    let showsNotePad: Bool
 
     private var enabledWidgets: [WorkspaceSidebarWidgetConfig] {
         widgets.filter { widget in
-            widget.enabled && widget.type != .builtInSpendingCategories && widget.type != .builtInScheduleHeatmap
+            workspaceSidebarWidgetIsVisible(widget, showsNotePad: showsNotePad)
         }
     }
 
@@ -29,6 +30,23 @@ struct WorkspaceSidebarWidgetStack: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .animation(.easeInOut(duration: 0.16), value: isCompact)
     }
+}
+
+func workspaceSidebarWidgetIsVisible(
+    _ widget: WorkspaceSidebarWidgetConfig,
+    showsNotePad: Bool
+) -> Bool {
+    widget.enabled &&
+        widget.type != .builtInSpendingCategories &&
+        widget.type != .builtInScheduleHeatmap &&
+        (showsNotePad || widget.type != .builtInTodoList)
+}
+
+func workspaceSidebarHasVisibleWidgets(
+    _ widgets: [WorkspaceSidebarWidgetConfig],
+    showsNotePad: Bool
+) -> Bool {
+    widgets.contains { workspaceSidebarWidgetIsVisible($0, showsNotePad: showsNotePad) }
 }
 
 enum WorkspaceSidebarWidgetStackItem: Identifiable, Equatable {
@@ -112,6 +130,12 @@ private struct WorkspaceSidebarWidgetStackItemView: View {
     @ViewBuilder
     private func renderWidget(_ widget: WorkspaceSidebarWidgetConfig) -> some View {
         switch widget.type {
+            case .builtInTodoList:
+                WorkspaceSidebarTodoListWidget(
+                    id: widget.id,
+                    sectionWidth: sectionWidth,
+                    isCompact: isCompact,
+                )
             case .builtInTimeDate:
                 WorkspaceSidebarTimeDateWidget(
                     id: widget.id,

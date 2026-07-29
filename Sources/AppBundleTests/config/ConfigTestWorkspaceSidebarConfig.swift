@@ -174,6 +174,7 @@ extension ConfigTest {
             """
             [tab-sidebar]
                 widgets = [
+                    { id = 'todo-list', type = 'built-in/todo-list', enabled = true },
                     { id = 'time-date', type = 'built-in/time-date', enabled = true, show-date = false },
                     { id = 'schedule-heatmap', type = 'built-in/schedule-heatmap', enabled = true, schedule-path = '/tmp/schedule', toggl-entries-path = '/tmp/toggl/entries', deviation-path = '/tmp/deviation', days = 7 },
                     { id = 'toggl-weekly-focus', type = 'built-in/toggl-weekly-focus', enabled = true, entries-path = '/tmp/toggl/entries', target-date = '2026-09-13' },
@@ -186,6 +187,11 @@ extension ConfigTest {
         )
         assertEquals(errors, [])
         assertEquals(parsed.workspaceSidebar.widgets, [
+            WorkspaceSidebarWidgetConfig(
+                id: "todo-list",
+                type: .builtInTodoList,
+                enabled: true,
+            ),
             WorkspaceSidebarWidgetConfig(
                 id: "time-date",
                 type: .builtInTimeDate,
@@ -267,6 +273,7 @@ extension ConfigTest {
                     { id = 'time-date', type = 'built-in/time-date', bundle = 'Nope.bundle' },
                     { id = 'time-date', type = 'plugin' },
                     { id = 'unknown', type = 'built-in/nope' },
+                    { id = 'bad-todo', type = 'built-in/todo-list', bundle = 'Nope.bundle', entries-path = '/tmp/todo' },
                     { id = 'wrong-fields', type = 'plugin', bundle = 'CustomWidget.bundle', entries-path = '/tmp/toggl/entries', schedule-path = '/tmp/schedule', toggl-entries-path = '/tmp/toggl/entries', deviation-path = '/tmp/deviation', target-date = '2026-09-13', days = 7 },
                     { id = 'bad-days', type = 'built-in/spending-categories', days = 0 },
                     { id = 'wrong-schedule-fields', type = 'built-in/schedule-heatmap', bundle = 'Nope.bundle', entries-path = '/tmp/toggl/entries' },
@@ -277,17 +284,19 @@ extension ConfigTest {
         assertEquals(errors.descriptions, [
             "tab-sidebar.widgets[0].bundle: Only plugin widgets can specify bundle",
             "tab-sidebar.widgets[1].id: Duplicate widget id 'time-date'",
-            "tab-sidebar.widgets[2].type: Possible values: built-in/time-date, built-in/toggl-weekly-focus, built-in/toggl-week-focus, built-in/period-heatmap, built-in/spending-categories, built-in/schedule-heatmap, plugin",
+            "tab-sidebar.widgets[2].type: Possible values: built-in/todo-list, built-in/time-date, built-in/toggl-weekly-focus, built-in/toggl-week-focus, built-in/period-heatmap, built-in/spending-categories, built-in/schedule-heatmap, plugin",
+            "tab-sidebar.widgets[3].bundle: Only plugin widgets can specify bundle",
             "tab-sidebar.widgets[3].entries-path: Only data widgets can specify entries-path",
-            "tab-sidebar.widgets[3].schedule-path: Only schedule heatmap widgets can specify schedule-path",
-            "tab-sidebar.widgets[3].toggl-entries-path: Only schedule heatmap widgets can specify toggl-entries-path",
-            "tab-sidebar.widgets[3].deviation-path: Only schedule heatmap widgets can specify deviation-path",
-            "tab-sidebar.widgets[3].days: Only data widgets can specify days",
-            "tab-sidebar.widgets[3].target-date: Only target-date widgets can specify target-date",
-            "tab-sidebar.widgets[4].days: Must be greater than 0",
-            "tab-sidebar.widgets[5].bundle: Only plugin widgets can specify bundle",
-            "tab-sidebar.widgets[5].entries-path: Schedule heatmap widgets use toggl-entries-path",
-            "tab-sidebar.widgets[6].target-date: Must be YYYY-MM-DD",
+            "tab-sidebar.widgets[4].entries-path: Only data widgets can specify entries-path",
+            "tab-sidebar.widgets[4].schedule-path: Only schedule heatmap widgets can specify schedule-path",
+            "tab-sidebar.widgets[4].toggl-entries-path: Only schedule heatmap widgets can specify toggl-entries-path",
+            "tab-sidebar.widgets[4].deviation-path: Only schedule heatmap widgets can specify deviation-path",
+            "tab-sidebar.widgets[4].days: Only data widgets can specify days",
+            "tab-sidebar.widgets[4].target-date: Only target-date widgets can specify target-date",
+            "tab-sidebar.widgets[5].days: Must be greater than 0",
+            "tab-sidebar.widgets[6].bundle: Only plugin widgets can specify bundle",
+            "tab-sidebar.widgets[6].entries-path: Schedule heatmap widgets use toggl-entries-path",
+            "tab-sidebar.widgets[7].target-date: Must be YYYY-MM-DD",
         ])
     }
 
@@ -300,6 +309,7 @@ extension ConfigTest {
             """
             [tab-sidebar]
                 widgets = [
+                    { id = 'todo-list', type = 'built-in/todo-list', enabled = true },
                     { id = 'time-date', type = 'built-in/time-date', enabled = true, show-date = true },
                     { id = 'schedule-heatmap', type = 'built-in/schedule-heatmap', enabled = true, schedule-path = '/tmp/schedule', toggl-entries-path = '/tmp/toggl/entries', deviation-path = '/tmp/deviation', days = 7 },
                     { id = 'toggl-weekly-focus', type = 'built-in/toggl-weekly-focus', enabled = true, entries-path = '/tmp/toggl/entries', target-date = '2026-09-13' },
@@ -318,6 +328,7 @@ extension ConfigTest {
         }
         XCTAssertTrue(json.contains("\"tab-sidebar\""))
         XCTAssertTrue(json.contains("\"widgets\""))
+        XCTAssertTrue(json.contains("\"todo-list\""))
         XCTAssertTrue(json.contains("\"time-date\""))
         XCTAssertTrue(json.contains("\"/tmp/toggl/entries\""))
         XCTAssertTrue(json.contains("\"toggl-weekly-focus\""))
@@ -334,23 +345,23 @@ extension ConfigTest {
         XCTAssertFalse(json.contains("\"rotation-interval-seconds\""))
         XCTAssertTrue(json.contains("\"CustomWidget.bundle\""))
         assertEquals(
-            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "3", "enabled"].slice).get(),
+            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "4", "enabled"].slice).get(),
             .scalar(.bool(true)),
         )
         assertEquals(
-            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "2", "target-date"].slice).get(),
+            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "3", "target-date"].slice).get(),
             .scalar(.string("2026-09-13")),
         )
         assertEquals(
-            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "4", "entries-path"].slice).get(),
+            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "5", "entries-path"].slice).get(),
             .scalar(.string("/tmp/period")),
         )
         assertEquals(
-            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "5", "rotation-group"].slice).get(),
+            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "6", "rotation-group"].slice).get(),
             .scalar(.string("focus")),
         )
         assertEquals(
-            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "6", "enabled"].slice).get(),
+            try? configMap.find(keyPath: ["tab-sidebar", "widgets", "7", "enabled"].slice).get(),
             .scalar(.bool(false)),
         )
     }

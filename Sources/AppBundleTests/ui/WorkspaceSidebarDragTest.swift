@@ -511,6 +511,27 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
+    func testSidebarAppearancePreferenceParsesLightAndDark() {
+        XCTAssertEqual(workspaceSidebarAppearancePreference(rawValue: "light"), .light)
+        XCTAssertEqual(workspaceSidebarAppearancePreference(rawValue: "dark"), .dark)
+        XCTAssertNil(workspaceSidebarAppearancePreference(rawValue: ""))
+    }
+
+    func testHiddenNotePadDoesNotHideOtherWidgets() {
+        var notePad = WorkspaceSidebarWidgetConfig()
+        notePad.id = "todo-list"
+        notePad.type = .builtInTodoList
+
+        var weeklyRing = WorkspaceSidebarWidgetConfig()
+        weeklyRing.id = "period-heatmap"
+        weeklyRing.type = .builtInPeriodHeatmap
+
+        XCTAssertFalse(workspaceSidebarWidgetIsVisible(notePad, showsNotePad: false))
+        XCTAssertTrue(workspaceSidebarWidgetIsVisible(weeklyRing, showsNotePad: false))
+        XCTAssertTrue(workspaceSidebarHasVisibleWidgets([notePad, weeklyRing], showsNotePad: false))
+    }
+
+    @MainActor
     func testFolderExpansionPreferenceRoundTrips() {
         resetWorkspaceSidebarUIPreferencesForTests()
         let projectId = WorkspaceProjectId("project-1")

@@ -1,9 +1,25 @@
 import Common
 import Foundation
+import SwiftUI
 
 private let workspaceSidebarPinnedExpandedPreferenceKey = "workspaceSidebar.pinnedExpanded"
 private let workspaceSidebarCollapsedFolderIdsPreferenceKey = "workspaceSidebar.collapsedFolderIds"
 private let workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey = "workspaceSidebar.collapsedTabGroupIds"
+let workspaceSidebarAppearancePreferenceKey = "workspaceSidebar.appearance"
+let workspaceSidebarShowsNotePadPreferenceKey = "workspaceSidebar.showsNotePad"
+
+enum WorkspaceSidebarAppearancePreference: String {
+    case light
+    case dark
+
+    var colorScheme: ColorScheme {
+        self == .dark ? .dark : .light
+    }
+}
+
+func workspaceSidebarAppearancePreference(rawValue: String) -> WorkspaceSidebarAppearancePreference? {
+    WorkspaceSidebarAppearancePreference(rawValue: rawValue)
+}
 
 func workspaceSidebarPinnedExpandedPreference() -> Bool {
     UserDefaults.standard.bool(forKey: workspaceSidebarPinnedExpandedPreferenceKey)
@@ -28,6 +44,8 @@ func resetWorkspaceSidebarUIPreferencesForTests() {
     UserDefaults.standard.removeObject(forKey: workspaceSidebarPinnedExpandedPreferenceKey)
     UserDefaults.standard.removeObject(forKey: workspaceSidebarCollapsedFolderIdsPreferenceKey)
     UserDefaults.standard.removeObject(forKey: workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey)
+    UserDefaults.standard.removeObject(forKey: workspaceSidebarAppearancePreferenceKey)
+    UserDefaults.standard.removeObject(forKey: workspaceSidebarShowsNotePadPreferenceKey)
     UserDefaults.standard.synchronize()
     TrayMenuModel.shared.isWorkspaceSidebarPinnedExpanded = false
 }

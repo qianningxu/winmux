@@ -109,6 +109,7 @@ struct WorkspaceSidebarWidgetConfig: ConvenienceCopyable, Equatable, Sendable {
 }
 
 enum WorkspaceSidebarWidgetType: String, CaseIterable, Sendable {
+    case builtInTodoList = "built-in/todo-list"
     case builtInTimeDate = "built-in/time-date"
     case builtInTogglWeeklyFocus = "built-in/toggl-weekly-focus"
     case builtInTogglWeekFocus = "built-in/toggl-week-focus"

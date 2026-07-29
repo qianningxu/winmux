@@ -261,7 +261,7 @@ private struct WorkspaceSidebarCompactPeriodProgressCard: View {
     }
 
     private var accessibilitySummary: String {
-        "Week \(snapshot.currentWeek) of \(snapshot.totalWeeks), day \(snapshot.dayOfWeekInPeriod) of 7, session \(snapshot.sessionCount) of 3, time \(snapshot.runningHoursText) of 4 hours, minute \(snapshot.runningMinute) of 60"
+        "Week \(snapshot.currentWeek) of \(snapshot.totalWeeks)"
     }
 
 }
@@ -278,7 +278,7 @@ private struct WorkspaceSidebarExpandedPeriodProgressCard: View {
         )
         .frame(width: sectionWidth, alignment: .center)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text("Week \(snapshot.currentWeek) of \(snapshot.totalWeeks), day \(snapshot.dayOfWeekInPeriod) of 7, session \(snapshot.sessionCount) of 3, time \(snapshot.runningHoursText) of 4 hours, minute \(snapshot.runningMinute) of 60"))
+        .accessibilityLabel(Text("Week \(snapshot.currentWeek) of \(snapshot.totalWeeks)"))
     }
 }
 
@@ -289,73 +289,31 @@ private struct PeriodRingGaugeGrid: View {
 
     var body: some View {
         Group {
-            if compact {
-                VStack(alignment: .center, spacing: gridGap) {
-                    compactRingGauges
-                }
-            } else {
-                let columns = [
-                    GridItem(.fixed(gaugeSize), spacing: gridGap),
-                    GridItem(.fixed(gaugeSize), spacing: gridGap),
-                ]
-                LazyVGrid(columns: columns, alignment: .center, spacing: gridGap) {
-                    ringGauges
-                }
+            if let metric = metrics.first {
+                PeriodUnitRingGauge(
+                    metric: metric,
+                    size: gaugeSize,
+                    lineWidth: lineWidth,
+                    isCompact: compact,
+                )
             }
         }
         .frame(width: sectionWidth, alignment: .center)
-    }
-
-    private var compactRingGauges: some View {
-        ForEach(Array(metrics.prefix(3).enumerated()), id: \.offset) { index, metric in
-            PeriodUnitRingGauge(
-                metric: metric,
-                size: gaugeSize,
-                lineWidth: lineWidth,
-                isCompact: true,
-            )
-
-            if index < 2 {
-                Divider()
-                    .overlay(winMuxOverlayMutedForeground(0.22))
-                    .frame(width: dividerWidth)
-                    .padding(.vertical, 3)
-            }
-        }
-    }
-
-    private var ringGauges: some View {
-        ForEach(Array(metrics.prefix(4).enumerated()), id: \.offset) { _, metric in
-            PeriodUnitRingGauge(
-                metric: metric,
-                size: gaugeSize,
-                lineWidth: lineWidth,
-                isCompact: compact,
-            )
-        }
     }
 
     private var availableWidth: CGFloat {
         max(48, sectionWidth - 8)
     }
 
-    private var gridGap: CGFloat {
-        compact ? 0 : 10
-    }
-
     private var gaugeSize: CGFloat {
         if compact {
             return min(max(sectionWidth - 8, 30), 38)
         }
-        return min(max((availableWidth - gridGap) / 2, compact ? 40 : 64), compact ? 72 : 112)
+        return min(max(availableWidth, 64), 112)
     }
 
     private var lineWidth: CGFloat {
         compact ? 7 : 15
-    }
-
-    private var dividerWidth: CGFloat {
-        min(max(sectionWidth - 12, 24), gaugeSize)
     }
 }
 
@@ -484,9 +442,6 @@ private extension PeriodHeatmapSnapshot {
     func periodRingMetrics(compact _: Bool) -> [PeriodRingMetric] {
         [
             PeriodRingMetric(label: "W", value: "\(currentWeek)/\(totalWeeks)", progress: weekProgress, filledUnits: currentWeek, totalUnits: totalWeeks),
-            PeriodRingMetric(label: "D", value: "\(dayOfWeekInPeriod)/7", progress: dayProgress, filledUnits: dayOfWeekInPeriod, totalUnits: 7),
-            PeriodRingMetric(label: "S", value: "\(sessionCount)/\(targetSessionCount)", progress: sessionProgress, filledUnits: sessionCount, totalUnits: targetSessionCount),
-            PeriodRingMetric(label: "H", value: "\(Int(runningSeconds / 3600))/4", progress: timeProgress, filledUnits: Int(runningSeconds / 3600), totalUnits: 4),
         ]
     }
 }

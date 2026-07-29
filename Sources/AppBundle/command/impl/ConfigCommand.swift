@@ -188,6 +188,8 @@ private func workspaceSidebarWidgetConfigMap(_ widget: WorkspaceSidebarWidgetCon
         "enabled": .scalar(.bool(widget.enabled)),
     ]
     switch widget.type {
+        case .builtInTodoList:
+            break
         case .builtInTimeDate:
             map["show-date"] = .scalar(.bool(widget.showDate))
         case .builtInTogglWeeklyFocus, .builtInTogglWeekFocus:

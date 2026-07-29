@@ -32,11 +32,48 @@ extension WorkspaceSidebarView {
                 .lineLimit(1)
                 .frame(height: 26, alignment: .center)
             Spacer(minLength: 0)
+            sidebarAppearanceButton()
+            sidebarNotePadButton()
             sidebarPinButton(expansionProgress: expansionProgress, isCompact: false)
         }
         .padding(.leading, 8)
         .padding(.trailing, 4)
         .frame(width: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration), height: workspaceSidebarControlHeight)
+    }
+
+    func sidebarAppearanceButton() -> some View {
+        let palette = WinMuxOverlayPalette(colorScheme: colorScheme)
+        let switchesToLight = colorScheme == .dark
+        return Button {
+            onToggleSidebarAppearance(colorScheme)
+        } label: {
+            Image(systemName: switchesToLight ? "sun.max.fill" : "moon.fill")
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(palette.foreground(0.70))
+                .frame(width: 26, height: 26)
+                .sidebarTopBarIconChrome(palette, isCompact: false, isActive: false)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(switchesToLight ? "Use light sidebar" : "Use dark sidebar")
+        .accessibilityLabel(switchesToLight ? "Use light sidebar" : "Use dark sidebar")
+    }
+
+    func sidebarNotePadButton() -> some View {
+        let palette = WinMuxOverlayPalette(colorScheme: colorScheme)
+        return Button {
+            onToggleNotePad()
+        } label: {
+            Image(systemName: "note.text")
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(showsNotePad ? palette.foreground(0.88) : palette.foreground(0.62))
+                .frame(width: 26, height: 26)
+                .sidebarTopBarIconChrome(palette, isCompact: false, isActive: showsNotePad)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(showsNotePad ? "Hide note pad" : "Show note pad")
+        .accessibilityLabel(showsNotePad ? "Hide note pad" : "Show note pad")
     }
 
     func compactSidebarPinButton(expansionProgress: CGFloat) -> some View {

@@ -119,6 +119,28 @@ private func parseWorkspaceSidebarWidgets(
             return nil
         }
         switch widget.type {
+            case .builtInTodoList:
+                if widget.bundle != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("bundle"), "Only plugin widgets can specify bundle"))
+                }
+                if widget.entriesPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("entries-path"), "Only data widgets can specify entries-path"))
+                }
+                if widget.schedulePath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("schedule-path"), "Only schedule heatmap widgets can specify schedule-path"))
+                }
+                if widget.togglEntriesPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("toggl-entries-path"), "Only schedule heatmap widgets can specify toggl-entries-path"))
+                }
+                if widget.deviationPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("deviation-path"), "Only schedule heatmap widgets can specify deviation-path"))
+                }
+                if widget.days != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("days"), "Only data widgets can specify days"))
+                }
+                if widget.targetDate != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("target-date"), "Only target-date widgets can specify target-date"))
+                }
             case .builtInTimeDate:
                 if widget.bundle != nil {
                     errors.append(.semantic(widgetBacktrace + .key("bundle"), "Only plugin widgets can specify bundle"))
