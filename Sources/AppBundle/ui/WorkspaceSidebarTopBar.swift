@@ -45,7 +45,7 @@ extension WorkspaceSidebarView {
         let palette = WinMuxOverlayPalette(colorScheme: colorScheme)
         let switchesToLight = colorScheme == .dark
         return Button {
-            onToggleSidebarAppearance(colorScheme)
+            toggleWorkspaceSidebarAppearance()
         } label: {
             Image(systemName: switchesToLight ? "sun.max.fill" : "moon.fill")
                 .font(.system(size: 11.5, weight: .semibold))

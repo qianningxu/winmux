@@ -3,6 +3,7 @@ import Common
 import Foundation
 
 @MainActor public func initAppBundle() {
+    restoreWorkspaceSidebarAppearancePreference()
     Task {
         initTerminationHandler()
         isCli = false

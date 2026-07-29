@@ -1,24 +1,41 @@
+import AppKit
 import Common
 import Foundation
-import SwiftUI
 
 private let workspaceSidebarPinnedExpandedPreferenceKey = "workspaceSidebar.pinnedExpanded"
 private let workspaceSidebarCollapsedFolderIdsPreferenceKey = "workspaceSidebar.collapsedFolderIds"
 private let workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey = "workspaceSidebar.collapsedTabGroupIds"
-let workspaceSidebarAppearancePreferenceKey = "workspaceSidebar.appearance"
+private let workspaceSidebarAppearancePreferenceKey = "workspaceSidebar.appearance"
 let workspaceSidebarShowsNotePadPreferenceKey = "workspaceSidebar.showsNotePad"
 
-enum WorkspaceSidebarAppearancePreference: String {
-    case light
-    case dark
-
-    var colorScheme: ColorScheme {
-        self == .dark ? .dark : .light
+func workspaceSidebarAppearancePreference(rawValue: String) -> AppearanceTheme? {
+    switch rawValue {
+        case "light": .light
+        case "dark": .dark
+        default: nil
     }
 }
 
-func workspaceSidebarAppearancePreference(rawValue: String) -> WorkspaceSidebarAppearancePreference? {
-    WorkspaceSidebarAppearancePreference(rawValue: rawValue)
+@MainActor
+func restoreWorkspaceSidebarAppearancePreference() {
+    guard let rawValue = UserDefaults.standard.string(forKey: workspaceSidebarAppearancePreferenceKey),
+          let theme = workspaceSidebarAppearancePreference(rawValue: rawValue)
+    else { return }
+    applyWorkspaceSidebarAppearance(theme, persist: false)
+}
+
+@MainActor
+func toggleWorkspaceSidebarAppearance() {
+    let theme: AppearanceTheme = AppearanceTheme.current == .dark ? .light : .dark
+    applyWorkspaceSidebarAppearance(theme, persist: true)
+}
+
+@MainActor
+private func applyWorkspaceSidebarAppearance(_ theme: AppearanceTheme, persist: Bool) {
+    NSApplication.shared.appearance = NSAppearance(named: theme == .dark ? .darkAqua : .aqua)
+    guard persist else { return }
+    UserDefaults.standard.setValue(theme == .dark ? "dark" : "light", forKey: workspaceSidebarAppearancePreferenceKey)
+    UserDefaults.standard.synchronize()
 }
 
 func workspaceSidebarPinnedExpandedPreference() -> Bool {
