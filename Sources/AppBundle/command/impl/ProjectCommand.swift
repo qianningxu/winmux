@@ -26,6 +26,7 @@ struct ProjectCommand: Command {
         guard let workspace = switchWorkspaceFolder(folderId, on: monitor) else {
             return io.err("Can't switch to folder '\(folderName)'")
         }
+        setWorkspaceSidebarFolderExpanded(folderId.backingProjectId, isExpanded: true)
         return workspace.focusWorkspace()
     }
 }

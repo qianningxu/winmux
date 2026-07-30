@@ -144,6 +144,42 @@ final class ProjectCommandTest: XCTestCase {
         XCTAssertEqual(focus.workspace.projectId, firstFolder.id)
     }
 
+    func testControlNumberFolderSwitchUpdatesSingleExpandedFolder() async throws {
+        let root = focus.workspace
+        root.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 54, parent: root.rootTilingContainer)
+        let firstFolder = createWorkspaceProject()
+        let firstFolderTab = projectWorkspaces(projectId: firstFolder.id).first.orDie()
+        firstFolderTab.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 55, parent: firstFolderTab.rootTilingContainer)
+        let secondFolder = createWorkspaceProject()
+        let secondFolderTab = projectWorkspaces(projectId: secondFolder.id).first.orDie()
+        secondFolderTab.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 56, parent: secondFolderTab.rootTilingContainer)
+        XCTAssertTrue(firstFolderTab.focusWorkspace())
+        setWorkspaceSidebarFolderExpanded(firstFolder.id, isExpanded: true)
+
+        let secondFolderResult = try await ProjectCommand(
+            args: ProjectCmdArgs(target: .index(2)),
+        ).run(.defaultEnv, .emptyStdin)
+
+        assertEquals(secondFolderResult.exitCode, 0)
+        XCTAssertTrue(focus.workspace === secondFolderTab)
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(firstFolder.id))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(secondFolder.id))
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
+
+        let unfoldedResult = try await ProjectCommand(
+            args: ProjectCmdArgs(target: .index(3)),
+        ).run(.defaultEnv, .emptyStdin)
+
+        assertEquals(unfoldedResult.exitCode, 0)
+        XCTAssertTrue(focus.workspace === root)
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(firstFolder.id))
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(secondFolder.id))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
+    }
+
     func testFolderNavigationCountsRemoteOnlyFoldersInSidebarOrder() async throws {
         let main = TestMonitor(
             monitorAppKitNsScreenScreensId: 1,
