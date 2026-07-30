@@ -1,6 +1,42 @@
 import AppKit
 import Common
 
+func shouldRaiseNewlyDetectedDialog(
+    isStartup: Bool,
+    wasRestored: Bool,
+    wasDetectedAsDialog: Bool,
+    appIsActive: Bool,
+    appWasFrontmostWhenDetected: Bool,
+) -> Bool {
+    !isStartup && !wasRestored && wasDetectedAsDialog && (appIsActive || appWasFrontmostWhenDetected)
+}
+
+@MainActor
+final class NewlyDetectedDialogRaiseQueue {
+    private var entries: [(windowId: UInt32, action: () -> Void)] = []
+
+    func schedule(windowId: UInt32, action: @escaping () -> Void) {
+        entries.removeAll { $0.windowId == windowId }
+        entries.append((windowId, action))
+    }
+
+    func drain() {
+        let pendingEntries = entries
+        entries.removeAll()
+        for entry in pendingEntries {
+            entry.action()
+        }
+    }
+}
+
+@MainActor
+private let newlyDetectedDialogRaiseQueue = NewlyDetectedDialogRaiseQueue()
+
+@MainActor
+func raiseNewlyDetectedDialogsAfterFocusSync() {
+    newlyDetectedDialogRaiseQueue.drain()
+}
+
 final class MacWindow: Window {
     let macApp: MacApp
     private var prevUnhiddenProportionalPositionInsideWorkspaceRect: CGPoint?
@@ -22,6 +58,9 @@ final class MacWindow: Window {
             _ = try await existing.getAxRect()
             return existing
         }
+        // NSRunningApplication.isActive can lag behind an app opening a new
+        // dialog. Capture the actual frontmost process before the AX awaits.
+        let appWasFrontmostWhenDetected = NSWorkspace.shared.frontmostApplication?.processIdentifier == macApp.pid
         let rect = try await macApp.getAxRect(windowId)
         let targetWorkspace = targetWorkspaceForNewWindow(
             isStartup: isStartup,
@@ -33,8 +72,9 @@ final class MacWindow: Window {
             macApp,
             targetWorkspace,
             window: nil,
-            normalWindowPlacement: .freshTabWhenTargetOccupied,
+            normalWindowPlacement: .freshTab,
         )
+        let wasDetectedAsDialog = data.parent is Workspace
 
         // atomic synchronous section
         if let existing = allWindowsMap[windowId] { return existing }
@@ -47,6 +87,21 @@ final class MacWindow: Window {
         let didRestoreClosedWindowsCache = try await restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window)
         if !didRestorePersistedFrozenWorld && !didRestoreClosedWindowsCache {
             try await tryOnWindowDetected(window)
+        }
+        if shouldRaiseNewlyDetectedDialog(
+            isStartup: isStartup,
+            wasRestored: didRestorePersistedFrozenWorld || didRestoreClosedWindowsCache,
+            wasDetectedAsDialog: wasDetectedAsDialog,
+            appIsActive: macApp.nsApp.isActive,
+            appWasFrontmostWhenDetected: appWasFrontmostWhenDetected,
+        ) {
+            newlyDetectedDialogRaiseQueue.schedule(windowId: windowId) { [weak macApp] in
+                guard let macApp,
+                      !macApp.nsApp.isTerminated,
+                      MacWindow.allWindowsMap[windowId] != nil
+                else { return }
+                macApp.raiseWindow(windowId)
+            }
         }
         return window
     }
@@ -140,7 +195,7 @@ final class MacWindow: Window {
     }
 
     @MainActor
-    func requestCloseForProjectDeletion(timeout: TimeInterval = 1.5) async -> Bool {
+    func requestCloseAndWait(timeout: TimeInterval = 1.5) async -> Bool {
         guard (try? await macApp.pressCloseButton(windowId)) == true else { return false }
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {

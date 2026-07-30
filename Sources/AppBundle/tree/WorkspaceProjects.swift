@@ -410,6 +410,29 @@ func deleteWorkspaceForSidebar(workspaceName: String) throws {
 }
 
 @MainActor
+func closeWorkspaceWindowsFromSidebar(workspaceName: String) async throws {
+    guard let workspace = Workspace.existing(byName: workspaceName) else {
+        throw WorkspaceMutationError.workspaceNotFound(workspaceName)
+    }
+
+    let displayName = workspaceDisplayName(workspace.name)
+    let remaining = await closeWindowsForSidebarDeletion(
+        windowsInWorkspace(workspace),
+        terminateAppsWhenAllWindowsIncluded: false
+    )
+    if !remaining.isEmpty {
+        throw WorkspaceMutationError.workspaceCloseBlocked(displayName, remaining.count)
+    }
+
+    guard winMuxWorkspaceState.workspaceById[workspace.id] === workspace else { return }
+    let newlyRemaining = windowsInWorkspace(workspace)
+    guard newlyRemaining.isEmpty else {
+        throw WorkspaceMutationError.workspaceCloseBlocked(displayName, newlyRemaining.count)
+    }
+    try deleteWorkspace(workspace)
+}
+
+@MainActor
 func deleteWorkspaceProject(_ projectId: WorkspaceProjectId) throws {
     try deleteWorkspaceProjectMovingWindowsToFallback(projectId)
 }
@@ -475,7 +498,10 @@ private func closeWindowsAndDeleteWorkspaceProject(_ projectId: WorkspaceProject
 
     let windows = windowsInWorkspaceProject(projectId)
     if !windows.isEmpty {
-        let remaining = await closeWindowsForProjectDeletion(windows)
+        let remaining = await closeWindowsForSidebarDeletion(
+            windows,
+            terminateAppsWhenAllWindowsIncluded: true
+        )
         if !remaining.isEmpty {
             throw WorkspaceMutationError.projectCloseBlocked(folder.name, remaining.count)
         }
@@ -593,21 +619,34 @@ func windowsInWorkspaceProject(_ projectId: WorkspaceProjectId) -> [Window] {
 }
 
 @MainActor
-private func closeWindowsForProjectDeletion(_ windows: [Window]) async -> [Window] {
+func windowsInWorkspace(_ workspace: Workspace) -> [Window] {
+    var seen: Set<UInt32> = []
+    return (workspace.allLeafWindowsRecursive + workspaceOwnedMinimizedWindows(workspace)).filter {
+        seen.insert($0.windowId).inserted
+    }
+}
+
+@MainActor
+private func closeWindowsForSidebarDeletion(
+    _ windows: [Window],
+    terminateAppsWhenAllWindowsIncluded: Bool
+) async -> [Window] {
     var remaining: [Window] = []
     let macWindows = windows.compactMap { $0 as? MacWindow }
     let windowsByPid = Dictionary(grouping: macWindows, by: { $0.macApp.pid })
     var handledWindowIds: Set<UInt32> = []
 
-    for (_, appWindows) in windowsByPid {
-        guard let app = appWindows.first?.macApp else { continue }
-        let axWindowCount = (try? await app.getAxWindowsCount()) ?? MacWindow.allWindows.count { $0.macApp === app }
-        if axWindowCount == appWindows.count, app.nsApp.terminate() {
-            let didTerminate = await waitForAppTermination(app)
-            if didTerminate {
-                for window in appWindows {
-                    window.garbageCollect(skipClosedWindowsCache: true)
-                    handledWindowIds.insert(window.windowId)
+    if terminateAppsWhenAllWindowsIncluded {
+        for (_, appWindows) in windowsByPid {
+            guard let app = appWindows.first?.macApp else { continue }
+            let axWindowCount = (try? await app.getAxWindowsCount()) ?? MacWindow.allWindows.count { $0.macApp === app }
+            if axWindowCount == appWindows.count, app.nsApp.terminate() {
+                let didTerminate = await waitForAppTermination(app)
+                if didTerminate {
+                    for window in appWindows {
+                        window.garbageCollect(skipClosedWindowsCache: true)
+                        handledWindowIds.insert(window.windowId)
+                    }
                 }
             }
         }
@@ -615,14 +654,14 @@ private func closeWindowsForProjectDeletion(_ windows: [Window]) async -> [Windo
 
     for window in windows where !handledWindowIds.contains(window.windowId) {
         if let macWindow = window as? MacWindow {
-            if await macWindow.requestCloseForProjectDeletion() {
+            if await macWindow.requestCloseAndWait() {
                 handledWindowIds.insert(window.windowId)
             } else {
                 remaining.append(window)
             }
         } else {
             window.closeAxWindow()
-            if window.nodeWorkspace == nil {
+            if window.parent == nil {
                 handledWindowIds.insert(window.windowId)
             } else {
                 remaining.append(window)

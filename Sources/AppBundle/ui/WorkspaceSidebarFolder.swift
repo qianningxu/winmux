@@ -107,6 +107,15 @@ func workspaceSidebarNonEmptyFolderWorkspaces(
     workspaces.filter { !$0.tabSummary.isEmpty || !$0.items.isEmpty }
 }
 
+func workspaceSidebarFolderShowsContent(
+    isExpanded: Bool,
+    hasItems: Bool,
+    isWorkspaceDragTargeted: Bool,
+    isShowingProjectedContent: Bool
+) -> Bool {
+    (isExpanded && hasItems) || isWorkspaceDragTargeted || isShowingProjectedContent
+}
+
 func workspaceSidebarCurrentFolderProjectId(
     workspaces: [WorkspaceSidebarWorkspaceViewModel],
     targetMonitorScopeId: String
@@ -126,6 +135,12 @@ func workspaceSidebarCompactFolderSections(
         return sections
     }
     return [currentSection]
+}
+
+private struct WorkspaceSidebarFolderButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+    }
 }
 
 struct WorkspaceSidebarFolder<Content: View>: View {
@@ -257,7 +272,10 @@ struct WorkspaceSidebarFolder<Content: View>: View {
                     folderHeaderContent
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                // PlainButtonStyle still applies a brief pressed-state
+                // repaint on macOS. Persisting the folder state can keep that
+                // frame visible long enough to look like a flash.
+                .buttonStyle(WorkspaceSidebarFolderButtonStyle())
             }
         }
         .frame(width: sectionWidth, height: workspaceSidebarWorkspaceSectionHeaderHeight, alignment: .leading)
@@ -317,7 +335,12 @@ struct WorkspaceSidebarFolder<Content: View>: View {
     }
 
     private var showsFolderContent: Bool {
-        isExpanded || isWorkspaceDragTargeted || isShowingProjectedContent
+        workspaceSidebarFolderShowsContent(
+            isExpanded: isExpanded,
+            hasItems: !section.workspaces.isEmpty,
+            isWorkspaceDragTargeted: isWorkspaceDragTargeted,
+            isShowingProjectedContent: isShowingProjectedContent
+        )
     }
 
     private var isFolderTargeted: Bool {

@@ -103,4 +103,19 @@ extension WorkspaceSidebarWorkspaceSection {
         .help("Close \(window.title ?? window.appName)")
         .accessibilityLabel("Close \(window.title ?? window.appName)")
     }
+
+    func workspaceTabCloseButton() -> some View {
+        Button {
+            actions.send(.closeWorkspace(workspace.name))
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 8.5, weight: .bold))
+                .foregroundStyle(palette.foreground(0.78))
+                .frame(width: workspaceSidebarWindowCloseButtonSize, height: workspaceSidebarWindowCloseButtonSize)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Close \(workspace.displayName)")
+        .accessibilityLabel("Close \(workspace.displayName)")
+    }
 }

@@ -6,6 +6,7 @@ final class TestWindow: Window, CustomStringConvertible {
     private var _isHiddenInCorner: Bool = false
     var nativeIsMacosFullscreen: Bool = false
     var nativeIsMacosMinimized: Bool = false
+    var refusesClose: Bool = false
 
     @MainActor
     private init(_ id: UInt32, _ parent: NonLeafTreeNodeObject, _ adaptiveWeight: CGFloat, _ rect: Rect?) {
@@ -31,6 +32,7 @@ final class TestWindow: Window, CustomStringConvertible {
     }
 
     override func closeAxWindow() {
+        guard !refusesClose else { return }
         let workspaceToClose = workspaceToCloseAfterClosingLastWindow(self)
         unbindFromParent()
         closeWorkspaceIfEmptiedByLastWindowClosure(workspaceToClose)

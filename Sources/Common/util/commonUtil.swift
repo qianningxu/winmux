@@ -76,6 +76,7 @@ public enum RefreshSessionEvent: Sendable, CustomStringConvertible {
     case startup
     case socketServer(any CmdArgs)
     case resetManipulatedWithMouse
+    case windowInventoryReconciliation
     case ax(String)
     case onFocusedMonitorChanged
     case onFocusChanged
@@ -95,7 +96,7 @@ public enum RefreshSessionEvent: Sendable, CustomStringConvertible {
                 true
             case .onFocusedMonitorChanged, .onFocusChanged:
                 true
-            case .configAutoReload, .globalObserverLeftMouseUp, .startup,
+            case .configAutoReload, .globalObserverLeftMouseUp, .startup, .windowInventoryReconciliation,
                  .resetManipulatedWithMouse:
                 false
         }
@@ -109,7 +110,7 @@ public enum RefreshSessionEvent: Sendable, CustomStringConvertible {
                 notif != NSWorkspace.didActivateApplicationNotification.rawValue
             case .configAutoReload, .globalObserverLeftMouseUp, .menuBarButton, .hotkeyBinding,
                  .startup, .socketServer, .resetManipulatedWithMouse, .onFocusedMonitorChanged,
-                 .onFocusChanged, .onModeChanged:
+                 .onFocusChanged, .onModeChanged, .windowInventoryReconciliation:
                 true
         }
     }
@@ -127,6 +128,7 @@ public enum RefreshSessionEvent: Sendable, CustomStringConvertible {
             case .hotkeyBinding: "hotkeyBinding"
             case .menuBarButton: "menuBarButton"
             case .resetManipulatedWithMouse: "resetManipulatedWithMouse"
+            case .windowInventoryReconciliation: "windowInventoryReconciliation"
             case .socketServer(let args): "socketServer: \(args)"
             case .startup: "startup"
             case .onFocusedMonitorChanged: "onFocusedMonitorChanged"

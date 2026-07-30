@@ -49,8 +49,8 @@ extension WorkspaceSidebarWorkspaceSection {
             headerButton
                 .frame(height: headerHeight)
 
-            if isHeaderCloseButtonVisible, let target = headerCloseTargetWindow {
-                workspaceWindowCloseButton(target)
+            if isHeaderCloseButtonVisible {
+                workspaceTabCloseButton()
                     .padding(.trailing, workspaceSidebarWindowCloseButtonTrailingInset)
                     .transition(.opacity)
                     .zIndex(2)

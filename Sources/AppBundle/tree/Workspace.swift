@@ -84,6 +84,7 @@ enum WorkspaceMutationError: LocalizedError {
     case workspaceCannotBeDeleted(String)
     case projectNotFound(String)
     case projectCannotBeDeleted(String)
+    case workspaceCloseBlocked(String, Int)
     case projectCloseBlocked(String, Int)
     case emptyName
     case duplicateProjectName(String)
@@ -98,6 +99,8 @@ enum WorkspaceMutationError: LocalizedError {
                 "Folder '\(id)' no longer exists."
             case .projectCannotBeDeleted(let name):
                 "Folder '\(name)' cannot be deleted."
+            case .workspaceCloseBlocked(let name, let count):
+                "Tab '\(name)' was not closed because \(count) window\(count == 1 ? "" : "s") stayed open."
             case .projectCloseBlocked(let name, let count):
                 "Folder '\(name)' was not deleted because \(count) window\(count == 1 ? "" : "s") stayed open."
             case .emptyName:

@@ -43,9 +43,10 @@ on-mode-changed = []
     widgets = [
         { id = 'todo-list', type = 'built-in/todo-list', enabled = true },
         { id = 'time-date', type = 'built-in/time-date', enabled = false, show-date = true },
-        { id = 'period-heatmap', type = 'built-in/period-heatmap', enabled = false, entries-path = '/Users/side/Documents/now/self/self_data/data' },
-        { id = 'toggl-week-focus', type = 'built-in/toggl-week-focus', enabled = false, entries-path = '/Users/side/Documents/now/self/self_data/data', target-date = '2026-09-13' },
-        { id = 'toggl-weekly-focus', type = 'built-in/toggl-weekly-focus', enabled = false, entries-path = '/Users/side/Documents/now/self/self_data/data', target-date = '2026-09-13' },
+        { id = 'today-focus', type = 'built-in/today-focus', enabled = true, entries-path = '/Users/side/Documents/now/my_app/self/self_data/data' },
+        { id = 'period-heatmap', type = 'built-in/period-heatmap', enabled = false, entries-path = '/Users/side/Documents/now/my_app/self/self_data/data' },
+        { id = 'toggl-week-focus', type = 'built-in/toggl-week-focus', enabled = false, entries-path = '/Users/side/Documents/now/my_app/self/self_data/data', target-date = '2026-09-13' },
+        { id = 'toggl-weekly-focus', type = 'built-in/toggl-weekly-focus', enabled = false, entries-path = '/Users/side/Documents/now/my_app/self/self_data/data', target-date = '2026-09-13' },
     ]
 
 [mode.main.binding]

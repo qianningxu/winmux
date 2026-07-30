@@ -33,7 +33,6 @@ final class MacApp: AbstractApp {
         self.pid = nsApp.processIdentifier
         self.rawAppBundleId = nsApp.bundleIdentifier
         self.appId = nsApp.bundleIdentifier.flatMap { KnownBundleId.init(rawValue: $0) }
-        assert(!axSubscriptions.isEmpty)
         self.appAxSubscriptions = .init(axSubscriptions)
         self.thread = thread
     }
@@ -65,17 +64,16 @@ final class MacApp: AbstractApp {
                         (refreshObs, [kAXWindowCreatedNotification, kAXFocusedWindowChangedNotification]),
                     ]
                     let job = RunLoopJob()
+                    let keepAlivePort = Port()
+                    RunLoop.current.add(keepAlivePort, forMode: .default)
                     let subscriptions = (try? AxSubscription.bulkSubscribe(nsApp, axApp, job, handlers)) ?? []
-                    let isGood = !subscriptions.isEmpty
-                    let app = isGood ? MacApp(nsApp, axApp, subscriptions, Thread.current) : nil
+                    let app = MacApp(nsApp, axApp, subscriptions, Thread.current)
                     Task { @MainActor in
                         allAppsMap[pid] = app
                         await wip.signalToAll()
                         wipPids[pid] = nil
                     }
-                    if isGood {
-                        CFRunLoopRun()
-                    }
+                    CFRunLoopRun()
                 }
             }
             thread.name = "AxAppThread \(nsApp.idForDebug)"
@@ -159,6 +157,13 @@ final class MacApp: AbstractApp {
         }
     }
 
+    func raiseWindow(_ windowId: UInt32) {
+        if serverArgs.isReadOnly { return }
+        _ = withWindowAsync(windowId) { window, job in
+            AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+        }
+    }
+
     func setAxFrame(_ windowId: UInt32, _ topLeft: CGPoint?, _ size: CGSize?) {
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
         setFrameJobs[windowId] = withWindowAsync(windowId) { [axApp] window, job in
@@ -181,6 +186,18 @@ final class MacApp: AbstractApp {
         try await thread?.runInLoop { [axApp] job in
             axApp.threadGuarded.get(Ax.windowsAttr)?.count
         }
+    }
+
+    @MainActor
+    static func hasWindowInventoryChanged() async -> Bool {
+        for app in allAppsMap.values where !app.nsApp.isTerminated {
+            if let actualCount = try? await app.getAxWindowsCount(),
+               actualCount != app.windowsCount
+            {
+                return true
+            }
+        }
+        return false
     }
 
     @MainActor
@@ -276,8 +293,18 @@ final class MacApp: AbstractApp {
         return try await withThrowingTaskGroup(of: (pid_t, [UInt32]).self, returning: [MacApp: [UInt32]].self) { group in
             func refreshTheApp(_ nsApp: NSRunningApplication) {
                 group.addTask { @Sendable @MainActor in
-                    guard let app = try await MacApp.getOrRegister(nsApp) else { return (nsApp.processIdentifier, []) }
-                    return (nsApp.processIdentifier, try await app.refreshAndGetAliveWindowIds(frontmostAppBundleId: frontmostAppBundleId))
+                    do {
+                        guard let app = try await MacApp.getOrRegister(nsApp) else { return (nsApp.processIdentifier, []) }
+                        return (nsApp.processIdentifier, try await app.refreshAndGetAliveWindowIds(frontmostAppBundleId: frontmostAppBundleId))
+                    } catch is CancellationError {
+                        throw CancellationError()
+                    } catch {
+                        let pid = nsApp.processIdentifier
+                        let lastKnownWindowIds = MacWindow.allWindows
+                            .filter { $0.macApp.pid == pid }
+                            .map(\.windowId)
+                        return (pid, lastKnownWindowIds)
+                    }
                 }
             }
             // Register new apps

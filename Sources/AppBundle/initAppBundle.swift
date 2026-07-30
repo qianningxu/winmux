@@ -60,6 +60,10 @@ import Foundation
         _ = Workspace.all.first?.focusWorkspace()
         let didLoadPersistedFrozenWorld = loadPersistedFrozenWorldForStartupIfPresent()
         loadPersistedSidebarStateForStartupIfPresent()
+        // Recreate the saved tabs and folder membership before the AX scan.
+        // The scan can then attach windows to those durable tab identities,
+        // and a slow or failed scan cannot leave persistence disabled.
+        finalizePersistedSidebarStateAfterStartupIfNeeded()
         try await runRefreshSessionBlocking(.startup, layoutWorkspaces: false)
         try await runLightSession(.startup, .forceRun) {
             if !didLoadPersistedFrozenWorld {

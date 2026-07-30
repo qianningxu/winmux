@@ -78,9 +78,9 @@ func handleWorkspaceSidebarAction(
             createWorkspaceFromSidebarButton(projectId: projectId, monitorScopeId: monitorScopeId)
         case .renameWorkspace(let name, let displayName):
             renameWorkspaceFromSidebar(name, displayName: displayName)
-        case .deleteWorkspace(let name):
+        case .closeWorkspace(let name):
             if let workspace = workspaceSidebarWorkspaceViewModel(name) {
-                deleteWorkspaceFromSidebar(workspace)
+                closeWorkspaceFromSidebar(workspace)
             }
         case .reorderWorkspace(let name, let projectId, let placement):
             reorderWorkspaceFromSidebar(name, projectId: projectId, placement: placement)

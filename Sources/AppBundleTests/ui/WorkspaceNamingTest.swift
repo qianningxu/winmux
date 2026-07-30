@@ -405,10 +405,10 @@ final class WorkspaceNamingTest: XCTestCase {
         XCTAssertNil(config.workspaceSidebar.workspaceLabels[first.name])
     }
 
-    func testDeletingFocusedWorkspaceFocusesNextClosestWorkspace() throws {
-        let first = Workspace.get(byName: "1")
-        first.markAsAutomaticallyNamed()
-        _ = TestWindow.new(id: 115, parent: first.rootTilingContainer)
+    func testDeletingFocusedWorkspaceFocusesWorkspaceImmediatelyAboveIt() throws {
+        let above = Workspace.get(byName: "1")
+        above.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 115, parent: above.rootTilingContainer)
         let deleted = Workspace.get(byName: "2")
         deleted.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 116, parent: deleted.rootTilingContainer)
@@ -419,7 +419,7 @@ final class WorkspaceNamingTest: XCTestCase {
 
         try deleteWorkspaceForSidebar(workspaceName: deleted.name)
 
-        XCTAssertTrue(focus.workspace === next)
+        XCTAssertTrue(focus.workspace === above)
         XCTAssertTrue(Workspace.existing(byName: "3") === next)
     }
 
@@ -482,6 +482,143 @@ final class WorkspaceNamingTest: XCTestCase {
         XCTAssertFalse(defaultWorkspace.allLeafWindowsRecursive.contains(projectWindow))
         XCTAssertNil(config.workspaceSidebar.projectLabels[project.id.rawValue])
         XCTAssertNil(config.workspaceSidebar.projectColors[project.id.rawValue])
+    }
+
+    func testClosingSidebarTabClosesAllWindowsWithoutMovingThemToFallback() async throws {
+        let fallback = Workspace.get(byName: "1")
+        fallback.markAsAutomaticallyNamed()
+        let fallbackWindow = TestWindow.new(id: 219, parent: fallback.rootTilingContainer)
+        let closing = Workspace.get(byName: "2")
+        closing.markAsAutomaticallyNamed()
+        let firstClosingWindow = TestWindow.new(id: 220, parent: closing.rootTilingContainer)
+        let secondClosingWindow = TestWindow.new(id: 221, parent: closing.rootTilingContainer)
+        _ = closing.focusWorkspace()
+
+        try await closeWorkspaceWindowsFromSidebar(workspaceName: closing.name)
+
+        XCTAssertNil(Workspace.existing(byName: closing.name))
+        XCTAssertTrue(focus.workspace === fallback)
+        XCTAssertEqual(fallback.allLeafWindowsRecursive, [fallbackWindow])
+        XCTAssertNil(firstClosingWindow.parent)
+        XCTAssertNil(secondClosingWindow.parent)
+    }
+
+    func testClosingSidebarTabFocusesTabImmediatelyAboveIt() async throws {
+        let first = Workspace.get(byName: "close-order-first")
+        first.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 232, parent: first.rootTilingContainer)
+        let above = Workspace.get(byName: "close-order-above")
+        above.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 233, parent: above.rootTilingContainer)
+        let closing = Workspace.get(byName: "close-order-closing")
+        closing.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 234, parent: closing.rootTilingContainer)
+        let below = Workspace.get(byName: "close-order-below")
+        below.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 235, parent: below.rootTilingContainer)
+        _ = closing.focusWorkspace()
+
+        try await closeWorkspaceWindowsFromSidebar(workspaceName: closing.name)
+
+        XCTAssertNil(Workspace.existing(byName: closing.name))
+        XCTAssertTrue(focus.workspace === above)
+        XCTAssertFalse(focus.workspace === first)
+        XCTAssertFalse(focus.workspace === below)
+    }
+
+    func testClosingSidebarTabIncludesMinimizedWindows() async throws {
+        let fallback = Workspace.get(byName: "1")
+        fallback.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 222, parent: fallback.rootTilingContainer)
+        let closing = Workspace.get(byName: "2")
+        closing.markAsAutomaticallyNamed()
+        let regularWindow = TestWindow.new(id: 223, parent: closing.rootTilingContainer)
+        let minimizedWindow = TestWindow.new(id: 224, parent: closing.rootTilingContainer)
+        let floatingWindow = TestWindow.new(id: 229, parent: closing)
+        let fullscreenWindow = TestWindow.new(id: 230, parent: closing.macOsNativeFullscreenWindowsContainer)
+        let hiddenWindow = TestWindow.new(id: 231, parent: closing.macOsNativeHiddenAppsWindowsContainer)
+        minimizedWindow.layoutReason = .macos(
+            prevParentKind: .tilingContainer,
+            prevWorkspaceName: closing.name
+        )
+        minimizedWindow.bind(
+            to: macosMinimizedWindowsContainer,
+            adaptiveWeight: WEIGHT_DOESNT_MATTER,
+            index: INDEX_BIND_LAST
+        )
+
+        XCTAssertEqual(Set(windowsInWorkspace(closing).map(\.windowId)), [223, 224, 229, 230, 231])
+
+        try await closeWorkspaceWindowsFromSidebar(workspaceName: closing.name)
+
+        XCTAssertNil(Workspace.existing(byName: closing.name))
+        XCTAssertNil(regularWindow.parent)
+        XCTAssertNil(minimizedWindow.parent)
+        XCTAssertNil(floatingWindow.parent)
+        XCTAssertNil(fullscreenWindow.parent)
+        XCTAssertNil(hiddenWindow.parent)
+    }
+
+    func testClosingEmptySidebarTabRemovesIt() async throws {
+        let fallback = Workspace.get(byName: "1")
+        fallback.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 225, parent: fallback.rootTilingContainer)
+        let closing = Workspace.get(byName: "2")
+        closing.markAsAutomaticallyNamed()
+
+        try await closeWorkspaceWindowsFromSidebar(workspaceName: closing.name)
+
+        XCTAssertNil(Workspace.existing(byName: closing.name))
+        XCTAssertTrue(Workspace.existing(byName: fallback.name) === fallback)
+    }
+
+    func testBlockedWindowKeepsSidebarTabAndReportsRemainingCount() async throws {
+        let fallback = Workspace.get(byName: "1")
+        fallback.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 226, parent: fallback.rootTilingContainer)
+        let closing = Workspace.get(byName: "2")
+        closing.markAsAutomaticallyNamed()
+        let closeableWindow = TestWindow.new(id: 227, parent: closing.rootTilingContainer)
+        let blockedWindow = TestWindow.new(id: 228, parent: closing.rootTilingContainer)
+        blockedWindow.refusesClose = true
+
+        do {
+            try await closeWorkspaceWindowsFromSidebar(workspaceName: closing.name)
+            XCTFail("Expected a blocked close error")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                "Tab 'Tab 2' was not closed because 1 window stayed open."
+            )
+        }
+
+        XCTAssertTrue(Workspace.existing(byName: closing.name) === closing)
+        XCTAssertNil(closeableWindow.parent)
+        XCTAssertNotNil(blockedWindow.parent)
+        XCTAssertEqual(windowsInWorkspace(closing).map(\.windowId), [228])
+    }
+
+    func testSidebarTabCloseButtonSupportsMultiWindowTabs() {
+        XCTAssertTrue(workspaceSidebarTabCloseButtonIsVisible(
+            isCompact: false,
+            isRenamingWorkspace: false,
+            isPointerHoverVisible: true,
+            windowCount: 2
+        ))
+        XCTAssertFalse(workspaceSidebarTabCloseButtonIsVisible(
+            isCompact: false,
+            isRenamingWorkspace: false,
+            isPointerHoverVisible: true,
+            windowCount: 0
+        ))
+        XCTAssertFalse(workspaceSidebarTabCloseButtonIsVisible(
+            isCompact: true,
+            isRenamingWorkspace: false,
+            isPointerHoverVisible: true,
+            windowCount: 2
+        ))
+        XCTAssertFalse(workspaceSidebarTabClosureRequiresConfirmation(windowCount: 1))
+        XCTAssertTrue(workspaceSidebarTabClosureRequiresConfirmation(windowCount: 2))
     }
 
     func testCreatedFolderPersistsIdentityAndDeleteRemovesPersistedIdentity() throws {

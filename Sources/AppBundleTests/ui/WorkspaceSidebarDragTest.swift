@@ -236,6 +236,30 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertGreaterThan(workspaceSidebarTabGroupChildLeadingIndent, workspaceSidebarRowHorizontalPadding)
     }
 
+    func testExpandedEmptyFolderDoesNotReserveContentHeight() {
+        XCTAssertFalse(workspaceSidebarFolderShowsContent(
+            isExpanded: true,
+            hasItems: false,
+            isWorkspaceDragTargeted: false,
+            isShowingProjectedContent: false
+        ))
+        XCTAssertTrue(workspaceSidebarFolderShowsContent(
+            isExpanded: true,
+            hasItems: true,
+            isWorkspaceDragTargeted: false,
+            isShowingProjectedContent: false
+        ))
+    }
+
+    func testEmptyFolderStillShowsProjectedDragContent() {
+        XCTAssertTrue(workspaceSidebarFolderShowsContent(
+            isExpanded: true,
+            hasItems: false,
+            isWorkspaceDragTargeted: false,
+            isShowingProjectedContent: true
+        ))
+    }
+
     @MainActor
     func testTopFilterBarIgnoresProjectsForHardTabMigration() {
         let view = WorkspaceSidebarView(snapshot: workspaceSidebarSnapshotForTopFilterBar(

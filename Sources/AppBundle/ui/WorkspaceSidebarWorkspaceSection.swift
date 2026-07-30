@@ -98,9 +98,9 @@ struct WorkspaceSidebarWorkspaceSection: View {
                 }
                 Divider()
                 Button(role: .destructive) {
-                    actions.send(.deleteWorkspace(workspace.name))
+                    actions.send(.closeWorkspace(workspace.name))
                 } label: {
-                    Text("Delete Tab")
+                    Text("Close Tab")
                 }
             }
             .onHover { hover in

@@ -29,15 +29,17 @@ final class AxSubscription {
         var visitedNotifKeys: Set<String> = []
         for (handler, notifKeys) in handlerToNotifKeyMapping {
             try job.checkCancellation()
-            guard let obs = AXObserver.new(nsApp.processIdentifier, handler) else { return [] }
+            guard let obs = AXObserver.new(nsApp.processIdentifier, handler) else { continue }
             let subscription = AxSubscription(obs: obs, ax: ax)
             for key: String in notifKeys {
                 try job.checkCancellation()
                 assert(visitedNotifKeys.insert(key).inserted)
-                if try !subscription.subscribe(key) { return [] }
+                _ = try subscription.subscribe(key)
             }
-            CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(obs), .defaultMode)
-            result.append(subscription)
+            if !subscription.notifKeys.isEmpty {
+                CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(obs), .defaultMode)
+                result.append(subscription)
+            }
         }
         return result
     }

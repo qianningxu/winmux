@@ -6,6 +6,75 @@ import XCTest
 final class WorkspaceLifecycleTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
 
+    func testNewDialogIsRaisedWhenItsAppIsAlreadyActive() {
+        XCTAssertTrue(shouldRaiseNewlyDetectedDialog(
+            isStartup: false,
+            wasRestored: false,
+            wasDetectedAsDialog: true,
+            appIsActive: true,
+            appWasFrontmostWhenDetected: true,
+        ))
+    }
+
+    func testNewDialogIsRaisedWhenFrontmostStatePrecedesActiveState() {
+        XCTAssertTrue(shouldRaiseNewlyDetectedDialog(
+            isStartup: false,
+            wasRestored: false,
+            wasDetectedAsDialog: true,
+            appIsActive: false,
+            appWasFrontmostWhenDetected: true,
+        ))
+    }
+
+    func testNewDialogDoesNotStealAttentionFromBackgroundApp() {
+        XCTAssertFalse(shouldRaiseNewlyDetectedDialog(
+            isStartup: false,
+            wasRestored: false,
+            wasDetectedAsDialog: true,
+            appIsActive: false,
+            appWasFrontmostWhenDetected: false,
+        ))
+    }
+
+    func testRestoredOrStartupDialogsAreNotRaised() {
+        XCTAssertFalse(shouldRaiseNewlyDetectedDialog(
+            isStartup: true,
+            wasRestored: false,
+            wasDetectedAsDialog: true,
+            appIsActive: true,
+            appWasFrontmostWhenDetected: true,
+        ))
+        XCTAssertFalse(shouldRaiseNewlyDetectedDialog(
+            isStartup: false,
+            wasRestored: true,
+            wasDetectedAsDialog: true,
+            appIsActive: true,
+            appWasFrontmostWhenDetected: true,
+        ))
+    }
+
+    func testNewDialogRaiseIsDeferredUntilAfterFocusSync() {
+        let queue = NewlyDetectedDialogRaiseQueue()
+        var raisedWindowIds: [UInt32] = []
+
+        queue.schedule(windowId: 41) { raisedWindowIds.append(41) }
+
+        XCTAssertTrue(raisedWindowIds.isEmpty)
+        queue.drain()
+        XCTAssertEqual(raisedWindowIds, [41])
+    }
+
+    func testNewDialogRaiseQueueKeepsLatestActionForWindow() {
+        let queue = NewlyDetectedDialogRaiseQueue()
+        var actions: [String] = []
+
+        queue.schedule(windowId: 41) { actions.append("stale") }
+        queue.schedule(windowId: 41) { actions.append("latest") }
+        queue.drain()
+
+        XCTAssertEqual(actions, ["latest"])
+    }
+
     func testReconcilePrunesUnfocusedEmptyWorkspacesWhenProjectHasOccupiedWorkspace() {
         let occupied = Workspace.get(byName: "1")
         occupied.markAsAutomaticallyNamed()
@@ -436,7 +505,52 @@ final class WorkspaceLifecycleTest: XCTestCase {
         XCTAssertTrue(target === secondaryActiveWorkspace)
     }
 
-    func testNewTilingWindowDefaultsToFreshTabWhenTargetTabIsOccupied() {
+    func testNewWindowOnSecondaryMonitorCreatesAdjacentTabInActiveFolder() {
+        let main = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 1,
+            name: "Main",
+            rect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080),
+            isMain: true,
+        )
+        let secondary = WorkspaceNamingTestMonitor(
+            monitorAppKitNsScreenScreensId: 2,
+            name: "Secondary",
+            rect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            visibleRect: Rect(topLeftX: 1920, topLeftY: 0, width: 1920, height: 1080),
+            isMain: false,
+        )
+        setMonitorsForTests([main, secondary])
+        let mainWorkspace = Workspace.get(byName: "main-tab")
+        let secondaryWorkspace = Workspace.get(byName: "secondary-tab")
+        secondaryWorkspace.seedMonitorIfNeeded(secondary)
+        let folder = createWorkspaceFolder()
+        secondaryWorkspace.assignProject(folder.projectId)
+        _ = TestWindow.new(id: 38, parent: secondaryWorkspace.rootTilingContainer)
+        XCTAssertTrue(main.setActiveWorkspace(mainWorkspace))
+        XCTAssertTrue(secondary.setActiveWorkspace(secondaryWorkspace))
+
+        let anchor = targetWorkspaceForNewWindow(
+            isStartup: false,
+            windowRect: Rect(topLeftX: 2100, topLeftY: 100, width: 800, height: 600),
+            focusedWorkspace: mainWorkspace,
+        )
+        let destination = workspaceForNewTilingWindow(defaultWorkspace: anchor, placement: .freshTab)
+
+        XCTAssertTrue(anchor === secondaryWorkspace)
+        XCTAssertEqual(destination.folderId, secondaryWorkspace.folderId)
+        XCTAssertEqual(destination.workspaceMonitor.rect.topLeftCorner, secondary.rect.topLeftCorner)
+        let folderWorkspaceNames = orderedWorkspaces(in: folder.projectId)
+            .filter { !$0.isArchived }
+            .map(\.name)
+        guard let secondaryIndex = folderWorkspaceNames.firstIndex(of: secondaryWorkspace.name) else {
+            return XCTFail("Expected the active secondary tab in its folder order")
+        }
+        XCTAssertEqual(folderWorkspaceNames.getOrNil(atIndex: secondaryIndex + 1), destination.name)
+        XCTAssertTrue(secondary.activeWorkspace === destination)
+    }
+
+    func testNewTilingWindowCreatesFreshAdjacentTabAfterOccupiedCurrentTab() {
         let occupied = focus.workspace
         occupied.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 34, parent: occupied.rootTilingContainer)
@@ -444,7 +558,7 @@ final class WorkspaceLifecycleTest: XCTestCase {
 
         let destination = workspaceForNewTilingWindow(
             defaultWorkspace: occupied,
-            placement: .freshTabWhenTargetOccupied
+            placement: .freshTab
         )
 
         XCTAssertFalse(destination === occupied)
@@ -458,23 +572,67 @@ final class WorkspaceLifecycleTest: XCTestCase {
         )
     }
 
-    func testDefaultNewTilingWindowPlacementCreatesFreshTabWhenOccupied() {
-        XCTAssertEqual(defaultNewTilingWindowPlacement(), .freshTabWhenTargetOccupied)
+    func testDefaultNewTilingWindowPlacementAlwaysCreatesFreshTab() {
+        XCTAssertEqual(defaultNewTilingWindowPlacement(), .freshTab)
     }
 
-    func testNewTilingWindowUsesCurrentEmptyTabInsteadOfCreatingExtraBlank() {
+    func testNewTilingWindowCreatesFreshTabAfterEmptyCurrentTab() {
         let empty = focus.workspace
         empty.markAsTransientBlank()
         XCTAssertTrue(mainMonitor.setActiveWorkspace(empty))
 
         let destination = workspaceForNewTilingWindow(
             defaultWorkspace: empty,
-            placement: .freshTabWhenTargetOccupied
+            placement: .freshTab
         )
 
-        XCTAssertTrue(destination === empty)
-        XCTAssertEqual(Workspace.all.filter { !$0.isArchived }.map(\.name), [empty.name])
-        XCTAssertTrue(mainMonitor.activeWorkspace === empty)
+        XCTAssertFalse(destination === empty)
+        XCTAssertTrue(destination.isEffectivelyEmpty)
+        XCTAssertEqual(
+            orderedWorkspacesForPresentation().filter { !$0.isArchived }.map(\.name),
+            [empty.name, destination.name]
+        )
+        XCTAssertTrue(mainMonitor.activeWorkspace === destination)
+    }
+
+    func testNewTilingWindowCreatesFreshTabAfterPersistentEmptyCurrentTab() {
+        let empty = focus.workspace
+        empty.markAsAutomaticallyNamed()
+        config.persistentWorkspaces = [empty.name]
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(empty))
+
+        let destination = workspaceForNewTilingWindow(
+            defaultWorkspace: empty,
+            placement: .freshTab
+        )
+
+        XCTAssertFalse(destination === empty)
+        XCTAssertEqual(
+            orderedWorkspacesForPresentation().filter { !$0.isArchived }.map(\.name),
+            [empty.name, destination.name]
+        )
+        XCTAssertTrue(mainMonitor.activeWorkspace === destination)
+    }
+
+    func testConsecutiveNewTilingWindowsCreateContiguousTabsInCurrentFolder() {
+        let current = focus.workspace
+        current.markAsAutomaticallyNamed()
+        let folder = createWorkspaceFolder()
+        current.assignProject(folder.projectId)
+        _ = TestWindow.new(id: 36, parent: current.rootTilingContainer)
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(current))
+
+        let first = workspaceForNewTilingWindow(defaultWorkspace: current, placement: .freshTab)
+        _ = TestWindow.new(id: 37, parent: first.rootTilingContainer)
+        let second = workspaceForNewTilingWindow(defaultWorkspace: first, placement: .freshTab)
+
+        XCTAssertEqual(first.folderId, current.folderId)
+        XCTAssertEqual(second.folderId, current.folderId)
+        XCTAssertEqual(
+            orderedWorkspaces(in: folder.projectId).filter { !$0.isArchived }.map(\.name),
+            [current.name, first.name, second.name]
+        )
+        XCTAssertTrue(mainMonitor.activeWorkspace === second)
     }
 
     func testTargetWorkspacePlacementKeepsExistingTabForRelayout() {

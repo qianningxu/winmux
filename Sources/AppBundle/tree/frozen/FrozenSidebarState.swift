@@ -86,13 +86,24 @@ struct FrozenSidebarProject: Codable, Sendable {
 }
 
 @MainActor
-func restoreFrozenSidebarState(_ sidebar: FrozenSidebarState?, restoredWorkspaceNames: Set<String>) {
+func restoreFrozenSidebarState(
+    _ sidebar: FrozenSidebarState?,
+    restoredWorkspaceNames: Set<String>,
+    materializeMissingWorkspaces: Bool = false
+) {
     guard let sidebar else { return }
+    let effectiveRestoredWorkspaceNames = materializeMissingWorkspaces
+        ? restoredWorkspaceNames.union(sidebar.projects.flatMap(\.workspaceNames))
+        : restoredWorkspaceNames
 
     for frozenProject in sidebar.projects {
         let restoredWorkspaces = frozenProject.workspaceNames.compactMap { workspaceName -> Workspace? in
-            guard restoredWorkspaceNames.contains(workspaceName) else { return nil }
-            return Workspace.existing(byName: workspaceName)
+            if let workspace = Workspace.existing(byName: workspaceName),
+               effectiveRestoredWorkspaceNames.contains(workspaceName)
+            {
+                return workspace
+            }
+            return materializeMissingWorkspaces ? Workspace.get(byName: workspaceName) : nil
         }
         let folderId = WorkspaceFolderId(frozenProject.id)
         for workspace in restoredWorkspaces where workspace.folderId != folderId {
@@ -108,7 +119,7 @@ func restoreFrozenSidebarState(_ sidebar: FrozenSidebarState?, restoredWorkspace
         ))
     }
 
-    restoreFrozenSidebarLabels(sidebar, restoredWorkspaceNames: restoredWorkspaceNames)
+    restoreFrozenSidebarLabels(sidebar, restoredWorkspaceNames: effectiveRestoredWorkspaceNames)
     restoreWorkspaceSidebarCollapsedFolderIds(sidebar.collapsedFolderIds)
     winMuxWorkspaceState.pruneProjectWorkspaceIndexes()
 }

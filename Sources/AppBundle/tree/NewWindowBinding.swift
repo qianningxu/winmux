@@ -3,7 +3,7 @@ import Common
 
 enum NewTilingWindowPlacement: Equatable {
     case targetWorkspace
-    case freshTabWhenTargetOccupied
+    case freshTab
 }
 
 @MainActor
@@ -36,8 +36,7 @@ func workspaceForNewTilingWindow(
     defaultWorkspace workspace: Workspace,
     placement: NewTilingWindowPlacement,
 ) -> Workspace {
-    guard placement == .freshTabWhenTargetOccupied else { return workspace }
-    guard !workspace.isEffectivelyEmpty else { return workspace }
+    guard placement == .freshTab else { return workspace }
 
     let freshWorkspace = createFreshAdjacentBlankWorkspace(
         projectId: workspace.projectId,
@@ -74,7 +73,7 @@ func unbindAndGetBindingDataForNewWindow(
 }
 
 func defaultNewTilingWindowPlacement() -> NewTilingWindowPlacement {
-    .freshTabWhenTargetOccupied
+    .freshTab
 }
 
 @MainActor

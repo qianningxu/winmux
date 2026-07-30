@@ -84,6 +84,14 @@ func scheduleRefreshSession(
 }
 
 @MainActor
+@discardableResult
+func scheduleWindowInventoryReconciliationIfIdle() -> Bool {
+    guard activeRefreshTask == nil else { return false }
+    scheduleRefreshSession(.windowInventoryReconciliation)
+    return true
+}
+
+@MainActor
 func runRefreshSessionBlocking(
     _ event: RefreshSessionEvent,
     layoutWorkspaces shouldLayoutWorkspaces: Bool = true,
@@ -151,6 +159,10 @@ func runRefreshSessionBlocking(
                         }
                     }
                 }
+                // New dialogs must be raised after logical focus is synced back
+                // to macOS. Otherwise focusing the previous window here can put
+                // it back above a settings/dialog window detected by refresh().
+                raiseNewlyDetectedDialogsAfterFocusSync()
                 await updateWindowTabModel()
                 debugFocusLog("runRefreshSessionBlocking end event=\(event) nativeFocused=\(nativeFocused?.windowId.description ?? "nil") focus=\(debugDescribe(focus))")
             }

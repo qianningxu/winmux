@@ -6,6 +6,8 @@ enum GlobalObserver {
     @MainActor private static var isInitialized = false
     @MainActor private static var notificationObserverTokens: [NSObjectProtocol] = []
     @MainActor private static var eventMonitorTokens: [Any] = []
+    @MainActor private static var windowInventoryTimer: Timer?
+    @MainActor private static var isWindowInventoryCheckInFlight = false
 
     private static func onNotif(_ notification: Notification) {
         // Third line of defence against lock screen window. See: closedWindowsCache
@@ -121,6 +123,19 @@ enum GlobalObserver {
         notificationObserverTokens.append(nc.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main, using: onNotif))
         notificationObserverTokens.append(nc.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main, using: onNotif))
         notificationObserverTokens.append(nc.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main, using: onNotif))
+
+        let inventoryTimer = Timer(timeInterval: 0.35, repeats: true) { _ in
+            Task { @MainActor in
+                guard TrayMenuModel.shared.isEnabled, !isWindowInventoryCheckInFlight else { return }
+                isWindowInventoryCheckInFlight = true
+                defer { isWindowInventoryCheckInFlight = false }
+                if await MacApp.hasWindowInventoryChanged() {
+                    scheduleWindowInventoryReconciliationIfIdle()
+                }
+            }
+        }
+        RunLoop.main.add(inventoryTimer, forMode: .common)
+        windowInventoryTimer = inventoryTimer
 
         retainEventMonitor(NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { event in
             // todo reduce number of refreshSession in the callback

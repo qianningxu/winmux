@@ -63,7 +63,14 @@ extension TreeNode {
                         if !isFullscreenTab {
                             window.isFullscreen = false
                         }
-                        if !canReuseLastAppliedWindowFrame(previousPhysicalRect: previousPhysicalRect, nextPhysicalRect: physicalRect) {
+                        if shouldSynchronouslyApplySidebarProtectedFrame(
+                            sidebarInset: context.workspace.workspaceMonitor.workspaceSidebarInset,
+                            actualRect: window.lastKnownActualRect,
+                            targetRect: physicalRect
+                        ), let macWindow = window as? MacWindow {
+                            try await macWindow.setAxFrameBlocking(point, CGSize(width: width, height: height))
+                            _ = try await macWindow.getAxRect()
+                        } else if !canReuseLastAppliedWindowFrame(previousPhysicalRect: previousPhysicalRect, nextPhysicalRect: physicalRect) {
                             window.setAxFrame(point, CGSize(width: width, height: height))
                         }
                     }
@@ -85,6 +92,20 @@ extension TreeNode {
                 return // Nothing to do for weirdos
         }
     }
+}
+
+func shouldSynchronouslyApplySidebarProtectedFrame(
+    sidebarInset: CGFloat,
+    actualRect: Rect?,
+    targetRect: Rect,
+    tolerance: CGFloat = 1
+) -> Bool {
+    guard sidebarInset > 0 else { return false }
+    guard let actualRect else { return true }
+    return abs(actualRect.topLeftX - targetRect.topLeftX) > tolerance ||
+        abs(actualRect.topLeftY - targetRect.topLeftY) > tolerance ||
+        abs(actualRect.width - targetRect.width) > tolerance ||
+        abs(actualRect.height - targetRect.height) > tolerance
 }
 
 private func canReuseLastAppliedWindowFrame(previousPhysicalRect: Rect?, nextPhysicalRect: Rect) -> Bool {

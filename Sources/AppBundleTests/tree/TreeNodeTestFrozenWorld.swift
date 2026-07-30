@@ -150,6 +150,25 @@ extension TreeNodeTest {
         XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(folder.id)])
     }
 
+    func testRestorePersistedSidebarStateMaterializesMissingFolderTabs() throws {
+        let json = #"{"projects":[{"id":"project-saved","name":"Saved","order":1,"workspaceNames":["saved-tab"],"linkedViewportIds":[]}],"collapsedFolderIds":[],"workspaceLabels":{"saved-tab":"Saved Tab"},"projectLabels":{"project-saved":"Saved"}}"#
+        let sidebar = try JSONDecoder().decode(FrozenSidebarState.self, from: Data(json.utf8))
+
+        restoreFrozenSidebarState(
+            sidebar,
+            restoredWorkspaceNames: [],
+            materializeMissingWorkspaces: true
+        )
+
+        let workspace = try XCTUnwrap(Workspace.existing(byName: "saved-tab"))
+        XCTAssertEqual(workspace.folderId, WorkspaceFolderId("project-saved"))
+        XCTAssertEqual(config.workspaceSidebar.workspaceLabels["saved-tab"], "Saved Tab")
+        XCTAssertEqual(
+            winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId("project-saved")]?.workspaceOrder,
+            [workspace.id]
+        )
+    }
+
     func testSnapshotCurrentFrozenWorldCapturesSidebarRenamedTabsAndFolders() throws {
         let workspace = Workspace.get(byName: "renamed")
         workspace.markAsAutomaticallyNamed()
@@ -217,6 +236,35 @@ extension TreeNodeTest {
         XCTAssertTrue(didRestore)
         XCTAssertEqual(config.workspaceSidebar.workspaceLabels[workspace.name], "Design")
         XCTAssertEqual(config.workspaceSidebar.projectLabels[folder.id.rawValue], "Client")
+    }
+
+    func testRestoreFrozenWorldRemovesProvisionalFreshTabWithoutDuplicatingSavedTab() async throws {
+        let savedWorkspace = Workspace.get(byName: "saved")
+        savedWorkspace.markAsAutomaticallyNamed()
+        let window = TestWindow.new(id: 65, parent: savedWorkspace.rootTilingContainer)
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(savedWorkspace))
+        let frozenWorld = snapshotCurrentFrozenWorld()
+
+        let provisionalWorkspace = workspaceForNewTilingWindow(
+            defaultWorkspace: savedWorkspace,
+            placement: .freshTab
+        )
+        window.bind(
+            to: provisionalWorkspace.rootTilingContainer,
+            adaptiveWeight: WEIGHT_AUTO,
+            index: INDEX_BIND_LAST
+        )
+        XCTAssertTrue(mainMonitor.activeWorkspace === provisionalWorkspace)
+
+        let didRestore = try await restoreFrozenWorldIfNeeded(frozenWorld, newlyDetectedWindow: window)
+
+        XCTAssertTrue(didRestore)
+        XCTAssertTrue(window.nodeWorkspace === savedWorkspace)
+        XCTAssertNil(Workspace.existing(byName: provisionalWorkspace.name))
+        XCTAssertEqual(
+            Workspace.all.filter { $0.allLeafWindowsRecursive.contains(window) }.map(\.name),
+            [savedWorkspace.name]
+        )
     }
 
     func testRestoreFrozenWorldKeepsSidebarTabsOnTheirSavedMonitor() async throws {

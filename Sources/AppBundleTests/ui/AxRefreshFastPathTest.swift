@@ -67,6 +67,38 @@ final class AxRefreshFastPathTest: XCTestCase {
     }
 
     @MainActor
+    func testWindowDestroyedStillRunsFullRefreshBarrier() async throws {
+        _ = setUpFocusScenario()
+        var refreshCount = 0
+        var normalizeCount = 0
+        setBlockingRefreshOverridesForTests(
+            refresh: { refreshCount += 1 },
+            normalizeLayoutReason: { normalizeCount += 1 }
+        )
+
+        try await runRefreshSessionBlocking(.ax(kAXUIElementDestroyedNotification as String))
+
+        XCTAssertEqual(refreshCount, 1)
+        XCTAssertEqual(normalizeCount, 1)
+    }
+
+    @MainActor
+    func testWindowInventoryReconciliationRunsFullRefreshBarrier() async throws {
+        _ = setUpFocusScenario()
+        var refreshCount = 0
+        var normalizeCount = 0
+        setBlockingRefreshOverridesForTests(
+            refresh: { refreshCount += 1 },
+            normalizeLayoutReason: { normalizeCount += 1 }
+        )
+
+        try await runRefreshSessionBlocking(.windowInventoryReconciliation)
+
+        XCTAssertEqual(refreshCount, 1)
+        XCTAssertEqual(normalizeCount, 1)
+    }
+
+    @MainActor
     func testNativeMinimizeRefreshKeepsActiveAdjacentEmptyWorkspaceForReuse() async throws {
         setUpWorkspacesForTests()
         TrayMenuModel.shared.isEnabled = true

@@ -8,6 +8,7 @@ private let persistedSidebarStateFilename = "sidebar-state.json"
 @MainActor private var didRestorePersistedFrozenWorldDuringCurrentSession = false
 @MainActor private var pendingPersistedSidebarState: FrozenSidebarState? = nil
 @MainActor private var didRestorePersistedSidebarStateDuringCurrentSession = false
+@MainActor private var didLoadPersistedSidebarStateDuringCurrentSession = false
 @MainActor private var isPersistedSidebarStateReady = false
 @MainActor private var isSidebarStatePersistenceScheduled = false
 
@@ -83,6 +84,7 @@ func loadPersistedSidebarStateForStartupIfPresent() {
         didRestorePersistedSidebarStateDuringCurrentSession = false
         isPersistedSidebarStateReady = false
     }
+    didLoadPersistedSidebarStateDuringCurrentSession = false
     do {
         let url = try persistedSidebarStateUrl()
         guard FileManager.default.fileExists(atPath: url.path) else {
@@ -92,27 +94,30 @@ func loadPersistedSidebarStateForStartupIfPresent() {
         let data = try Data(contentsOf: url)
         let envelope = try JSONDecoder().decode(PersistedSidebarStateEnvelope.self, from: data)
         pendingPersistedSidebarState = envelope.version == persistedFrozenWorldVersion ? envelope.sidebar : nil
+        didLoadPersistedSidebarStateDuringCurrentSession = pendingPersistedSidebarState != nil
     } catch {
         pendingPersistedSidebarState = nil
     }
 }
 
 @MainActor
-private func restorePersistedSidebarStateAfterStartupIfNeeded() {
+func finalizePersistedSidebarStateAfterStartupIfNeeded() {
     guard !didRestorePersistedSidebarStateDuringCurrentSession else { return }
-    defer {
-        didRestorePersistedSidebarStateDuringCurrentSession = true
-        isPersistedSidebarStateReady = true
-    }
     if let sidebar = pendingPersistedSidebarState {
         restoreFrozenSidebarState(
             sidebar,
             restoredWorkspaceNames: Set(Workspace.all.map(\.name)),
+            materializeMissingWorkspaces: true,
         )
         pendingPersistedSidebarState = nil
     }
+    didRestorePersistedSidebarStateDuringCurrentSession = true
+    isPersistedSidebarStateReady = true
     // Capture the post-restore state immediately.  Unlike window-state.json,
     // sidebar-state.json is intentionally retained for every subsequent run.
+    // Persistence must be enabled before this call. Previously these flags
+    // were updated in a defer block, so this write always returned at its
+    // readiness guard and the restored folders were never checkpointed.
     persistSidebarStateForRestartIfPossible()
 }
 
@@ -164,7 +169,7 @@ func restorePersistedFrozenWorldIfNeeded(newlyDetectedWindow: Window) async thro
 
 @MainActor
 func finalizePersistedFrozenWorldAfterRefresh(aliveWindowIds: Set<UInt32>) {
-    defer { restorePersistedSidebarStateAfterStartupIfNeeded() }
+    defer { finalizePersistedSidebarStateAfterStartupIfNeeded() }
     guard let world = pendingPersistedFrozenWorld else { return }
     let knownWindowIds = Set(MacWindow.allWindowsMap.keys)
     // Window IDs can legitimately change when WinMux itself is restarted even
@@ -176,10 +181,16 @@ func finalizePersistedFrozenWorldAfterRefresh(aliveWindowIds: Set<UInt32>) {
         knownWindowIds.count >= world.windowIds.count &&
         Workspace.all.count >= world.workspaces.count
     if canRestoreSidebarByWorkspaceName {
-        restoreFrozenSidebarState(
-            world.sidebar,
-            restoredWorkspaceNames: Set(Workspace.all.map(\.name))
-        )
+        // sidebar-state.json is updated after every sidebar mutation and is
+        // therefore newer than the sidebar copy embedded in window-state.json.
+        // Do not let the older layout snapshot overwrite it after a delayed
+        // startup refresh.
+        if !didLoadPersistedSidebarStateDuringCurrentSession {
+            restoreFrozenSidebarState(
+                world.sidebar,
+                restoredWorkspaceNames: Set(Workspace.all.map(\.name))
+            )
+        }
         pendingPersistedFrozenWorld = nil
         didRestorePersistedFrozenWorldDuringCurrentSession = false
         try? FileManager.default.removeItem(at: persistedFrozenWorldUrl())

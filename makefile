@@ -138,11 +138,34 @@ install:
 	test -d "$$app_path"; \
 	mkdir -p "$$install_dir"; \
 	ALLOW_TCC_REAUTH=0 /bin/bash ./script/assert-accessibility-grant-will-survive.sh "$$app_path/Contents/MacOS/$$app_name" "com.zimengxiong.winmux" "$$install_path"; \
+	old_pid="$$(pgrep -f "^$$install_path/Contents/MacOS/$$app_name$$" | head -n 1 || true)"; \
 	osascript -e "tell application \"$$app_name\" to quit" >/dev/null 2>&1 || true; \
+	attempts=0; \
+	while [ -n "$$old_pid" ] && kill -0 "$$old_pid" >/dev/null 2>&1 && [ "$$attempts" -lt 200 ]; do \
+	    sleep 0.05; \
+	    attempts=$$((attempts + 1)); \
+	done; \
+	if [ -n "$$old_pid" ] && kill -0 "$$old_pid" >/dev/null 2>&1; then \
+	    echo "Refusing to replace $$install_path while old PID $$old_pid is still running" >&2; \
+	    exit 1; \
+	fi; \
 	rm -rf "$$install_path"; \
 	ditto "$$app_path" "$$install_path"; \
 	xattr -dr com.apple.quarantine "$$install_path" >/dev/null 2>&1 || true; \
-	open "$$install_path"'
+	codesign --verify --deep --strict --verbose=2 "$$install_path"; \
+	open "$$install_path"; \
+	new_pid=""; \
+	attempts=0; \
+	while [ -z "$$new_pid" ] && [ "$$attempts" -lt 200 ]; do \
+	    new_pid="$$(pgrep -f "^$$install_path/Contents/MacOS/$$app_name$$" | head -n 1 || true)"; \
+	    [ -n "$$new_pid" ] || sleep 0.05; \
+	    attempts=$$((attempts + 1)); \
+	done; \
+	test -n "$$new_pid"; \
+	if [ -n "$$old_pid" ] && [ "$$new_pid" = "$$old_pid" ]; then \
+	    echo "Installed app reused old PID $$old_pid unexpectedly" >&2; \
+	    exit 1; \
+	fi'
 
 installed: install
 

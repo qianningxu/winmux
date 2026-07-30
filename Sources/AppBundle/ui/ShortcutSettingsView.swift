@@ -5,6 +5,11 @@ import SwiftUI
 
 public let shortcutSettingsWindowId = "\(winMuxAppName).shortcutSettings"
 
+struct ShortcutSettingsWindowPresentationRetryPolicy: Equatable {
+    var maxAttempts = 20
+    var delayNanoseconds: UInt64 = 50_000_000
+}
+
 @MainActor
 public func getShortcutSettingsWindow(model: ShortcutSettingsModel) -> some Scene {
     SwiftUI.Window("WinMux Settings", id: shortcutSettingsWindowId) {
@@ -23,9 +28,29 @@ public func openShortcutSettingsWindow(_ openWindow: OpenWindowAction) {
         presentShortcutSettingsWindow(existingWindow)
     } else {
         openWindow(id: shortcutSettingsWindowId)
-        DispatchQueue.main.async {
-            if let createdWindow = shortcutSettingsWindow() {
-                presentShortcutSettingsWindow(createdWindow)
+        presentShortcutSettingsWindowWhenAvailable()
+    }
+}
+
+@MainActor
+@discardableResult
+func presentShortcutSettingsWindowWhenAvailable(
+    policy: ShortcutSettingsWindowPresentationRetryPolicy = .init(),
+    lookup: @escaping @MainActor () -> NSWindow? = { shortcutSettingsWindow() },
+    present: @escaping @MainActor (NSWindow) -> Void = { presentShortcutSettingsWindow($0) },
+) -> Task<Void, Never> {
+    Task { @MainActor in
+        let maxAttempts = max(1, policy.maxAttempts)
+        for attempt in 0 ..< maxAttempts {
+            if let window = lookup() {
+                present(window)
+                return
+            }
+            guard attempt + 1 < maxAttempts else { return }
+            do {
+                try await Task.sleep(nanoseconds: policy.delayNanoseconds)
+            } catch {
+                return
             }
         }
     }

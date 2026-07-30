@@ -143,6 +143,13 @@ private struct WorkspaceSidebarWidgetStackItemView: View {
                     isCompact: isCompact,
                     showsDate: widget.showDate,
                 )
+            case .builtInTodayFocus:
+                WorkspaceSidebarTodayFocusWidget(
+                    id: widget.id,
+                    sectionWidth: sectionWidth,
+                    isCompact: isCompact,
+                    entriesPath: widget.entriesPath ?? defaultWorkspaceSidebarTogglEntriesPath,
+                )
             case .builtInTogglWeeklyFocus:
                 WorkspaceSidebarTogglWeeklyFocusWidget(
                     id: widget.id,

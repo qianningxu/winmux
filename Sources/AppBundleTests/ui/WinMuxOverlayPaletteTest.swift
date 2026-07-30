@@ -234,6 +234,37 @@ final class WinMuxOverlayPaletteTest: XCTestCase {
         XCTAssertEqual(metrics.windowCanvasLeftInset(visibleWidth: 44, userOuterLeftGap: 20), 74)
     }
 
+    func testSidebarProtectedFrameRequiresSynchronousRepairWhenActualWindowOverlapsSidebar() {
+        let target = Rect(topLeftX: 270, topLeftY: 10, width: 1240, height: 900)
+        let overlapping = Rect(topLeftX: 250, topLeftY: 10, width: 1260, height: 900)
+
+        XCTAssertTrue(shouldSynchronouslyApplySidebarProtectedFrame(
+            sidebarInset: 250,
+            actualRect: overlapping,
+            targetRect: target
+        ))
+    }
+
+    func testSidebarProtectedFrameDoesNotRewriteMatchingActualWindow() {
+        let target = Rect(topLeftX: 270, topLeftY: 10, width: 1240, height: 900)
+
+        XCTAssertFalse(shouldSynchronouslyApplySidebarProtectedFrame(
+            sidebarInset: 250,
+            actualRect: target,
+            targetRect: target
+        ))
+    }
+
+    func testSidebarProtectedFrameIsInactiveWithoutSidebarReservation() {
+        let target = Rect(topLeftX: 10, topLeftY: 10, width: 1490, height: 900)
+
+        XCTAssertFalse(shouldSynchronouslyApplySidebarProtectedFrame(
+            sidebarInset: 0,
+            actualRect: nil,
+            targetRect: target
+        ))
+    }
+
     func testSidebarPanelFrameDoesNotDoubleCountMenuBarReserveAlreadyInVisibleFrame() {
         let screenFrame = NSRect(x: 0, y: 0, width: 1512, height: 982)
         let visibleFrame = NSRect(x: 0, y: 40, width: 1512, height: 914)

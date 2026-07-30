@@ -91,7 +91,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     }
             }
             Spacer(minLength: 0)
-            if headerCloseTargetWindow != nil {
+            if workspace.tabSummary.windowCount > 0 {
                 Color.clear
                     .frame(width: isHeaderCloseButtonVisible ? workspaceSidebarWindowCloseButtonReservedWidth : 4)
             }
@@ -269,26 +269,13 @@ extension WorkspaceSidebarWorkspaceSection {
         return Color.clear
     }
 
-    var headerCloseTargetWindow: WorkspaceSidebarWindowViewModel? {
-        guard workspace.tabSummary.windowCount == 1 else { return nil }
-        for item in workspace.items {
-            switch item.kind {
-                case .window(let window):
-                    return window
-                case .tabGroup(let group):
-                    if group.tabs.count == 1 {
-                        return group.tabs[0]
-                    }
-            }
-        }
-        return nil
-    }
-
     var isHeaderCloseButtonVisible: Bool {
-        !isCompact &&
-            !isRenamingWorkspace &&
-            isPointerHoverVisible &&
-            headerCloseTargetWindow != nil
+        workspaceSidebarTabCloseButtonIsVisible(
+            isCompact: isCompact,
+            isRenamingWorkspace: isRenamingWorkspace,
+            isPointerHoverVisible: isPointerHoverVisible,
+            windowCount: workspace.tabSummary.windowCount
+        )
     }
 
     var compactTabBadge: some View {
@@ -322,4 +309,13 @@ extension WorkspaceSidebarWorkspaceSection {
                 .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
         }
     }
+}
+
+func workspaceSidebarTabCloseButtonIsVisible(
+    isCompact: Bool,
+    isRenamingWorkspace: Bool,
+    isPointerHoverVisible: Bool,
+    windowCount: Int
+) -> Bool {
+    !isCompact && !isRenamingWorkspace && isPointerHoverVisible && windowCount > 0
 }

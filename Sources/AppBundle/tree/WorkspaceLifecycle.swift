@@ -121,13 +121,27 @@ func closestWorkspaceForDeletion(
     guard let deletedIndex = candidates.firstIndex(where: { $0 === workspace }) else {
         return candidates.first { $0 !== workspace }
     }
-    if let next = candidates.getOrNil(atIndex: deletedIndex + 1) {
-        return next
-    }
     if deletedIndex > 0 {
         return candidates[deletedIndex - 1]
     }
-    return nil
+    return candidates.getOrNil(atIndex: deletedIndex + 1)
+}
+
+@MainActor
+private func adjacentWorkspaceForPrunedWorkspace(
+    _ workspace: Workspace,
+    orderedWorkspaces: [Workspace],
+    isEligible: (Workspace) -> Bool,
+) -> Workspace? {
+    guard let workspaceIndex = orderedWorkspaces.firstIndex(where: { $0 === workspace }) else {
+        return orderedWorkspaces.first(where: isEligible)
+    }
+    if workspaceIndex > 0,
+       let workspaceAbove = orderedWorkspaces[..<workspaceIndex].reversed().first(where: isEligible)
+    {
+        return workspaceAbove
+    }
+    return orderedWorkspaces.dropFirst(workspaceIndex + 1).first(where: isEligible)
 }
 
 @MainActor
@@ -317,6 +331,20 @@ func replacementWorkspaceForPrunedWorkspace(
     let isReplaceableVisibleRename = workspace.isVisible &&
         workspace.isOrdinaryEmptySlot &&
         workspaceHasSidebarDisplayNameOverride(workspace.name)
+    let orderedScopeWorkspaces = orderedWorkspaces(in: scope)
+    if let candidate = adjacentWorkspaceForPrunedWorkspace(
+        workspace,
+        orderedWorkspaces: orderedScopeWorkspaces,
+        isEligible: {
+            $0.id != workspace.id &&
+                !excludingWorkspaceIds.contains($0.id) &&
+                workspaceShouldSurviveReconciliation($0, retainedEmptyWorkspaceIds: retainedEmptyWorkspaceIds) &&
+                isUserFacingWorkspace($0) &&
+                workspaceIsAvailableForMonitor($0, monitor: workspace.workspaceMonitor)
+        }
+    ) {
+        return candidate
+    }
     if !isReplaceableVisibleRename,
        let retainedWorkspaceId = retainedEmptyWorkspaceIds[scope],
        retainedWorkspaceId != workspace.id,
@@ -325,15 +353,6 @@ func replacementWorkspaceForPrunedWorkspace(
        workspaceIsAvailableForMonitor(retainedWorkspace, monitor: workspace.workspaceMonitor)
     {
         return retainedWorkspace
-    }
-    if let candidate = orderedWorkspaces(in: scope).first(where: {
-        $0.id != workspace.id &&
-            !excludingWorkspaceIds.contains($0.id) &&
-            workspaceShouldSurviveReconciliation($0, retainedEmptyWorkspaceIds: retainedEmptyWorkspaceIds) &&
-            (workspaceHasSidebarVisibleWindows($0) || $0.isConfiguredPersistent) &&
-            workspaceIsAvailableForMonitor($0, monitor: workspace.workspaceMonitor)
-    }) {
-        return candidate
     }
     if workspace.isVisible {
         let fallbackProjectId = (!projectsAreEnabled() && workspace.projectId != workspaceProjectDefaultId)

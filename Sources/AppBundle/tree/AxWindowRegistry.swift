@@ -11,11 +11,8 @@ extension [UInt32: AxWindow] {
         if let existing = self[id] { return existing }
         if isLeftMouseButtonDown { return nil }
 
-        if let window = try AxWindow.new(windowId: id, axWindow, nsApp, job) {
-            self[id] = window
-            return window
-        } else {
-            return nil
-        }
+        let window = try AxWindow.new(windowId: id, axWindow, nsApp, job)
+        self[id] = window
+        return window
     }
 }

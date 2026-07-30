@@ -64,7 +64,7 @@ enum WorkspaceSidebarAction: Equatable {
     case selectMonitorScope(String)
     case createWorkspace(projectId: WorkspaceProjectId, monitorScopeId: String)
     case renameWorkspace(String, displayName: String)
-    case deleteWorkspace(String)
+    case closeWorkspace(String)
     case reorderWorkspace(String, projectId: WorkspaceProjectId, placement: WorkspaceReorderPlacement)
     case moveWorkspaceToFolder(String, projectId: WorkspaceProjectId)
     case reorderFolder(WorkspaceProjectId, placement: WorkspaceSidebarFolderReorderPlacement)

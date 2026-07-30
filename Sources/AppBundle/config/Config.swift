@@ -111,6 +111,7 @@ struct WorkspaceSidebarWidgetConfig: ConvenienceCopyable, Equatable, Sendable {
 enum WorkspaceSidebarWidgetType: String, CaseIterable, Sendable {
     case builtInTodoList = "built-in/todo-list"
     case builtInTimeDate = "built-in/time-date"
+    case builtInTodayFocus = "built-in/today-focus"
     case builtInTogglWeeklyFocus = "built-in/toggl-weekly-focus"
     case builtInTogglWeekFocus = "built-in/toggl-week-focus"
     case builtInPeriodHeatmap = "built-in/period-heatmap"
@@ -119,14 +120,14 @@ enum WorkspaceSidebarWidgetType: String, CaseIterable, Sendable {
     case plugin
 }
 
-let defaultWorkspaceSidebarDataPath = "/Users/side/Documents/now/self/self_data/data"
+let defaultWorkspaceSidebarDataPath = "/Users/side/Documents/now/my_app/self/self_data/data"
 let defaultWorkspaceSidebarTogglEntriesPath = defaultWorkspaceSidebarDataPath
 let defaultWorkspaceSidebarTogglWeeklyFocusTargetDate = "2026-09-13"
 let defaultWorkspaceSidebarPeriodEntriesPath = defaultWorkspaceSidebarDataPath
 let defaultWorkspaceSidebarSpendingEntriesPath = defaultWorkspaceSidebarDataPath
 let defaultWorkspaceSidebarSpendingDays = 28
 let defaultWorkspaceSidebarSchedulePath = defaultWorkspaceSidebarDataPath
-let defaultWorkspaceSidebarDeviationPath = "/Users/side/Documents/now/self/self_ob"
+let defaultWorkspaceSidebarDeviationPath = "/Users/side/Documents/now/my_app/self/self_ob"
 let defaultWorkspaceSidebarScheduleHeatmapDays = 7
 let defaultWorkspaceSidebarWidgetRotationIntervalSeconds = 300
 

@@ -683,11 +683,33 @@ func renameWorkspaceFromSidebar(_ workspaceName: String, displayName: String) {
 }
 
 @MainActor
-func deleteWorkspaceFromSidebar(_ workspace: WorkspaceSidebarWorkspaceViewModel) {
+func closeWorkspaceFromSidebar(_ workspace: WorkspaceSidebarWorkspaceViewModel) {
+    guard confirmWorkspaceSidebarTabClosure(workspace) else { return }
     runWorkspaceSidebarSession {
-        try deleteWorkspaceForSidebar(workspaceName: workspace.name)
+        try await closeWorkspaceWindowsFromSidebar(workspaceName: workspace.name)
         await updateWorkspaceSidebarModel()
     }
+}
+
+@MainActor
+private func confirmWorkspaceSidebarTabClosure(_ workspace: WorkspaceSidebarWorkspaceViewModel) -> Bool {
+    guard let liveWorkspace = Workspace.existing(byName: workspace.name) else { return true }
+    let windowCount = windowsInWorkspace(liveWorkspace).count
+    guard workspaceSidebarTabClosureRequiresConfirmation(windowCount: windowCount) else { return true }
+
+    let alert = NSAlert()
+    alert.messageText = "Close Tab Windows?"
+    alert.informativeText = """
+    WinMux will ask macOS to close \(windowCount) windows in “\(workspace.displayName)”. Apps may show their own confirmation dialogs for unsaved work. If any window stays open, WinMux will keep the tab.
+    """
+    alert.addButton(withTitle: "Close Tab")
+    alert.addButton(withTitle: "Cancel")
+    alert.alertStyle = .warning
+    return alert.runModal() == .alertFirstButtonReturn
+}
+
+func workspaceSidebarTabClosureRequiresConfirmation(windowCount: Int) -> Bool {
+    windowCount > 1
 }
 
 @MainActor

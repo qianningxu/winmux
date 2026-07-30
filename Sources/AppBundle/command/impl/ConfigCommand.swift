@@ -192,6 +192,8 @@ private func workspaceSidebarWidgetConfigMap(_ widget: WorkspaceSidebarWidgetCon
             break
         case .builtInTimeDate:
             map["show-date"] = .scalar(.bool(widget.showDate))
+        case .builtInTodayFocus:
+            map["entries-path"] = .scalar(.string(widget.entriesPath ?? defaultWorkspaceSidebarTogglEntriesPath))
         case .builtInTogglWeeklyFocus, .builtInTogglWeekFocus:
             map["entries-path"] = .scalar(.string(widget.entriesPath ?? defaultWorkspaceSidebarTogglEntriesPath))
             map["target-date"] = .scalar(.string(widget.targetDate ?? defaultWorkspaceSidebarTogglWeeklyFocusTargetDate))

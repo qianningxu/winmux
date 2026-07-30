@@ -8,7 +8,7 @@ let workspaceSidebarNoteEditorInset: CGFloat = 12
 let workspaceSidebarMarkdownDividerAttribute = NSAttributedString.Key("WorkspaceSidebarMarkdownDivider")
 
 let defaultWorkspaceSidebarTasksURL = URL(
-    filePath: "/Users/side/Documents/now/self/self_ob/Others/Tasks",
+    filePath: "/Users/side/Documents/now/my_app/self/self_ob/Others/Tasks",
     directoryHint: .isDirectory,
 )
 

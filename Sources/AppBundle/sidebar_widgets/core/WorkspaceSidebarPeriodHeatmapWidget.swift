@@ -6,7 +6,7 @@ private let periodProgressBlueEnd = PeriodProgressHSL(hue: 211, saturation: 1.00
 private let periodFallbackStart = "2026-06-15"
 private let periodFallbackEnd = "2026-09-12"
 private let periodFallbackToday = "2026-06-26"
-private let defaultPeriodTogglPath = "/Users/side/Documents/now/self/self_ob/Toggl"
+private let defaultPeriodTogglPath = "/Users/side/Documents/now/my_app/self/self_ob/Toggl"
 private let targetSessionCount = 3
 private let targetFocusSeconds: TimeInterval = 4 * 60 * 60
 
