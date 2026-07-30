@@ -294,9 +294,7 @@ private func moveWorkspaceForSidebarReorder(
     }
     folder.workspaceOrder.insert(source.id, at: insertionIndex)
     winMuxWorkspaceState.workspaceFoldersById[folderId] = folder
-    if destinationProjectId != workspaceProjectDefaultId {
-        setWorkspaceSidebarFolderExpanded(destinationProjectId, isExpanded: true)
-    }
+    setWorkspaceSidebarFolderExpanded(destinationProjectId, isExpanded: true)
     checkWorkspaceHierarchyInvariants()
     return true
 }

@@ -56,6 +56,31 @@ func collapsedWorkspaceSidebarFolderIdsPreference() -> Set<String> {
     return Set(ids)
 }
 
+func workspaceSidebarSingleExpandedFolderId(
+    projectIds: [WorkspaceProjectId],
+    collapsedIds: Set<String>,
+    preferredProjectId: WorkspaceProjectId? = nil
+) -> WorkspaceProjectId? {
+    let expandedProjectIds = projectIds.filter { !collapsedIds.contains($0.rawValue) }
+    if let preferredProjectId, expandedProjectIds.contains(preferredProjectId) {
+        return preferredProjectId
+    }
+    return expandedProjectIds.first
+}
+
+func workspaceSidebarNormalizedCollapsedFolderIds(
+    projectIds: [WorkspaceProjectId],
+    collapsedIds: Set<String>,
+    expandedProjectId: WorkspaceProjectId?
+) -> Set<String> {
+    var normalizedIds = collapsedIds
+    normalizedIds.formUnion(projectIds.map(\.rawValue))
+    if let expandedProjectId {
+        normalizedIds.remove(expandedProjectId.rawValue)
+    }
+    return normalizedIds
+}
+
 @MainActor
 func resetWorkspaceSidebarUIPreferencesForTests() {
     UserDefaults.standard.removeObject(forKey: workspaceSidebarPinnedExpandedPreferenceKey)
@@ -67,34 +92,77 @@ func resetWorkspaceSidebarUIPreferencesForTests() {
     TrayMenuModel.shared.isWorkspaceSidebarPinnedExpanded = false
 }
 
+@MainActor
 func workspaceSidebarFolderIsExpanded(_ projectId: WorkspaceProjectId) -> Bool {
-    !collapsedWorkspaceSidebarFolderIdsPreference().contains(projectId.rawValue)
+    let projectIds = orderedWorkspaceSidebarFolderProjectIds(including: projectId)
+    let expandedProjectId = workspaceSidebarSingleExpandedFolderId(
+        projectIds: projectIds,
+        collapsedIds: collapsedWorkspaceSidebarFolderIdsPreference(),
+        preferredProjectId: focus.workspace.projectId
+    )
+    return expandedProjectId == projectId
 }
 
 @MainActor
 func setWorkspaceSidebarFolderExpanded(_ projectId: WorkspaceProjectId, isExpanded: Bool) {
-    var collapsedIds = collapsedWorkspaceSidebarFolderIdsPreference()
+    let projectIds = orderedWorkspaceSidebarFolderProjectIds(including: projectId)
+    let storedCollapsedIds = collapsedWorkspaceSidebarFolderIdsPreference()
+    let currentExpandedProjectId = workspaceSidebarSingleExpandedFolderId(
+        projectIds: projectIds,
+        collapsedIds: storedCollapsedIds,
+        preferredProjectId: focus.workspace.projectId
+    )
+    var collapsedIds = workspaceSidebarNormalizedCollapsedFolderIds(
+        projectIds: projectIds,
+        collapsedIds: storedCollapsedIds,
+        expandedProjectId: currentExpandedProjectId
+    )
     if isExpanded {
+        collapsedIds.formUnion(projectIds.map(\.rawValue))
         collapsedIds.remove(projectId.rawValue)
     } else {
         collapsedIds.insert(projectId.rawValue)
     }
-    UserDefaults.standard.setValue(collapsedIds.sorted(), forKey: workspaceSidebarCollapsedFolderIdsPreferenceKey)
-    UserDefaults.standard.removeObject(forKey: workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey)
-    UserDefaults.standard.synchronize()
-    // Keep the restart snapshot in lockstep with the visible folded state.
-    // Relying only on termination left a stale snapshot behind when macOS
-    // terminated/relaunched the app before its async shutdown hook completed.
-    if !isUnitTest {
-        persistFrozenWorldForRestartIfPossible()
-    }
+    persistWorkspaceSidebarCollapsedFolderIds(collapsedIds, updatesRestartSnapshot: true)
 }
 
 @MainActor
 func restoreWorkspaceSidebarCollapsedFolderIds(_ projectIds: [WorkspaceProjectId]) {
-    UserDefaults.standard.setValue(projectIds.map(\.rawValue).sorted(), forKey: workspaceSidebarCollapsedFolderIdsPreferenceKey)
-    UserDefaults.standard.removeObject(forKey: workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey)
-    UserDefaults.standard.synchronize()
+    let folderProjectIds = orderedWorkspaceSidebarFolderProjectIds()
+    let restoredCollapsedIds = Set(projectIds.map(\.rawValue))
+    let expandedProjectId = workspaceSidebarSingleExpandedFolderId(
+        projectIds: folderProjectIds,
+        collapsedIds: restoredCollapsedIds,
+        preferredProjectId: focus.workspace.projectId
+    )
+    let normalizedIds = workspaceSidebarNormalizedCollapsedFolderIds(
+        projectIds: folderProjectIds,
+        collapsedIds: restoredCollapsedIds,
+        expandedProjectId: expandedProjectId
+    )
+    persistWorkspaceSidebarCollapsedFolderIds(normalizedIds, updatesRestartSnapshot: false)
+}
+
+@MainActor
+@discardableResult
+func normalizeWorkspaceSidebarFolderExpansionPreference(
+    preferredProjectId: WorkspaceProjectId? = nil
+) -> Bool {
+    let projectIds = orderedWorkspaceSidebarFolderProjectIds()
+    let collapsedIds = collapsedWorkspaceSidebarFolderIdsPreference()
+    let expandedProjectId = workspaceSidebarSingleExpandedFolderId(
+        projectIds: projectIds,
+        collapsedIds: collapsedIds,
+        preferredProjectId: preferredProjectId
+    )
+    let normalizedIds = workspaceSidebarNormalizedCollapsedFolderIds(
+        projectIds: projectIds,
+        collapsedIds: collapsedIds,
+        expandedProjectId: expandedProjectId
+    )
+    guard normalizedIds != collapsedIds else { return false }
+    persistWorkspaceSidebarCollapsedFolderIds(normalizedIds, updatesRestartSnapshot: true)
+    return true
 }
 
 @MainActor
@@ -104,4 +172,31 @@ func clearWorkspaceSidebarFolderExpansionPreference(_ projectId: WorkspaceProjec
     UserDefaults.standard.setValue(collapsedIds.sorted(), forKey: workspaceSidebarCollapsedFolderIdsPreferenceKey)
     UserDefaults.standard.removeObject(forKey: workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey)
     UserDefaults.standard.synchronize()
+}
+
+@MainActor
+private func orderedWorkspaceSidebarFolderProjectIds(
+    including projectId: WorkspaceProjectId? = nil
+) -> [WorkspaceProjectId] {
+    var projectIds = workspaceFoldersInSidebarOrder().map { $0.id.backingProjectId }
+    if let projectId, !projectIds.contains(projectId) {
+        projectIds.append(projectId)
+    }
+    return projectIds
+}
+
+@MainActor
+private func persistWorkspaceSidebarCollapsedFolderIds(
+    _ collapsedIds: Set<String>,
+    updatesRestartSnapshot: Bool
+) {
+    UserDefaults.standard.setValue(collapsedIds.sorted(), forKey: workspaceSidebarCollapsedFolderIdsPreferenceKey)
+    UserDefaults.standard.removeObject(forKey: workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey)
+    UserDefaults.standard.synchronize()
+    // Keep the restart snapshot in lockstep with the visible folded state.
+    // Relying only on termination left a stale snapshot behind when macOS
+    // terminated/relaunched the app before its async shutdown hook completed.
+    if updatesRestartSnapshot, !isUnitTest {
+        persistFrozenWorldForRestartIfPossible()
+    }
 }

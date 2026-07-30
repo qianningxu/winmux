@@ -260,6 +260,26 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         ))
     }
 
+    func testWorkspaceDragKeepsSourceAndOnlyLatestHoveredFolderVisuallyExpanded() {
+        let source = WorkspaceProjectId("folder-1")
+        let middle = WorkspaceProjectId("folder-2")
+        let destination = WorkspaceProjectId("folder-3")
+        let folders = [source, middle, destination]
+
+        func visuallyExpandedFolders(hoveredFolder: WorkspaceProjectId) -> Set<WorkspaceProjectId> {
+            Set(folders.filter { folderId in
+                workspaceSidebarFolderIsVisuallyExpanded(
+                    isExpanded: folderId == source,
+                    isWorkspaceDragTargeted: folderId == hoveredFolder,
+                    isShowingProjectedContent: false
+                )
+            })
+        }
+
+        XCTAssertEqual(visuallyExpandedFolders(hoveredFolder: middle), [source, middle])
+        XCTAssertEqual(visuallyExpandedFolders(hoveredFolder: destination), [source, destination])
+    }
+
     @MainActor
     func testTopFilterBarIgnoresProjectsForHardTabMigration() {
         let view = WorkspaceSidebarView(snapshot: workspaceSidebarSnapshotForTopFilterBar(
@@ -556,17 +576,50 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
-    func testFolderExpansionPreferenceRoundTrips() {
-        resetWorkspaceSidebarUIPreferencesForTests()
-        let projectId = WorkspaceProjectId("project-1")
+    func testFolderExpansionPreferenceKeepsAtMostOneFolderExpanded() {
+        setUpWorkspacesForTests()
+        let first = createWorkspaceProject()
+        let second = createWorkspaceProject()
 
-        XCTAssertTrue(workspaceSidebarFolderIsExpanded(projectId))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(first.id))
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(second.id))
 
-        setWorkspaceSidebarFolderExpanded(projectId, isExpanded: false)
-        XCTAssertFalse(workspaceSidebarFolderIsExpanded(projectId))
+        setWorkspaceSidebarFolderExpanded(first.id, isExpanded: true)
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(first.id))
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(second.id))
 
-        setWorkspaceSidebarFolderExpanded(projectId, isExpanded: true)
-        XCTAssertTrue(workspaceSidebarFolderIsExpanded(projectId))
+        setWorkspaceSidebarFolderExpanded(second.id, isExpanded: true)
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(first.id))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(second.id))
+
+        setWorkspaceSidebarFolderExpanded(second.id, isExpanded: false)
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(first.id))
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(second.id))
+    }
+
+    func testFolderExpansionNormalizationPrefersCurrentFolderDuringMigration() {
+        let first = WorkspaceProjectId("folder-1")
+        let second = WorkspaceProjectId("folder-2")
+        let third = WorkspaceProjectId("folder-3")
+        let projectIds = [first, second, third]
+
+        let expandedProjectId = workspaceSidebarSingleExpandedFolderId(
+            projectIds: projectIds,
+            collapsedIds: [],
+            preferredProjectId: second
+        )
+        let collapsedIds = workspaceSidebarNormalizedCollapsedFolderIds(
+            projectIds: projectIds,
+            collapsedIds: [],
+            expandedProjectId: expandedProjectId
+        )
+
+        XCTAssertEqual(expandedProjectId, second)
+        XCTAssertEqual(collapsedIds, [first.rawValue, third.rawValue])
     }
 
     @MainActor

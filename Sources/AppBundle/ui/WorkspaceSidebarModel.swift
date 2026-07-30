@@ -10,5 +10,11 @@ func updateWorkspaceSidebarModel() async {
     let previousTopPadding = TrayMenuModel.shared.workspaceSidebarTopPadding
     pruneCachedWindowTitles()
     let state = await buildWorkspaceSidebarModelState()
+    let didNormalizeFolderExpansion = normalizeWorkspaceSidebarFolderExpansionPreference(
+        preferredProjectId: state.activeProjectId
+    )
     applyWorkspaceSidebarModelState(state, previousTopPadding: previousTopPadding)
+    if didNormalizeFolderExpansion {
+        WorkspaceSidebarPanel.refreshAll()
+    }
 }

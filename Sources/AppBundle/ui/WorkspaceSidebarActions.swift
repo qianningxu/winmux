@@ -248,6 +248,7 @@ func createWorkspaceFromSidebarDrag(
         targetContainer = workspace.rootTilingContainer
     }
     sourceNode.bind(to: targetContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+    setWorkspaceSidebarFolderExpanded(projectId, isExpanded: true)
     return true
 }
 
@@ -330,6 +331,7 @@ private func applySidebarSourceToNewWorkspace(
     syncClosedWindowsCacheToCurrentWorld()
     suppressPostDragAxObserverEvents(for: sourceNode.allLeafWindowsRecursive.map(\.windowId))
     sourceNode.bind(to: targetContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+    setWorkspaceSidebarFolderExpanded(projectId, isExpanded: true)
     return true
 }
 
@@ -819,9 +821,7 @@ func moveWorkspaceToSidebarFolder(
     folder.workspaceOrder.removeAll { $0 == workspace.id }
     folder.workspaceOrder.append(workspace.id)
     winMuxWorkspaceState.workspaceFoldersById[folderId] = folder
-    if projectId != workspaceProjectDefaultId {
-        setWorkspaceSidebarFolderExpanded(projectId, isExpanded: true)
-    }
+    setWorkspaceSidebarFolderExpanded(projectId, isExpanded: true)
     checkWorkspaceHierarchyInvariants()
     return true
 }

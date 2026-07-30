@@ -22,7 +22,18 @@ struct FrozenSidebarState: Codable, Sendable {
                     restorableWorkspaceIds: restorableWorkspaceIds,
                 )
         }
-        collapsedFolderIds = collapsedWorkspaceSidebarFolderIdsPreference()
+        let folderProjectIds = folders.map { $0.id.backingProjectId }
+        let storedCollapsedIds = collapsedWorkspaceSidebarFolderIdsPreference()
+        let expandedProjectId = workspaceSidebarSingleExpandedFolderId(
+            projectIds: folderProjectIds,
+            collapsedIds: storedCollapsedIds,
+            preferredProjectId: focus.workspace.projectId
+        )
+        collapsedFolderIds = workspaceSidebarNormalizedCollapsedFolderIds(
+            projectIds: folderProjectIds,
+            collapsedIds: storedCollapsedIds,
+            expandedProjectId: expandedProjectId
+        )
             .map { WorkspaceProjectId($0) }
             .sorted()
         workspaceLabels = Dictionary(uniqueKeysWithValues: config.workspaceSidebar.workspaceLabels.filter {

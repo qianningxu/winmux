@@ -116,6 +116,14 @@ func workspaceSidebarFolderShowsContent(
     (isExpanded && hasItems) || isWorkspaceDragTargeted || isShowingProjectedContent
 }
 
+func workspaceSidebarFolderIsVisuallyExpanded(
+    isExpanded: Bool,
+    isWorkspaceDragTargeted: Bool,
+    isShowingProjectedContent: Bool
+) -> Bool {
+    isExpanded || isWorkspaceDragTargeted || isShowingProjectedContent
+}
+
 func workspaceSidebarCurrentFolderProjectId(
     workspaces: [WorkspaceSidebarWorkspaceViewModel],
     targetMonitorScopeId: String
@@ -180,7 +188,7 @@ struct WorkspaceSidebarFolder<Content: View>: View {
             folderHeader
 
             if showsFolderContent {
-                if isExpanded {
+                if isVisuallyExpanded {
                     folderContent
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 } else {
@@ -285,7 +293,7 @@ struct WorkspaceSidebarFolder<Content: View>: View {
             onChanged: onFolderReorderDragChanged,
             onEnded: onFolderReorderDragEnded
         ))
-        .help(isExpanded ? "Hide folder" : "Show folder")
+        .help(isVisuallyExpanded ? "Hide folder" : "Show folder")
     }
 
     private var folderHeaderContent: some View {
@@ -313,7 +321,7 @@ struct WorkspaceSidebarFolder<Content: View>: View {
                     .layoutPriority(1)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .bold))
-                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    .rotationEffect(.degrees(isVisuallyExpanded ? 90 : 0))
                     .foregroundStyle(palette.foreground(0.54))
                     .frame(width: 10, height: 18)
             }
@@ -338,6 +346,14 @@ struct WorkspaceSidebarFolder<Content: View>: View {
         workspaceSidebarFolderShowsContent(
             isExpanded: isExpanded,
             hasItems: !section.workspaces.isEmpty,
+            isWorkspaceDragTargeted: isWorkspaceDragTargeted,
+            isShowingProjectedContent: isShowingProjectedContent
+        )
+    }
+
+    private var isVisuallyExpanded: Bool {
+        workspaceSidebarFolderIsVisuallyExpanded(
+            isExpanded: isExpanded,
             isWorkspaceDragTargeted: isWorkspaceDragTargeted,
             isShowingProjectedContent: isShowingProjectedContent
         )

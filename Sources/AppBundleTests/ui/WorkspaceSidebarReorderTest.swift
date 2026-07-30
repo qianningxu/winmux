@@ -64,6 +64,52 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ))
     }
 
+    func testWorkspaceDragFolderExpansionFollowsLatestExactHoverTarget() {
+        let middleFolderId = WorkspaceProjectId("folder-2")
+        let destinationFolderId = WorkspaceProjectId("folder-3")
+        let pacedMiddleTarget = WorkspaceSidebarWorkspaceDragTarget.moveToFolder(
+            WorkspaceSidebarWorkspaceFolderTarget(
+                projectId: middleFolderId,
+                sourceWorkspaceName: "source"
+            )
+        )
+        let exactDestinationTarget = WorkspaceSidebarWorkspaceDragTarget.moveToFolder(
+            WorkspaceSidebarWorkspaceFolderTarget(
+                projectId: destinationFolderId,
+                sourceWorkspaceName: "source"
+            )
+        )
+        let drag = WorkspaceSidebarWorkspaceReorderDragState(
+            sourceWorkspaceName: "source",
+            projectId: WorkspaceProjectId("folder-1"),
+            target: pacedMiddleTarget,
+            lastValidTarget: exactDestinationTarget
+        )
+
+        XCTAssertEqual(workspaceSidebarWorkspaceInteractionProjectId(drag), destinationFolderId)
+    }
+
+    func testSidebarWindowMoveCollapsesSourceFolderAndExpandsDestinationFolder() {
+        let sourceFolder = createWorkspaceProjectWithWindow(windowId: 501)
+        let destinationFolder = createWorkspaceProjectWithWindow(windowId: 502)
+        let sourceWorkspace = Workspace.all.first { $0.projectId == sourceFolder.id }.orDie()
+        let destinationWorkspace = Workspace.all.first { $0.projectId == destinationFolder.id }.orDie()
+        let sourceWindow = Window.get(byId: 501).orDie()
+        setWorkspaceSidebarFolderExpanded(sourceFolder.id, isExpanded: true)
+
+        applySidebarWorkspaceMove(
+            sourceNode: sourceWindow,
+            sourceWindow: sourceWindow,
+            targetWorkspace: destinationWorkspace
+        )
+
+        XCTAssertEqual(sourceWindow.nodeWorkspace, destinationWorkspace)
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(sourceFolder.id))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(destinationFolder.id))
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
+        XCTAssertNotEqual(sourceWorkspace, destinationWorkspace)
+    }
+
     func testReorderWorkspaceMovesItemBeforeTarget() {
         let (first, second, third) = makeOrderedDefaultWorkspaces()
 
@@ -1668,6 +1714,60 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ))
     }
 
+    func testWorkspaceDragInteractionUsesLiveFramesForNewlyExpandedDestinationFolder() {
+        let sourceFolderId = WorkspaceProjectId("folder-1")
+        let middleFolderId = WorkspaceProjectId("folder-2")
+        let destinationFolderId = WorkspaceProjectId("folder-3")
+        let frozenFolderFrames = [
+            folderFrame(sourceFolderId, minY: 0, height: 120),
+            folderFrame(middleFolderId, minY: 130, height: 32),
+            folderFrame(destinationFolderId, minY: 172, height: 32),
+        ]
+        let liveFolderFrames = [
+            folderFrame(sourceFolderId, minY: 0, height: 120),
+            folderFrame(middleFolderId, minY: 130, height: 130),
+            folderFrame(destinationFolderId, minY: 270, height: 100),
+        ]
+        let liveWorkspaceFrames = [
+            reorderFrame("source", minY: 44, height: 32, projectId: sourceFolderId),
+            reorderFrame("destination", minY: 310, height: 32, projectId: destinationFolderId),
+        ]
+        let frozenWorkspaceFrames = [
+            reorderFrame("source", minY: 44, height: 32, projectId: sourceFolderId),
+        ]
+        let pointer = CGPoint(x: 100, y: 330)
+        let interactionFolderFrames = workspaceSidebarFolderReorderFramesForInteraction(
+            liveFrames: liveFolderFrames,
+            frozenFrames: frozenFolderFrames
+        )
+        let interactionProjectId = workspaceSidebarWorkspaceFolderTarget(
+            sourceWorkspaceName: "source",
+            sourceProjectId: sourceFolderId,
+            pointer: pointer,
+            frames: interactionFolderFrames
+        )?.projectId
+        let interactionWorkspaceFrames = workspaceSidebarWorkspaceReorderFramesForInteraction(
+            liveFrames: liveWorkspaceFrames,
+            frozenFrames: frozenWorkspaceFrames,
+            destinationProjectId: interactionProjectId
+        )
+
+        let target = workspaceSidebarWorkspaceDragTarget(
+            sourceWorkspaceName: "source",
+            sourceProjectId: sourceFolderId,
+            pointer: pointer,
+            workspaceFrames: interactionWorkspaceFrames,
+            folderFrames: interactionFolderFrames
+        )
+
+        XCTAssertEqual(interactionProjectId, destinationFolderId)
+        XCTAssertEqual(target, .reorder(WorkspaceSidebarWorkspaceReorderTarget(
+            projectId: destinationFolderId,
+            targetWorkspaceName: "destination",
+            placement: .after("destination")
+        )))
+    }
+
     func testWorkspaceListEntriesKeepsSameListSourceMountedWithoutTarget() {
         let first = sidebarWorkspace("first")
         let second = sidebarWorkspace("second")
@@ -1935,6 +2035,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             TestWindow.new(id: 2, parent: $0)
             TestWindow.new(id: 3, parent: $0)
         }
+        setWorkspaceSidebarFolderExpanded(workspaceProjectDefaultId, isExpanded: true)
 
         XCTAssertTrue(moveWorkspaceToSidebarFolder(source.name, projectId: folder.id))
 
@@ -1951,6 +2052,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             source.name,
         ])
         XCTAssertTrue(workspaceSidebarFolderIsExpanded(folder.id))
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
     }
 
     func testMoveWorkspaceToSidebarUnfoldedFolderMovesFolderChild() {
@@ -1976,6 +2078,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         }
         setProjectWorkspaceOrder(workspaceProjectDefaultId, [flat])
         setProjectWorkspaceOrder(folder.id, [folderWorkspace, folderChild])
+        setWorkspaceSidebarFolderExpanded(folder.id, isExpanded: true)
 
         XCTAssertTrue(moveWorkspaceToSidebarFolder(folderChild.name, projectId: workspaceProjectDefaultId))
 
@@ -1987,6 +2090,8 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertEqual(projectWorkspaces(projectId: folder.id).map(\.name), [
             folderWorkspace.name,
         ])
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(folder.id))
     }
 
     func testMoveWorkspaceToSidebarUnfoldedFolderKeepsOtherDisplayUnfoldedTab() {

@@ -63,6 +63,7 @@ struct WorkspaceSidebarView: View {
         
         sidebarBody(expansionProgress: expansionProgress, expandedWidth: expandedWidth)
         .onAppear {
+            syncFolderExpansionOverrides()
             normalizeActiveSidebarWidthIfNeeded(expandedWidth: expandedWidth)
         }
         .onChange(of: snapshot.visibleWidth) { visibleWidth in
@@ -94,6 +95,7 @@ struct WorkspaceSidebarView: View {
             pendingWorkspaceActivation = nil
         }
         .onChange(of: snapshot.workspaces) { _ in
+            syncFolderExpansionOverrides()
             reconcilePendingWorkspaceActivation()
         }
         .onChange(of: browseMode) { mode in
@@ -112,6 +114,7 @@ struct WorkspaceSidebarView: View {
             panel.animateVisibleSidebarWidth(targetWidth, animation: .easeInOut(duration: panel.animationDuration))
         }
         .onChange(of: snapshot.projects) { _ in
+            syncFolderExpansionOverrides()
             if (!projectsAreEnabled() && browseMode != .activeProject) ||
                 (browsedProjectId != nil && !snapshot.projects.contains(where: { $0.id == browsedProjectId.orDie() }))
             {
@@ -235,8 +238,21 @@ struct WorkspaceSidebarView: View {
     }
 
     func setFolderExpanded(_ projectId: WorkspaceProjectId, _ isExpanded: Bool) {
-        folderExpansionOverrides[projectId] = isExpanded
+        if isExpanded {
+            folderExpansionOverrides = Dictionary(uniqueKeysWithValues: snapshot.projects.map {
+                ($0.id, $0.id == projectId)
+            })
+            folderExpansionOverrides[projectId] = true
+        } else {
+            folderExpansionOverrides[projectId] = false
+        }
         setWorkspaceSidebarFolderExpanded(projectId, isExpanded: isExpanded)
+    }
+
+    func syncFolderExpansionOverrides() {
+        folderExpansionOverrides = Dictionary(uniqueKeysWithValues: snapshot.projects.map {
+            ($0.id, workspaceSidebarFolderIsExpanded($0.id))
+        })
     }
 
     func beginProjectRename(_ project: WorkspaceSidebarProjectViewModel, browseIfNeeded: Bool = true) {

@@ -120,6 +120,22 @@ struct WorkspaceSidebarWorkspaceReorderDragState: Equatable {
     var isCommitting: Bool = false
 }
 
+func workspaceSidebarWorkspaceDragTargetProjectId(
+    _ target: WorkspaceSidebarWorkspaceDragTarget?
+) -> WorkspaceProjectId? {
+    switch target {
+        case .reorder(let reorderTarget): reorderTarget.projectId
+        case .moveToFolder(let folderTarget): folderTarget.projectId
+        case nil: nil
+    }
+}
+
+func workspaceSidebarWorkspaceInteractionProjectId(
+    _ drag: WorkspaceSidebarWorkspaceReorderDragState?
+) -> WorkspaceProjectId? {
+    workspaceSidebarWorkspaceDragTargetProjectId(drag?.lastValidTarget ?? drag?.target)
+}
+
 /// A reorder target is deliberately sticky while the pointer remains in the
 /// sidebar. SwiftUI is animating the preview rows while the pointer is moving,
 /// so a single transient frame miss must not erase the last concrete slot.
@@ -759,6 +775,26 @@ func workspaceSidebarFolderReorderFramesForHitTesting(
     frozenFrames: [WorkspaceSidebarFolderReorderFrame]
 ) -> [WorkspaceSidebarFolderReorderFrame] {
     frozenFrames.isEmpty ? liveFrames : frozenFrames
+}
+
+func workspaceSidebarFolderReorderFramesForInteraction(
+    liveFrames: [WorkspaceSidebarFolderReorderFrame],
+    frozenFrames: [WorkspaceSidebarFolderReorderFrame]
+) -> [WorkspaceSidebarFolderReorderFrame] {
+    liveFrames.isEmpty ? frozenFrames : liveFrames
+}
+
+func workspaceSidebarWorkspaceReorderFramesForInteraction(
+    liveFrames: [WorkspaceSidebarWorkspaceReorderFrame],
+    frozenFrames: [WorkspaceSidebarWorkspaceReorderFrame],
+    destinationProjectId: WorkspaceProjectId?
+) -> [WorkspaceSidebarWorkspaceReorderFrame] {
+    guard !frozenFrames.isEmpty, let destinationProjectId else {
+        return frozenFrames.isEmpty ? liveFrames : frozenFrames
+    }
+    let liveDestinationFrames = liveFrames.filter { $0.projectId == destinationProjectId }
+    guard !liveDestinationFrames.isEmpty else { return frozenFrames }
+    return frozenFrames.filter { $0.projectId != destinationProjectId } + liveDestinationFrames
 }
 
 func workspaceSidebarWorkspaceDragTarget(

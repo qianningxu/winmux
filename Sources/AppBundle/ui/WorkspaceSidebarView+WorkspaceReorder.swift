@@ -74,13 +74,7 @@ extension WorkspaceSidebarView {
     }
 
     func isWorkspaceFolderInteractionTarget(_ projectId: WorkspaceProjectId) -> Bool {
-        guard let target = workspaceReorderDrag?.target else { return false }
-        switch target {
-            case .moveToFolder(let folderTarget):
-                return folderTarget.projectId == projectId
-            case .reorder(let reorderTarget):
-                return reorderTarget.projectId == projectId
-        }
+        workspaceSidebarWorkspaceInteractionProjectId(workspaceReorderDrag) == projectId
     }
 
     func isProjectReorderDropTarget(_ projectId: WorkspaceProjectId) -> Bool {
@@ -91,7 +85,10 @@ extension WorkspaceSidebarView {
     }
 
     func isWorkspaceProjectPreviewTarget(_ projectId: WorkspaceProjectId) -> Bool {
-        workspaceSidebarIsProjectPreviewTarget(
+        guard workspaceSidebarWorkspaceInteractionProjectId(workspaceReorderDrag) == projectId else {
+            return false
+        }
+        return workspaceSidebarIsProjectPreviewTarget(
             projectId: projectId,
             sourceWorkspaceName: workspaceReorderDrag?.sourceWorkspaceName,
             sourceWorkspace: workspaceReorderPreviewWorkspace(),
@@ -139,18 +136,26 @@ extension WorkspaceSidebarView {
             NotificationCenter.default.post(name: workspaceSidebarDismissProjectMenusNotification, object: nil)
             isProjectMenuOpen = false
         }
+        let interactionFolderFrames = workspaceSidebarFolderReorderFramesForInteraction(
+            liveFrames: folderReorderFrames,
+            frozenFrames: workspaceReorderHitTestFolderFrames
+        )
+        let interactionFolderProjectId = workspaceSidebarWorkspaceFolderTarget(
+            sourceWorkspaceName: workspace.name,
+            sourceProjectId: projectId,
+            pointer: pointer,
+            frames: interactionFolderFrames
+        )?.projectId
         let candidateTarget = workspaceSidebarWorkspaceDragTarget(
             sourceWorkspaceName: workspace.name,
             sourceProjectId: projectId,
             pointer: pointer,
-            workspaceFrames: workspaceSidebarWorkspaceReorderFramesForHitTesting(
+            workspaceFrames: workspaceSidebarWorkspaceReorderFramesForInteraction(
                 liveFrames: workspaceReorderFrames,
-                frozenFrames: workspaceReorderHitTestFrames
+                frozenFrames: workspaceReorderHitTestFrames,
+                destinationProjectId: interactionFolderProjectId
             ),
-            folderFrames: workspaceSidebarFolderReorderFramesForHitTesting(
-                liveFrames: folderReorderFrames,
-                frozenFrames: workspaceReorderHitTestFolderFrames
-            )
+            folderFrames: interactionFolderFrames
         )
         let hitTestFrames = workspaceSidebarWorkspaceReorderFramesForHitTesting(
             liveFrames: workspaceReorderFrames,
@@ -358,18 +363,26 @@ extension WorkspaceSidebarView {
             sourceWorkspaceName: workspace.name,
             screenPoint: screenPoint
         ) != nil
+        let interactionFolderFrames = workspaceSidebarFolderReorderFramesForInteraction(
+            liveFrames: folderReorderFrames,
+            frozenFrames: workspaceReorderHitTestFolderFrames
+        )
+        let interactionFolderProjectId = workspaceSidebarWorkspaceFolderTarget(
+            sourceWorkspaceName: workspace.name,
+            sourceProjectId: projectId,
+            pointer: pointer,
+            frames: interactionFolderFrames
+        )?.projectId
         let finalCandidate = workspaceSidebarWorkspaceDragTarget(
             sourceWorkspaceName: workspace.name,
             sourceProjectId: projectId,
             pointer: pointer,
-            workspaceFrames: workspaceSidebarWorkspaceReorderFramesForHitTesting(
+            workspaceFrames: workspaceSidebarWorkspaceReorderFramesForInteraction(
                 liveFrames: workspaceReorderFrames,
-                frozenFrames: workspaceReorderHitTestFrames
+                frozenFrames: workspaceReorderHitTestFrames,
+                destinationProjectId: interactionFolderProjectId
             ),
-            folderFrames: workspaceSidebarFolderReorderFramesForHitTesting(
-                liveFrames: folderReorderFrames,
-                frozenFrames: workspaceReorderHitTestFolderFrames
-            )
+            folderFrames: interactionFolderFrames
         )
         let finalPointerIsInSourceOriginalSlot = finalCandidate == nil &&
             workspaceSidebarWorkspacePointerIsInSourceOriginalSlot(
