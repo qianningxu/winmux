@@ -110,21 +110,33 @@ extension WorkspaceSidebarPanel {
     func beginInlineTextEditing(
         locksExpansion: Bool = true,
         cancelsOnPointerExit: Bool = true,
+        editingView: NSView? = nil,
         onCancel: (@MainActor () -> Void)? = nil,
         onKeyDown: (@MainActor (WorkspaceSidebarInlineTextKey) -> Void)? = nil
     ) {
+        if let activePanel = WorkspaceSidebarPanel.activeInlineTextEditingPanel,
+           activePanel !== self
+        {
+            activePanel.endInlineTextEditing()
+        }
         debugWorkspaceSidebarRenameLog("beginInlineTextEditing isKeyBefore=\(isKeyWindow) firstResponder=\(String(describing: firstResponder)) mouseInside=\(isMouseInsideVisibleRegion())")
         inlineTextEditingActive = true
         inlineTextEditingLocksExpansion = locksExpansion
         inlineTextEditingCancelsOnPointerExit = cancelsOnPointerExit
         WorkspaceSidebarPanel.activeInlineTextEditingPanel = self
+        inlineTextEditingView = editingView
+        inlineTextEditingUsesNativeEditor = editingView != nil
         inlineTextEditingCancel = onCancel
         inlineTextEditingKeyDown = onKeyDown
         inlineTextEditingStartedAt = .now
         inlineTextEditingPointerEnteredVisibleRegion = isMouseInsideVisibleRegion()
         prepareForInlineTextEditing()
         installInlineTextEditingEventMonitors()
-        installInlineTextEditingKeyEventTap()
+        if !inlineTextEditingUsesNativeEditor {
+            installInlineTextEditingKeyEventTap()
+        } else {
+            removeInlineTextEditingKeyEventTap()
+        }
     }
 
     func endInlineTextEditing() {
@@ -138,6 +150,8 @@ extension WorkspaceSidebarPanel {
         }
         inlineTextEditingCancel = nil
         inlineTextEditingKeyDown = nil
+        inlineTextEditingView = nil
+        inlineTextEditingUsesNativeEditor = false
         inlineTextEditingPointerEnteredVisibleRegion = false
         removeInlineTextEditingEventMonitors()
         removeInlineTextEditingKeyEventTap()
@@ -162,6 +176,12 @@ extension WorkspaceSidebarPanel {
         guard inlineTextEditingActive else { return }
         debugWorkspaceSidebarRenameLog("cancelInlineTextEditing isKey=\(isKeyWindow) firstResponder=\(String(describing: firstResponder))")
         inlineTextEditingCancel?()
+    }
+
+    func commitInlineTextEditing() {
+        guard inlineTextEditingActive else { return }
+        debugWorkspaceSidebarRenameLog("commitInlineTextEditing isKey=\(isKeyWindow) firstResponder=\(String(describing: firstResponder))")
+        _ = handleInlineTextEditingKey(.commit)
     }
 
     func handleInlineTextEditingKey(_ key: WorkspaceSidebarInlineTextKey) -> Bool {
@@ -196,10 +216,10 @@ extension WorkspaceSidebarPanel {
         let mouseDownMask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
         let localMouseDown = NSEvent.addLocalMonitorForEvents(matching: mouseDownMask) { [weak self] event in
             guard let self else { return event }
-            if !self.isEventInsideVisibleRegion(event),
-               self.shouldCancelInlineTextEditingForOutsidePointer(isMouseDown: true)
+            if self.inlineTextEditingUsesNativeEditor,
+               !self.isEventInsideInlineTextEditingView(event)
             {
-                Task { @MainActor in self.cancelInlineTextEditing() }
+                Task { @MainActor in self.commitInlineTextEditing() }
             }
             return event
         }
@@ -213,10 +233,10 @@ extension WorkspaceSidebarPanel {
         let globalMouseDown = NSEvent.addGlobalMonitorForEvents(matching: mouseDownMask) { [weak self] event in
             Task { @MainActor in
                 guard let self else { return }
-                if !self.isScreenPointInsideVisibleRegion(event.locationInWindow),
-                   self.shouldCancelInlineTextEditingForOutsidePointer(isMouseDown: true)
+                if self.inlineTextEditingUsesNativeEditor,
+                   !self.isScreenPointInsideInlineTextEditingView(event.locationInWindow)
                 {
-                    self.cancelInlineTextEditing()
+                    self.commitInlineTextEditing()
                 }
             }
         }
@@ -279,6 +299,22 @@ extension WorkspaceSidebarPanel {
         guard event.window === self else { return false }
         let point = convertPoint(toScreen: event.locationInWindow)
         return isScreenPointInsideVisibleRegion(point)
+    }
+
+    func isEventInsideInlineTextEditingView(_ event: NSEvent) -> Bool {
+        guard let editingView = inlineTextEditingView,
+              event.window === editingView.window
+        else { return false }
+        let point = editingView.convert(event.locationInWindow, from: nil)
+        return editingView.bounds.contains(point)
+    }
+
+    func isScreenPointInsideInlineTextEditingView(_ point: CGPoint) -> Bool {
+        guard let editingView = inlineTextEditingView,
+              let editingWindow = editingView.window
+        else { return false }
+        let rectInWindow = editingView.convert(editingView.bounds, to: nil)
+        return editingWindow.convertToScreen(rectInWindow).contains(point)
     }
 
     func isScreenPointInsideVisibleRegion(_ point: CGPoint) -> Bool {

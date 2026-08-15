@@ -52,6 +52,11 @@ private let workspaceSidebarWidgetParser: [String: any ParserProtocol<WorkspaceS
             .filter(.semantic(backtrace, "Must not be empty")) { !$0.isEmpty }
             .map { Optional($0) }
     },
+    "tasks-path": Parser(\.tasksPath) { raw, backtrace in
+        parseString(raw, backtrace)
+            .filter(.semantic(backtrace, "Must not be empty")) { !$0.isEmpty }
+            .map { Optional($0) }
+    },
     "schedule-path": Parser(\.schedulePath) { raw, backtrace in
         parseString(raw, backtrace)
             .filter(.semantic(backtrace, "Must not be empty")) { !$0.isEmpty }
@@ -118,6 +123,9 @@ private func parseWorkspaceSidebarWidgets(
             errors.append(.semantic(widgetBacktrace + .key("id"), "Duplicate widget id '\(widget.id)'"))
             return nil
         }
+        if widget.tasksPath != nil, widget.type != .builtInTasks {
+            errors.append(.semantic(widgetBacktrace + .key("tasks-path"), "Only tasks widgets can specify tasks-path"))
+        }
         switch widget.type {
             case .builtInTodoList:
                 if widget.bundle != nil {
@@ -140,6 +148,19 @@ private func parseWorkspaceSidebarWidgets(
                 }
                 if widget.targetDate != nil {
                     errors.append(.semantic(widgetBacktrace + .key("target-date"), "Only target-date widgets can specify target-date"))
+                }
+            case .builtInTasks:
+                if widget.bundle != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("bundle"), "Only plugin widgets can specify bundle"))
+                }
+                if widget.entriesPath != nil {
+                    errors.append(.semantic(widgetBacktrace + .key("entries-path"), "Tasks widgets use tasks-path"))
+                }
+                if widget.schedulePath != nil || widget.togglEntriesPath != nil || widget.deviationPath != nil {
+                    errors.append(.semantic(widgetBacktrace, "Tasks widgets only support tasks-path"))
+                }
+                if widget.days != nil || widget.targetDate != nil {
+                    errors.append(.semantic(widgetBacktrace, "Tasks widgets only support tasks-path"))
                 }
             case .builtInTimeDate:
                 if widget.bundle != nil {

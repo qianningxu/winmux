@@ -623,7 +623,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
-    func testWorkspaceSidebarTabSummaryUsesManualLabelAndComposedAppSubtitle() async throws {
+    func testWorkspaceSidebarTabSummaryUsesOnlyManualLabel() async throws {
         setUpWorkspacesForTests()
         let workspace = Workspace.get(byName: "coding")
         workspace.markAsAutomaticallyNamed()
@@ -639,7 +639,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
 
         XCTAssertEqual(model.displayName, "Research")
         XCTAssertEqual(model.tabSummary.title, "Research")
-        XCTAssertEqual(model.tabSummary.subtitle, "bobko.WinMux.test-app & 1 other")
+        XCTAssertNil(model.tabSummary.subtitle)
         XCTAssertEqual(model.tabSummary.windowCount, 2)
         XCTAssertFalse(model.tabSummary.isEmpty)
     }
@@ -661,7 +661,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         var model = try XCTUnwrap(sidebarWorkspaces.first { $0.name == workspace.name })
 
         XCTAssertEqual(model.tabSummary.title, "Research")
-        XCTAssertEqual(model.tabSummary.subtitle, "bobko.WinMux.test-app & 1 other")
+        XCTAssertNil(model.tabSummary.subtitle)
 
         _ = second.focusWindow()
         sidebarWorkspaces = await buildWorkspaceSidebarWorkspaceViewModels(
@@ -672,7 +672,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         model = try XCTUnwrap(sidebarWorkspaces.first { $0.name == workspace.name })
 
         XCTAssertEqual(model.tabSummary.title, "Research")
-        XCTAssertEqual(model.tabSummary.subtitle, "bobko.WinMux.test-app & 1 other")
+        XCTAssertNil(model.tabSummary.subtitle)
         XCTAssertEqual(model.tabSummary.windowCount, 2)
     }
 
@@ -1031,6 +1031,29 @@ final class WorkspaceSidebarDragTest: XCTestCase {
                 isSidebarDragInProgress: false,
             ),
         )
+    }
+
+    func testWorkspaceSidebarDoubleClickRenameRequiresExpandedIdleTab() {
+        XCTAssertTrue(shouldHandleWorkspaceSidebarRenameFromDoubleClick(
+            isCompact: false,
+            isEditing: false,
+            isSidebarDragInProgress: false,
+        ))
+        XCTAssertFalse(shouldHandleWorkspaceSidebarRenameFromDoubleClick(
+            isCompact: true,
+            isEditing: false,
+            isSidebarDragInProgress: false,
+        ))
+        XCTAssertFalse(shouldHandleWorkspaceSidebarRenameFromDoubleClick(
+            isCompact: false,
+            isEditing: true,
+            isSidebarDragInProgress: false,
+        ))
+        XCTAssertFalse(shouldHandleWorkspaceSidebarRenameFromDoubleClick(
+            isCompact: false,
+            isEditing: false,
+            isSidebarDragInProgress: true,
+        ))
     }
 
     func testPendingWorkspaceActivationHighlightsUntilVisibleOnTargetMonitor() {

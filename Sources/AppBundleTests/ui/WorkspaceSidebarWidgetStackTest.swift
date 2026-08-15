@@ -3,6 +3,16 @@ import Foundation
 import XCTest
 
 final class WorkspaceSidebarWidgetStackTest: XCTestCase {
+    func testTasksWidgetIsHiddenWhenSidebarIsCompact() {
+        let tasks = widget(id: "tasks", type: .builtInTasks)
+
+        XCTAssertTrue(workspaceSidebarWidgetIsVisible(tasks, showsNotePad: false, isCompact: false))
+        XCTAssertFalse(workspaceSidebarWidgetIsVisible(tasks, showsNotePad: false, showsTasks: false, isCompact: false))
+        XCTAssertFalse(workspaceSidebarWidgetIsVisible(tasks, showsNotePad: false, isCompact: true))
+        XCTAssertFalse(workspaceSidebarHasVisibleWidgets([tasks], showsNotePad: false, showsTasks: false, isCompact: false))
+        XCTAssertFalse(workspaceSidebarHasVisibleWidgets([tasks], showsNotePad: false, isCompact: true))
+    }
+
     func testRotationGroupsKeepFirstPositionAndCollectEnabledMembers() {
         let widgets = [
             widget(id: "time-date", type: .builtInTimeDate),

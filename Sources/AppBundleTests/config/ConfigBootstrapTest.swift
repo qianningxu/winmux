@@ -51,7 +51,7 @@ final class ConfigBootstrapTest: XCTestCase {
         XCTAssertEqual(parsedConfig.workspaceSidebar.width, 212)
         XCTAssertEqual(
             parsedConfig.workspaceSidebar.resolvedWidgets.filter(\.enabled).map(\.type),
-            [.builtInTodoList, .builtInTodayFocus],
+            [.builtInTasks, .builtInTodayFocus],
         )
         XCTAssertTrue(parsedConfig.autoReloadConfig)
         if case .constant(let horizontalGap) = parsedConfig.gaps.inner.horizontal {

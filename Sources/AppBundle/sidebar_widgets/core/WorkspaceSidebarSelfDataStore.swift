@@ -29,6 +29,9 @@ struct SidebarSelfDataPeriod: Sendable {
 }
 
 enum SidebarSelfDataStore {
+    private static let databaseRetryDelays: [TimeInterval] = [0, 0.05, 0.15, 0.3]
+    private static let databaseBusyTimeoutMilliseconds: Int32 = 1_000
+
     static func sqliteURL(for source: URL) -> URL? {
         if source.pathExtension == "sqlite", FileManager.default.fileExists(atPath: source.path) {
             return source
@@ -134,17 +137,34 @@ enum SidebarSelfDataStore {
     }
 
     private static func withDatabase<T>(_ url: URL, _ body: (OpaquePointer) -> T?) -> T? {
-        var database: OpaquePointer?
-        guard sqlite3_open_v2(url.path, &database, SQLITE_OPEN_READONLY, nil) == SQLITE_OK,
-              let database
-        else {
-            if let database {
-                sqlite3_close(database)
+        for (attempt, retryDelay) in databaseRetryDelays.enumerated() {
+            if retryDelay > 0 {
+                Thread.sleep(forTimeInterval: retryDelay)
             }
-            return nil
+
+            var database: OpaquePointer?
+            let openFlags = attempt == 0 ? SQLITE_OPEN_READONLY : SQLITE_OPEN_READWRITE
+            guard sqlite3_open_v2(url.path, &database, openFlags, nil) == SQLITE_OK,
+                  let database
+            else {
+                if let database {
+                    sqlite3_close(database)
+                }
+                continue
+            }
+
+            sqlite3_busy_timeout(database, databaseBusyTimeoutMilliseconds)
+            guard sqlite3_exec(database, "PRAGMA query_only = ON", nil, nil, nil) == SQLITE_OK else {
+                sqlite3_close(database)
+                continue
+            }
+            let result = body(database)
+            sqlite3_close(database)
+            if let result {
+                return result
+            }
         }
-        defer { sqlite3_close(database) }
-        return body(database)
+        return nil
     }
 
     private static func query<T>(
@@ -161,12 +181,18 @@ enum SidebarSelfDataStore {
         defer { sqlite3_finalize(statement) }
 
         var rows: [T] = []
-        while sqlite3_step(statement) == SQLITE_ROW {
-            if let value = row(statement) {
-                rows.append(value)
+        while true {
+            switch sqlite3_step(statement) {
+            case SQLITE_ROW:
+                if let value = row(statement) {
+                    rows.append(value)
+                }
+            case SQLITE_DONE:
+                return rows
+            default:
+                return nil
             }
         }
-        return rows
     }
 
     private static func textColumn(_ statement: OpaquePointer, _ column: Int32) -> String? {

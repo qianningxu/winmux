@@ -33,7 +33,7 @@ extension WorkspaceSidebarView {
                 .frame(height: 26, alignment: .center)
             Spacer(minLength: 0)
             sidebarAppearanceButton()
-            sidebarNotePadButton()
+            sidebarTasksButton()
             sidebarPinButton(expansionProgress: expansionProgress, isCompact: false)
         }
         .padding(.leading, 8)
@@ -59,21 +59,23 @@ extension WorkspaceSidebarView {
         .accessibilityLabel(switchesToLight ? "Use light sidebar" : "Use dark sidebar")
     }
 
-    func sidebarNotePadButton() -> some View {
+    func sidebarTasksButton() -> some View {
         let palette = WinMuxOverlayPalette(colorScheme: colorScheme)
         return Button {
-            onToggleNotePad()
+            withAnimation(.easeInOut(duration: 0.16)) {
+                onToggleTasks()
+            }
         } label: {
-            Image(systemName: "note.text")
+            Image(systemName: "checklist")
                 .font(.system(size: 11.5, weight: .semibold))
-                .foregroundStyle(showsNotePad ? palette.foreground(0.88) : palette.foreground(0.62))
+                .foregroundStyle(showsTasks ? palette.foreground(0.88) : palette.foreground(0.52))
                 .frame(width: 26, height: 26)
-                .sidebarTopBarIconChrome(palette, isCompact: false, isActive: showsNotePad)
+                .sidebarTopBarIconChrome(palette, isCompact: false, isActive: showsTasks)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(showsNotePad ? "Hide note pad" : "Show note pad")
-        .accessibilityLabel(showsNotePad ? "Hide note pad" : "Show note pad")
+        .help(showsTasks ? "Hide tasks" : "Show tasks")
+        .accessibilityLabel(showsTasks ? "Hide tasks" : "Show tasks")
     }
 
     func compactSidebarPinButton(expansionProgress: CGFloat) -> some View {

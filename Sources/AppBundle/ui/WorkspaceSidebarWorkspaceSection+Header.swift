@@ -1,10 +1,16 @@
+import AppKit
 import SwiftUI
 
 extension WorkspaceSidebarWorkspaceSection {
     @ViewBuilder
     var headerButton: some View {
         Group {
-            if !isCompact, !isRenamingWorkspace, !composedHeaderTabs.isEmpty {
+            if isRenamingWorkspace {
+                // NSTextField cannot become the first responder while nested
+                // inside a SwiftUI Button. Keep the editor outside the row's
+                // activation button for the duration of the rename.
+                header
+            } else if !isCompact, shouldShowComposedExpandedHeader {
                 header
             } else {
                 Button(action: handleSectionClick) {
@@ -18,6 +24,10 @@ extension WorkspaceSidebarWorkspaceSection {
         .padding(.leading, headerButtonLeadingIndent)
         .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
         .contentShape(Rectangle())
+        .simultaneousGesture(
+            TapGesture(count: 2)
+                .onEnded { _ in handleSectionDoubleClick() }
+        )
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -37,12 +47,20 @@ extension WorkspaceSidebarWorkspaceSection {
 
     var expandedHeader: some View {
         Group {
-            if !isRenamingWorkspace, !composedHeaderTabs.isEmpty {
+            if shouldShowComposedExpandedHeader {
                 composedExpandedHeader
             } else {
                 standardExpandedHeader
             }
         }
+    }
+
+    var shouldShowComposedExpandedHeader: Bool {
+        workspaceSidebarShowsComposedTabHeader(
+            isRenamingWorkspace: isRenamingWorkspace,
+            sidebarLabel: workspace.sidebarLabel,
+            hasComposedTabs: !composedHeaderTabs.isEmpty,
+        )
     }
 
     var standardExpandedHeader: some View {
@@ -54,6 +72,10 @@ extension WorkspaceSidebarWorkspaceSection {
                     workspaceName: workspace.name,
                     onCommit: onCommitRenameWorkspace,
                     onCancel: onCancelRenameWorkspace,
+                    font: NSFont.systemFont(
+                        ofSize: 13.5,
+                        weight: isVisuallyActiveOnTargetMonitor ? .semibold : .medium
+                    ),
                 )
                 .layoutPriority(1)
             } else {
@@ -178,6 +200,10 @@ extension WorkspaceSidebarWorkspaceSection {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .simultaneousGesture(
+            TapGesture(count: 2)
+                .onEnded { _ in handleSectionDoubleClick() }
+        )
         .accessibilityLabel(composedHeaderTabTitle(tab))
     }
 
@@ -309,6 +335,16 @@ extension WorkspaceSidebarWorkspaceSection {
                 .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
         }
     }
+}
+
+func workspaceSidebarShowsComposedTabHeader(
+    isRenamingWorkspace: Bool,
+    sidebarLabel: String,
+    hasComposedTabs: Bool,
+) -> Bool {
+    !isRenamingWorkspace &&
+        hasComposedTabs &&
+        sidebarLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 }
 
 func workspaceSidebarTabCloseButtonIsVisible(

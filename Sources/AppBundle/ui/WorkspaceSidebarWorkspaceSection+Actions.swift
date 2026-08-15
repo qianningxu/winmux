@@ -1,6 +1,15 @@
 import SwiftUI
 
 extension WorkspaceSidebarWorkspaceSection {
+    func handleSectionDoubleClick() {
+        guard shouldHandleWorkspaceSidebarRenameFromDoubleClick(
+            isCompact: isCompact,
+            isEditing: renamingWorkspaceName != nil,
+            isSidebarDragInProgress: isWorkspaceSidebarDragInProgress()
+        ) else { return }
+        onBeginRenameWorkspace()
+    }
+
     func handleSectionClick() {
         guard allowsWorkspaceActivation else { return }
         if isInUseOnOtherDisplay {

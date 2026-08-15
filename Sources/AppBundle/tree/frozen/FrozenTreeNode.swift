@@ -37,6 +37,7 @@ struct FrozenWindow: Codable, Sendable {
     let isFullscreen: Bool
     let noOuterGapsInFullscreen: Bool
     let layoutReason: LayoutReason
+    let tabLabel: String?
 
     @MainActor init(_ window: Window) {
         id = window.windowId
@@ -44,6 +45,7 @@ struct FrozenWindow: Codable, Sendable {
         isFullscreen = window.isFullscreen
         noOuterGapsInFullscreen = window.noOuterGapsInFullscreen
         layoutReason = window.layoutReason
+        tabLabel = windowTabLabelForRestart(windowId: window.windowId)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -52,6 +54,7 @@ struct FrozenWindow: Codable, Sendable {
         case isFullscreen
         case noOuterGapsInFullscreen
         case layoutReason
+        case tabLabel
     }
 
     init(from decoder: any Decoder) throws {
@@ -61,6 +64,7 @@ struct FrozenWindow: Codable, Sendable {
         isFullscreen = try container.decode(Bool.self, forKey: .isFullscreen)
         noOuterGapsInFullscreen = try container.decode(Bool.self, forKey: .noOuterGapsInFullscreen)
         layoutReason = try container.decodeIfPresent(LayoutReason.self, forKey: .layoutReason) ?? .standard
+        tabLabel = try container.decodeIfPresent(String.self, forKey: .tabLabel)
     }
 }
 

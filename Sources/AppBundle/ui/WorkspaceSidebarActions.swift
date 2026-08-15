@@ -609,8 +609,34 @@ private func moveWorkspaceSidebarFolderProjectToTop(_ projectId: WorkspaceProjec
     }
 }
 
+@MainActor
 private func workspaceSidebarDefaultFolderName(_ project: WorkspaceProject) -> String {
-    workspaceSidebarFolderDisplayName(project.name)
+    let visibleFolderIds = Set(userFacingWorkspaces(
+        orderedWorkspacesForPresentation(),
+        focusedWorkspace: focus.workspace,
+    ).lazy
+        .map(\.folderId)
+        .filter { $0 != workspaceFolderDefaultId && $0.backingProjectId != project.id })
+    let usedOrdinals = Set(visibleFolderIds.compactMap { folderId in
+        winMuxWorkspaceState.workspaceFoldersById[folderId]
+            .flatMap { workspaceSidebarGeneratedFolderOrdinal($0.name) }
+    })
+    var ordinal = 1
+    while usedOrdinals.contains(ordinal) {
+        ordinal += 1
+    }
+    return "Folder \(ordinal)"
+}
+
+private func workspaceSidebarGeneratedFolderOrdinal(_ name: String) -> Int? {
+    let normalizedName = workspaceSidebarFolderDisplayName(name)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    let prefix = "folder "
+    guard normalizedName.lowercased().hasPrefix(prefix) else { return nil }
+    let suffix = normalizedName.dropFirst(prefix.count)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let ordinal = Int(suffix), ordinal > 0 else { return nil }
+    return ordinal
 }
 
 @MainActor

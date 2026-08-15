@@ -190,6 +190,8 @@ private func workspaceSidebarWidgetConfigMap(_ widget: WorkspaceSidebarWidgetCon
     switch widget.type {
         case .builtInTodoList:
             break
+        case .builtInTasks:
+            map["tasks-path"] = .scalar(.string(widget.tasksPath ?? defaultWorkspaceSidebarTasksPath))
         case .builtInTimeDate:
             map["show-date"] = .scalar(.bool(widget.showDate))
         case .builtInTodayFocus:

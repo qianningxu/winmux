@@ -119,10 +119,23 @@ private func sidebarPreferredWorkspace(folderId: WorkspaceFolderId, monitor: Mon
     let monitorLocalCandidates = candidates.filter {
         !$0.isVisible || $0.workspaceMonitor.rect.topLeftCorner == monitor.rect.topLeftCorner
     }
-    return monitorLocalCandidates.first(where: workspaceHasSidebarVisibleWindows) ??
+    let preferredWorkspace = monitorLocalCandidates.first(where: workspaceHasSidebarVisibleWindows) ??
         candidates.first(where: workspaceHasSidebarVisibleWindows) ??
         monitorLocalCandidates.first ??
         candidates.first
+    let rememberedWorkspace = winMuxWorkspaceState.monitorViewportsById[MonitorViewportId(monitor)]?
+        .lastActiveWorkspaceByProject[folderId.backingProjectId]
+        .flatMap { rememberedId in candidates.first { $0.id == rememberedId } }
+        .flatMap { remembered in
+            workspaceHasSidebarVisibleWindows(remembered) ||
+                remembered.isConfiguredPersistent ||
+                !workspaceOwnedMinimizedWindows(remembered).isEmpty ||
+                preferredWorkspace == nil ||
+                preferredWorkspace === remembered
+                ? remembered
+                : nil
+        }
+    return rememberedWorkspace ?? preferredWorkspace
 }
 
 @MainActor
@@ -236,6 +249,7 @@ func renameWorkspaceForSidebar(workspaceName: String, displayName: String) throw
     config.workspaceSidebar.workspaceLabels[workspaceName] = trimmedName
     if !isUnitTest {
         try persistWorkspaceSidebarLabel(workspaceName: workspaceName, label: trimmedName)
+        persistSidebarStateForRestartIfPossible()
     }
 }
 
@@ -307,6 +321,7 @@ func resetWorkspaceSidebarName(workspaceName: String) throws {
     config.workspaceSidebar.workspaceLabels.removeValue(forKey: workspaceName)
     if !isUnitTest {
         try persistWorkspaceSidebarLabel(workspaceName: workspaceName, label: nil)
+        persistSidebarStateForRestartIfPossible()
     }
 }
 

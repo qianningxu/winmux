@@ -23,6 +23,8 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     var inlineTextEditingCancelsOnPointerExit = true
     var inlineTextEditingCancel: (@MainActor () -> Void)?
     var inlineTextEditingKeyDown: (@MainActor (WorkspaceSidebarInlineTextKey) -> Void)?
+    weak var inlineTextEditingView: NSView?
+    var inlineTextEditingUsesNativeEditor = false
     var inlineTextEditingEventMonitors: [Any] = []
     var inlineTextEditingKeyEventTap: CFMachPort?
     var inlineTextEditingKeyEventTapRunLoopSource: CFRunLoopSource?
@@ -213,7 +215,15 @@ final class WorkspaceSidebarPanel: NSPanelHud {
 
     override func keyDown(with event: NSEvent) {
         debugWorkspaceSidebarRenameLog("panel keyDown keyCode=\(event.keyCode) chars=\(event.charactersIgnoringModifiers ?? "nil") firstResponder=\(String(describing: firstResponder)) inline=\(inlineTextEditingActive)")
-        if handleInlineTextEditingKey(inlineTextKey(from: event)) {
+        // A real NSTextField has already processed an event by the time it
+        // reaches the panel's responder-chain fallback. Keep an explicit mode
+        // flag because SwiftUI can briefly replace the weak hosting view while
+        // its field editor is still the first responder.
+        let hasNativeFieldEditor = (firstResponder as? NSTextView)?.isFieldEditor == true
+        if !inlineTextEditingUsesNativeEditor,
+           !hasNativeFieldEditor,
+           handleInlineTextEditingKey(inlineTextKey(from: event))
+        {
             return
         }
         super.keyDown(with: event)

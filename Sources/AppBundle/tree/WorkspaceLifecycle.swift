@@ -176,8 +176,13 @@ func moveWorkspaceContents(from source: Workspace, to target: Workspace) {
 }
 
 @MainActor
-func removeWorkspaceFromRegistry(_ workspace: Workspace) {
-    clearWorkspaceSidebarLabelIfNeeded(workspace.name)
+func removeWorkspaceFromRegistry(
+    _ workspace: Workspace,
+    clearsSidebarLabel: Bool = true
+) {
+    if clearsSidebarLabel {
+        clearWorkspaceSidebarLabelIfNeeded(workspace.name)
+    }
     _ = winMuxWorkspaceState.removeWorkspace(workspace)
 }
 
@@ -267,7 +272,10 @@ func pruneEmptyWorkspaces() {
         if workspace == focusedWorkspaceBeforePrune {
             focusedReplacement = replacement ?? focusReplacementForPrunedWorkspace(workspace)
         }
-        removeWorkspaceFromRegistry(workspace)
+        // Reconciliation can see a restored workspace before its windows have
+        // rebound. Preserve its persisted label so the later restoration of a
+        // workspace with the same stable name can reuse it.
+        removeWorkspaceFromRegistry(workspace, clearsSidebarLabel: false)
     }
 
     if let focusedReplacement, focus.workspace != focusedReplacement {

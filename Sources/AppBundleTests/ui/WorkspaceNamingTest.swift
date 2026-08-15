@@ -1,7 +1,14 @@
 @testable import AppBundle
 import AppKit
 import Common
+import SwiftUI
 import XCTest
+
+private final class WorkspaceRenameTestState {
+    var text = ""
+    var commitCount = 0
+    var cancelCount = 0
+}
 
 struct WorkspaceNamingTestMonitor: Monitor {
     let monitorAppKitNsScreenScreensId: Int
@@ -17,6 +24,80 @@ struct WorkspaceNamingTestMonitor: Monitor {
 @MainActor
 final class WorkspaceNamingTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
+
+    func testSidebarTabRenameKeepsEditingThroughTransientFocusChanges() {
+        let state = WorkspaceRenameTestState()
+        let coordinator = WorkspaceSidebarProjectRenameTextField.Coordinator(
+            text: Binding(get: { state.text }, set: { state.text = $0 }),
+            onCommit: { state.commitCount += 1 },
+            onCancel: { state.cancelCount += 1 },
+            onPanelReady: { _, _ in }
+        )
+        let field = NSTextField(string: "Remembered")
+
+        coordinator.controlTextDidEndEditing(Notification(
+            name: NSControl.textDidEndEditingNotification,
+            object: field
+        ))
+
+        XCTAssertEqual(state.text, "Remembered")
+        XCTAssertEqual(state.commitCount, 0)
+        XCTAssertEqual(state.cancelCount, 0)
+    }
+
+    func testNativeSidebarRenameDoesNotFallBackToPanelKeyForwardingAfterViewReplacement() {
+        let state = WorkspaceRenameTestState()
+        let panel = WorkspaceSidebarPanel.shared
+        var field: NSTextField? = NSTextField(string: "Original")
+
+        panel.beginInlineTextEditing(
+            cancelsOnPointerExit: false,
+            editingView: field,
+            onKeyDown: { key in
+                if case .text(let inserted) = key {
+                    state.text += inserted
+                }
+            }
+        )
+
+        XCTAssertTrue(panel.inlineTextEditingUsesNativeEditor)
+        XCTAssertTrue(panel.inlineTextEditingView === field)
+        XCTAssertNil(panel.inlineTextEditingKeyEventTap)
+
+        field = nil
+        XCTAssertNil(panel.inlineTextEditingView)
+        XCTAssertTrue(panel.inlineTextEditingUsesNativeEditor)
+
+        let event = NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: panel.windowNumber,
+            context: nil,
+            characters: "a",
+            charactersIgnoringModifiers: "a",
+            isARepeat: false,
+            keyCode: 0
+        )!
+        panel.keyDown(with: event)
+
+        XCTAssertEqual(state.text, "")
+        panel.endInlineTextEditing()
+    }
+
+    func testReconcilePreservesLabelForWorkspaceThatHasNotRestoredYet() {
+        let restoringWorkspace = Workspace.get(byName: "restoring-workspace")
+        config.workspaceSidebar.workspaceLabels["restoring-workspace"] = "Remembered"
+
+        Workspace.reconcileWorkspaceState()
+
+        XCTAssertNil(Workspace.existing(byName: restoringWorkspace.name))
+        XCTAssertEqual(
+            config.workspaceSidebar.workspaceLabels["restoring-workspace"],
+            "Remembered"
+        )
+    }
 
     func testSanitizedWorkspaceSidebarHoveredWorkspaceNameClearsDeadWorkspaceReferences() {
         let sanitized = sanitizedWorkspaceSidebarHoveredWorkspaceName(
@@ -121,6 +202,34 @@ final class WorkspaceNamingTest: XCTestCase {
         )
     }
 
+    func testManualTabNameReplacesComposedTabHeader() {
+        XCTAssertTrue(workspaceSidebarShowsComposedTabHeader(
+            isRenamingWorkspace: false,
+            sidebarLabel: "",
+            hasComposedTabs: true,
+        ))
+        XCTAssertFalse(workspaceSidebarShowsComposedTabHeader(
+            isRenamingWorkspace: false,
+            sidebarLabel: "Research",
+            hasComposedTabs: true,
+        ))
+        XCTAssertTrue(workspaceSidebarShowsComposedTabHeader(
+            isRenamingWorkspace: false,
+            sidebarLabel: "   ",
+            hasComposedTabs: true,
+        ))
+        XCTAssertFalse(workspaceSidebarShowsComposedTabHeader(
+            isRenamingWorkspace: false,
+            sidebarLabel: "Research",
+            hasComposedTabs: false,
+        ))
+        XCTAssertFalse(workspaceSidebarShowsComposedTabHeader(
+            isRenamingWorkspace: true,
+            sidebarLabel: "",
+            hasComposedTabs: true,
+        ))
+    }
+
     func testSidebarManualTabRenameOverridesFocusedWindowTitle() async {
         let workspace = Workspace.get(byName: "renamed")
         workspace.markAsAutomaticallyNamed()
@@ -136,7 +245,7 @@ final class WorkspaceNamingTest: XCTestCase {
         let viewModel = viewModels.first { $0.name == workspace.name }
         XCTAssertEqual(viewModel?.tabSummary.title, "Build")
         XCTAssertEqual(viewModel?.displayName, "Build")
-        XCTAssertEqual(viewModel?.tabSummary.subtitle, "TestWindow(223)")
+        XCTAssertNil(viewModel?.tabSummary.subtitle)
         XCTAssertEqual(viewModel?.tabSummary.windowCount, 1)
     }
 

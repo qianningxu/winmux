@@ -99,6 +99,7 @@ struct WorkspaceSidebarWidgetConfig: ConvenienceCopyable, Equatable, Sendable {
     var showDate: Bool = true
     var bundle: String? = nil
     var entriesPath: String? = nil
+    var tasksPath: String? = nil
     var schedulePath: String? = nil
     var togglEntriesPath: String? = nil
     var deviationPath: String? = nil
@@ -110,6 +111,7 @@ struct WorkspaceSidebarWidgetConfig: ConvenienceCopyable, Equatable, Sendable {
 
 enum WorkspaceSidebarWidgetType: String, CaseIterable, Sendable {
     case builtInTodoList = "built-in/todo-list"
+    case builtInTasks = "built-in/tasks"
     case builtInTimeDate = "built-in/time-date"
     case builtInTodayFocus = "built-in/today-focus"
     case builtInTogglWeeklyFocus = "built-in/toggl-weekly-focus"
@@ -121,6 +123,7 @@ enum WorkspaceSidebarWidgetType: String, CaseIterable, Sendable {
 }
 
 let defaultWorkspaceSidebarDataPath = "/Users/side/Documents/now/my_app/self/self_data/data"
+let defaultWorkspaceSidebarTasksPath = "/Users/side/Documents/now/my_app/self/self_ob/Others/Tasks"
 let defaultWorkspaceSidebarTogglEntriesPath = defaultWorkspaceSidebarDataPath
 let defaultWorkspaceSidebarTogglWeeklyFocusTargetDate = "2026-09-13"
 let defaultWorkspaceSidebarPeriodEntriesPath = defaultWorkspaceSidebarDataPath

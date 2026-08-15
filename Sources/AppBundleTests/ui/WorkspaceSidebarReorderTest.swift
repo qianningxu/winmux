@@ -1953,6 +1953,33 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertEqual(focus.workspace, workspace)
     }
 
+    func testCreateSidebarFolderFromWorkspaceIgnoresHiddenFolderIdsWhenChoosingDefaultName() throws {
+        for ordinal in 1 ... 30 {
+            config.workspaceSidebar.projectLabels["project-\(ordinal)"] = "Folder \(ordinal)"
+        }
+        let unfolded = (1 ... 5).map { ordinal in
+            let workspace = Workspace.get(byName: "unfolded-\(ordinal)")
+            workspace.markAsAutomaticallyNamed()
+            workspace.assignProject(workspaceProjectDefaultId)
+            _ = TestWindow.new(id: UInt32(100 + ordinal), parent: workspace.rootTilingContainer)
+            return workspace
+        }
+
+        let firstFolderId = try XCTUnwrap(createSidebarFolderFromWorkspace(unfolded[0].name))
+        XCTAssertEqual(firstFolderId.rawValue, "project-31")
+        XCTAssertEqual(
+            winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(firstFolderId)]?.name,
+            "Folder 1"
+        )
+
+        let secondFolderId = try XCTUnwrap(createSidebarFolderFromWorkspace(unfolded[1].name))
+        XCTAssertEqual(secondFolderId.rawValue, "project-32")
+        XCTAssertEqual(
+            winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(secondFolderId)]?.name,
+            "Folder 2"
+        )
+    }
+
     func testCreateSidebarFolderFromWorkspaceInsertsFolderBeforeExistingFolders() {
         let first = createWorkspaceProjectWithWindow(windowId: 31)
         let second = createWorkspaceProjectWithWindow(windowId: 32)

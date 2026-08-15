@@ -9,6 +9,8 @@ struct WorkspaceSidebarView: View {
     let actions: WorkspaceSidebarActions
     let showsNotePad: Bool
     let onToggleNotePad: () -> Void
+    let showsTasks: Bool
+    let onToggleTasks: () -> Void
     @State var projectSwipeTranslation: CGFloat = 0
     @State var projectSwipeStartProjectId: WorkspaceProjectId? = nil
     @State var projectSwipeDidCrossBreakPoint = false
@@ -22,6 +24,7 @@ struct WorkspaceSidebarView: View {
     @State var renamingProjectText = ""
     @State var renamingWorkspaceName: String? = nil
     @State var renamingWorkspaceText = ""
+    @State var committedWorkspaceRenameName: String? = nil
     @State var searchText = ""
     @State var isSearchEditing = false
     @State var searchEditingPanel: WorkspaceSidebarPanel? = nil
@@ -46,11 +49,15 @@ struct WorkspaceSidebarView: View {
         actions: WorkspaceSidebarActions = WorkspaceSidebarActions(),
         showsNotePad: Bool = true,
         onToggleNotePad: @escaping () -> Void = {},
+        showsTasks: Bool = true,
+        onToggleTasks: @escaping () -> Void = {},
     ) {
         self.snapshot = snapshot
         self.actions = actions
         self.showsNotePad = showsNotePad
         self.onToggleNotePad = onToggleNotePad
+        self.showsTasks = showsTasks
+        self.onToggleTasks = onToggleTasks
     }
 
     var body: some View {
@@ -123,17 +130,13 @@ struct WorkspaceSidebarView: View {
             if let renamingProjectId, !snapshot.projects.contains(where: { $0.id == renamingProjectId }) {
                 finishProjectRename(cancelled: true)
             }
-            if let renamingWorkspaceName {
-                let workspaceStillExists = snapshot.workspaces.contains { workspace in
-                    workspace.name == renamingWorkspaceName
-                }
-                if !workspaceStillExists {
-                    finishWorkspaceRename(cancelled: true)
-                }
-            }
+            reconcileWorkspaceRenameState()
             cancelWorkspaceReorderDrag()
             isProjectMenuOpen = false
             resetProjectSwipeWithoutAnimation()
+        }
+        .onChange(of: snapshot.workspaces) { _ in
+            reconcileWorkspaceRenameState()
         }
         .onReceive(NotificationCenter.default.publisher(for: workspaceSidebarWillCollapseNotification)) { notification in
             guard notificationPanel(from: notification)?.monitorScopeId == snapshot.targetMonitorScopeId else { return }
@@ -282,6 +285,7 @@ struct WorkspaceSidebarView: View {
         debugWorkspaceSidebarRenameLog("beginWorkspaceRename workspace=\(workspace.name) displayName=\(workspace.displayName) targetScope=\(snapshot.targetMonitorScopeId) activeProject=\(snapshot.activeProjectId.rawValue) visibleWidth=\(snapshot.visibleWidth)")
         finishSidebarSearch(clearText: false)
         finishProjectRename(cancelled: true)
+        committedWorkspaceRenameName = nil
         renamingWorkspaceName = workspace.name
         renamingWorkspaceText = workspace.displayName
         currentPanel()?.prepareForInlineTextEditing()
@@ -291,11 +295,39 @@ struct WorkspaceSidebarView: View {
         guard let workspaceName = renamingWorkspaceName else { return }
         let displayName = renamingWorkspaceText.trimmingCharacters(in: .whitespacesAndNewlines)
         debugWorkspaceSidebarRenameLog("finishWorkspaceRename workspace=\(workspaceName) cancelled=\(cancelled) raw=\(renamingWorkspaceText) trimmed=\(displayName) targetScope=\(snapshot.targetMonitorScopeId)")
+        currentPanel()?.endInlineTextEditing()
+        guard !cancelled, !displayName.isEmpty else {
+            clearWorkspaceRenameState()
+            return
+        }
+        committedWorkspaceRenameName = workspaceName
+        renamingWorkspaceText = displayName
+        actions.send(.renameWorkspace(workspaceName, displayName: displayName))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            guard committedWorkspaceRenameName == workspaceName else { return }
+            clearWorkspaceRenameState()
+        }
+    }
+
+    func clearWorkspaceRenameState() {
         renamingWorkspaceName = nil
         renamingWorkspaceText = ""
+        committedWorkspaceRenameName = nil
         currentPanel()?.endInlineTextEditing()
-        guard !cancelled, !displayName.isEmpty else { return }
-        actions.send(.renameWorkspace(workspaceName, displayName: displayName))
+    }
+
+    func reconcileWorkspaceRenameState() {
+        guard let renamingWorkspaceName else { return }
+        let renamedWorkspace = snapshot.workspaces.first { workspace in
+            workspace.name == renamingWorkspaceName
+        }
+        if renamedWorkspace == nil {
+            finishWorkspaceRename(cancelled: true)
+        } else if committedWorkspaceRenameName == renamingWorkspaceName,
+                  renamedWorkspace?.displayName == renamingWorkspaceText
+        {
+            clearWorkspaceRenameState()
+        }
     }
 
     func currentPanel() -> WorkspaceSidebarPanel? {
@@ -482,6 +514,7 @@ struct WorkspaceSidebarContainerView: View {
     @ObservedObject var viewModel: TrayMenuModel
     let actions: WorkspaceSidebarActions
     @AppStorage(workspaceSidebarShowsNotePadPreferenceKey) private var showsNotePad = true
+    @AppStorage(workspaceSidebarShowsTasksPreferenceKey) private var showsTasks = true
 
     var body: some View {
         WorkspaceSidebarView(
@@ -490,7 +523,11 @@ struct WorkspaceSidebarContainerView: View {
             showsNotePad: showsNotePad,
             onToggleNotePad: {
                 showsNotePad.toggle()
-            }
+            },
+            showsTasks: showsTasks,
+            onToggleTasks: {
+                showsTasks.toggle()
+            },
         )
     }
 }

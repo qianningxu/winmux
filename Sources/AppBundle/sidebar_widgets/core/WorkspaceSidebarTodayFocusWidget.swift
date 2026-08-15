@@ -1,7 +1,8 @@
 import Foundation
 import SwiftUI
 
-private let todayFocusTargetHoursByWeekday = [0, 11, 11, 6, 11, 11, 11]
+// Calendar weekdays are ordered Sunday through Saturday.
+private let todayFocusTargetHoursByWeekday = [11, 11, 6, 11, 11, 11, 11]
 private let todayFocusMarkerHeight: CGFloat = 72
 private let todayFocusMarkerWidth: CGFloat = 4
 private let todayFocusCompactCellSize: CGFloat = workspaceSidebarAppIconSize + 2
@@ -162,7 +163,7 @@ private struct TodayFocusCard: View {
         if let errorMessage = snapshot.errorMessage {
             return errorMessage
         }
-        return "Today, \(String(format: "%.1f", snapshot.focusedHours)) of \(snapshot.targetHours) focus hours, \(snapshot.percentage) percent"
+        return "Focus, \(String(format: "%.1f", snapshot.focusedHours)) of \(snapshot.targetHours) hours, \(snapshot.percentage) percent"
     }
 }
 

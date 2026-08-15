@@ -284,7 +284,7 @@ extension ConfigTest {
         assertEquals(errors.descriptions, [
             "tab-sidebar.widgets[0].bundle: Only plugin widgets can specify bundle",
             "tab-sidebar.widgets[1].id: Duplicate widget id 'time-date'",
-            "tab-sidebar.widgets[2].type: Possible values: built-in/todo-list, built-in/time-date, built-in/today-focus, built-in/toggl-weekly-focus, built-in/toggl-week-focus, built-in/period-heatmap, built-in/spending-categories, built-in/schedule-heatmap, plugin",
+            "tab-sidebar.widgets[2].type: Possible values: built-in/todo-list, built-in/tasks, built-in/time-date, built-in/today-focus, built-in/toggl-weekly-focus, built-in/toggl-week-focus, built-in/period-heatmap, built-in/spending-categories, built-in/schedule-heatmap, plugin",
             "tab-sidebar.widgets[3].bundle: Only plugin widgets can specify bundle",
             "tab-sidebar.widgets[3].entries-path: Only data widgets can specify entries-path",
             "tab-sidebar.widgets[4].entries-path: Only data widgets can specify entries-path",

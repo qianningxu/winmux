@@ -1,9 +1,54 @@
 @testable import AppBundle
 import AppKit
 import CoreGraphics
+import SwiftUI
 import XCTest
 
+private final class WindowTabRenameTestState {
+    var text = ""
+    var commitCount = 0
+    var cancelCount = 0
+}
+
 @MainActor extension WindowTabsTest {
+    func testWindowTabRenameCommitsWhenEditingEndsAndDoesNotCommitAfterEscape() {
+        let committed = WindowTabRenameTestState()
+        let committedCoordinator = WindowTabRenameTextField.Coordinator(
+            text: Binding(get: { committed.text }, set: { committed.text = $0 }),
+            onCommit: { committed.commitCount += 1 },
+            onCancel: { committed.cancelCount += 1 }
+        )
+        let committedField = NSTextField(string: "Remembered")
+        committedCoordinator.controlTextDidEndEditing(Notification(
+            name: NSControl.textDidEndEditingNotification,
+            object: committedField
+        ))
+        XCTAssertEqual(committed.text, "Remembered")
+        XCTAssertEqual(committed.commitCount, 1)
+        XCTAssertEqual(committed.cancelCount, 0)
+
+        let cancelled = WindowTabRenameTestState()
+        let cancelledCoordinator = WindowTabRenameTextField.Coordinator(
+            text: Binding(get: { cancelled.text }, set: { cancelled.text = $0 }),
+            onCommit: { cancelled.commitCount += 1 },
+            onCancel: { cancelled.cancelCount += 1 }
+        )
+        let cancelledField = NSTextField(string: "Discarded")
+        let editor = NSTextView()
+        editor.string = "Discarded"
+        XCTAssertTrue(cancelledCoordinator.control(
+            cancelledField,
+            textView: editor,
+            doCommandBy: #selector(NSResponder.cancelOperation(_:))
+        ))
+        cancelledCoordinator.controlTextDidEndEditing(Notification(
+            name: NSControl.textDidEndEditingNotification,
+            object: cancelledField
+        ))
+        XCTAssertEqual(cancelled.commitCount, 0)
+        XCTAssertEqual(cancelled.cancelCount, 1)
+    }
+
     func testCrossWorkspaceCenterBodyDropIsDisabled() {
         setUpWorkspacesForTests()
         clearPendingWindowDragIntent()
@@ -312,7 +357,7 @@ import XCTest
         let third = TestWindow.new(id: 3, parent: tabGroup)
 
         XCTAssertTrue(reorderWindowTabInCurrentGroup(third, toIndex: 1))
-        XCTAssertEqual(tabGroup.children.compactMap { ($0 as? Window)?.windowId }, [first.windowId, third.windowId, second.windowId])
+        XCTAssertEqual(tabGroup.children.compactMap { ($0 as? AppBundle.Window)?.windowId }, [first.windowId, third.windowId, second.windowId])
     }
 
     @MainActor
@@ -333,6 +378,15 @@ import XCTest
         let sessionTitle = await tabDisplayTitle(for: window)
         XCTAssertEqual(sessionTitle, "Session")
         XCTAssertEqual(config.windowTabs.tabLabels[key], "Session")
+
+        let frozenWindow = FrozenWindow(window)
+        resetWindowTabLabelsForTests()
+        let configRestoredTitle = await tabDisplayTitle(for: window)
+        XCTAssertEqual(configRestoredTitle, "Session")
+        config.windowTabs.tabLabels.removeValue(forKey: key)
+        restoreWindowTabLabelForRestart(windowId: window.windowId, label: frozenWindow.tabLabel)
+        let snapshotRestoredTitle = await tabDisplayTitle(for: window)
+        XCTAssertEqual(snapshotRestoredTitle, "Session")
 
         try await renameWindowTab(windowId: window.windowId, displayName: "   ")
         let resetTitle = await tabDisplayTitle(for: window)

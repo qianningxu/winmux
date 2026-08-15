@@ -39,7 +39,8 @@ func clearSidebarDraftWorkspaceLabelIfNeeded(_ workspaceName: String) {
 @MainActor
 func clearOrphanedWorkspaceSidebarLabels() {
     for workspaceName in config.workspaceSidebar.workspaceLabels.keys
-    where winMuxWorkspaceState.workspace(named: workspaceName) == nil
+    where isSidebarDraftWorkspaceName(workspaceName) &&
+        winMuxWorkspaceState.workspace(named: workspaceName) == nil
     {
         clearWorkspaceSidebarLabelIfNeeded(workspaceName)
     }

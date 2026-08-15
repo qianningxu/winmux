@@ -5,10 +5,16 @@ struct WorkspaceSidebarWidgetStack: View {
     let sectionWidth: CGFloat
     let isCompact: Bool
     let showsNotePad: Bool
+    let showsTasks: Bool
 
     private var enabledWidgets: [WorkspaceSidebarWidgetConfig] {
         widgets.filter { widget in
-            workspaceSidebarWidgetIsVisible(widget, showsNotePad: showsNotePad)
+            workspaceSidebarWidgetIsVisible(
+                widget,
+                showsNotePad: showsNotePad,
+                showsTasks: showsTasks,
+                isCompact: isCompact
+            )
         }
     }
 
@@ -34,19 +40,32 @@ struct WorkspaceSidebarWidgetStack: View {
 
 func workspaceSidebarWidgetIsVisible(
     _ widget: WorkspaceSidebarWidgetConfig,
-    showsNotePad: Bool
+    showsNotePad: Bool,
+    showsTasks: Bool = true,
+    isCompact: Bool = false
 ) -> Bool {
     widget.enabled &&
         widget.type != .builtInSpendingCategories &&
         widget.type != .builtInScheduleHeatmap &&
-        (showsNotePad || widget.type != .builtInTodoList)
+        widget.type != .builtInTodoList &&
+        (showsTasks || widget.type != .builtInTasks) &&
+        (!isCompact || widget.type != .builtInTasks)
 }
 
 func workspaceSidebarHasVisibleWidgets(
     _ widgets: [WorkspaceSidebarWidgetConfig],
-    showsNotePad: Bool
+    showsNotePad: Bool,
+    showsTasks: Bool = true,
+    isCompact: Bool = false
 ) -> Bool {
-    widgets.contains { workspaceSidebarWidgetIsVisible($0, showsNotePad: showsNotePad) }
+    widgets.contains {
+        workspaceSidebarWidgetIsVisible(
+            $0,
+            showsNotePad: showsNotePad,
+            showsTasks: showsTasks,
+            isCompact: isCompact
+        )
+    }
 }
 
 enum WorkspaceSidebarWidgetStackItem: Identifiable, Equatable {
@@ -135,6 +154,13 @@ private struct WorkspaceSidebarWidgetStackItemView: View {
                     id: widget.id,
                     sectionWidth: sectionWidth,
                     isCompact: isCompact,
+                )
+            case .builtInTasks:
+                WorkspaceSidebarTasksWidget(
+                    id: widget.id,
+                    sectionWidth: sectionWidth,
+                    isCompact: isCompact,
+                    tasksPath: widget.tasksPath ?? defaultWorkspaceSidebarTasksPath,
                 )
             case .builtInTimeDate:
                 WorkspaceSidebarTimeDateWidget(

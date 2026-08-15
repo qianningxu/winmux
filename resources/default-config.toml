@@ -41,7 +41,7 @@ on-mode-changed = []
     menu-bar-reserve-height = 28
     folder-deletion-action = 'close-windows'
     widgets = [
-        { id = 'todo-list', type = 'built-in/todo-list', enabled = true },
+        { id = 'tasks', type = 'built-in/tasks', enabled = true, tasks-path = '/Users/side/Documents/now/my_app/self/self_ob/Others/Tasks' },
         { id = 'time-date', type = 'built-in/time-date', enabled = false, show-date = true },
         { id = 'today-focus', type = 'built-in/today-focus', enabled = true, entries-path = '/Users/side/Documents/now/my_app/self/self_data/data' },
         { id = 'period-heatmap', type = 'built-in/period-heatmap', enabled = false, entries-path = '/Users/side/Documents/now/my_app/self/self_data/data' },

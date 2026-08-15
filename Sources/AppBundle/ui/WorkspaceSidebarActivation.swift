@@ -76,3 +76,11 @@ func shouldHandleWorkspaceSidebarActivation(editingWorkspaceName: String?, isSid
         isSidebarDragInProgress: isSidebarDragInProgress,
     )
 }
+
+func shouldHandleWorkspaceSidebarRenameFromDoubleClick(
+    isCompact: Bool,
+    isEditing: Bool,
+    isSidebarDragInProgress: Bool
+) -> Bool {
+    !isCompact && !isEditing && !isSidebarDragInProgress
+}

@@ -357,6 +357,30 @@ final class ProjectCommandTest: XCTestCase {
         XCTAssertTrue(focus.workspace === realFolderTab)
     }
 
+    func testFolderCommandRestoresLastFocusedTab() async throws {
+        let root = focus.workspace
+        root.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 83, parent: root.rootTilingContainer)
+        let folder = createWorkspaceProject()
+        let firstFolderTab = projectWorkspaces(projectId: folder.id).first.orDie()
+        firstFolderTab.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 84, parent: firstFolderTab.rootTilingContainer)
+        let lastFocusedTab = Workspace.get(byName: "last-focused-folder-tab")
+        lastFocusedTab.markAsAutomaticallyNamed()
+        lastFocusedTab.assignProject(folder.id)
+        lastFocusedTab.seedMonitorIfNeeded(mainMonitor)
+        _ = TestWindow.new(id: 85, parent: lastFocusedTab.rootTilingContainer)
+        XCTAssertTrue(lastFocusedTab.focusWorkspace())
+        XCTAssertTrue(root.focusWorkspace())
+
+        let result = try await ProjectCommand(
+            args: ProjectCmdArgs(target: .index(1)),
+        ).run(.defaultEnv, .emptyStdin)
+
+        assertEquals(result.exitCode, 0)
+        XCTAssertTrue(focus.workspace === lastFocusedTab)
+    }
+
     func testFolderCommandSwitchesToRealSidebarTabInsteadOfCreatingBlank() async throws {
         let root = focus.workspace
         root.markAsAutomaticallyNamed()

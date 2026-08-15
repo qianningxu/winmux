@@ -7,6 +7,7 @@ private let workspaceSidebarCollapsedFolderIdsPreferenceKey = "workspaceSidebar.
 private let workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey = "workspaceSidebar.collapsedTabGroupIds"
 private let workspaceSidebarAppearancePreferenceKey = "workspaceSidebar.appearance"
 let workspaceSidebarShowsNotePadPreferenceKey = "workspaceSidebar.showsNotePad"
+let workspaceSidebarShowsTasksPreferenceKey = "workspaceSidebar.showsTasks"
 
 func workspaceSidebarAppearancePreference(rawValue: String) -> AppearanceTheme? {
     switch rawValue {
@@ -88,6 +89,7 @@ func resetWorkspaceSidebarUIPreferencesForTests() {
     UserDefaults.standard.removeObject(forKey: workspaceSidebarLegacyCollapsedTabGroupIdsPreferenceKey)
     UserDefaults.standard.removeObject(forKey: workspaceSidebarAppearancePreferenceKey)
     UserDefaults.standard.removeObject(forKey: workspaceSidebarShowsNotePadPreferenceKey)
+    UserDefaults.standard.removeObject(forKey: workspaceSidebarShowsTasksPreferenceKey)
     UserDefaults.standard.synchronize()
     TrayMenuModel.shared.isWorkspaceSidebarPinnedExpanded = false
 }

@@ -74,12 +74,9 @@ private func makeWorkspaceSidebarTabSummaryViewModel(
         : (windowTitle ?? appName ?? workspaceDisplayName(workspace.name))
     let manualTitle = sidebarLabel.trimmingCharacters(in: .whitespacesAndNewlines).takeIf { !$0.isEmpty }
     let title = manualTitle ?? automaticTitle
-    let subtitle = manualTitle == nil
-        ? nil
-        : automaticTitle.takeIf { $0 != title && $0 != appName }
     return WorkspaceSidebarTabSummaryViewModel(
         title: title,
-        subtitle: subtitle,
+        subtitle: nil,
         appBundleId: representativeWindow?.app.rawAppBundleId,
         appBundlePath: representativeWindow?.app.bundlePath,
         windowCount: windows.count,

@@ -13,6 +13,20 @@ func resetWindowTabLabelsForTests() {
 }
 
 @MainActor
+func windowTabLabelForRestart(windowId: UInt32) -> String? {
+    guard let label = sessionWindowTabLabels[windowId]?.trimmingCharacters(in: .whitespacesAndNewlines),
+          !label.isEmpty
+    else { return nil }
+    return label
+}
+
+@MainActor
+func restoreWindowTabLabelForRestart(windowId: UInt32, label: String?) {
+    guard let label = label?.trimmingCharacters(in: .whitespacesAndNewlines), !label.isEmpty else { return }
+    sessionWindowTabLabels[windowId] = label
+}
+
+@MainActor
 func windowTabLabelKey(app: any AbstractApp, rawTitle: String) -> String {
     let appIdentity = app.rawAppBundleId?.takeIf { !$0.isEmpty }
         ?? app.bundlePath?.takeIf { !$0.isEmpty }

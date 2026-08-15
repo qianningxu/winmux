@@ -105,6 +105,7 @@ struct WindowTabRenameTextField: NSViewRepresentable {
         let onCommit: @MainActor @Sendable () -> Void
         let onCancel: @MainActor @Sendable () -> Void
         var didFocus = false
+        var didFinish = false
 
         init(
             text: Binding<String>,
@@ -129,17 +130,34 @@ struct WindowTabRenameTextField: NSViewRepresentable {
             text = field.stringValue
         }
 
+        func controlTextDidEndEditing(_ notification: Notification) {
+            guard let field = notification.object as? NSTextField else { return }
+            text = field.stringValue
+            finish(commit: true)
+        }
+
         func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
             switch commandSelector {
                 case #selector(NSResponder.insertNewline(_:)):
                     text = textView.string
-                    onCommit()
+                    finish(commit: true)
                     return true
                 case #selector(NSResponder.cancelOperation(_:)):
-                    onCancel()
+                    finish(commit: false)
                     return true
                 default:
                     return false
+            }
+        }
+
+        @MainActor
+        private func finish(commit: Bool) {
+            guard !didFinish else { return }
+            didFinish = true
+            if commit {
+                onCommit()
+            } else {
+                onCancel()
             }
         }
     }
