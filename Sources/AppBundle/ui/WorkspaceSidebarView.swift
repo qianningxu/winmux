@@ -116,6 +116,9 @@ struct WorkspaceSidebarView: View {
             panel.cancelExpansionWork()
             panel.viewModel.isWorkspaceSidebarExpanded = true
             panel.splitBrowseCollapseSuppressedUntil = mode.isSplit ? Date().addingTimeInterval(0.65) : .distantPast
+            if mode.isSplit {
+                panel.scheduleHoverStateUpdate(at: panel.splitBrowseCollapseSuppressedUntil)
+            }
             isSidebarCollapsing = false
             isSidebarExpanding = false
             panel.animateVisibleSidebarWidth(targetWidth, animation: .easeInOut(duration: panel.animationDuration))

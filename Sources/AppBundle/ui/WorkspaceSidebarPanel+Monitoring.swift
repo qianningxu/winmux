@@ -1,22 +1,32 @@
 import AppKit
 
 extension WorkspaceSidebarPanel {
-    func startHoverMonitoring() {
-        guard !isHoverMonitoring else { return }
-        isHoverMonitoring = true
-        DisplayRefreshDriver.shared.add(owner: self) { [weak self] timestamp in
-            guard let self else { return }
-            guard timestamp - self.lastHoverMonitorTimestamp >= self.hoverPollInterval else { return }
-            self.lastHoverMonitorTimestamp = timestamp
-            self.updateHoverStateFromMousePosition()
+    static func updateHoverStateForVisiblePanels() {
+        for panel in visiblePanels where panel.isHoverMonitoring {
+            panel.updateHoverStateFromMousePosition()
         }
+    }
+
+    func startHoverMonitoring() {
+        isHoverMonitoring = true
+        updateHoverStateFromMousePosition()
     }
 
     func stopHoverMonitoring() {
         cancelExpansionWork()
         isHoverMonitoring = false
-        lastHoverMonitorTimestamp = 0
-        DisplayRefreshDriver.shared.remove(owner: self)
+    }
+
+    func scheduleHoverStateUpdate(at deadline: Date) {
+        let delay = max(0, deadline.timeIntervalSinceNow)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.isHoverMonitoring else { return }
+            guard Date() >= deadline else {
+                self.scheduleHoverStateUpdate(at: deadline)
+                return
+            }
+            self.updateHoverStateFromMousePosition()
+        }
     }
 
     func updateHoverStateFromMousePosition() {

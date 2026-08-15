@@ -12,7 +12,7 @@ final class MacApp: AbstractApp {
     private let axApp: ThreadGuardedValue<AXUIElement>
     private let appAxSubscriptions: ThreadGuardedValue<[AxSubscription]> // keep subscriptions in memory
     private let windows: ThreadGuardedValue<[UInt32: AxWindow]> = .init([:])
-    private var windowsCount = 0
+    private var lastObservedAxWindowsCount = 0
     var lastNativeFocusedWindowId: UInt32? = nil
     private var thread: Thread?
     private var setFrameJobs: [UInt32: RunLoopJob] = [:]
@@ -141,7 +141,7 @@ final class MacApp: AbstractApp {
                 logicalWindowsCount: logicalWindowCount,
             )
         debugFocusLog(
-            "MacApp.nativeFocus app=\(nsApp.localizedName ?? rawAppBundleId ?? String(pid)) target=\(windowId) lastNative=\(lastNativeFocusedWindowId?.description ?? "nil") logicalWindowsCount=\(logicalWindowCount) windowsCount=\(windowsCount) strategy=\(useActivationOnly ? "activate" : "ax-focus")"
+            "MacApp.nativeFocus app=\(nsApp.localizedName ?? rawAppBundleId ?? String(pid)) target=\(windowId) lastNative=\(lastNativeFocusedWindowId?.description ?? "nil") logicalWindowsCount=\(logicalWindowCount) axWindowsCount=\(lastObservedAxWindowsCount) strategy=\(useActivationOnly ? "activate" : "ax-focus")"
         )
         if useActivationOnly
         {
@@ -192,7 +192,7 @@ final class MacApp: AbstractApp {
     static func hasWindowInventoryChanged() async -> Bool {
         for app in allAppsMap.values where !app.nsApp.isTerminated {
             if let actualCount = try? await app.getAxWindowsCount(),
-               actualCount != app.windowsCount
+               actualCount != app.lastObservedAxWindowsCount
             {
                 return true
             }
@@ -339,7 +339,7 @@ final class MacApp: AbstractApp {
             return []
         }
         guard let thread else { return [] }
-        let (alive, dead) = try await thread.runInLoop { [nsApp, windows, axApp] (job) -> ([UInt32], [UInt32]) in
+        let (alive, dead, axWindowsCount) = try await thread.runInLoop { [nsApp, windows, axApp] (job) -> ([UInt32], [UInt32], Int) in
             var alive: [UInt32: AxWindow] = windows.threadGuarded
             var dead = [UInt32: AxWindow]()
             // Second line of defence against lock screen. See the first line of defence: closedWindowsCache
@@ -351,15 +351,16 @@ final class MacApp: AbstractApp {
                 }
             }
 
-            for (id, window) in axApp.threadGuarded.get(Ax.windowsAttr) ?? [] {
+            let axWindows = axApp.threadGuarded.get(Ax.windowsAttr) ?? []
+            for (id, window) in axWindows {
                 try job.checkCancellation()
                 try alive.getOrRegisterAxWindow(windowId: id, window, nsApp, job)
             }
 
             windows.threadGuarded = alive
-            return (Array(alive.keys), Array(dead.keys))
+            return (Array(alive.keys), Array(dead.keys), axWindows.count)
         }
-        windowsCount = alive.count
+        lastObservedAxWindowsCount = axWindowsCount
         for windowId in dead {
             setFrameJobs.removeValue(forKey: windowId)?.cancel()
         }

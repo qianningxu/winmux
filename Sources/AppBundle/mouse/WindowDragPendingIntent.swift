@@ -53,7 +53,6 @@ func updatePendingDetachedTabIntent(sourceWindow: Window, mouseLocation: CGPoint
 
 @MainActor
 func refreshPendingWindowDragIntentFromGlobalMouseDrag() {
-    WorkspaceSidebarPanel.refreshAll()
     guard isLeftMouseButtonDown, getCurrentMouseManipulationKind() == .move else {
         clearPendingWindowDragIntent()
         return
@@ -65,6 +64,7 @@ func refreshPendingWindowDragIntentFromGlobalMouseDrag() {
         cancelManipulatedWithMouseState()
         return
     }
+    WorkspaceSidebarPanel.refreshAll()
     WindowMouseInteractionDriver.shared.noteGlobalDragActivity()
 }
 

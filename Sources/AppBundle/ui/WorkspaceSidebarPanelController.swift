@@ -15,7 +15,6 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     var pendingCollapse: DispatchWorkItem?
     var pendingCollapseFinalize: DispatchWorkItem?
     var isHoverMonitoring = false
-    var lastHoverMonitorTimestamp: CFTimeInterval = 0
     var menuTrackingDepth = 0
     var menuTrackingGraceUntil: Date = .distantPast
     var inlineTextEditingActive = false
@@ -41,7 +40,6 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     var edgeTrapSuppressedUntil: TimeInterval = 0
     var splitBrowseCollapseSuppressedUntil: Date = .distantPast
     let hoverExitTolerance: CGFloat = 20
-    let hoverPollInterval: TimeInterval = 1.0 / 30.0
     let hoverOpenDelay: TimeInterval = 0.05
     let hoverCueAnimationResponse: TimeInterval = 0.18
     let animationDuration: TimeInterval = 0.14

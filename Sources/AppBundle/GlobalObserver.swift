@@ -77,6 +77,7 @@ enum GlobalObserver {
         Task { @MainActor in
             MousePointerTracker.shared.note(point: point, timestamp: timestamp)
             WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
+            WorkspaceSidebarPanel.updateHoverStateForVisiblePanels()
             if isLeftMouseDownEvent {
                 await WindowMouseInteractionDriver.shared.capturePendingResizeCandidate()
             }
@@ -90,8 +91,14 @@ enum GlobalObserver {
         Task { @MainActor in
             MousePointerTracker.shared.note(point: point, timestamp: timestamp)
             finishWorkspaceSidebarDragAfterGlobalMouseUp()
-            guard let token: RunSessionGuard = .isServerEnabled else { return }
-            try await resetManipulatedWithMouseIfPossible()
+            guard let token: RunSessionGuard = .isServerEnabled else {
+                WorkspaceSidebarPanel.updateHoverStateForVisiblePanels()
+                return
+            }
+            do {
+                defer { WorkspaceSidebarPanel.updateHoverStateForVisiblePanels() }
+                try await resetManipulatedWithMouseIfPossible()
+            }
             guard handlesWorkspaceFocusFallback else { return }
             let mouseLocation = mouseLocation
             let clickedMonitor = mouseLocation.monitorApproximation

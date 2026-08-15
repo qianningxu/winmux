@@ -34,9 +34,8 @@ extension WorkspaceSidebarPanel {
         menuTrackingDepth -= 1
         guard menuTrackingDepth == 0 else { return }
         menuTrackingGraceUntil = Date().addingTimeInterval(menuTrackingEndGrace)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
-            self?.updateHoverStateFromMousePosition()
-        }
+        scheduleHoverStateUpdate(at: Date().addingTimeInterval(0.08))
+        scheduleHoverStateUpdate(at: menuTrackingGraceUntil)
     }
 
     func isMenuTrackingOrInGracePeriod(now: Date = .now) -> Bool {

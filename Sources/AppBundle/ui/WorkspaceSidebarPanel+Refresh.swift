@@ -7,7 +7,6 @@ extension WorkspaceSidebarPanel {
 
     func refresh(on monitor: Monitor) {
         guard let layout = currentSidebarPanelLayout(on: monitor) else {
-            stopHoverMonitoring()
             resetHiddenSidebarState()
             WorkspaceCanvasBackgroundPanel.hideAll()
             return
@@ -27,9 +26,8 @@ extension WorkspaceSidebarPanel {
             viewModel.isWorkspaceSidebarExpanded = true
             viewModel.workspaceSidebarVisibleWidth = layout.expandedWidth
         }
-        updateMousePassthrough()
-        startHoverMonitoring()
         orderFrontRegardless()
+        startHoverMonitoring()
     }
 
     func refreshForCurrentDragIfNeeded() {
@@ -38,6 +36,7 @@ extension WorkspaceSidebarPanel {
     }
 
     func resetHiddenSidebarState() {
+        stopHoverMonitoring()
         workspaceSidebarDropTargets = []
         TrayMenuModel.shared.workspaceSidebarDropPreview = nil
         TrayMenuModel.shared.workspaceSidebarHoveredWorkspaceName = nil

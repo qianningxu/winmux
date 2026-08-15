@@ -20,7 +20,10 @@ struct WinMuxWorkspaceState {
             folderOrder: [workspaceFolderDefaultId],
         ),
     ] {
-        didSet { scheduleSidebarStatePersistenceForRestart() }
+        didSet {
+            guard oldValue != projectsById else { return }
+            scheduleSidebarStatePersistenceForRestart()
+        }
     }
     var workspaceFoldersById: [WorkspaceFolderId: WorkspaceFolder] = [
         workspaceFolderDefaultId: WorkspaceFolder(
@@ -29,7 +32,10 @@ struct WinMuxWorkspaceState {
             order: 0,
         ),
     ] {
-        didSet { scheduleSidebarStatePersistenceForRestart() }
+        didSet {
+            guard oldValue != workspaceFoldersById else { return }
+            scheduleSidebarStatePersistenceForRestart()
+        }
     }
     var monitorViewportsById: [MonitorViewportId: MonitorViewport] = [:]
 
@@ -325,9 +331,9 @@ struct WinMuxWorkspaceState {
 
         let orderedWorkspaces = workspaceById.values.sorted()
         for (folderId, folder) in workspaceFoldersById {
-            var folder = folder
+            var normalizedOrder = folder.workspaceOrder
             var seen: Set<WorkspaceId> = []
-            folder.workspaceOrder = folder.workspaceOrder.filter { workspaceId in
+            normalizedOrder = normalizedOrder.filter { workspaceId in
                 guard let workspace = workspaceById[workspaceId],
                       workspace.folderId == folderId,
                       !seen.contains(workspaceId)
@@ -338,10 +344,13 @@ struct WinMuxWorkspaceState {
                 return true
             }
             for workspace in orderedWorkspaces where workspace.folderId == folderId && !seen.contains(workspace.id) {
-                folder.workspaceOrder.append(workspace.id)
+                normalizedOrder.append(workspace.id)
                 seen.insert(workspace.id)
             }
-            workspaceFoldersById[folderId] = folder
+            guard normalizedOrder != folder.workspaceOrder else { continue }
+            var normalizedFolder = folder
+            normalizedFolder.workspaceOrder = normalizedOrder
+            workspaceFoldersById[folderId] = normalizedFolder
         }
     }
 
@@ -367,15 +376,14 @@ struct WinMuxWorkspaceState {
 
     private mutating func insertFolder(_ folderId: WorkspaceFolderId, intoProject projectId: WorkspaceProjectId) {
         var project = projectsById[projectId].orDie()
-        if !project.folderOrder.contains(folderId) {
-            if projectId == workspaceProjectDefaultId,
-               folderId != workspaceFolderDefaultId,
-               let defaultIndex = project.folderOrder.firstIndex(of: workspaceFolderDefaultId)
-            {
-                project.folderOrder.insert(folderId, at: defaultIndex)
-            } else {
-                project.folderOrder.append(folderId)
-            }
+        guard !project.folderOrder.contains(folderId) else { return }
+        if projectId == workspaceProjectDefaultId,
+           folderId != workspaceFolderDefaultId,
+           let defaultIndex = project.folderOrder.firstIndex(of: workspaceFolderDefaultId)
+        {
+            project.folderOrder.insert(folderId, at: defaultIndex)
+        } else {
+            project.folderOrder.append(folderId)
         }
         projectsById[projectId] = project
     }
@@ -406,14 +414,14 @@ struct WinMuxWorkspaceState {
 
     private mutating func insertWorkspace(_ workspaceId: WorkspaceId, intoFolder folderId: WorkspaceFolderId) {
         var folder = workspaceFoldersById[folderId].orDie()
-        if !folder.workspaceOrder.contains(workspaceId) {
-            folder.workspaceOrder.append(workspaceId)
-        }
+        guard !folder.workspaceOrder.contains(workspaceId) else { return }
+        folder.workspaceOrder.append(workspaceId)
         workspaceFoldersById[folderId] = folder
     }
 
     private mutating func removeWorkspaceFromFolderIndexes(_ workspaceId: WorkspaceId) {
         for (folderId, folder) in workspaceFoldersById {
+            guard folder.workspaceOrder.contains(workspaceId) else { continue }
             var folder = folder
             folder.workspaceOrder = folder.workspaceOrder.filter { $0 != workspaceId }
             workspaceFoldersById[folderId] = folder
