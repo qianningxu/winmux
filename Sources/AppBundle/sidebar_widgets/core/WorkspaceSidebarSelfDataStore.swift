@@ -47,10 +47,11 @@ enum SidebarSelfDataStore {
     }
 
     static func loadTimeEntries(from sqliteURL: URL, now: Date) -> [SidebarSelfDataTimeEntry]? {
-        withDatabase(sqliteURL) { database in
+        let utcDateFormatter = makeUTCDateFormatter()
+        return withDatabase(sqliteURL) { database in
             query(database, sql: "select start_at_utc, stop_at_utc, duration_seconds from time_entries") { statement in
-                guard let start = dateColumn(statement, 0) else { return nil }
-                let rawStop = dateColumn(statement, 1)
+                guard let start = dateColumn(statement, 0, formatter: utcDateFormatter) else { return nil }
+                let rawStop = dateColumn(statement, 1, formatter: utcDateFormatter)
                 let durationSeconds = sqlite3_column_double(statement, 2)
                 let stop = rawStop ?? start.addingTimeInterval(durationSeconds)
                 let effectiveStop = min(stop, now)
@@ -61,13 +62,15 @@ enum SidebarSelfDataStore {
     }
 
     static func loadScheduleBlocks(from sqliteURL: URL) -> [SidebarSelfDataScheduleBlock]? {
-        withDatabase(sqliteURL) { database in
+        let utcDateFormatter = makeUTCDateFormatter()
+        let localDateFormatter = makeLocalDateFormatter()
+        return withDatabase(sqliteURL) { database in
             query(
                 database,
                 sql: "select id, session_name, start_at_utc, end_at_utc, local_date, done, source_id from schedule_blocks",
             ) { statement -> SidebarSelfDataScheduleBlock? in
-                guard let from = dateColumn(statement, 2),
-                      let to = dateColumn(statement, 3),
+                guard let from = dateColumn(statement, 2, formatter: utcDateFormatter),
+                      let to = dateColumn(statement, 3, formatter: utcDateFormatter),
                       to > from
                 else {
                     return nil
@@ -79,9 +82,9 @@ enum SidebarSelfDataStore {
                 let sourceIdentity = textColumn(statement, 6)
                     .map { URL(filePath: $0).deletingPathExtension().lastPathComponent }
                 let identity = sourceIdentity ?? "\(localDate ?? "schedule") \(sessionName)"
-                let parsedIdentity = parseScheduleIdentity(identity)
+                let parsedIdentity = parseScheduleIdentity(identity, formatter: localDateFormatter)
                 let fileDate = parsedIdentity?.fileDate
-                    ?? localDate.flatMap { makeLocalDateFormatter().date(from: $0) }
+                    ?? localDate.flatMap { localDateFormatter.date(from: $0) }
                     ?? Calendar.current.startOfDay(for: from)
                 let sessionNumber = parsedIdentity?.sessionNumber ?? Int(id)
                 let done = sqlite3_column_type(statement, 5) != SQLITE_NULL && sqlite3_column_int(statement, 5) != 0
@@ -100,9 +103,10 @@ enum SidebarSelfDataStore {
     }
 
     static func loadSpendingTransactions(from sqliteURL: URL) -> [SidebarSelfDataSpendingTransaction]? {
-        withDatabase(sqliteURL) { database in
+        let utcDateFormatter = makeUTCDateFormatter()
+        return withDatabase(sqliteURL) { database in
             query(database, sql: "select created_at_utc, amount_minor from spending_transactions") { statement in
-                guard let created = dateColumn(statement, 0) else { return nil }
+                guard let created = dateColumn(statement, 0, formatter: utcDateFormatter) else { return nil }
                 let amountMinor = sqlite3_column_double(statement, 1)
                 guard amountMinor < 0 else { return nil }
                 return SidebarSelfDataSpendingTransaction(
@@ -114,6 +118,7 @@ enum SidebarSelfDataStore {
     }
 
     static func loadCurrentPeriod(from sqliteURL: URL, now: Date) -> SidebarSelfDataPeriod? {
+        let localDateFormatter = makeLocalDateFormatter()
         guard let periods = withDatabase(sqliteURL, { database in
             query(
                 database,
@@ -123,7 +128,7 @@ enum SidebarSelfDataStore {
                     order by "from" desc
                     """,
             ) { statement in
-                periodColumn(statement, now: now)
+                periodColumn(statement, formatter: localDateFormatter)
             }
         }) else {
             return nil
@@ -200,18 +205,25 @@ enum SidebarSelfDataStore {
         return String(cString: text)
     }
 
-    private static func dateColumn(_ statement: OpaquePointer, _ column: Int32) -> Date? {
-        textColumn(statement, column).flatMap { makeUTCDateFormatter().date(from: $0) }
+    private static func dateColumn(
+        _ statement: OpaquePointer,
+        _ column: Int32,
+        formatter: ISO8601DateFormatter
+    ) -> Date? {
+        textColumn(statement, column).flatMap { formatter.date(from: $0) }
     }
 
-    private static func parseScheduleIdentity(_ identity: String) -> (fileDate: Date, sessionNumber: Int)? {
+    private static func parseScheduleIdentity(
+        _ identity: String,
+        formatter: DateFormatter
+    ) -> (fileDate: Date, sessionNumber: Int)? {
         let pattern = #"^(\d{4}-\d{2}-\d{2}) Session ([0-9]+)$"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
         let nsRange = NSRange(identity.startIndex ..< identity.endIndex, in: identity)
         guard let match = regex.firstMatch(in: identity, range: nsRange),
               let dateRange = Range(match.range(at: 1), in: identity),
               let sessionRange = Range(match.range(at: 2), in: identity),
-              let fileDate = makeLocalDateFormatter().date(from: String(identity[dateRange])),
+              let fileDate = formatter.date(from: String(identity[dateRange])),
               let sessionNumber = Int(identity[sessionRange])
         else {
             return nil
@@ -219,12 +231,15 @@ enum SidebarSelfDataStore {
         return (fileDate, sessionNumber)
     }
 
-    private static func periodColumn(_ statement: OpaquePointer, now _: Date) -> SidebarSelfDataPeriod? {
+    private static func periodColumn(
+        _ statement: OpaquePointer,
+        formatter: DateFormatter
+    ) -> SidebarSelfDataPeriod? {
         guard let name = textColumn(statement, 1),
               let fromRaw = textColumn(statement, 2),
               let toRaw = textColumn(statement, 3),
-              let from = makeLocalDateFormatter().date(from: fromRaw),
-              let to = makeLocalDateFormatter().date(from: toRaw)
+              let from = formatter.date(from: fromRaw),
+              let to = formatter.date(from: toRaw)
         else {
             return nil
         }
