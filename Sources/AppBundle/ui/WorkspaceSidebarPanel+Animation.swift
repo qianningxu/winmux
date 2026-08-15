@@ -14,8 +14,14 @@ extension WorkspaceSidebarPanel {
         debugWorkspaceSidebarHoverLog("expandSidebar panel=\(monitorScopeId) target=\(expandedWidth) visible=\(viewModel.workspaceSidebarVisibleWidth) frame=\(frame) mouse=\(NSEvent.mouseLocation)")
         pendingExpand?.cancel()
         pendingExpand = nil
+        guard !viewModel.isWorkspaceSidebarExpanded ||
+              viewModel.workspaceSidebarVisibleWidth != expandedWidth
+        else {
+            updateMousePassthrough()
+            return
+        }
         NotificationCenter.default.post(name: workspaceSidebarWillExpandNotification, object: self)
-        viewModel.isWorkspaceSidebarExpanded = true
+        viewModel.setIfChanged(\.isWorkspaceSidebarExpanded, to: true)
         if !isVisible {
             refresh()
         }

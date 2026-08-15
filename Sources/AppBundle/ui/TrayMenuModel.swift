@@ -30,6 +30,16 @@ public final class TrayMenuModel: ObservableObject {
     @Published var workspaceSidebarHoveredWorkspaceName: String? = nil
     @Published var experimentalUISettings: ExperimentalUISettings = ExperimentalUISettings()
 
+    @discardableResult
+    func setIfChanged<Value: Equatable>(
+        _ keyPath: ReferenceWritableKeyPath<TrayMenuModel, Value>,
+        to newValue: Value
+    ) -> Bool {
+        guard self[keyPath: keyPath] != newValue else { return false }
+        self[keyPath: keyPath] = newValue
+        return true
+    }
+
     var visibleWorkspaceSidebarWorkspaces: [WorkspaceSidebarWorkspaceViewModel] {
         let selectedScopeId = workspaceSidebarTabListScopeId(
             selectedScopeId: workspaceSidebarSelectedMonitorScopeId,
@@ -47,8 +57,11 @@ public final class TrayMenuModel: ObservableObject {
 
 @MainActor func updateTrayText() {
     let focus = focus
-    TrayMenuModel.shared.trayText = activeMode?.takeIf { $0 != mainModeId }?.first.map { "(\($0.uppercased()))" } ?? "A"
-    TrayMenuModel.shared.workspaces = userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace).filter {
+    TrayMenuModel.shared.setIfChanged(
+        \.trayText,
+        to: activeMode?.takeIf { $0 != mainModeId }?.first.map { "(\($0.uppercased()))" } ?? "A"
+    )
+    let workspaces = userFacingWorkspaces(Workspace.all, focusedWorkspace: focus.workspace).filter {
         $0.projectId == activeWorkspaceProjectId(for: $0.workspaceMonitor)
     }.map {
         let apps = $0.allLeafWindowsRecursive.map { $0.app.name?.takeIf { !$0.isEmpty } }.filterNotNil().toSet()
@@ -68,8 +81,9 @@ public final class TrayMenuModel: ObservableObject {
             hasFullscreenWindows: hasFullscreenWindows,
         )
     }
+    TrayMenuModel.shared.setIfChanged(\.workspaces, to: workspaces)
     let items = activeMode?.takeIf { $0 != mainModeId }?.first.map {
         TrayItem(type: .mode, name: $0.uppercased(), isActive: true, hasFullscreenWindows: false)
     }.map { [$0] } ?? []
-    TrayMenuModel.shared.trayItems = items
+    TrayMenuModel.shared.setIfChanged(\.trayItems, to: items)
 }

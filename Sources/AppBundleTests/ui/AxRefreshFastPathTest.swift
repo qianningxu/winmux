@@ -99,6 +99,40 @@ final class AxRefreshFastPathTest: XCTestCase {
     }
 
     @MainActor
+    func testWindowInventoryReconciliationSchedulesWhenIdle() async throws {
+        setUpWorkspacesForTests()
+        var scheduledEvents: [String] = []
+        setScheduledRefreshOverrideForTests { event, _ in
+            scheduledEvents.append(event.description)
+        }
+        defer { setScheduledRefreshOverrideForTests(nil) }
+
+        XCTAssertTrue(scheduleWindowInventoryReconciliationIfIdle())
+        try await waitForScheduledRefreshForTests()
+
+        XCTAssertEqual(scheduledEvents, [RefreshSessionEvent.windowInventoryReconciliation.description])
+    }
+
+    @MainActor
+    func testWindowInventoryReconciliationDoesNotReplaceActiveRefresh() async throws {
+        setUpWorkspacesForTests()
+        var continuation: CheckedContinuation<Void, Never>?
+        setScheduledRefreshOverrideForTests { _, _ in
+            await withCheckedContinuation { continuation = $0 }
+        }
+        defer { setScheduledRefreshOverrideForTests(nil) }
+
+        scheduleRefreshSession(.menuBarButton)
+        while continuation == nil {
+            await Task.yield()
+        }
+
+        XCTAssertFalse(scheduleWindowInventoryReconciliationIfIdle())
+        continuation?.resume()
+        try await waitForScheduledRefreshForTests()
+    }
+
+    @MainActor
     func testNativeMinimizeRefreshKeepsActiveAdjacentEmptyWorkspaceForReuse() async throws {
         setUpWorkspacesForTests()
         TrayMenuModel.shared.isEnabled = true

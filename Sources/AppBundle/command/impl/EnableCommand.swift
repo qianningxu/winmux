@@ -20,6 +20,7 @@ struct EnableCommand: Command {
             return !args.failIfNoop
         }
         TrayMenuModel.shared.isEnabled = newState
+        GlobalObserver.setWindowInventoryPollingEnabled(newState)
         if !newState {
             TrayMenuModel.shared.isWorkspaceSidebarExpanded = false
             clearPendingWindowDragIntent()

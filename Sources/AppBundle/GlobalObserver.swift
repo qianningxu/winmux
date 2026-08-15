@@ -6,8 +6,7 @@ enum GlobalObserver {
     @MainActor private static var isInitialized = false
     @MainActor private static var notificationObserverTokens: [NSObjectProtocol] = []
     @MainActor private static var eventMonitorTokens: [Any] = []
-    @MainActor private static var windowInventoryTimer: Timer?
-    @MainActor private static var isWindowInventoryCheckInFlight = false
+    @MainActor private static var windowInventoryPollController: WindowInventoryPollController?
 
     private static func onNotif(_ notification: Notification) {
         // Third line of defence against lock screen window. See: closedWindowsCache
@@ -17,6 +16,15 @@ enum GlobalObserver {
         }
         let notifName = notification.name.rawValue
         Task { @MainActor in
+            if notifName == NSWorkspace.didWakeNotification.rawValue ||
+                notifName == NSWorkspace.screensDidWakeNotification.rawValue
+            {
+                if TrayMenuModel.shared.isEnabled {
+                    windowInventoryPollController?.start()
+                }
+            } else {
+                windowInventoryPollController?.noteActivity()
+            }
             if !TrayMenuModel.shared.isEnabled { return }
             if notifName == NSWorkspace.didActivateApplicationNotification.rawValue {
                 scheduleRefreshSession(.globalObserver(notifName), optimisticallyPreLayoutWorkspaces: true)
@@ -29,6 +37,7 @@ enum GlobalObserver {
     private static func onHideApp(_ notification: Notification) {
         let notifName = notification.name.rawValue
         Task { @MainActor in
+            windowInventoryPollController?.noteActivity()
             guard let token: RunSessionGuard = .isServerEnabled else { return }
             try await runLightSession(.globalObserver(notifName), token) {
                 if config.automaticallyUnhideMacosHiddenApps {
@@ -111,8 +120,14 @@ enum GlobalObserver {
                 // Detect close button clicks for unfocused windows. Yes, kAXUIElementDestroyedNotification is that unreliable
                 //  And trigger new window detection that could be delayed due to mouseDown event
                 default:
-                    scheduleRefreshSession(.globalObserverLeftMouseUp)
+                    windowInventoryPollController?.noteActivity()
             }
+        }
+    }
+
+    private static func onSystemSleep(_: Notification) {
+        Task { @MainActor in
+            windowInventoryPollController?.stop()
         }
     }
 
@@ -130,19 +145,31 @@ enum GlobalObserver {
         notificationObserverTokens.append(nc.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main, using: onNotif))
         notificationObserverTokens.append(nc.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main, using: onNotif))
         notificationObserverTokens.append(nc.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main, using: onNotif))
+        notificationObserverTokens.append(nc.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main, using: onSystemSleep))
+        notificationObserverTokens.append(nc.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main, using: onSystemSleep))
 
-        let inventoryTimer = Timer(timeInterval: 0.35, repeats: true) { _ in
-            Task { @MainActor in
-                guard TrayMenuModel.shared.isEnabled, !isWindowInventoryCheckInFlight else { return }
-                isWindowInventoryCheckInFlight = true
-                defer { isWindowInventoryCheckInFlight = false }
-                if await MacApp.hasWindowInventoryChanged() {
-                    scheduleWindowInventoryReconciliationIfIdle()
+        let pollController = WindowInventoryPollController(
+            scheduler: { delay, tolerance, operation in
+                let timer = Timer(timeInterval: delay, repeats: false) { _ in
+                    Task { @MainActor in
+                        await operation()
+                    }
                 }
+                timer.tolerance = tolerance
+                RunLoop.main.add(timer, forMode: .common)
+                return { timer.invalidate() }
+            },
+            checkInventory: {
+                await MacApp.hasWindowInventoryChanged()
+            },
+            reconcileIfIdle: {
+                scheduleWindowInventoryReconciliationIfIdle()
             }
+        )
+        windowInventoryPollController = pollController
+        if TrayMenuModel.shared.isEnabled {
+            pollController.start()
         }
-        RunLoop.main.add(inventoryTimer, forMode: .common)
-        windowInventoryTimer = inventoryTimer
 
         retainEventMonitor(NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { event in
             // todo reduce number of refreshSession in the callback
@@ -205,5 +232,19 @@ enum GlobalObserver {
     @MainActor private static func retainEventMonitor(_ monitor: Any?) {
         guard let monitor else { return }
         eventMonitorTokens.append(monitor)
+    }
+
+    @MainActor
+    static func noteWindowInventoryActivity() {
+        windowInventoryPollController?.noteActivity()
+    }
+
+    @MainActor
+    static func setWindowInventoryPollingEnabled(_ isEnabled: Bool) {
+        if isEnabled {
+            windowInventoryPollController?.start()
+        } else {
+            windowInventoryPollController?.stop()
+        }
     }
 }

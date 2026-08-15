@@ -94,21 +94,27 @@ final class WorkspaceSidebarPanel: NSPanelHud {
 
     static func refreshAll() {
         WorkspaceCanvasBackgroundPanel.refreshAll()
-        let activeMonitorScopeIds = Set(workspaceSidebarResolvedPanelMonitors().map { workspaceSidebarMonitorScopeId(for: $0) })
-        for monitor in workspaceSidebarResolvedPanelMonitors() {
+        guard TrayMenuModel.shared.isEnabled, config.workspaceSidebar.enabled else {
+            removeCachedPanels()
+            return
+        }
+        let monitors = workspaceSidebarResolvedPanelMonitors()
+        let activeMonitorScopeIds = Set(monitors.map { workspaceSidebarMonitorScopeId(for: $0) })
+        for monitor in monitors {
             let scopeId = workspaceSidebarMonitorScopeId(for: monitor)
             let panel = panelsByMonitorScopeId[scopeId] ?? WorkspaceSidebarPanel(monitor: monitor)
             panelsByMonitorScopeId[scopeId] = panel
             panel.syncModelFromShared()
             panel.refresh(on: monitor)
         }
-        for (scopeId, panel) in panelsByMonitorScopeId where !activeMonitorScopeIds.contains(scopeId) {
-            panel.resetHiddenSidebarState()
+        let inactiveScopeIds = panelsByMonitorScopeId.keys.filter { !activeMonitorScopeIds.contains($0) }
+        for scopeId in inactiveScopeIds {
+            panelsByMonitorScopeId.removeValue(forKey: scopeId)?.prepareForRemoval()
         }
     }
 
     static func syncVisiblePanelModelsFromShared() {
-        for panel in panelsByMonitorScopeId.values {
+        for panel in visiblePanels {
             panel.syncModelFromShared()
         }
     }
@@ -117,37 +123,30 @@ final class WorkspaceSidebarPanel: NSPanelHud {
         workspaceSidebarDropTargets = []
         activeInlineTextEditingPanel = nil
         shared.resetForTests()
-        for panel in panelsByMonitorScopeId.values {
-            panel.resetForTests()
-        }
+        removeCachedPanels()
+        WorkspaceCanvasBackgroundPanel.removeAll()
+    }
+
+    private static func removeCachedPanels() {
+        let retainedPanels = Array(panelsByMonitorScopeId.values)
         panelsByMonitorScopeId = [:]
-        WorkspaceCanvasBackgroundPanel.hideAll()
+        for panel in retainedPanels {
+            panel.prepareForRemoval()
+        }
     }
 
     func syncModelFromShared() {
-        let visibleWidth = viewModel.workspaceSidebarVisibleWidth
-        let isExpanded = viewModel.isWorkspaceSidebarExpanded
-        let isPinnedExpanded = viewModel.isWorkspaceSidebarPinnedExpanded
-        viewModel.trayText = TrayMenuModel.shared.trayText
-        viewModel.trayItems = TrayMenuModel.shared.trayItems
-        viewModel.isEnabled = TrayMenuModel.shared.isEnabled
-        viewModel.workspaces = TrayMenuModel.shared.workspaces
-        viewModel.workspaceSidebarWorkspaces = TrayMenuModel.shared.workspaceSidebarWorkspaces
-        viewModel.workspaceSidebarProjects = TrayMenuModel.shared.workspaceSidebarProjects
-        viewModel.workspaceSidebarActiveProjectId = resolvedLocalActiveProjectId()
-        viewModel.workspaceSidebarMonitorScopes = TrayMenuModel.shared.workspaceSidebarMonitorScopes
-        viewModel.workspaceSidebarSelectedMonitorScopeId = resolvedLocalSelectedMonitorScopeId()
-        viewModel.workspaceSidebarTargetMonitorScopeId = monitorScopeId
-        viewModel.workspaceSidebarFocusedMonitorScopeId = TrayMenuModel.shared.workspaceSidebarFocusedMonitorScopeId
-        viewModel.workspaceSidebarShowsMonitorSelector = TrayMenuModel.shared.workspaceSidebarShowsMonitorSelector
-        viewModel.workspaceSidebarDropPreview = TrayMenuModel.shared.workspaceSidebarDropPreview
-        viewModel.windowTabStrips = TrayMenuModel.shared.windowTabStrips
-        viewModel.workspaceSidebarTopPadding = TrayMenuModel.shared.workspaceSidebarTopPadding
-        viewModel.workspaceSidebarHoveredWorkspaceName = resolvedLocalHoveredWorkspaceName()
-        viewModel.experimentalUISettings = TrayMenuModel.shared.experimentalUISettings
-        viewModel.workspaceSidebarVisibleWidth = visibleWidth
-        viewModel.isWorkspaceSidebarExpanded = isExpanded
-        viewModel.isWorkspaceSidebarPinnedExpanded = isPinnedExpanded
+        viewModel.setIfChanged(\.workspaceSidebarWorkspaces, to: TrayMenuModel.shared.workspaceSidebarWorkspaces)
+        viewModel.setIfChanged(\.workspaceSidebarProjects, to: TrayMenuModel.shared.workspaceSidebarProjects)
+        viewModel.setIfChanged(\.workspaceSidebarActiveProjectId, to: resolvedLocalActiveProjectId())
+        viewModel.setIfChanged(\.workspaceSidebarMonitorScopes, to: TrayMenuModel.shared.workspaceSidebarMonitorScopes)
+        viewModel.setIfChanged(\.workspaceSidebarSelectedMonitorScopeId, to: resolvedLocalSelectedMonitorScopeId())
+        viewModel.setIfChanged(\.workspaceSidebarTargetMonitorScopeId, to: monitorScopeId)
+        viewModel.setIfChanged(\.workspaceSidebarFocusedMonitorScopeId, to: TrayMenuModel.shared.workspaceSidebarFocusedMonitorScopeId)
+        viewModel.setIfChanged(\.workspaceSidebarShowsMonitorSelector, to: TrayMenuModel.shared.workspaceSidebarShowsMonitorSelector)
+        viewModel.setIfChanged(\.workspaceSidebarDropPreview, to: TrayMenuModel.shared.workspaceSidebarDropPreview)
+        viewModel.setIfChanged(\.workspaceSidebarTopPadding, to: TrayMenuModel.shared.workspaceSidebarTopPadding)
+        viewModel.setIfChanged(\.workspaceSidebarHoveredWorkspaceName, to: resolvedLocalHoveredWorkspaceName())
     }
 
     private func resolvedLocalActiveProjectId() -> WorkspaceProjectId {
@@ -188,17 +187,31 @@ final class WorkspaceSidebarPanel: NSPanelHud {
         commandExpansionLocksCollapse = false
         shouldLockNextSidebarSearchExpansion = false
         bufferedCommandSidebarSearchKeys = []
-        for monitor in commandMouseUnlockMonitors {
-            NSEvent.removeMonitor(monitor)
-        }
-        commandMouseUnlockMonitors = []
-        commandMouseUnlockPoint = nil
+        removeCommandMouseUnlockMonitors()
         lastEdgeTrapSample = nil
         edgeTrapStartedAt = nil
         edgeTrapSuppressedUntil = 0
         splitBrowseCollapseSuppressedUntil = .distantPast
         resetHiddenSidebarState()
         ignoresMouseEvents = false
+    }
+
+    private func prepareForRemoval() {
+        endInlineTextEditing()
+        removeInlineTextEditingEventMonitors()
+        removeInlineTextEditingKeyEventTap()
+        removeCommandMouseUnlockMonitors()
+        removeMenuTrackingObservers()
+        resetHiddenSidebarState()
+        close()
+    }
+
+    func removeCommandMouseUnlockMonitors() {
+        for monitor in commandMouseUnlockMonitors {
+            NSEvent.removeMonitor(monitor)
+        }
+        commandMouseUnlockMonitors = []
+        commandMouseUnlockPoint = nil
     }
 
     override func becomeKey() {

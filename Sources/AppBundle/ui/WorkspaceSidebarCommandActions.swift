@@ -73,11 +73,7 @@ private func installWorkspaceSidebarCommandMouseUnlockMonitor(_ panel: Workspace
 
 @MainActor
 private func removeWorkspaceSidebarCommandMouseUnlockMonitor(_ panel: WorkspaceSidebarPanel) {
-    for monitor in panel.commandMouseUnlockMonitors {
-        NSEvent.removeMonitor(monitor)
-    }
-    panel.commandMouseUnlockMonitors = []
-    panel.commandMouseUnlockPoint = nil
+    panel.removeCommandMouseUnlockMonitors()
 }
 
 private let workspaceSidebarCommandMouseUnlockDistance: CGFloat = 1

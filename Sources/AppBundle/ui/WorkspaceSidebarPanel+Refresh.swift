@@ -38,9 +38,9 @@ extension WorkspaceSidebarPanel {
     func resetHiddenSidebarState() {
         stopHoverMonitoring()
         workspaceSidebarDropTargets = []
-        TrayMenuModel.shared.workspaceSidebarDropPreview = nil
-        TrayMenuModel.shared.workspaceSidebarHoveredWorkspaceName = nil
-        viewModel.workspaceSidebarVisibleWidth = 0
+        TrayMenuModel.shared.setIfChanged(\.workspaceSidebarDropPreview, to: nil)
+        TrayMenuModel.shared.setIfChanged(\.workspaceSidebarHoveredWorkspaceName, to: nil)
+        viewModel.setIfChanged(\.workspaceSidebarVisibleWidth, to: 0)
         orderOut(nil)
     }
 }

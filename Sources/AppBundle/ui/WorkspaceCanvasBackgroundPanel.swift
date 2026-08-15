@@ -28,6 +28,10 @@ final class WorkspaceCanvasBackgroundPanel: NSPanelHud {
     }
 
     static func refreshAll() {
+        guard TrayMenuModel.shared.isEnabled, config.workspaceSidebar.enabled else {
+            removeAll()
+            return
+        }
         let monitors = workspaceSidebarResolvedPanelMonitors()
         let activeMonitorScopeIds = Set(monitors.map { workspaceSidebarMonitorScopeId(for: $0) })
         for monitor in monitors {
@@ -36,14 +40,23 @@ final class WorkspaceCanvasBackgroundPanel: NSPanelHud {
             panelsByMonitorScopeId[scopeId] = panel
             panel.refresh(on: monitor)
         }
-        for (scopeId, panel) in panelsByMonitorScopeId where !activeMonitorScopeIds.contains(scopeId) {
-            panel.orderOut(nil)
+        let inactiveScopeIds = panelsByMonitorScopeId.keys.filter { !activeMonitorScopeIds.contains($0) }
+        for scopeId in inactiveScopeIds {
+            panelsByMonitorScopeId.removeValue(forKey: scopeId)?.close()
         }
     }
 
     static func hideAll() {
         for panel in panelsByMonitorScopeId.values {
             panel.orderOut(nil)
+        }
+    }
+
+    static func removeAll() {
+        let retainedPanels = Array(panelsByMonitorScopeId.values)
+        panelsByMonitorScopeId = [:]
+        for panel in retainedPanels {
+            panel.close()
         }
     }
 

@@ -13,6 +13,13 @@ extension WorkspaceSidebarPanel {
         ]
     }
 
+    func removeMenuTrackingObservers() {
+        for observer in menuTrackingObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        menuTrackingObservers = []
+    }
+
     func beginMenuTrackingIfNeeded() {
         guard isVisible,
               viewModel.workspaceSidebarVisibleWidth > 0,

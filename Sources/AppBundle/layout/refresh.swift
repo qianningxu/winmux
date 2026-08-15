@@ -304,6 +304,11 @@ func refreshObs(_: AXObserver, _: AXUIElement, notif: CFString, _: UnsafeMutable
     }
     Task { @MainActor in
         if !TrayMenuModel.shared.isEnabled { return }
+        if notif == kAXWindowCreatedNotification as String ||
+            notif == kAXUIElementDestroyedNotification as String
+        {
+            GlobalObserver.noteWindowInventoryActivity()
+        }
         scheduleRefreshSession(.ax(notif))
     }
 }
