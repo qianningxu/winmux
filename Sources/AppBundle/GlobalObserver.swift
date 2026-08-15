@@ -7,6 +7,10 @@ enum GlobalObserver {
     @MainActor private static var notificationObserverTokens: [NSObjectProtocol] = []
     @MainActor private static var eventMonitorTokens: [Any] = []
     @MainActor private static var windowInventoryPollController: WindowInventoryPollController?
+    @MainActor private static var didCompleteStartupRefresh = false
+    @MainActor private static var isWindowInventoryPollingRequested = false
+    @MainActor private static var isWindowInventoryPollingStarted = false
+    @MainActor private static var isWindowInventoryPollingSuspendedForSleep = false
 
     private static func onNotif(_ notification: Notification) {
         // Third line of defence against lock screen window. See: closedWindowsCache
@@ -19,9 +23,7 @@ enum GlobalObserver {
             if notifName == NSWorkspace.didWakeNotification.rawValue ||
                 notifName == NSWorkspace.screensDidWakeNotification.rawValue
             {
-                if TrayMenuModel.shared.isEnabled {
-                    windowInventoryPollController?.start()
-                }
+                isWindowInventoryPollingSuspendedForSleep = false
             } else {
                 windowInventoryPollController?.noteActivity()
             }
@@ -31,6 +33,7 @@ enum GlobalObserver {
             } else {
                 scheduleRefreshSession(.globalObserver(notifName))
             }
+            startWindowInventoryPollingIfReady()
         }
     }
 
@@ -127,6 +130,8 @@ enum GlobalObserver {
 
     private static func onSystemSleep(_: Notification) {
         Task { @MainActor in
+            isWindowInventoryPollingSuspendedForSleep = true
+            isWindowInventoryPollingStarted = false
             windowInventoryPollController?.stop()
         }
     }
@@ -167,9 +172,7 @@ enum GlobalObserver {
             }
         )
         windowInventoryPollController = pollController
-        if TrayMenuModel.shared.isEnabled {
-            pollController.start()
-        }
+        startWindowInventoryPollingIfReady()
 
         retainEventMonitor(NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { event in
             // todo reduce number of refreshSession in the callback
@@ -241,10 +244,37 @@ enum GlobalObserver {
 
     @MainActor
     static func setWindowInventoryPollingEnabled(_ isEnabled: Bool) {
+        isWindowInventoryPollingRequested = isEnabled
         if isEnabled {
-            windowInventoryPollController?.start()
+            startWindowInventoryPollingIfReady()
         } else {
+            isWindowInventoryPollingStarted = false
             windowInventoryPollController?.stop()
         }
+    }
+
+    @MainActor
+    static func completeStartupRefreshAndSetWindowInventoryPollingEnabled(_ isEnabled: Bool) {
+        didCompleteStartupRefresh = true
+        setWindowInventoryPollingEnabled(isEnabled)
+    }
+
+    @MainActor
+    static func refreshSessionsDidBecomeIdle() {
+        startWindowInventoryPollingIfReady()
+    }
+
+    @MainActor
+    private static func startWindowInventoryPollingIfReady() {
+        guard isWindowInventoryPollingRequested,
+              didCompleteStartupRefresh,
+              !isWindowInventoryPollingStarted,
+              !isWindowInventoryPollingSuspendedForSleep,
+              TrayMenuModel.shared.isEnabled,
+              refreshSessionsAreIdle(),
+              let windowInventoryPollController
+        else { return }
+        isWindowInventoryPollingStarted = true
+        windowInventoryPollController.start()
     }
 }

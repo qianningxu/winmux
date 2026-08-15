@@ -12,7 +12,7 @@ final class MacApp: AbstractApp {
     private let axApp: ThreadGuardedValue<AXUIElement>
     private let appAxSubscriptions: ThreadGuardedValue<[AxSubscription]> // keep subscriptions in memory
     private let windows: ThreadGuardedValue<[UInt32: AxWindow]> = .init([:])
-    private var lastObservedAxWindowsCount = 0
+    private var lastObservedAxWindowIds: Set<UInt32> = []
     var lastNativeFocusedWindowId: UInt32? = nil
     private var thread: Thread?
     private var setFrameJobs: [UInt32: RunLoopJob] = [:]
@@ -141,7 +141,7 @@ final class MacApp: AbstractApp {
                 logicalWindowsCount: logicalWindowCount,
             )
         debugFocusLog(
-            "MacApp.nativeFocus app=\(nsApp.localizedName ?? rawAppBundleId ?? String(pid)) target=\(windowId) lastNative=\(lastNativeFocusedWindowId?.description ?? "nil") logicalWindowsCount=\(logicalWindowCount) axWindowsCount=\(lastObservedAxWindowsCount) strategy=\(useActivationOnly ? "activate" : "ax-focus")"
+            "MacApp.nativeFocus app=\(nsApp.localizedName ?? rawAppBundleId ?? String(pid)) target=\(windowId) lastNative=\(lastNativeFocusedWindowId?.description ?? "nil") logicalWindowsCount=\(logicalWindowCount) axWindowsCount=\(lastObservedAxWindowIds.count) strategy=\(useActivationOnly ? "activate" : "ax-focus")"
         )
         if useActivationOnly
         {
@@ -188,12 +188,20 @@ final class MacApp: AbstractApp {
         }
     }
 
+    private func getAxWindowIds() async throws -> Set<UInt32>? {
+        try await thread?.runInLoop { [axApp] job in
+            axApp.threadGuarded.get(Ax.windowsAttr).map { Set($0.lazy.map(\.windowId)) }
+        }
+    }
+
     @MainActor
     static func hasWindowInventoryChanged() async -> Bool {
         for app in allAppsMap.values where !app.nsApp.isTerminated {
-            if let actualCount = try? await app.getAxWindowsCount(),
-               actualCount != app.lastObservedAxWindowsCount
-            {
+            let actualWindowIds = try? await app.getAxWindowIds()
+            if windowInventoryIdentityChanged(
+                actualWindowIds: actualWindowIds,
+                lastObservedWindowIds: app.lastObservedAxWindowIds
+            ) {
                 return true
             }
         }
@@ -339,7 +347,7 @@ final class MacApp: AbstractApp {
             return []
         }
         guard let thread else { return [] }
-        let (alive, dead, axWindowsCount) = try await thread.runInLoop { [nsApp, windows, axApp] (job) -> ([UInt32], [UInt32], Int) in
+        let (alive, dead, axWindowIds) = try await thread.runInLoop { [nsApp, windows, axApp] (job) -> ([UInt32], [UInt32], Set<UInt32>) in
             var alive: [UInt32: AxWindow] = windows.threadGuarded
             var dead = [UInt32: AxWindow]()
             // Second line of defence against lock screen. See the first line of defence: closedWindowsCache
@@ -358,9 +366,9 @@ final class MacApp: AbstractApp {
             }
 
             windows.threadGuarded = alive
-            return (Array(alive.keys), Array(dead.keys), axWindows.count)
+            return (Array(alive.keys), Array(dead.keys), Set(axWindows.lazy.map(\.windowId)))
         }
-        lastObservedAxWindowsCount = axWindowsCount
+        lastObservedAxWindowIds = axWindowIds
         for windowId in dead {
             setFrameJobs.removeValue(forKey: windowId)?.cancel()
         }
@@ -395,6 +403,13 @@ final class MacApp: AbstractApp {
             try? body(window.ax, job)
         } ?? .cancelled
     }
+}
+
+func windowInventoryIdentityChanged(
+    actualWindowIds: Set<UInt32>?,
+    lastObservedWindowIds: Set<UInt32>
+) -> Bool {
+    actualWindowIds.map { $0 != lastObservedWindowIds } ?? false
 }
 
 func shouldUseActivationOnlyForNativeFocus(

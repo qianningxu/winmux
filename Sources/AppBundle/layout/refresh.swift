@@ -5,6 +5,9 @@ import Common
 private var activeRefreshTask: Task<(), any Error>? = nil
 
 @MainActor
+private var activeRefreshSessionDepth = 0
+
+@MainActor
 private var activeScheduledRefreshEvent: RefreshSessionEvent? = nil
 
 @MainActor
@@ -19,9 +22,34 @@ private var refreshOverrideForTests: (@MainActor @Sendable () async throws -> Vo
 @MainActor
 private var normalizeLayoutReasonOverrideForTests: (@MainActor @Sendable () async throws -> Void)? = nil
 
+@MainActor
+func refreshSessionsAreIdle() -> Bool {
+    activeRefreshTask == nil && activeRefreshSessionDepth == 0
+}
+
+@MainActor
+private func beginRefreshSessionActivity() {
+    activeRefreshSessionDepth += 1
+}
+
+@MainActor
+private func endRefreshSessionActivity() {
+    precondition(activeRefreshSessionDepth > 0)
+    activeRefreshSessionDepth -= 1
+    if refreshSessionsAreIdle() {
+        GlobalObserver.refreshSessionsDidBecomeIdle()
+    }
+}
+
 private func isAxGeometryRefreshEvent(_ event: RefreshSessionEvent) -> Bool {
     guard case .ax(let notif) = event else { return false }
     return notif == kAXMovedNotification as String || notif == kAXResizedNotification as String
+}
+
+func shouldNoteWindowInventoryActivity(forAxNotification notification: String) -> Bool {
+    notification == kAXWindowCreatedNotification as String ||
+        notification == kAXUIElementDestroyedNotification as String ||
+        notification == kAXFocusedWindowChangedNotification as String
 }
 
 private func shouldDropScheduledRefresh(_ newEvent: RefreshSessionEvent, activeEvent: RefreshSessionEvent?) -> Bool {
@@ -64,11 +92,13 @@ func scheduleRefreshSession(
     activeScheduledRefreshEvent = event
     let override = scheduledRefreshOverrideForTests
     activeRefreshTask = Task { @MainActor in
+        beginRefreshSessionActivity()
         defer {
             if activeScheduledRefreshGeneration == generation {
                 activeRefreshTask = nil
                 activeScheduledRefreshEvent = nil
             }
+            endRefreshSessionActivity()
         }
         do {
             try checkCancellation()
@@ -86,7 +116,7 @@ func scheduleRefreshSession(
 @MainActor
 @discardableResult
 func scheduleWindowInventoryReconciliationIfIdle() -> Bool {
-    guard activeRefreshTask == nil else { return false }
+    guard refreshSessionsAreIdle() else { return false }
     scheduleRefreshSession(.windowInventoryReconciliation)
     return true
 }
@@ -100,6 +130,8 @@ func runRefreshSessionBlocking(
     let state = signposter.beginInterval(#function, "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
     defer { signposter.endInterval(#function, state) }
     if !TrayMenuModel.shared.isEnabled { return }
+    beginRefreshSessionActivity()
+    defer { endRefreshSessionActivity() }
     let focusSnapshot = captureRefreshSessionFocusSnapshot()
     debugFocusLog("runRefreshSessionBlocking begin event=\(event) snapshot=\(debugDescribe(focusSnapshot))")
     try await $refreshSessionEvent.withValue(event) {
@@ -181,6 +213,8 @@ func runLightSession<T>(
     defer { signposter.endInterval(#function, state) }
     activeRefreshTask?.cancel() // Give priority to runSession
     activeRefreshTask = nil
+    beginRefreshSessionActivity()
+    defer { endRefreshSessionActivity() }
     let focusSnapshot = captureRefreshSessionFocusSnapshot()
     debugFocusLog("runLightSession begin event=\(event) snapshot=\(debugDescribe(focusSnapshot))")
     return try await $refreshSessionEvent.withValue(event) {
@@ -304,9 +338,7 @@ func refreshObs(_: AXObserver, _: AXUIElement, notif: CFString, _: UnsafeMutable
     }
     Task { @MainActor in
         if !TrayMenuModel.shared.isEnabled { return }
-        if notif == kAXWindowCreatedNotification as String ||
-            notif == kAXUIElementDestroyedNotification as String
-        {
+        if shouldNoteWindowInventoryActivity(forAxNotification: notif) {
             GlobalObserver.noteWindowInventoryActivity()
         }
         scheduleRefreshSession(.ax(notif))

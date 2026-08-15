@@ -20,7 +20,7 @@ struct EnableCommand: Command {
             return !args.failIfNoop
         }
         TrayMenuModel.shared.isEnabled = newState
-        GlobalObserver.setWindowInventoryPollingEnabled(newState)
+        GlobalObserver.setWindowInventoryPollingEnabled(false)
         if !newState {
             TrayMenuModel.shared.isWorkspaceSidebarExpanded = false
             clearPendingWindowDragIntent()
@@ -29,6 +29,7 @@ struct EnableCommand: Command {
         WorkspaceSidebarPanel.refreshAll()
         WindowTabStripPanelController.shared.refresh()
         if newState {
+            defer { GlobalObserver.setWindowInventoryPollingEnabled(true) }
             for workspace in Workspace.all {
                 for window in workspace.allLeafWindowsRecursive where window.isFloating {
                     window.lastFloatingSize = try await window.getAxSize() ?? window.lastFloatingSize

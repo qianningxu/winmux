@@ -50,6 +50,13 @@ final class AxRefreshFastPathTest: XCTestCase {
         XCTAssertFalse(RefreshSessionEvent.ax(kAXMovedNotification as String).canReuseLastAppliedWindowFrames)
     }
 
+    func testWindowInventoryActivityIncludesLifecycleAndFocusNotifications() {
+        XCTAssertTrue(shouldNoteWindowInventoryActivity(forAxNotification: kAXWindowCreatedNotification as String))
+        XCTAssertTrue(shouldNoteWindowInventoryActivity(forAxNotification: kAXUIElementDestroyedNotification as String))
+        XCTAssertTrue(shouldNoteWindowInventoryActivity(forAxNotification: kAXFocusedWindowChangedNotification as String))
+        XCTAssertFalse(shouldNoteWindowInventoryActivity(forAxNotification: kAXMovedNotification as String))
+    }
+
     @MainActor
     func testWindowCreatedStillRunsFullRefreshBarrier() async throws {
         _ = setUpFocusScenario()
@@ -130,6 +137,109 @@ final class AxRefreshFastPathTest: XCTestCase {
         XCTAssertFalse(scheduleWindowInventoryReconciliationIfIdle())
         continuation?.resume()
         try await waitForScheduledRefreshForTests()
+    }
+
+    @MainActor
+    func testCancelledScheduledRefreshRemainsActiveUntilItUnwinds() async throws {
+        _ = setUpFocusScenario()
+        var refreshContinuation: CheckedContinuation<Void, Never>?
+        var didFinishScheduledOverride = false
+        setScheduledRefreshOverrideForTests { _, _ in
+            await withCheckedContinuation { refreshContinuation = $0 }
+            didFinishScheduledOverride = true
+        }
+        defer {
+            refreshContinuation?.resume()
+            setScheduledRefreshOverrideForTests(nil)
+        }
+
+        scheduleRefreshSession(.menuBarButton)
+        while refreshContinuation == nil {
+            await Task.yield()
+        }
+
+        try await runLightSession(.menuBarButton, .forceRun, shouldSchedulePostRefresh: false) {}
+
+        XCTAssertFalse(scheduleWindowInventoryReconciliationIfIdle())
+        refreshContinuation?.resume()
+        refreshContinuation = nil
+        while !didFinishScheduledOverride || !refreshSessionsAreIdle() {
+            await Task.yield()
+        }
+
+        setScheduledRefreshOverrideForTests { _, _ in }
+        XCTAssertTrue(scheduleWindowInventoryReconciliationIfIdle())
+        try await waitForScheduledRefreshForTests()
+    }
+
+    @MainActor
+    func testWindowInventoryReconciliationWaitsForDirectBlockingRefresh() async throws {
+        _ = setUpFocusScenario()
+        var refreshContinuation: CheckedContinuation<Void, Never>?
+        var scheduledEvents: [String] = []
+        setBlockingRefreshOverridesForTests(
+            refresh: {
+                await withCheckedContinuation { refreshContinuation = $0 }
+            },
+            normalizeLayoutReason: {}
+        )
+        setScheduledRefreshOverrideForTests { event, _ in
+            scheduledEvents.append(event.description)
+        }
+        defer {
+            refreshContinuation?.resume()
+            setScheduledRefreshOverrideForTests(nil)
+            setBlockingRefreshOverridesForTests()
+        }
+
+        let blockingRefresh = Task { @MainActor in
+            try await runRefreshSessionBlocking(.windowInventoryReconciliation, layoutWorkspaces: false)
+        }
+        while refreshContinuation == nil {
+            await Task.yield()
+        }
+
+        XCTAssertFalse(scheduleWindowInventoryReconciliationIfIdle())
+        refreshContinuation?.resume()
+        refreshContinuation = nil
+        try await blockingRefresh.value
+
+        XCTAssertTrue(scheduleWindowInventoryReconciliationIfIdle())
+        try await waitForScheduledRefreshForTests()
+        XCTAssertEqual(scheduledEvents, [RefreshSessionEvent.windowInventoryReconciliation.description])
+    }
+
+    @MainActor
+    func testWindowInventoryReconciliationWaitsForOuterLightRefreshAfterNestedBlockingRefresh() async throws {
+        _ = setUpFocusScenario()
+        var refreshContinuation: CheckedContinuation<Void, Never>?
+        var didRejectAfterNestedRefresh = false
+        setBlockingRefreshOverridesForTests(
+            refresh: {
+                await withCheckedContinuation { refreshContinuation = $0 }
+            },
+            normalizeLayoutReason: {}
+        )
+        defer {
+            refreshContinuation?.resume()
+            setBlockingRefreshOverridesForTests()
+        }
+
+        let lightRefresh = Task { @MainActor in
+            try await runLightSession(.menuBarButton, .forceRun, shouldSchedulePostRefresh: false) {
+                try await runRefreshSessionBlocking(.windowInventoryReconciliation, layoutWorkspaces: false)
+                didRejectAfterNestedRefresh = !scheduleWindowInventoryReconciliationIfIdle()
+            }
+        }
+        while refreshContinuation == nil {
+            await Task.yield()
+        }
+
+        XCTAssertFalse(scheduleWindowInventoryReconciliationIfIdle())
+        refreshContinuation?.resume()
+        refreshContinuation = nil
+        try await lightRefresh.value
+        XCTAssertTrue(didRejectAfterNestedRefresh)
     }
 
     @MainActor

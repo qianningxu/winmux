@@ -2,6 +2,11 @@ import Foundation
 
 @MainActor
 final class WindowInventoryPollController {
+    private enum ScheduledWork: Equatable {
+        case checkInventory
+        case retryReconciliation
+    }
+
     typealias ScheduledOperation = @MainActor () async -> Void
     typealias CancelScheduledOperation = @MainActor () -> Void
     typealias Scheduler = @MainActor (
@@ -11,7 +16,8 @@ final class WindowInventoryPollController {
     ) -> CancelScheduledOperation
 
     static let initialDelay: TimeInterval = 0.35
-    static let maximumDelay: TimeInterval = 5
+    static let maximumDelay: TimeInterval = 30
+    static let reconciliationRetryDelay: TimeInterval = initialDelay
 
     private let scheduler: Scheduler
     private let checkInventory: @MainActor () async -> Bool
@@ -20,12 +26,14 @@ final class WindowInventoryPollController {
 
     private var currentDelay = initialDelay
     private var scheduledDeadline: TimeInterval?
+    private var scheduledWork: ScheduledWork?
     private var cancelScheduledOperation: CancelScheduledOperation?
     private var scheduleGeneration: UInt64 = 0
     private var lifecycleGeneration: UInt64 = 0
     private var isRunning = false
     private var isChecking = false
     private var activityWhileChecking = false
+    private var reconciliationPending = false
 
     init(
         scheduler: @escaping Scheduler,
@@ -47,14 +55,15 @@ final class WindowInventoryPollController {
         lifecycleGeneration += 1
         isRunning = true
         currentDelay = Self.initialDelay
-        scheduleCheck(after: currentDelay)
+        schedule(.checkInventory, after: currentDelay)
     }
 
     func stop() {
         lifecycleGeneration += 1
         isRunning = false
         activityWhileChecking = false
-        cancelPendingCheck()
+        reconciliationPending = false
+        cancelScheduledWork()
     }
 
     func noteActivity() {
@@ -63,38 +72,52 @@ final class WindowInventoryPollController {
         if isChecking {
             activityWhileChecking = true
         } else {
-            scheduleCheck(after: currentDelay)
+            let work: ScheduledWork = reconciliationPending ? .retryReconciliation : .checkInventory
+            schedule(work, after: Self.initialDelay)
         }
     }
 
-    private func scheduleCheck(after delay: TimeInterval) {
+    private func schedule(_ work: ScheduledWork, after delay: TimeInterval) {
         guard isRunning else { return }
         let deadline = now() + delay
-        if let scheduledDeadline, scheduledDeadline <= deadline {
+        if scheduledWork == work, let scheduledDeadline, scheduledDeadline <= deadline {
             return
         }
 
-        cancelPendingCheck()
+        cancelScheduledWork()
         scheduleGeneration += 1
         let generation = scheduleGeneration
         scheduledDeadline = deadline
+        scheduledWork = work
         cancelScheduledOperation = scheduler(delay, Self.tolerance(for: delay)) { [weak self] in
             guard let self else { return }
-            await self.runScheduledCheck(generation: generation)
+            await self.runScheduledWork(work, generation: generation)
         }
     }
 
-    private func cancelPendingCheck() {
+    private func cancelScheduledWork() {
         scheduleGeneration += 1
         cancelScheduledOperation?()
         cancelScheduledOperation = nil
         scheduledDeadline = nil
+        scheduledWork = nil
     }
 
-    private func runScheduledCheck(generation: UInt64) async {
+    private func runScheduledWork(_ work: ScheduledWork, generation: UInt64) async {
         guard isRunning, generation == scheduleGeneration else { return }
         cancelScheduledOperation = nil
         scheduledDeadline = nil
+        scheduledWork = nil
+
+        switch work {
+        case .checkInventory:
+            await runInventoryCheck()
+        case .retryReconciliation:
+            retryPendingReconciliation()
+        }
+    }
+
+    private func runInventoryCheck() async {
         guard !isChecking else {
             activityWhileChecking = true
             return
@@ -109,21 +132,38 @@ final class WindowInventoryPollController {
             if isRunning, activityWhileChecking {
                 activityWhileChecking = false
                 currentDelay = Self.initialDelay
-                scheduleCheck(after: currentDelay)
+                schedule(.checkInventory, after: currentDelay)
             }
             return
         }
 
-        if inventoryChanged {
-            _ = reconcileIfIdle()
-        }
         if activityWhileChecking {
             activityWhileChecking = false
             currentDelay = Self.initialDelay
         } else {
             currentDelay = min(currentDelay * 2, Self.maximumDelay)
         }
-        scheduleCheck(after: currentDelay)
+
+        if inventoryChanged {
+            reconciliationPending = true
+            retryPendingReconciliation()
+        } else {
+            schedule(.checkInventory, after: currentDelay)
+        }
+    }
+
+    private func retryPendingReconciliation() {
+        guard reconciliationPending else { return }
+        let reconciliationLifecycleGeneration = lifecycleGeneration
+        let didReconcile = reconcileIfIdle()
+        guard isRunning, reconciliationLifecycleGeneration == lifecycleGeneration else { return }
+
+        if didReconcile {
+            reconciliationPending = false
+            schedule(.checkInventory, after: currentDelay)
+        } else {
+            schedule(.retryReconciliation, after: Self.reconciliationRetryDelay)
+        }
     }
 
     static func tolerance(for delay: TimeInterval) -> TimeInterval {
