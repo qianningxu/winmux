@@ -380,8 +380,9 @@ struct WinMuxWorkspaceState {
         projectsById[projectId] = project
     }
 
-    mutating func normalizeDefaultProjectFolderOrder() {
-        guard var project = projectsById[workspaceProjectDefaultId] else { return }
+    @discardableResult
+    mutating func normalizeDefaultProjectFolderOrder() -> Bool {
+        guard var project = projectsById[workspaceProjectDefaultId] else { return false }
         var seen: Set<WorkspaceFolderId> = []
         var orderedIds = project.folderOrder.filter { folderId in
             workspaceFoldersById[folderId] != nil && seen.insert(folderId).inserted
@@ -397,8 +398,10 @@ struct WinMuxWorkspaceState {
         } else if workspaceFoldersById[workspaceFolderDefaultId] != nil {
             orderedIds.append(workspaceFolderDefaultId)
         }
+        guard project.folderOrder != orderedIds else { return false }
         project.folderOrder = orderedIds
         projectsById[workspaceProjectDefaultId] = project
+        return true
     }
 
     private mutating func insertWorkspace(_ workspaceId: WorkspaceId, intoFolder folderId: WorkspaceFolderId) {

@@ -135,6 +135,25 @@ extension TreeNodeTest {
         XCTAssertTrue(frozenWorld.sidebar?.projects.contains(where: { $0.id == emptyFolder.id }) == true)
     }
 
+    func testDefaultFolderOrderNormalizationIsIdempotent() {
+        let firstFolder = createWorkspaceFolder()
+        let secondFolder = createWorkspaceFolder()
+        var defaultProject = winMuxWorkspaceState.projectsById[workspaceProjectDefaultId].orDie()
+        defaultProject.folderOrder = [
+            workspaceFolderDefaultId,
+            firstFolder.id,
+            firstFolder.id,
+        ]
+        winMuxWorkspaceState.projectsById[workspaceProjectDefaultId] = defaultProject
+
+        XCTAssertTrue(winMuxWorkspaceState.normalizeDefaultProjectFolderOrder())
+        XCTAssertEqual(
+            winMuxWorkspaceState.projectsById[workspaceProjectDefaultId]?.folderOrder,
+            [firstFolder.id, secondFolder.id, workspaceFolderDefaultId]
+        )
+        XCTAssertFalse(winMuxWorkspaceState.normalizeDefaultProjectFolderOrder())
+    }
+
     func testRestoreFrozenSidebarStateRestoresFolderWithoutMatchingWindowIds() {
         let first = Workspace.get(byName: "first")
         first.markAsAutomaticallyNamed()
