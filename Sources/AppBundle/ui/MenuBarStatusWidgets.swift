@@ -42,7 +42,7 @@ public final class MenuBarStatusWidgetsController {
     private var notificationObservers: [NSObjectProtocol] = []
     private var eventMonitors: [Any] = []
     private var chartFrames: [MenuBarStatusChartKind: [NSNumber: NSRect]] = [:]
-    private let chartPanel = MenuBarStatusChartPanel()
+    fileprivate let chartPanel = MenuBarStatusChartPanel()
 
     public func install() {
         guard notificationObservers.isEmpty else { return }
@@ -246,39 +246,38 @@ private struct MenuBarStatusWidgetGroup: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let reversedScheme: ColorScheme = colorScheme == .dark ? .light : .dark
         let palette = WinMuxOverlayPalette(
-            colorScheme: reversedScheme,
+            colorScheme: colorScheme,
             projectThemeFamily: projectThemeFamily
         )
         GeometryReader { geometry in
             let surfaceHeight = max(1, geometry.size.height - menuBarContentTopInset)
-            let widgetHeight = max(1, surfaceHeight - WinMuxBarStyle.containerInset * 2)
+            let widgetHeight = max(1, surfaceHeight - WinMuxBarStyle.topBarContentInset * 2)
             VStack(spacing: standardGap * 0) {
                 MenuBarProportionalWidgetLayout {
                     MenuBarPeriodCapsule(height: widgetHeight)
                         .overlay(alignment: .trailing) {
-                            WinMuxBarDivider(height: max(surfaceHeight - standardGap * 3, 0), palette: palette)
+                            WinMuxBarDivider(height: widgetHeight * 0.5, palette: palette)
                         }
                     MenuBarDailyFocusCapsule(height: widgetHeight)
                         .overlay(alignment: .trailing) {
-                            WinMuxBarDivider(height: max(surfaceHeight - standardGap * 3, 0), palette: palette)
+                            WinMuxBarDivider(height: widgetHeight * 0.5, palette: palette)
                         }
                     MenuBarProjectsProgressWidget(height: widgetHeight)
                         .overlay(alignment: .trailing) {
-                            WinMuxBarDivider(height: max(surfaceHeight - standardGap * 3, 0), palette: palette)
+                            WinMuxBarDivider(height: widgetHeight * 0.5, palette: palette)
                         }
                     MenuBarBreakPotWidget(height: widgetHeight)
                         .overlay(alignment: .trailing) {
-                            WinMuxBarDivider(height: max(surfaceHeight - standardGap * 3, 0), palette: palette)
+                            WinMuxBarDivider(height: widgetHeight * 0.5, palette: palette)
                         }
                     MenuBarSleepSpendingCapsule(height: widgetHeight)
                 }
                 .frame(
-                    width: max(1, geometry.size.width - (menuBarSurfaceHorizontalInset * 2) - WinMuxBarStyle.containerInset * 2),
+                    width: max(1, geometry.size.width - (menuBarSurfaceHorizontalInset * 2) - WinMuxBarStyle.topBarContentInset * 2),
                     height: widgetHeight
                 )
-                .padding(WinMuxBarStyle.containerInset)
+                .padding(WinMuxBarStyle.topBarContentInset)
                 .background(palette.color(.gray, .color5))
                 .winMuxBarSurface(palette, cornerStyle: .circular, cornerRadius: WinMuxBarStyle.topBarCornerRadius)
                 .padding(.top, menuBarContentTopInset)
@@ -287,7 +286,6 @@ private struct MenuBarStatusWidgetGroup: View {
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
-        .environment(\.colorScheme, reversedScheme)
         .environment(\.workspaceSidebarProjectThemeFamily, projectThemeFamily)
     }
 }
@@ -389,7 +387,7 @@ struct MenuBarSleepCapsule: View {
                     .font(.system(size: menuBarWidgetFontSize, weight: menuBarWidgetFontWeight))
                     .monospacedDigit()
             }
-            .menuBarWidgetItem(height: height)
+            .menuBarWidgetItem(height: height, chartKind: .sleep)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text("Average sleep over the past 7 days: \(menuBarSleepText(average))"))
             .background(MenuBarChartHitRegion(kind: .sleep))
@@ -416,7 +414,7 @@ struct MenuBarSpendingCapsule: View {
                     .font(.system(size: menuBarWidgetFontSize, weight: menuBarWidgetFontWeight))
                     .monospacedDigit()
             }
-            .menuBarWidgetItem(height: height)
+            .menuBarWidgetItem(height: height, chartKind: .spending)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text("\(menuBarCurrencyText(total)) spent in the last 30 days"))
             .background(MenuBarChartHitRegion(kind: .spending))
@@ -504,11 +502,11 @@ final class MenuBarChartHitRegionView: NSView {
 }
 
 @MainActor
-private final class MenuBarStatusChartPanel: NSPanelHud {
+fileprivate final class MenuBarStatusChartPanel: NSPanelHud, ObservableObject {
     private let hostingView = NSHostingView(
         rootView: MenuBarStatusChartView(kind: .sleep, projectThemeFamily: nil)
     )
-    private var presentedKind: MenuBarStatusChartKind?
+    @Published private(set) var presentedKind: MenuBarStatusChartKind?
 
     override init() {
         super.init()
@@ -712,26 +710,36 @@ private struct MenuBarSleepDay: Identifiable {
 }
 
 extension View {
-    func menuBarWidgetItem(height: CGFloat) -> some View {
-        modifier(MenuBarWidgetItemModifier(height: height))
+    func menuBarWidgetItem(height: CGFloat, chartKind: MenuBarStatusChartKind? = nil) -> some View {
+        modifier(MenuBarWidgetItemModifier(height: height, chartKind: chartKind))
     }
 }
 
 private struct MenuBarWidgetItemModifier: ViewModifier {
     let height: CGFloat
+    let chartKind: MenuBarStatusChartKind?
+    @ObservedObject private var chartPanel = MenuBarStatusWidgetsController.shared.chartPanel
     @State private var isHovered = false
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
 
     func body(content: Content) -> some View {
         let palette = WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+        let isSelected = chartKind != nil && chartPanel.presentedKind == chartKind
         return content
             .foregroundStyle(menuBarWidgetText)
             .padding(.horizontal, WinMuxBarStyle.contentInset)
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: height)
-            .winMuxBarSegment(palette, isSelected: false, isHovered: isHovered)
-            .winMuxBarSurface(palette, cornerStyle: .circular, cornerRadius: WinMuxBarStyle.topBarCornerRadius)
+            .winMuxBarSegment(palette, isSelected: isSelected, isHovered: isHovered)
+            .clipShape(RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarCornerRadius, style: .circular))
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarCornerRadius, style: .circular)
+                        .strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
+                        .allowsHitTesting(false)
+                }
+            }
             .onHover { isHovered = $0 }
     }
 }

@@ -103,7 +103,6 @@ struct WorkspaceSidebarHorizontalBar: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.displayScale) private var displayScale
 
-    private var reversedScheme: ColorScheme { colorScheme == .dark ? .light : .dark }
 
     private var activeProject: WorkspaceSidebarProjectViewModel? {
         snapshot.projects.first { $0.id == snapshot.activeProjectId }
@@ -116,7 +115,7 @@ struct WorkspaceSidebarHorizontalBar: View {
 
     private var palette: WinMuxOverlayPalette {
         WinMuxOverlayPalette(
-            colorScheme: reversedScheme,
+            colorScheme: colorScheme,
             projectThemeFamily: workspaceSidebarProjectThemeFamily(
                 projects: snapshot.projects,
                 activeProjectId: snapshot.activeProjectId,
@@ -131,7 +130,7 @@ struct WorkspaceSidebarHorizontalBar: View {
     var body: some View {
         GeometryReader { geometry in
             let surfaceHeight = max(geometry.size.height - menuBarContentTopInset, 1)
-            let innerPadding = standardGap * 0.125
+            let innerPadding = WinMuxBarStyle.topBarContentInset
             let contentHeight = max(surfaceHeight - innerPadding * 2, 1)
             let surfaceWidth = max(geometry.size.width - menuBarSurfaceHorizontalInset * 2, 1)
 
@@ -166,7 +165,6 @@ struct WorkspaceSidebarHorizontalBar: View {
         .background(WinMuxDesignTokens.transparent)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Tab bar")
-        .environment(\.colorScheme, reversedScheme)
         .onDisappear { clearWorkspaceReorderState() }
         .environment(\.workspaceSidebarProjectThemeFamily, workspaceSidebarProjectThemeFamily(
             projects: snapshot.projects,
@@ -219,7 +217,7 @@ struct WorkspaceSidebarHorizontalBar: View {
             )
             .frame(width: controlWidth, height: contentHeight)
         } else {
-            ProjectMenuAppearanceHost(colorScheme: reversedScheme) {
+            ProjectMenuAppearanceHost(colorScheme: colorScheme) {
                 Menu {
                     ForEach(snapshot.projects) { project in
                         Menu {

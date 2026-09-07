@@ -5,6 +5,7 @@ enum WinMuxBarStyle {
     static let cornerRadius = standardGap * 4
     static let topBarCornerRadius = standardGap * 4
     static let containerInset = standardGap * 0.5
+    static let topBarContentInset = standardGap * 0.125
     static let contentInset = standardGap * 2
     static let iconSpacing = standardGap * 1.5
     static let strokeWidth = standardGap * 0.25
@@ -17,7 +18,7 @@ struct WinMuxBarDivider: View {
 
     var body: some View {
         Rectangle()
-            .fill(palette.color(.gray, .color5))
+            .fill(palette.color(.gray, .color7))
             .frame(width: WinMuxBarStyle.strokeWidth, height: height)
             .allowsHitTesting(false)
     }

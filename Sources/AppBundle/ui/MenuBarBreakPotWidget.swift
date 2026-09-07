@@ -99,7 +99,7 @@ struct MenuBarBreakPotWidget: View {
                     .font(.system(size: menuBarWidgetFontSize, weight: menuBarWidgetFontWeight))
                     .monospacedDigit()
             }
-            .menuBarWidgetItem(height: height)
+            .menuBarWidgetItem(height: height, chartKind: .breakPot)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(accessibilityText(at: context.date)))
             .background(MenuBarChartHitRegion(kind: .breakPot))
