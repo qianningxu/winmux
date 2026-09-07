@@ -37,6 +37,17 @@ func raiseNewlyDetectedDialogsAfterFocusSync() {
     newlyDetectedDialogRaiseQueue.drain()
 }
 
+@MainActor
+func focusNewlyDetectedDialog(_ window: Window) {
+    guard window.parent is Workspace,
+          window.visualWorkspace?.isVisible == true,
+          window.focusWindow()
+    else { return }
+    // Keep logical and native focus aligned so the next refresh cannot put
+    // the previous tiled window back above this newly opened dialog.
+    window.nativeFocus()
+}
+
 final class MacWindow: Window {
     let macApp: MacApp
     private var prevUnhiddenProportionalPositionInsideWorkspaceRect: CGPoint?
@@ -72,7 +83,6 @@ final class MacWindow: Window {
             macApp,
             targetWorkspace,
             window: nil,
-            normalWindowPlacement: .freshTab,
         )
         let wasDetectedAsDialog = data.parent is Workspace
 
@@ -98,9 +108,9 @@ final class MacWindow: Window {
             newlyDetectedDialogRaiseQueue.schedule(windowId: windowId) { [weak macApp] in
                 guard let macApp,
                       !macApp.nsApp.isTerminated,
-                      MacWindow.allWindowsMap[windowId] != nil
+                      let dialog = MacWindow.allWindowsMap[windowId]
                 else { return }
-                macApp.raiseWindow(windowId)
+                focusNewlyDetectedDialog(dialog)
             }
         }
         return window
@@ -216,19 +226,22 @@ final class MacWindow: Window {
     // todo it's part of the window layout and should be moved to layoutRecursive.swift
     @MainActor
     func hideInCorner(_ corner: OptimalHideCorner, force: Bool = false) async throws {
+        try checkCancellation()
         if !force, isHiddenInCorner, hiddenInCorner == corner {
             return
         }
         guard let nodeMonitor else { return }
+        var savedPosition = prevUnhiddenProportionalPositionInsideWorkspaceRect
         // Don't accidentally override prevUnhiddenEmulationPosition in case of subsequent `hideInCorner` calls
         if !isHiddenInCorner {
             guard let windowRect = try await getAxRect() else { return }
+            try checkCancellation()
             // Check for isHiddenInCorner for the second time because of the suspension point above
             if !isHiddenInCorner {
                 let topLeftCorner = windowRect.topLeftCorner
                 let monitorRect = windowRect.center.monitorApproximation.rect // Similar to layoutFloatingWindow. Non idempotent
                 let absolutePoint = topLeftCorner - monitorRect.topLeftCorner
-                prevUnhiddenProportionalPositionInsideWorkspaceRect =
+                savedPosition =
                     CGPoint(x: absolutePoint.x / monitorRect.width, y: absolutePoint.y / monitorRect.height)
             }
         }
@@ -236,6 +249,7 @@ final class MacWindow: Window {
         switch corner {
             case .bottomLeftCorner:
                 guard let s = try await getAxSize() else { fallthrough }
+                try checkCancellation()
                 // Zoom will jump off if you do one pixel offset https://github.com/nikitabobko/WinMux/issues/527
                 // todo this ad hoc won't be necessary once I implement optimization suggested by Zalim
                 let onePixelOffset = macApp.appId == .zoom ? .zero : CGPoint(x: 1, y: -1)
@@ -246,6 +260,13 @@ final class MacWindow: Window {
                 let onePixelOffset = macApp.appId == .zoom ? .zero : CGPoint(x: 1, y: 1)
                 p = nodeMonitor.visibleRect.bottomRightCorner - onePixelOffset
         }
+        try checkCancellation()
+        // Commit hidden state only with the matching frame write. A cancelled
+        // layout must not leave a visible window marked hidden, or hide a
+        // window after a newer workspace activation has restored it.
+        prevUnhiddenProportionalPositionInsideWorkspaceRect = savedPosition
+        lastAppliedLayoutPhysicalRect = nil
+        lastAppliedLayoutVirtualRect = nil
         setAxFrame(p, nil)
         hiddenInCorner = corner
     }
@@ -276,6 +297,10 @@ final class MacWindow: Window {
                  .macosPopupWindow, .tiling, .rootTilingContainer, .shimContainerRelation: break
         }
 
+        // Restoring a tiled window requires a real write, even when its
+        // requested tile frame matches the frame cached before hiding.
+        lastAppliedLayoutPhysicalRect = nil
+        lastAppliedLayoutVirtualRect = nil
         self.prevUnhiddenProportionalPositionInsideWorkspaceRect = nil
         self.hiddenInCorner = nil
     }

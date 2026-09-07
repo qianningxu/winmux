@@ -15,19 +15,12 @@ extension WorkspaceSidebarPanel {
         if frame != layout.frame {
             setFrame(layout.frame, display: true, animate: false)
         }
-        if viewModel.workspaceSidebarVisibleWidth == 0 {
-            viewModel.workspaceSidebarVisibleWidth = viewModel.isWorkspaceSidebarExpanded
-                ? layout.expandedWidth
-                : layout.collapsedWidth
-        }
-        if viewModel.isWorkspaceSidebarPinnedExpanded &&
-            viewModel.workspaceSidebarVisibleWidth < layout.expandedWidth - 0.5
-        {
-            viewModel.isWorkspaceSidebarExpanded = true
-            viewModel.workspaceSidebarVisibleWidth = layout.expandedWidth
-        }
+        viewModel.workspaceSidebarVisibleWidth = layout.frame.width
+        viewModel.isWorkspaceSidebarExpanded = true
+        updateProjectPresentationLayout()
+        ignoresMouseEvents = false
         orderFrontRegardless()
-        startHoverMonitoring()
+        stopHoverMonitoring()
     }
 
     func refreshForCurrentDragIfNeeded() {
@@ -41,6 +34,9 @@ extension WorkspaceSidebarPanel {
         TrayMenuModel.shared.setIfChanged(\.workspaceSidebarDropPreview, to: nil)
         TrayMenuModel.shared.setIfChanged(\.workspaceSidebarHoveredWorkspaceName, to: nil)
         viewModel.setIfChanged(\.workspaceSidebarVisibleWidth, to: 0)
+        viewModel.setIfChanged(\.isWorkspaceSidebarExpanded, to: false)
+        projectActionMenuPresentationExtraWidth = 0
+        projectMenuPresentationExtraHeight = 0
         orderOut(nil)
     }
 }

@@ -24,11 +24,24 @@ final class WindowDropIntentResolverTest: XCTestCase {
         let resolution = resolve(point: CGPoint(x: 110, y: 210)).orDie()
         let zones = windowDropIntentPreviewZones(for: resolution)
 
-        XCTAssertEqual(zones.count, 4)
+        XCTAssertEqual(zones.count, 6)
         XCTAssertEqual(zones.filter(\.isActive).count, 1)
         assertRect(zones.first { $0.isActive }?.rect, x: 100, y: 100, width: 105, height: 210)
         assertRect(windowDropIntentActivePreviewRect(for: resolution), x: 100, y: 100, width: 105, height: 210)
         assertRect(zones.first?.rect, x: 100, y: 100, width: 105, height: 210)
+    }
+
+    func testPreviewZonesIncludeStackAndSwapTargets() {
+        let top = resolve(point: CGPoint(x: 150, y: 115)).orDie()
+        let middle = resolve(point: CGPoint(x: 200, y: 210)).orDie()
+
+        let topZones = windowDropIntentPreviewZones(for: top)
+        let middleZones = windowDropIntentPreviewZones(for: middle)
+
+        XCTAssertEqual(topZones.count, 6)
+        XCTAssertEqual(middleZones.count, 6)
+        XCTAssertEqual(topZones.filter(\.isActive).singleOrNil()?.style, .tabInsert)
+        XCTAssertEqual(middleZones.filter(\.isActive).singleOrNil()?.style, .swap)
     }
 
     func testRejectsSourceAsTargetAndOutsidePointer() {
@@ -48,32 +61,61 @@ final class WindowDropIntentResolverTest: XCTestCase {
     }
 
     @MainActor
-    func testTopTabAndCenterBodyDropsProduceNoDestination() {
+    func testTopTabAndCenterBodyDropsProduceTabStackAndSwapDestinations() {
         let workspace = Workspace.get(byName: "drag")
         let root = workspace.rootTilingContainer
         let source = TestWindow.new(id: 1, parent: root)
         let target = TestWindow.new(id: 2, parent: root)
         target.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 100, topLeftY: 100, width: 210, height: 210)
+        config.windowTabs.enabled = true
 
         let topResolution = resolve(point: CGPoint(x: 150, y: 115)).orDie()
         let centerResolution = resolve(point: CGPoint(x: 200, y: 210)).orDie()
 
-        XCTAssertNil(destinationFromWindowDropIntent(
+        let topDestination = destinationFromWindowDropIntent(
             topResolution,
             sourceWindow: source,
             targetWindow: target,
             mouseLocation: CGPoint(x: 150, y: 115),
             subject: .window,
             detachOrigin: .window,
-        ))
-        XCTAssertNil(destinationFromWindowDropIntent(
+        )
+        let centerDestination = destinationFromWindowDropIntent(
             centerResolution,
             sourceWindow: source,
             targetWindow: target,
             mouseLocation: CGPoint(x: 200, y: 210),
             subject: .window,
             detachOrigin: .window,
-        ))
+        )
+
+        XCTAssertEqual(topDestination?.kind, .tabStack(targetWindowId: target.windowId))
+        XCTAssertEqual(topDestination?.dropIntentOverlay?.activeZone, .tab)
+        XCTAssertEqual(centerDestination?.kind, .swap(targetWindowId: target.windowId))
+        XCTAssertEqual(centerDestination?.dropIntentOverlay?.activeZone, .middle)
+    }
+
+    @MainActor
+    func testStackedWindowCenterDropIsNeutralAndDoesNotSwap() {
+        let workspace = Workspace.get(byName: "drag")
+        let root = workspace.rootTilingContainer
+        let source = TestWindow.new(id: 1, parent: root)
+        let target = TestWindow.new(id: 2, parent: root)
+        target.lastAppliedLayoutPhysicalRect = Rect(topLeftX: 100, topLeftY: 100, width: 210, height: 210)
+        let resolution = resolve(point: CGPoint(x: 200, y: 210)).orDie()
+
+        let destination = destinationFromWindowDropIntent(
+            resolution,
+            sourceWindow: source,
+            targetWindow: target,
+            mouseLocation: CGPoint(x: 200, y: 210),
+            subject: .group,
+            detachOrigin: .window,
+        )
+
+        XCTAssertEqual(destination?.kind, .sidebarHover)
+        XCTAssertNil(destination?.dropIntentOverlay?.activeZone)
+        XCTAssertTrue(destination?.previewZones.allSatisfy { !$0.isActive } ?? false)
     }
 
     @MainActor

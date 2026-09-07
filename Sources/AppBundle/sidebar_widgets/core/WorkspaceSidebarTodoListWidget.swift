@@ -4,7 +4,7 @@ import Foundation
 import SwiftUI
 
 let workspaceSidebarNoteEditorHeight: CGFloat = 240
-let workspaceSidebarNoteEditorInset: CGFloat = 12
+let workspaceSidebarNoteEditorInset: CGFloat = standardGap * 6
 let workspaceSidebarMarkdownDividerAttribute = NSAttributedString.Key("WorkspaceSidebarMarkdownDivider")
 
 let defaultWorkspaceSidebarTasksURL = URL(
@@ -369,7 +369,7 @@ struct WorkspaceSidebarTodoListWidget: View {
             if isCompact {
                 Image(systemName: "note.text")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(winMuxOverlayForeground(0.88))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.primary))
                     .frame(width: sectionWidth, height: 52)
                     .background(WorkspaceSidebarStatusCardBackground())
                     .accessibilityLabel("Task note")
@@ -380,7 +380,7 @@ struct WorkspaceSidebarTodoListWidget: View {
             }
         }
         .id(id)
-        .padding(.bottom, 4)
+        .padding(.bottom, standardGap * 2)
         .onAppear { store.restoreSelection(for: id) }
     }
 
@@ -395,12 +395,12 @@ struct WorkspaceSidebarTodoListWidget: View {
                 onSelectTask: selectTask
             )
         } else if let document = store.document(for: id) {
-            VStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 6) {
+            VStack(spacing: standardGap * 0) {
+                VStack(alignment: .leading, spacing: standardGap * 0.5) {
+                    HStack(spacing: standardGap * 3) {
                         Text(document.locationTitle)
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(winMuxOverlayForeground(1.0))
+                            .foregroundStyle(workspaceSidebarWidgetContent(.primary))
                             .lineLimit(1)
                             .layoutPriority(1)
                         Spacer(minLength: 2)
@@ -414,18 +414,18 @@ struct WorkspaceSidebarTodoListWidget: View {
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .foregroundStyle(winMuxOverlayForeground(0.92))
+                        .foregroundStyle(workspaceSidebarWidgetContent(.primary))
                         .accessibilityLabel("Switch task note")
                     }
 
                     Text(document.hoursSummary)
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(winMuxOverlayForeground(0.58))
+                        .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                         .lineLimit(1)
                 }
                 .padding(.leading, workspaceSidebarNoteEditorInset)
-                .padding(.trailing, 6)
+                .padding(.trailing, standardGap * 3)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: 58)
 
@@ -439,9 +439,9 @@ struct WorkspaceSidebarTodoListWidget: View {
                 if let error = store.errors[id] {
                     Text(error)
                         .font(.system(size: 10))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(workspaceSidebarWidgetSemanticColor(.red, .color9))
                         .padding(.horizontal, workspaceSidebarNoteEditorInset)
-                        .padding(.bottom, 4)
+                        .padding(.bottom, standardGap * 2)
                 }
             }
         }
@@ -472,7 +472,7 @@ private struct WorkspaceSidebarTaskPicker: View {
     let onSelectTask: (WorkspaceSidebarTaskDocument) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: standardGap * 3) {
             HStack {
                 if selectedFolder != nil {
                     Button {
@@ -490,16 +490,16 @@ private struct WorkspaceSidebarTaskPicker: View {
                     .lineLimit(1)
                 Spacer()
             }
-            .foregroundStyle(winMuxOverlayForeground(0.84))
+            .foregroundStyle(workspaceSidebarWidgetContent(.primary))
 
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
+                LazyVStack(alignment: .leading, spacing: standardGap * 1) {
                     if let selectedFolder {
                         if tasks.isEmpty {
                             Text("No incomplete tasks in \(selectedFolder.name)")
                                 .font(.system(size: 11.5))
-                                .foregroundStyle(winMuxOverlayForeground(0.58))
-                                .padding(.vertical, 8)
+                                .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
+                                .padding(.vertical, standardGap * 4)
                         } else {
                             ForEach(tasks) { task in
                                 pickerButton(task.title, systemImage: "doc.text") {
@@ -510,8 +510,8 @@ private struct WorkspaceSidebarTaskPicker: View {
                     } else if folders.isEmpty {
                         Text("No task folders found")
                             .font(.system(size: 11.5))
-                            .foregroundStyle(winMuxOverlayForeground(0.58))
-                            .padding(.vertical, 8)
+                            .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
+                            .padding(.vertical, standardGap * 4)
                     } else {
                         ForEach(folders) { folder in
                             pickerButton(folder.name, systemImage: "folder") {
@@ -537,17 +537,20 @@ private struct WorkspaceSidebarTaskPicker: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(winMuxOverlayForeground(0.82))
+        .foregroundStyle(workspaceSidebarWidgetContent(.primary))
     }
 }
 
 enum WorkspaceSidebarMarkdownBlending {
     @MainActor
-    static func apply(to textView: NSTextView) {
+    static func apply(
+        to textView: NSTextView,
+        palette: WinMuxOverlayPalette = .current
+    ) {
         guard let textStorage = textView.textStorage else { return }
         let fullRange = NSRange(location: 0, length: textStorage.length)
         let font = NSFont.systemFont(ofSize: 12.5, weight: .regular)
-        let textColor = WinMuxOverlayPalette.current.foregroundNSColor(opacity: 0.90)
+        let textColor = palette.contentNSColor(.primary)
 
         textStorage.beginEditing()
         if fullRange.length > 0 {
@@ -579,19 +582,19 @@ enum WorkspaceSidebarMarkdownBlending {
                 dividerBlock.setValue(100, type: .percentageValueType, for: .width)
                 dividerBlock.setWidth(1, type: .absoluteValueType, for: .border, edge: .minY)
                 dividerBlock.setBorderColor(
-                    WinMuxOverlayPalette.current.foregroundNSColor(opacity: 0.22),
+                    palette.geistBorderNSColor(.normal),
                     for: .minY
                 )
                 let paragraphStyle = NSMutableParagraphStyle()
                 paragraphStyle.textBlocks = [dividerBlock]
-                paragraphStyle.paragraphSpacingBefore = 5
-                paragraphStyle.paragraphSpacing = 4
+                paragraphStyle.paragraphSpacingBefore = standardGap * 2.5
+                paragraphStyle.paragraphSpacing = standardGap * 2
                 textStorage.addAttribute(
                     workspaceSidebarMarkdownDividerAttribute,
                     value: true,
                     range: contentRange
                 )
-                textStorage.addAttribute(.foregroundColor, value: NSColor.clear, range: contentRange)
+                textStorage.addAttribute(.foregroundColor, value: WinMuxDesignTokens.transparentNSColor, range: contentRange)
                 textStorage.addAttribute(.paragraphStyle, value: paragraphStyle, range: contentRange)
             } else if let bullet = bulletPrefix(in: content), !selectionIsOnLine {
                 let markerRange = NSRange(location: lineStart + bullet.markerOffset, length: 1)
@@ -644,7 +647,11 @@ enum WorkspaceSidebarMarkdownBlending {
     }
 
     @MainActor
-    static func adjustBulletIndent(in textView: NSTextView, direction: Int) -> Bool {
+    static func adjustBulletIndent(
+        in textView: NSTextView,
+        direction: Int,
+        palette: WinMuxOverlayPalette = .current
+    ) -> Bool {
         let source = textView.string as NSString
         let selection = textView.selectedRange()
         guard source.length > 0 else { return false }
@@ -709,7 +716,7 @@ enum WorkspaceSidebarMarkdownBlending {
         } else {
             textView.setSelectedRange(NSRange(location: affectedRange.location, length: replacement.length))
         }
-        apply(to: textView)
+        apply(to: textView, palette: palette)
         return true
     }
 
@@ -721,14 +728,20 @@ enum WorkspaceSidebarMarkdownBlending {
 
 struct WorkspaceSidebarNoteTextView: NSViewRepresentable {
     @Binding var text: String
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
+
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSTextView.scrollableTextView()
         guard let textView = scrollView.documentView as? NSTextView else { return scrollView }
         textView.delegate = context.coordinator
         textView.string = text
-        Self.configure(scrollView: scrollView, textView: textView)
-        WorkspaceSidebarMarkdownBlending.apply(to: textView)
+        Self.configure(scrollView: scrollView, textView: textView, palette: palette)
+        WorkspaceSidebarMarkdownBlending.apply(to: textView, palette: palette)
         context.coordinator.installClickActivation(for: textView)
         return scrollView
     }
@@ -737,9 +750,9 @@ struct WorkspaceSidebarNoteTextView: NSViewRepresentable {
         context.coordinator.parent = self
         guard let textView = scrollView.documentView as? NSTextView else { return }
         if textView.string != text { textView.string = text }
-        textView.textColor = WinMuxOverlayPalette.current.foregroundNSColor(opacity: 0.90)
-        textView.insertionPointColor = WinMuxOverlayPalette.current.foregroundNSColor()
-        WorkspaceSidebarMarkdownBlending.apply(to: textView)
+        textView.textColor = palette.contentNSColor(.primary)
+        textView.insertionPointColor = palette.contentNSColor(.primary)
+        WorkspaceSidebarMarkdownBlending.apply(to: textView, palette: palette)
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
@@ -752,12 +765,16 @@ struct WorkspaceSidebarNoteTextView: NSViewRepresentable {
     static func makeConfiguredTextViewForTesting() -> (NSScrollView, NSTextView) {
         let scrollView = NSTextView.scrollableTextView()
         let textView = scrollView.documentView as! NSTextView
-        configure(scrollView: scrollView, textView: textView)
+        configure(scrollView: scrollView, textView: textView, palette: .current)
         return (scrollView, textView)
     }
 
     @MainActor
-    private static func configure(scrollView: NSScrollView, textView: NSTextView) {
+    private static func configure(
+        scrollView: NSScrollView,
+        textView: NSTextView,
+        palette: WinMuxOverlayPalette
+    ) {
         scrollView.borderType = .noBorder
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true
@@ -778,8 +795,8 @@ struct WorkspaceSidebarNoteTextView: NSViewRepresentable {
         textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
         textView.textContainerInset = NSSize(width: workspaceSidebarNoteEditorInset, height: workspaceSidebarNoteEditorInset)
         textView.font = .systemFont(ofSize: 12.5, weight: .regular)
-        textView.textColor = WinMuxOverlayPalette.current.foregroundNSColor(opacity: 0.90)
-        textView.insertionPointColor = WinMuxOverlayPalette.current.foregroundNSColor()
+        textView.textColor = palette.contentNSColor(.primary)
+        textView.insertionPointColor = palette.contentNSColor(.primary)
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
     }
@@ -820,20 +837,28 @@ struct WorkspaceSidebarNoteTextView: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
             parent.text = textView.string
-            WorkspaceSidebarMarkdownBlending.apply(to: textView)
+            WorkspaceSidebarMarkdownBlending.apply(to: textView, palette: parent.palette)
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
-            WorkspaceSidebarMarkdownBlending.apply(to: textView)
+            WorkspaceSidebarMarkdownBlending.apply(to: textView, palette: parent.palette)
         }
 
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
             if commandSelector == #selector(NSResponder.insertTab(_:)) {
-                return WorkspaceSidebarMarkdownBlending.adjustBulletIndent(in: textView, direction: 1)
+                return WorkspaceSidebarMarkdownBlending.adjustBulletIndent(
+                    in: textView,
+                    direction: 1,
+                    palette: parent.palette
+                )
             }
             if commandSelector == #selector(NSResponder.insertBacktab(_:)) {
-                return WorkspaceSidebarMarkdownBlending.adjustBulletIndent(in: textView, direction: -1)
+                return WorkspaceSidebarMarkdownBlending.adjustBulletIndent(
+                    in: textView,
+                    direction: -1,
+                    palette: parent.palette
+                )
             }
             return false
         }

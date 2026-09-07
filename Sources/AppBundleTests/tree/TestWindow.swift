@@ -7,6 +7,7 @@ final class TestWindow: Window, CustomStringConvertible {
     var nativeIsMacosFullscreen: Bool = false
     var nativeIsMacosMinimized: Bool = false
     var refusesClose: Bool = false
+    var onSetAxFrame: (() -> Void)?
 
     @MainActor
     private init(_ id: UInt32, _ parent: NonLeafTreeNodeObject, _ adaptiveWeight: CGFloat, _ rect: Rect?) {
@@ -56,6 +57,7 @@ final class TestWindow: Window, CustomStringConvertible {
     override var isHiddenInCorner: Bool { _isHiddenInCorner }
 
     override func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?) {
+        onSetAxFrame?()
         let currentRect = _rect ?? Rect(topLeftX: topLeft?.x ?? 0, topLeftY: topLeft?.y ?? 0, width: size?.width ?? 0, height: size?.height ?? 0)
         _rect = Rect(
             topLeftX: topLeft?.x ?? currentRect.topLeftX,

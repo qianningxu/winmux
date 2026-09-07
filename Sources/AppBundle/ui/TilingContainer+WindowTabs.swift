@@ -1,8 +1,8 @@
 import AppKit
 import Common
 
-func legacyWindowTabBehaviorIsEnabledForEnvironment(configEnabled: Bool, isUnitTestProcess: Bool) -> Bool {
-    isUnitTestProcess && configEnabled
+func legacyWindowTabBehaviorIsEnabledForEnvironment(configEnabled: Bool, isUnitTestProcess _: Bool) -> Bool {
+    configEnabled
 }
 
 @MainActor
@@ -32,7 +32,7 @@ extension TilingContainer {
     @MainActor
     var windowTabBarRect: Rect? {
         guard showsWindowTabs, let rect = windowTabBarReferenceRect else { return nil }
-        return Rect(topLeftX: rect.topLeftX, topLeftY: rect.topLeftY, width: rect.width, height: windowTabBarHeight)
+        return AppBundle.windowTabBarRect(forGroupFrameRect: rect)
     }
 
     @MainActor

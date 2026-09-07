@@ -13,12 +13,7 @@ struct WindowTabStripLayoutContext {
     }
 
     var tabWidth: CGFloat {
-        if packsTabsIntoSingleSlot {
-            let count = max(strip.tabs.count, 1)
-            let availableWidth = singleTabSlotWidth - CGFloat(max(count - 1, 0)) * windowTabStripTabSpacing
-            return max(24, availableWidth / CGFloat(count))
-        }
-        return singleTabSlotWidth
+        windowTabStripTabWidth(stripWidth: width, count: strip.tabs.count)
     }
 
     var showsTabTitles: Bool {
@@ -81,11 +76,4 @@ struct WindowTabStripLayoutContext {
 
     private var shouldFadeTabScroll: Bool { isScrollable }
 
-    private var packsTabsIntoSingleSlot: Bool {
-        strip.tabs.count > 1
-    }
-
-    private var singleTabSlotWidth: CGFloat {
-        windowTabStripTabWidth(stripWidth: width, count: 1)
-    }
 }

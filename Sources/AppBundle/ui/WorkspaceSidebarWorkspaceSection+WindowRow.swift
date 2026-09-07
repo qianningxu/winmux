@@ -5,7 +5,7 @@ extension WorkspaceSidebarWorkspaceSection {
         _ window: WorkspaceSidebarWindowViewModel,
         allowsDrag: Bool,
         subject: WindowDragSubject = .window,
-        leadingHitInset: CGFloat = 0,
+        leadingHitInset: CGFloat = standardGap * 0,
         rowHeightOverride: CGFloat? = nil,
     ) -> some View {
         let isPointerHovered = hoveredWindowId == window.windowId
@@ -31,6 +31,7 @@ extension WorkspaceSidebarWorkspaceSection {
                     suppressFocusedStyle: isSearchFiltering,
                     rowHeight: resolvedRowHeight,
                     isHovered: isRowHovered,
+                    isActiveInteraction: activeSidebarDragSourceWindowId == window.windowId,
                     style: rowStyle,
                     appBundleIds: [window.appBundleId],
                     appBundlePaths: [window.appBundlePath],
@@ -40,7 +41,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(WorkspaceSidebarTabRowButtonStyle())
             .padding(.leading, leadingHitInset)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -83,7 +84,6 @@ extension WorkspaceSidebarWorkspaceSection {
                 isHovering: hover,
             )
         }
-        .opacity(1)
         .animation(.spring(response: 0.2, dampingFraction: 0.78), value: activeSidebarDragSourceWindowId == window.windowId)
     }
 
@@ -95,7 +95,7 @@ extension WorkspaceSidebarWorkspaceSection {
         } label: {
             Image(systemName: "xmark")
                 .font(.system(size: 8.5, weight: .bold))
-                .foregroundStyle(palette.foreground(0.78))
+                .foregroundStyle(palette.content(.secondary))
                 .frame(width: workspaceSidebarWindowCloseButtonSize, height: workspaceSidebarWindowCloseButtonSize)
                 .contentShape(Rectangle())
         }
@@ -110,7 +110,7 @@ extension WorkspaceSidebarWorkspaceSection {
         } label: {
             Image(systemName: "xmark")
                 .font(.system(size: 8.5, weight: .bold))
-                .foregroundStyle(palette.foreground(0.78))
+                .foregroundStyle(palette.content(.secondary))
                 .frame(width: workspaceSidebarWindowCloseButtonSize, height: workspaceSidebarWindowCloseButtonSize)
                 .contentShape(Rectangle())
         }

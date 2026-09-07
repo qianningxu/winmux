@@ -9,7 +9,7 @@ struct NewTabCommand: Command {
     func run(_ env: CmdEnv, _ io: CmdIo) async throws -> Bool {
         let current = focus.workspace
         let workspace = createFreshAdjacentBlankWorkspace(
-            projectId: current.projectId,
+            folderId: current.folderId,
             monitor: current.workspaceMonitor,
             after: current
         )

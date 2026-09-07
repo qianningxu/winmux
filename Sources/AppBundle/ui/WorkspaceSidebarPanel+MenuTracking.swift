@@ -27,13 +27,6 @@ extension WorkspaceSidebarPanel {
         else { return }
         menuTrackingDepth += 1
         menuTrackingGraceUntil = .distantFuture
-        pendingCollapse?.cancel()
-        pendingCollapse = nil
-        pendingCollapseFinalize?.cancel()
-        pendingCollapseFinalize = nil
-        if !viewModel.isWorkspaceSidebarPinnedExpanded {
-            expandSidebar(to: CGFloat(config.workspaceSidebar.width))
-        }
     }
 
     func endMenuTrackingIfNeeded() {

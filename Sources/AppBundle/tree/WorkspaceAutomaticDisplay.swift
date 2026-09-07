@@ -29,7 +29,7 @@ func monitorScopedAutomaticDisplayWorkspaces(
     focusedWorkspace: Workspace?,
 ) -> [Workspace] {
     orderedWorkspacesForPresentation()
-        .filter { !projectsAreEnabled() || $0.projectId == projectId }
+        .filter { $0.projectId == projectId }
         .filter { $0.workspaceMonitor.rect.topLeftCorner == monitor.rect.topLeftCorner }
         .filter { userFacingWorkspaces([$0], focusedWorkspace: focusedWorkspace).contains($0) }
         .filter(\.usesAutomaticDisplayName)

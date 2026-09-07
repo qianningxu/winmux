@@ -7,7 +7,7 @@ extension WorkspaceSidebarProjectPager {
     var compactProjectIndicator: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .center, spacing: 0) {
+                VStack(alignment: .center, spacing: standardGap * 0) {
                     ForEach(Array(projects.enumerated()), id: \.element.id) { index, project in
                         projectDot(project, index: index)
                             .id(project.id)
@@ -32,17 +32,17 @@ extension WorkspaceSidebarProjectPager {
     var projectDotTrack: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .center, spacing: 4) {
+                HStack(alignment: .center, spacing: standardGap * 2) {
                     ForEach(Array(projects.enumerated()), id: \.element.id) { index, project in
                         projectDot(project, index: index)
                             .id(project.id)
                     }
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, standardGap * 2)
                 .frame(minHeight: workspaceSidebarPagerHeight, alignment: .leading)
                 .background {
                     GeometryReader { geometry in
-                        Color.clear
+                        WinMuxDesignTokens.transparent
                             .onAppear {
                                 updateProjectTrackMetrics(geometry)
                             }
@@ -79,10 +79,10 @@ extension WorkspaceSidebarProjectPager {
         let showsTrailingFade = projectTrackContentMinX + projectTrackContentWidth > projectTrackViewportWidth + 2
         return LinearGradient(
             stops: [
-                .init(color: showsLeadingFade ? .clear : .black, location: 0),
-                .init(color: .black, location: showsLeadingFade ? 0.08 : 0),
-                .init(color: .black, location: showsTrailingFade ? 0.92 : 1),
-                .init(color: showsTrailingFade ? .clear : .black, location: 1),
+                .init(color: showsLeadingFade ? WinMuxDesignTokens.transparent : WinMuxDesignTokens.mask, location: 0),
+                .init(color: WinMuxDesignTokens.mask, location: showsLeadingFade ? 0.08 : 0),
+                .init(color: WinMuxDesignTokens.mask, location: showsTrailingFade ? 0.92 : 1),
+                .init(color: showsTrailingFade ? WinMuxDesignTokens.transparent : WinMuxDesignTokens.mask, location: 1),
             ],
             startPoint: .leading,
             endPoint: .trailing
@@ -142,8 +142,8 @@ extension WorkspaceSidebarProjectPager {
     }
 
     var projectControls: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            HStack(alignment: .center, spacing: 6) {
+        VStack(alignment: .trailing, spacing: standardGap * 2) {
+            HStack(alignment: .center, spacing: standardGap * 3) {
                 Spacer(minLength: 0)
                 projectMenu
                     .frame(width: projectMenuWidth, height: workspaceSidebarPagerHeight, alignment: .trailing)
@@ -160,15 +160,15 @@ extension WorkspaceSidebarProjectPager {
         Button {
             isProjectMenuOpen.toggle()
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: standardGap * 2) {
                 Text(selectedProject?.displayName ?? "Folder")
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(palette.foreground(isHovered || isProjectMenuOpen ? 0.86 : 0.72))
+                    .foregroundStyle(palette.content(isHovered || isProjectMenuOpen ? .primary : .secondary))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(palette.foreground(isHovered || isProjectMenuOpen ? 0.86 : 0.72))
+                    .foregroundStyle(palette.content(isHovered || isProjectMenuOpen ? .primary : .secondary))
                     .rotationEffect(.degrees(isProjectMenuOpen ? 180 : 0))
             }
             .modifier(WorkspaceSidebarDropdownControlStyle(isActive: isProjectMenuOpen))
@@ -190,7 +190,7 @@ extension WorkspaceSidebarProjectPager {
                         onSelectProject(projectId)
                     }
                 },
-                onCreate: {
+                onCreate: { _ in
                     onCreateProject()
                     isProjectMenuOpen = false
                 },
@@ -222,22 +222,13 @@ extension WorkspaceSidebarProjectPager {
 
     @ViewBuilder
     func projectContextMenuItems(for project: WorkspaceSidebarProjectViewModel) -> some View {
-        Button("Rename Folder") {
+        Button("Rename folder") {
             onBeginRenameProject(project)
         }
         if projectsAreEnabled() {
             Menu("Color") {
                 let selectedColorHex = project.colorHex.flatMap(normalizedWorkspaceSidebarColorHex)
-                Button {
-                    onSetProjectColor(project, nil)
-                } label: {
-                    Label {
-                        Text("Auto")
-                    } icon: {
-                        Image(nsImage: workspaceSidebarAutomaticColorSwatchImage(isSelected: selectedColorHex == nil))
-                    }
-                }
-                Divider()
+                    ?? workspaceSidebarDefaultProjectColorHex
                 ForEach(workspaceSidebarProjectColorPresets) { preset in
                     Button {
                         onSetProjectColor(project, preset.hex)
@@ -257,7 +248,7 @@ extension WorkspaceSidebarProjectPager {
         Button(role: .destructive) {
             onDeleteProject(project)
         } label: {
-            Text("Delete Folder")
+            Text("Delete folder")
         }
         .disabled(!canDeleteWorkspaceProject(project.id))
     }

@@ -47,7 +47,61 @@ final class AxRefreshFastPathTest: XCTestCase {
     func testFocusOnlyEventsCanReuseLastAppliedWindowFrames() {
         XCTAssertTrue(RefreshSessionEvent.ax(kAXFocusedWindowChangedNotification as String).canReuseLastAppliedWindowFrames)
         XCTAssertTrue(RefreshSessionEvent.globalObserver(NSWorkspace.didActivateApplicationNotification.rawValue).canReuseLastAppliedWindowFrames)
+        XCTAssertTrue(RefreshSessionEvent.workspaceSidebarWidthChanged.canReuseLastAppliedWindowFrames)
         XCTAssertFalse(RefreshSessionEvent.ax(kAXMovedNotification as String).canReuseLastAppliedWindowFrames)
+    }
+
+    func testWindowCreatedEventUsesTargetedRefreshPlan() {
+        let event = RefreshSessionEvent.axWindowCreated(pid: 42)
+
+        XCTAssertTrue(event.isAxWindowCreated)
+        XCTAssertEqual(event.axWindowCreatedSourcePid, 42)
+        XCTAssertTrue(event.requiresWindowRefreshBarrier)
+        XCTAssertTrue(event.requiresLayoutReasonNormalization)
+    }
+
+    @MainActor
+    func testSidebarWidthChangeSkipsWindowRefreshBarriers() async throws {
+        _ = setUpFocusScenario()
+        var refreshCount = 0
+        var normalizeCount = 0
+        setBlockingRefreshOverridesForTests(
+            refresh: { refreshCount += 1 },
+            normalizeLayoutReason: { normalizeCount += 1 }
+        )
+
+        try await runRefreshSessionBlocking(.workspaceSidebarWidthChanged)
+
+        XCTAssertEqual(refreshCount, 0)
+        XCTAssertEqual(normalizeCount, 0)
+    }
+
+    @MainActor
+    func testSidebarWidthChangeDoesNotReplaceAnActiveFullRefresh() async throws {
+        setUpWorkspacesForTests()
+        var refreshContinuation: CheckedContinuation<Void, Never>?
+        var scheduledEvents: [String] = []
+        setScheduledRefreshOverrideForTests { event, _ in
+            scheduledEvents.append(event.description)
+            await withCheckedContinuation { refreshContinuation = $0 }
+        }
+        defer {
+            refreshContinuation?.resume()
+            setScheduledRefreshOverrideForTests(nil)
+        }
+
+        scheduleRefreshSession(.menuBarButton)
+        while refreshContinuation == nil {
+            await Task.yield()
+        }
+
+        scheduleRefreshSession(.workspaceSidebarWidthChanged)
+        await Task.yield()
+        XCTAssertEqual(scheduledEvents, [RefreshSessionEvent.menuBarButton.description])
+
+        refreshContinuation?.resume()
+        refreshContinuation = nil
+        try await waitForScheduledRefreshForTests()
     }
 
     func testWindowInventoryActivityIncludesLifecycleAndFocusNotifications() {

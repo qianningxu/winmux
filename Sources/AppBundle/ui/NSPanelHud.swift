@@ -16,6 +16,6 @@ open class NSPanelHud: NSPanel {
         self.alphaValue = 1
         self.hasShadow = true
         self.isOpaque = false
-        self.backgroundColor = .clear
+        self.backgroundColor = WinMuxDesignTokens.transparentNSColor
     }
 }

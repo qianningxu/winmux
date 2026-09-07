@@ -1,9 +1,10 @@
 import AppKit
 
-private let windowTabGroupShellHorizontalInsetValue: CGFloat = 3
-private let windowTabGroupShellTopInsetValue: CGFloat = 0
-private let windowTabGroupShellBottomInsetValue: CGFloat = 3
-private let windowTabBarMinimumHeightValue: CGFloat = 36
+private let windowTabGroupShellHorizontalInsetValue = WinMuxBarStyle.containerInset
+private let windowTabGroupShellTopInsetValue = WinMuxBarStyle.containerInset * 2
+private let windowTabGroupShellBottomInsetValue = WinMuxBarStyle.containerInset
+// Match the visible height of the menu-bar surfaces.
+private let windowTabBarMinimumHeightValue = workspaceSidebarTabRowHeight - standardGap * 0.5
 
 func windowTabGroupShellHorizontalInset() -> CGFloat {
     windowTabGroupShellHorizontalInsetValue
@@ -19,5 +20,6 @@ func windowTabGroupShellBottomInset() -> CGFloat {
 
 @MainActor
 func resolvedWindowTabBarHeight() -> CGFloat {
-    max(CGFloat(config.windowTabs.height), windowTabBarMinimumHeightValue)
+    guard let screen = NSScreen.main else { return windowTabBarMinimumHeightValue }
+    return max(workspaceSidebarTopBarHeight(for: screen) - menuBarContentTopInset, 1)
 }

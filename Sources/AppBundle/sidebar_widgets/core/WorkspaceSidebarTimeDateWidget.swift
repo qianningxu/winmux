@@ -58,24 +58,24 @@ private struct WorkspaceSidebarCompactTimeDateCard: View {
             let shape = RoundedRectangle(cornerRadius: workspaceSidebarStatusCornerRadius, style: .continuous)
             ZStack(alignment: .bottomLeading) {
                 shape
-                    .fill(winMuxOverlayContrastingFill(darkOpacity: 0.06, lightOpacity: 0.055))
+                    .fill(workspaceSidebarWidgetComponentBackground(.normal))
 
-                VStack(alignment: .center, spacing: 4) {
+                VStack(alignment: .center, spacing: standardGap * 2) {
                     Text(components.hour)
-                        .foregroundStyle(winMuxOverlayForeground(0.90))
+                        .foregroundStyle(workspaceSidebarWidgetContent(.primary))
 
                     Text(components.minute)
-                        .foregroundStyle(winMuxOverlayForeground(0.90))
+                        .foregroundStyle(workspaceSidebarWidgetContent(.primary))
 
                     Text(components.second)
-                        .foregroundStyle(winMuxOverlayMutedForeground(0.72))
+                        .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                 }
                 .font(.system(size: 19, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
                 shape
-                    .strokeBorder(winMuxOverlayContrastingFill(darkOpacity: 0.08, lightOpacity: 0.10), lineWidth: 0.5)
+                    .strokeBorder(workspaceSidebarWidgetBorder(.normal), lineWidth: 0.5)
             }
             .clipShape(shape)
         }
@@ -100,40 +100,40 @@ private struct WorkspaceSidebarExpandedTimeDateCard: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            HStack(alignment: .top, spacing: 4) {
+        HStack(alignment: .center, spacing: standardGap * 6) {
+            HStack(alignment: .top, spacing: standardGap * 2) {
                 Text(date, format: .dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
                     .font(.system(size: 42, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(winMuxOverlayForeground(0.90))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.primary))
                     .lineLimit(1)
                 Text(date, format: .dateTime.second(.twoDigits))
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(winMuxOverlayMutedForeground(0.62))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                     .lineLimit(1)
-                    .padding(.top, 9)
+                    .padding(.top, standardGap * 4.5)
             }
             .layoutPriority(1)
 
             if showsDate {
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: standardGap * 0.5) {
                     Text(date, format: .dateTime.weekday(.abbreviated))
                     Text(date, format: .dateTime.month(.abbreviated).day())
                 }
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(winMuxOverlayMutedForeground(0.76))
+                .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                 .lineLimit(1)
             }
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, standardGap * 7)
         .frame(width: sectionWidth, height: 68, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: workspaceSidebarStatusCornerRadius, style: .continuous)
-                .fill(winMuxOverlayContrastingFill(darkOpacity: 0.06, lightOpacity: 0.055))
+                .fill(workspaceSidebarWidgetComponentBackground(.normal))
                 .overlay {
                     RoundedRectangle(cornerRadius: workspaceSidebarStatusCornerRadius, style: .continuous)
-                        .strokeBorder(winMuxOverlayContrastingFill(darkOpacity: 0.08, lightOpacity: 0.10), lineWidth: 0.5)
+                        .strokeBorder(workspaceSidebarWidgetBorder(.normal), lineWidth: 0.5)
                 }
         )
         .accessibilityElement(children: .combine)

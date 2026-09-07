@@ -3,6 +3,22 @@ import Foundation
 import XCTest
 
 final class WorkspaceSidebarTogglWeeklyFocusWidgetTest: XCTestCase {
+    @MainActor
+    func testLoaderPublishesFreshSnapshotsOnEveryRefresh() async throws {
+        let firstNow = try date("2026-09-04 12:00:00")
+        let secondNow = try date("2026-09-04 12:01:00")
+        let loader = WorkspaceSidebarTogglWeeklyFocusLoader { _, _, now in
+            TogglWeeklyFocusSnapshot(totalWeekSeconds: now.timeIntervalSince1970)
+        }
+        let entriesDirectory = URL(filePath: "/tmp/toggl-weekly-focus", directoryHint: .isDirectory)
+
+        await loader.refresh(entriesDirectory: entriesDirectory, targetDate: "2026-09-13", now: firstNow)
+        assertEquals(loader.snapshot?.totalWeekSeconds, firstNow.timeIntervalSince1970)
+
+        await loader.refresh(entriesDirectory: entriesDirectory, targetDate: "2026-09-13", now: secondNow)
+        assertEquals(loader.snapshot?.totalWeekSeconds, secondNow.timeIntervalSince1970)
+    }
+
     func testAggregatorBuildsCurrentWeekFocusByDay() throws {
         let previousTimeZone = NSTimeZone.default
         NSTimeZone.default = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
@@ -147,6 +163,10 @@ final class WorkspaceSidebarTogglWeeklyFocusWidgetTest: XCTestCase {
 
         assertEquals(togglWeeklyFocusDayLabelText(for: try date("2026-06-15 00:00:00")), "MON")
         assertEquals(togglWeeklyFocusDayLabelText(for: try date("2026-06-16 00:00:00")), "TUE")
+    }
+
+    func testPeriodMonthLabelAlwaysUsesThreeCharacters() throws {
+        assertEquals(togglPeriodFocusMonthLabel(for: try date("2026-09-06 00:00:00")), "Sep")
     }
 
     private func writeEntry(_ url: URL, start: String, stop: String) throws {

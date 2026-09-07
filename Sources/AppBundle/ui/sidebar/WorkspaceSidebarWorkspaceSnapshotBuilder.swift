@@ -4,21 +4,50 @@ func buildWorkspaceSidebarWorkspaceViewModels(
     workspaceLabels: [String: String],
     availableMonitors: [Monitor],
 ) async -> [WorkspaceSidebarWorkspaceViewModel] {
-    var workspaces: [WorkspaceSidebarWorkspaceViewModel] = []
-    for workspace in userFacingWorkspaces(orderedWorkspacesForPresentation(), focusedWorkspace: currentFocus.workspace) {
-        workspaces.append(await makeWorkspaceSidebarWorkspaceViewModel(
-            workspace,
-            currentFocus: currentFocus,
-            workspaceLabels: workspaceLabels,
-            availableMonitors: availableMonitors,
-        ))
+    await buildWorkspaceSidebarWorkspaceViewModels(
+        from: orderedWorkspacesForPresentation(),
+        currentFocus: currentFocus,
+        workspaceLabels: workspaceLabels,
+        availableMonitors: availableMonitors,
+    )
+}
+
+@MainActor
+func buildWorkspaceSidebarWorkspaceViewModels(
+    from orderedWorkspaces: [Workspace],
+    currentFocus: LiveFocus,
+    workspaceLabels: [String: String],
+    availableMonitors: [Monitor],
+) async -> [WorkspaceSidebarWorkspaceViewModel] {
+    let sourceWorkspaces = userFacingWorkspaces(
+        orderedWorkspaces,
+        focusedWorkspace: currentFocus.workspace,
+    )
+    // Keep this inventory local to the snapshot; the next refresh reads the tree again.
+    let workspaceWindows = sourceWorkspaces.map { workspace in
+        (workspace: workspace, windows: workspace.allLeafWindowsRecursive.filter(\.isBound))
     }
-    return workspaces
+    let titleWindows = workspaceWindows.flatMap(\.windows)
+    return await withWorkspaceSidebarCachedWindowTitles(titleWindows) {
+        var viewModels: [WorkspaceSidebarWorkspaceViewModel] = []
+        viewModels.reserveCapacity(sourceWorkspaces.count)
+        for (workspace, windows) in workspaceWindows {
+            viewModels.append(await makeWorkspaceSidebarWorkspaceViewModel(
+                workspace,
+                windows: windows,
+                currentFocus: currentFocus,
+                workspaceLabels: workspaceLabels,
+                availableMonitors: availableMonitors,
+            ))
+        }
+        return viewModels
+    }
 }
 
 @MainActor
 private func makeWorkspaceSidebarWorkspaceViewModel(
     _ workspace: Workspace,
+    windows: [Window],
     currentFocus: LiveFocus,
     workspaceLabels: [String: String],
     availableMonitors: [Monitor],
@@ -27,12 +56,14 @@ private func makeWorkspaceSidebarWorkspaceViewModel(
     let sidebarLabel = workspaceLabels[workspace.name] ?? ""
     let tabSummary = await makeWorkspaceSidebarTabSummaryViewModel(
         workspace,
+        windows: windows,
         currentFocus: currentFocus,
         sidebarLabel: sidebarLabel,
     )
     return WorkspaceSidebarWorkspaceViewModel(
         name: workspace.name,
         projectId: workspace.projectId,
+        folderId: workspace.folderId,
         displayName: tabSummary.title,
         sidebarLabel: sidebarLabel,
         isGeneratedName: isSidebarDraftWorkspaceName(workspace.name) || workspace.usesAutomaticDisplayName,
@@ -48,10 +79,10 @@ private func makeWorkspaceSidebarWorkspaceViewModel(
 @MainActor
 private func makeWorkspaceSidebarTabSummaryViewModel(
     _ workspace: Workspace,
+    windows: [Window],
     currentFocus: LiveFocus,
     sidebarLabel: String,
 ) async -> WorkspaceSidebarTabSummaryViewModel {
-    let windows = workspace.allLeafWindowsRecursive.filter(\.isBound)
     let representativeWindow =
         currentFocus.windowOrNil?.takeIf { $0.nodeWorkspace == workspace && $0.isBound } ??
         workspace.mostRecentWindowRecursive?.takeIf(\.isBound) ??

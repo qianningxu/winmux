@@ -4,126 +4,220 @@ import SwiftUI
 import XCTest
 
 final class WinMuxOverlayPaletteTest: XCTestCase {
-    func testPaletteUsesGeistLikeLightAndDarkSemantics() {
-        let light = WinMuxOverlayPalette(theme: .light)
-        let dark = WinMuxOverlayPalette(theme: .dark)
-
-        XCTAssertLessThan(relativeLuminance(light.foregroundBaseNSColor), relativeLuminance(light.cardBaseNSColor))
-        XCTAssertGreaterThan(relativeLuminance(dark.foregroundBaseNSColor), relativeLuminance(dark.cardBaseNSColor))
-        XCTAssertGreaterThan(relativeLuminance(light.borderBaseNSColor), relativeLuminance(light.foregroundBaseNSColor))
-        XCTAssertLessThan(relativeLuminance(dark.borderBaseNSColor), relativeLuminance(dark.foregroundBaseNSColor))
-    }
-
     func testPaletteCanBeBuiltFromSwiftUIColorScheme() {
         XCTAssertEqual(WinMuxOverlayPalette(colorScheme: .light).theme, .light)
         XCTAssertEqual(WinMuxOverlayPalette(colorScheme: .dark).theme, .dark)
     }
 
-    func testPaletteUsesImportedGeistTokenValues() {
-        let light = WinMuxOverlayPalette(theme: .light)
-        let dark = WinMuxOverlayPalette(theme: .dark)
+    func testBackgroundRolesMatchGeistExactly() {
+        let expectations: [(AppearanceTheme, GeistBackgroundRole, CGFloat)] = [
+            (.light, .primary, 1.00),
+            (.light, .secondary, 0.98),
+            (.dark, .primary, 0.04),
+            (.dark, .secondary, 0.00),
+        ]
 
-        assertGray(light.backgroundBaseNSColor, 0.98)
-        assertGray(light.cardBaseNSColor, 1.00)
-        assertGray(light.gray100BaseNSColor, 0.95)
-        assertGray(light.gray300BaseNSColor, 0.90)
-        assertGray(light.gray500BaseNSColor, 0.79)
-        assertGray(light.gray700BaseNSColor, 0.56)
-        assertGray(light.mutedBaseNSColor, 0.95)
-        assertGray(light.borderBaseNSColor, 0.92)
-        assertGray(light.foregroundBaseNSColor, 0.09)
-        assertGray(light.mutedForegroundBaseNSColor, 0.30)
-
-        assertHex(dark.backgroundBaseNSColor, 0x000000)
-        assertHex(dark.cardBaseNSColor, 0x0A0A0A)
-        assertHex(dark.gray100BaseNSColor, 0x1A1A1A)
-        assertHex(dark.gray300BaseNSColor, 0x292929)
-        assertHex(dark.gray500BaseNSColor, 0x454545)
-        assertHex(dark.gray700BaseNSColor, 0x8F8F8F)
-        assertHex(dark.mutedBaseNSColor, 0x1A1A1A)
-        assertHex(dark.borderBaseNSColor, 0x333333)
-        assertHex(dark.foregroundBaseNSColor, 0xEDEDED)
-        assertHex(dark.mutedForegroundBaseNSColor, 0xDEDEDE)
+        for (theme, role, white) in expectations {
+            assertGray(GeistColorSystem.background(role, theme: theme), white)
+        }
     }
 
-    func testCanvasBackgroundUsesInvertedContrastFromGeistTokens() {
-        let light = WinMuxOverlayPalette(theme: .light)
-        let dark = WinMuxOverlayPalette(theme: .dark)
+    func testNamedTokenLayerExposesAppearanceSpecificValues() {
+        assertGray(GeistColorTokens.background1Light.nsColor, 1.00)
+        assertGray(GeistColorTokens.background2Dark.nsColor, 0.00)
+        assertGray(GeistColorTokens.gray1Light.nsColor, 0.95)
+        assertGray(GeistColorTokens.gray10Dark.nsColor, 0.93)
 
-        assertGray(light.gray100BaseNSColor, 0.95)
-        assertHex(dark.gray100BaseNSColor, 0x1A1A1A)
-        XCTAssertLessThan(relativeLuminance(light.canvasBackgroundNSColor), relativeLuminance(light.cardBaseNSColor))
-        XCTAssertGreaterThan(relativeLuminance(dark.canvasBackgroundNSColor), relativeLuminance(dark.cardBaseNSColor))
-        XCTAssertLessThan(relativeLuminance(light.gray100BaseNSColor), relativeLuminance(light.cardBaseNSColor))
-        XCTAssertGreaterThan(relativeLuminance(dark.gray100BaseNSColor), relativeLuminance(dark.cardBaseNSColor))
+        for family in WorkspaceSidebarProjectThemeFamily.allCases {
+            for theme in [AppearanceTheme.light, .dark] {
+                for step in GeistColorStep.allCases {
+                    assertSameColor(
+                        GeistColorSystem.color(family, step, theme: theme),
+                        GeistColorTokens.color(family, step, theme: theme).nsColor
+                    )
+                }
+            }
+        }
     }
 
-    func testSidebarTabChromeUsesDistinctHoverAndDarkerStrokes() {
-        let light = WinMuxOverlayPalette(theme: .light)
-        let dark = WinMuxOverlayPalette(theme: .dark)
+    func testEveryFamilyAndAppearanceResolvesAllSemanticRolesToExactSteps() {
+        for family in WorkspaceSidebarProjectThemeFamily.allCases {
+            for theme in [AppearanceTheme.light, .dark] {
+                let palette = WinMuxOverlayPalette(theme: theme, projectThemeFamily: family)
 
-        assertGray(light.tabHoverSurfaceNSColor, 0.92)
-        assertHex(dark.tabHoverSurfaceNSColor, 0x292929)
-        XCTAssertLessThan(relativeLuminance(light.tabHoverSurfaceNSColor), relativeLuminance(light.gray100BaseNSColor))
-        XCTAssertGreaterThan(relativeLuminance(dark.tabHoverSurfaceNSColor), relativeLuminance(dark.gray100BaseNSColor))
-        XCTAssertLessThan(relativeLuminance(light.tabStrokeNSColor()), relativeLuminance(light.borderBaseNSColor))
-        XCTAssertGreaterThan(relativeLuminance(dark.tabStrokeNSColor()), relativeLuminance(dark.borderBaseNSColor))
-        XCTAssertLessThan(relativeLuminance(light.iconStrokeNSColor()), relativeLuminance(light.borderBaseNSColor))
-        XCTAssertGreaterThan(relativeLuminance(dark.iconStrokeNSColor()), relativeLuminance(dark.borderBaseNSColor))
+                for state in GeistComponentState.allCases {
+                    let expectedComponentBackground = state == .normal
+                        ? GeistColorSystem.background(.primary, theme: theme)
+                        : GeistColorSystem.color(family, state.step, theme: theme)
+                    assertSameColor(
+                        palette.componentBackgroundNSColor(state),
+                        expectedComponentBackground
+                    )
+                }
+                for state in GeistBorderState.allCases {
+                    assertSameColor(
+                        palette.geistBorderNSColor(state),
+                        GeistColorSystem.color(family, state.step, theme: theme)
+                    )
+                }
+                for state in GeistHighContrastState.allCases {
+                    assertSameColor(
+                        palette.highContrastBackgroundNSColor(state),
+                        GeistColorSystem.color(family, state.step, theme: theme)
+                    )
+                }
+                for role in GeistContentRole.allCases {
+                    assertSameColor(
+                        palette.contentNSColor(role),
+                        GeistColorSystem.color(family, role.step, theme: theme)
+                    )
+                }
+                for step in GeistColorStep.allCases {
+                    XCTAssertEqual(
+                        palette.colorNSColor(family, step).alphaComponent,
+                        1,
+                        accuracy: 0.001,
+                        "\(family.rawValue) \(theme) \(step)"
+                    )
+                }
+            }
+        }
     }
 
-    func testPaletteUsesGeistSemanticAccentTokens() {
-        let light = WinMuxOverlayPalette(theme: .light)
-        let dark = WinMuxOverlayPalette(theme: .dark)
+    func testGrayFamilyUsesOpaqueSolidGrayInsteadOfGrayAlpha() {
+        let expected: [AppearanceTheme: [CGFloat]] = [
+            .light: [0.95, 0.92, 0.90, 0.92, 0.79, 0.66, 0.56, 0.49, 0.30, 0.09],
+            .dark: [0.10, 0.12, 0.16, 0.18, 0.27, 0.53, 0.56, 0.49, 0.63, 0.93],
+        ]
 
-        assertRGB(light.attentionNSColor, red: 0, green: 0.448, blue: 0.960)
-        assertRGB(dark.attentionNSColor, red: 0, green: 0.406, blue: 0.840)
-        assertRGB(light.destructiveNSColor, red: 0.898, green: 0.2825, blue: 0.303)
-        assertRGB(dark.destructiveNSColor, red: 0.797, green: 0.163, blue: 0.184)
-        assertRGB(light.otherDisplayNSColor, red: 0.916, green: 0.244, blue: 0.513)
-        assertRGB(dark.otherDisplayNSColor, red: 0.743, green: 0.158, blue: 0.392)
+        for theme in [AppearanceTheme.light, .dark] {
+            for (step, white) in zip(GeistColorStep.allCases, expected[theme].orDie()) {
+                assertGray(GeistColorSystem.color(.gray, step, theme: theme), white)
+            }
+        }
     }
 
-    func testDropIntentLandingPreviewUsesGreyPlacementPaneNotCardWhite() {
-        let light = WinMuxOverlayPalette(theme: .light)
-        let dark = WinMuxOverlayPalette(theme: .dark)
-
-        assertGray(light.dropIntentBackdropNSColor, 0.95)
-        assertGray(light.dropIntentInactivePaneNSColor, 0.90)
-        assertGray(light.dropIntentLandingPaneNSColor, 0.79)
-        assertGray(light.dropIntentSplitPlacementPaneNSColor, 0.79)
-        assertGray(light.dropIntentSplitExistingPaneNSColor, 0.90)
-        assertGray(light.dropIntentDisplacedPaneNSColor, 0.90)
-        assertHex(dark.dropIntentBackdropNSColor, 0x1A1A1A)
-        assertHex(dark.dropIntentInactivePaneNSColor, 0x292929)
-        assertHex(dark.dropIntentLandingPaneNSColor, 0x454545)
-        assertHex(dark.dropIntentSplitPlacementPaneNSColor, 0x454545)
-        assertHex(dark.dropIntentSplitExistingPaneNSColor, 0x292929)
-        assertHex(dark.dropIntentDisplacedPaneNSColor, 0x292929)
-        XCTAssertLessThan(relativeLuminance(light.dropIntentBackdropNSColor), relativeLuminance(light.cardBaseNSColor))
-        XCTAssertLessThan(relativeLuminance(light.dropIntentInactivePaneNSColor), relativeLuminance(light.cardBaseNSColor))
-        XCTAssertEqual(relativeLuminance(light.dropIntentLandingPaneNSColor), relativeLuminance(light.gray500BaseNSColor))
-        XCTAssertLessThan(relativeLuminance(light.dropIntentLandingPaneNSColor), relativeLuminance(light.dropIntentInactivePaneNSColor))
-        XCTAssertGreaterThan(relativeLuminance(dark.dropIntentBackdropNSColor), relativeLuminance(dark.cardBaseNSColor))
-        XCTAssertGreaterThan(relativeLuminance(dark.dropIntentInactivePaneNSColor), relativeLuminance(dark.dropIntentBackdropNSColor))
-        XCTAssertEqual(relativeLuminance(dark.dropIntentLandingPaneNSColor), relativeLuminance(dark.gray500BaseNSColor))
-        XCTAssertGreaterThan(relativeLuminance(dark.dropIntentLandingPaneNSColor), relativeLuminance(dark.dropIntentInactivePaneNSColor))
+    func testTabRowBorderStatePriorityMatchesGeistSemantics() {
+        XCTAssertNil(workspaceSidebarTabRowBorderRole(
+            isSelected: false,
+            isHovered: false,
+            isActiveInteraction: false
+        ))
+        XCTAssertEqual(workspaceSidebarTabRowBorderRole(
+            isSelected: true,
+            isHovered: false,
+            isActiveInteraction: false
+        ), .color4)
+        XCTAssertEqual(workspaceSidebarTabRowBorderRole(
+            isSelected: true,
+            isHovered: true,
+            isActiveInteraction: false
+        ), .color5)
+        XCTAssertEqual(workspaceSidebarTabRowBorderRole(
+            isSelected: true,
+            isHovered: true,
+            isActiveInteraction: true
+        ), .color6)
     }
 
-    func testResizePreviewPlacementPaletteUsesGreyDropIntentFills() {
-        let lightFill = resolvedColor(ResizePreviewPalette.fillNSColor, appearance: .aqua)
-        let lightSourceFill = resolvedColor(ResizePreviewPalette.sourceFrameFillNSColor, appearance: .aqua)
-        let darkFill = resolvedColor(ResizePreviewPalette.fillNSColor, appearance: .darkAqua)
-        let darkSourceFill = resolvedColor(ResizePreviewPalette.sourceFrameFillNSColor, appearance: .darkAqua)
+    func testRootSurfaceAlwaysUsesActiveThemeColorOne() {
+        for theme in [AppearanceTheme.light, .dark] {
+            let defaultGray = WinMuxOverlayPalette(theme: theme)
+            assertSameColor(
+                defaultGray.rootSurfaceNSColor,
+                GeistColorSystem.color(.gray, .color1, theme: theme)
+            )
 
-        assertGray(lightFill, 0.79)
-        assertGray(lightSourceFill, 0.90)
-        assertHex(darkFill, 0x454545)
-        assertHex(darkSourceFill, 0x292929)
-        XCTAssertLessThan(relativeLuminance(lightFill), relativeLuminance(WinMuxOverlayPalette(theme: .light).cardBaseNSColor))
-        XCTAssertLessThan(relativeLuminance(lightSourceFill), relativeLuminance(WinMuxOverlayPalette(theme: .light).cardBaseNSColor))
-        XCTAssertGreaterThan(relativeLuminance(darkFill), relativeLuminance(WinMuxOverlayPalette(theme: .dark).cardBaseNSColor))
-        XCTAssertGreaterThan(relativeLuminance(darkSourceFill), relativeLuminance(WinMuxOverlayPalette(theme: .dark).cardBaseNSColor))
+            for family in WorkspaceSidebarProjectThemeFamily.allCases {
+                let themed = WinMuxOverlayPalette(theme: theme, projectThemeFamily: family)
+                assertSameColor(
+                    themed.rootSurfaceNSColor,
+                    GeistColorSystem.color(family, .color1, theme: theme)
+                )
+            }
+        }
+    }
+
+    func testUnsetOrAchromaticProjectColorResolvesToGray() {
+        XCTAssertEqual(WorkspaceSidebarProjectThemeFamily.resolve(configuredHex: nil), .gray)
+        XCTAssertEqual(WorkspaceSidebarProjectThemeFamily.resolve(configuredHex: "#777777"), .gray)
+    }
+
+    func testAllEightProjectPresetsResolveToTheirNamedGeistFamily() {
+        XCTAssertEqual(workspaceSidebarProjectColorPresets.count, 8)
+        XCTAssertEqual(
+            Set(workspaceSidebarProjectColorPresets.compactMap {
+                WorkspaceSidebarProjectThemeFamily.resolve(configuredHex: $0.hex)
+            }),
+            Set(WorkspaceSidebarProjectThemeFamily.allCases)
+        )
+    }
+
+    func testResizePreviewUsesDocumentedGeistRoles() {
+        for (appearance, theme) in [(NSAppearance.Name.aqua, AppearanceTheme.light), (.darkAqua, .dark)] {
+            assertSameColor(
+                resolvedColor(ResizePreviewPalette.fillNSColor, appearance: appearance),
+                GeistColorSystem.color(.gray, .color7, theme: theme)
+            )
+            assertSameColor(
+                resolvedColor(ResizePreviewPalette.strokeNSColor, appearance: appearance),
+                GeistColorSystem.color(.gray, .color6, theme: theme)
+            )
+            assertSameColor(
+                resolvedColor(ResizePreviewPalette.sourceFrameFillNSColor, appearance: appearance),
+                GeistColorSystem.color(.gray, .color2, theme: theme)
+            )
+        }
+    }
+
+    func testUISourcesDoNotBypassGeistTokens() throws {
+        let testFile = URL(fileURLWithPath: #filePath)
+        let repositoryRoot = testFile
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceRoots = ["ui", "mouse", "sidebar_widgets"].map {
+            repositoryRoot.appending(path: "Sources/AppBundle/\($0)")
+        }
+        let excludedFiles = Set([
+            "GeistColorSystem.swift",
+            "GeistColorTokens.swift",
+            "WorkspaceSidebarColor.swift",
+        ])
+        let forbiddenFragments = [
+            "winMuxOverlayForeground",
+            "winMuxOverlayMutedForeground",
+            "winMuxOverlayBackground",
+            "winMuxOverlayCard",
+            "winMuxOverlayContrastingFill",
+            "winMuxOverlayShadow",
+            "winMuxOverlayAttention",
+            "winMuxOverlayDestructive",
+            "winMuxOverlayAccent",
+            "winMuxOverlayOnAccent",
+            "withAlphaComponent(",
+            "srgbRed:",
+            "displayP3Red:",
+            "Color.black",
+            "Color.white",
+            "Color.gray",
+            "NSColor.black",
+            "NSColor.white",
+            ".shadow(",
+        ]
+
+        let manager = FileManager.default
+        for root in sourceRoots {
+            let enumerator = manager.enumerator(at: root, includingPropertiesForKeys: nil).orDie()
+            for case let file as URL in enumerator {
+                guard file.pathExtension == "swift", !excludedFiles.contains(file.lastPathComponent) else { continue }
+                let source = try String(contentsOf: file, encoding: .utf8)
+                for fragment in forbiddenFragments {
+                    XCTAssertFalse(source.contains(fragment), "\(file.path) bypasses Geist tokens with \(fragment)")
+                }
+            }
+        }
     }
 
     func testSidebarPanelFrameUsesVisibleFrameAndExtraReserve() {
@@ -154,8 +248,8 @@ final class WinMuxOverlayPaletteTest: XCTestCase {
         XCTAssertEqual(frame, NSRect(x: 0, y: 40, width: 1512, height: 914))
     }
 
-    func testCanvasBackgroundFrameCanFillToPhysicalScreenTop() {
-        let sidebarFrame = NSRect(x: 0, y: 40, width: 1512, height: 914)
+    func testCanvasBackgroundFrameFillsPhysicalScreenBeyondVisibleFrame() {
+        let sidebarFrame = NSRect(x: 72, y: 40, width: 1440, height: 914)
         let screenFrame = NSRect(x: 0, y: 0, width: 1512, height: 982)
 
         let frame = workspaceCanvasBackgroundFrame(
@@ -163,7 +257,7 @@ final class WinMuxOverlayPaletteTest: XCTestCase {
             screenFrame: screenFrame
         )
 
-        XCTAssertEqual(frame, NSRect(x: 0, y: 40, width: 1512, height: 942))
+        XCTAssertEqual(frame, screenFrame)
     }
 
     func testSidebarSideAreaVisualFrameIsInsetWithinHostFrame() {
@@ -172,7 +266,7 @@ final class WinMuxOverlayPaletteTest: XCTestCase {
 
         let visualFrame = metrics.visualSidebarFrame(in: hostFrame, visibleWidth: 240)
 
-        XCTAssertEqual(visualFrame, NSRect(x: 10, y: 50, width: 240, height: 894))
+        XCTAssertEqual(visualFrame, NSRect(x: 8, y: 48, width: 240, height: 898))
     }
 
     func testSidebarSideAreaBackgroundFrameUsesCurrentVisibleWidthWhenFolded() {
@@ -185,7 +279,7 @@ final class WinMuxOverlayPaletteTest: XCTestCase {
             expandedWidth: 250
         )
 
-        XCTAssertEqual(backgroundFrame, NSRect(x: 0, y: 40, width: 64, height: 914))
+        XCTAssertEqual(backgroundFrame, NSRect(x: 0, y: 40, width: 60, height: 914))
     }
 
     func testSidebarSideAreaBackgroundFrameFillsExpandedSideArea() {
@@ -198,7 +292,7 @@ final class WinMuxOverlayPaletteTest: XCTestCase {
             expandedWidth: 250
         )
 
-        XCTAssertEqual(backgroundFrame, NSRect(x: 0, y: 40, width: 270, height: 914))
+        XCTAssertEqual(backgroundFrame, NSRect(x: 0, y: 40, width: 266, height: 914))
     }
 
     func testSidebarSideAreaEdgeTriggerStaysFlushToHostEdge() {
@@ -213,25 +307,19 @@ final class WinMuxOverlayPaletteTest: XCTestCase {
     func testSidebarSideAreaReservationUsesExpandedWidthAndWindowGap() {
         let metrics = WorkspaceSidebarSideAreaMetrics.standard
 
-        XCTAssertEqual(metrics.sideAreaReservation(expandedWidth: 240), 260)
+        XCTAssertEqual(metrics.sideAreaReservation(expandedWidth: 240), 256)
     }
 
-    func testWindowCanvasLeftInsetUsesSingleTenPointGapWhenFolded() {
+    func testWindowCanvasLeftInsetUsesStandardGapWhenFolded() {
         let metrics = WorkspaceSidebarSideAreaMetrics.standard
 
-        XCTAssertEqual(metrics.windowCanvasLeftInset(visibleWidth: 44, userOuterLeftGap: 8), 64)
+        XCTAssertEqual(metrics.windowCanvasLeftInset(visibleWidth: 44), 60)
     }
 
-    func testWindowCanvasLeftInsetUsesSingleTenPointGapWhenExpanded() {
+    func testWindowCanvasLeftInsetUsesStandardGapWhenExpanded() {
         let metrics = WorkspaceSidebarSideAreaMetrics.standard
 
-        XCTAssertEqual(metrics.windowCanvasLeftInset(visibleWidth: 250, userOuterLeftGap: 8), 270)
-    }
-
-    func testWindowCanvasLeftInsetPreservesLargerUserGap() {
-        let metrics = WorkspaceSidebarSideAreaMetrics.standard
-
-        XCTAssertEqual(metrics.windowCanvasLeftInset(visibleWidth: 44, userOuterLeftGap: 20), 74)
+        XCTAssertEqual(metrics.windowCanvasLeftInset(visibleWidth: 250), 266)
     }
 
     func testSidebarProtectedFrameRequiresSynchronousRepairWhenActualWindowOverlapsSidebar() {
@@ -328,6 +416,11 @@ private func relativeLuminance(_ color: NSColor) -> CGFloat {
     return (0.2126 * rgb.redComponent) + (0.7152 * rgb.greenComponent) + (0.0722 * rgb.blueComponent)
 }
 
+private func rgbComponents(_ color: NSColor) -> [CGFloat] {
+    let rgb = color.usingColorSpace(.sRGB).orDie()
+    return [rgb.redComponent, rgb.greenComponent, rgb.blueComponent, rgb.alphaComponent]
+}
+
 private func resolvedColor(_ color: NSColor, appearance: NSAppearance.Name) -> NSColor {
     let appearance = NSAppearance(named: appearance).orDie()
     var resolved: NSColor?
@@ -354,6 +447,27 @@ private func assertHex(_ color: NSColor, _ expectedRGB: UInt32, file: StaticStri
         file: file,
         line: line
     )
+}
+
+private func assertSameColor(
+    _ actual: NSColor,
+    _ expected: NSColor,
+    message: String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line
+) {
+    let actualComponents = rgbComponents(actual)
+    let expectedComponents = rgbComponents(expected)
+    for (actualComponent, expectedComponent) in zip(actualComponents, expectedComponents) {
+        XCTAssertEqual(
+            actualComponent,
+            expectedComponent,
+            accuracy: 0.0001,
+            message,
+            file: file,
+            line: line
+        )
+    }
 }
 
 private func assertRGB(

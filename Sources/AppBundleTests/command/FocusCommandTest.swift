@@ -49,11 +49,11 @@ final class FocusCommandTest: XCTestCase {
         )
         assertEquals(
             parseCommand("focus --boundaries all-monitors-outer-frame dfs-next").errorOrNil,
-            "(dfs-next|dfs-prev|tab-next|tab-prev) only supports the current Tab boundary (--boundaries tab)",
+            "Relative window, pane, and stack focus only supports the current tab boundary (--boundaries tab)",
         )
         assertEquals(
             parseCommand("focus --boundaries all-monitors-outer-frame tab-next").errorOrNil,
-            "(dfs-next|dfs-prev|tab-next|tab-prev) only supports the current Tab boundary (--boundaries tab)",
+            "Relative window, pane, and stack focus only supports the current tab boundary (--boundaries tab)",
         )
 
         assertEquals(

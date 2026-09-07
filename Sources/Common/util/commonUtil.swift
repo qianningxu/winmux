@@ -76,7 +76,9 @@ public enum RefreshSessionEvent: Sendable, CustomStringConvertible {
     case startup
     case socketServer(any CmdArgs)
     case resetManipulatedWithMouse
+    case workspaceSidebarWidthChanged
     case windowInventoryReconciliation
+    case axWindowCreated(pid: Int32)
     case ax(String)
     case onFocusedMonitorChanged
     case onFocusChanged
@@ -86,18 +88,31 @@ public enum RefreshSessionEvent: Sendable, CustomStringConvertible {
         if case .startup = self { return true } else { return false }
     }
 
+    public var isWorkspaceSidebarWidthChange: Bool {
+        if case .workspaceSidebarWidthChanged = self { return true } else { return false }
+    }
+
+    public var isAxWindowCreated: Bool {
+        if case .axWindowCreated = self { return true } else { return false }
+    }
+
+    public var axWindowCreatedSourcePid: Int32? {
+        if case let .axWindowCreated(pid) = self { return pid } else { return nil }
+    }
+
     public var canReuseLastAppliedWindowFrames: Bool {
         switch self {
             case .ax(let notif):
                 notif == kAXFocusedWindowChangedNotification as String
             case .globalObserver(let notif):
                 notif == NSWorkspace.didActivateApplicationNotification.rawValue
-            case .hotkeyBinding, .menuBarButton, .socketServer, .onModeChanged:
+            case .hotkeyBinding, .menuBarButton, .socketServer, .onModeChanged,
+                 .workspaceSidebarWidthChanged:
                 true
             case .onFocusedMonitorChanged, .onFocusChanged:
                 true
             case .configAutoReload, .globalObserverLeftMouseUp, .startup, .windowInventoryReconciliation,
-                 .resetManipulatedWithMouse:
+                 .resetManipulatedWithMouse, .axWindowCreated:
                 false
         }
     }
@@ -110,8 +125,10 @@ public enum RefreshSessionEvent: Sendable, CustomStringConvertible {
                 notif != NSWorkspace.didActivateApplicationNotification.rawValue
             case .configAutoReload, .globalObserverLeftMouseUp, .menuBarButton, .hotkeyBinding,
                  .startup, .socketServer, .resetManipulatedWithMouse, .onFocusedMonitorChanged,
-                 .onFocusChanged, .onModeChanged, .windowInventoryReconciliation:
+                 .onFocusChanged, .onModeChanged, .windowInventoryReconciliation, .axWindowCreated:
                 true
+            case .workspaceSidebarWidthChanged:
+                false
         }
     }
 
@@ -128,7 +145,9 @@ public enum RefreshSessionEvent: Sendable, CustomStringConvertible {
             case .hotkeyBinding: "hotkeyBinding"
             case .menuBarButton: "menuBarButton"
             case .resetManipulatedWithMouse: "resetManipulatedWithMouse"
+            case .workspaceSidebarWidthChanged: "workspaceSidebarWidthChanged"
             case .windowInventoryReconciliation: "windowInventoryReconciliation"
+            case .axWindowCreated(let pid): "axWindowCreated(pid: \(pid))"
             case .socketServer(let args): "socketServer: \(args)"
             case .startup: "startup"
             case .onFocusedMonitorChanged: "onFocusedMonitorChanged"

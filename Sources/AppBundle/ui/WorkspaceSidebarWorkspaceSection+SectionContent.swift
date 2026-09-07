@@ -22,6 +22,10 @@ extension WorkspaceSidebarWorkspaceSection {
             headerSlot
                 .frame(height: headerHeight)
                 .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
+                .contentShape(Rectangle())
+                .contextMenu {
+                    tabContextMenuItems
+                }
             windowRows
             dropPreviewRow
         }
@@ -60,7 +64,7 @@ extension WorkspaceSidebarWorkspaceSection {
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .modifier(WorkspaceSidebarWorkspaceReorderGestureModifier(
-            isEnabled: isWorkspaceReorderEnabled,
+            isEnabled: isWorkspaceReorderEnabled && !shouldShowComposedExpandedHeader,
             onChanged: onWorkspaceReorderDragChanged,
             onEnded: onWorkspaceReorderDragEnded
         ))

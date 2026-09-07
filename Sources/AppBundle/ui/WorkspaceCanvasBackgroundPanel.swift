@@ -9,13 +9,31 @@ final class WorkspaceCanvasBackgroundPanel: NSPanelHud {
 
     private let hostingView: NSHostingView<WorkspaceCanvasBackgroundView>
     private let monitorScopeId: String
+    private var projectThemeFamily: WorkspaceSidebarProjectThemeFamily?
+    private var theme: AppearanceTheme
 
     private init(monitor: Monitor) {
         monitorScopeId = workspaceSidebarMonitorScopeId(for: monitor)
-        hostingView = NSHostingView(rootView: WorkspaceCanvasBackgroundView())
+        let projectThemeFamily = workspaceCanvasProjectThemeFamily(
+            activeProjectId: activeWorkspaceProjectId(for: monitor),
+            projectColors: config.workspaceSidebar.projectColors
+        )
+        self.projectThemeFamily = projectThemeFamily
+        let theme = AppearanceTheme.current
+        self.theme = theme
+        hostingView = NSHostingView(rootView: WorkspaceCanvasBackgroundView(
+            projectThemeFamily: projectThemeFamily,
+            reserveHeight: CGFloat(config.workspaceSidebar.menuBarReserveHeight),
+            theme: theme
+        ))
         super.init()
         identifier = NSUserInterfaceItemIdentifier("\(workspaceCanvasBackgroundPanelId).\(monitorScopeId)")
         hasShadow = false
+        isOpaque = true
+        backgroundColor = WinMuxOverlayPalette(
+            theme: theme,
+            projectThemeFamily: projectThemeFamily
+        ).colorNSColor(.gray, .color8)
         ignoresMouseEvents = true
         isFloatingPanel = false
         isExcludedFromWindowsMenu = true
@@ -27,23 +45,9 @@ final class WorkspaceCanvasBackgroundPanel: NSPanelHud {
         hostingView.autoresizingMask = [.width, .height]
     }
 
-    static func refreshAll() {
-        guard TrayMenuModel.shared.isEnabled, config.workspaceSidebar.enabled else {
-            removeAll()
-            return
-        }
-        let monitors = workspaceSidebarResolvedPanelMonitors()
-        let activeMonitorScopeIds = Set(monitors.map { workspaceSidebarMonitorScopeId(for: $0) })
-        for monitor in monitors {
-            let scopeId = workspaceSidebarMonitorScopeId(for: monitor)
-            let panel = panelsByMonitorScopeId[scopeId] ?? WorkspaceCanvasBackgroundPanel(monitor: monitor)
-            panelsByMonitorScopeId[scopeId] = panel
-            panel.refresh(on: monitor)
-        }
-        let inactiveScopeIds = panelsByMonitorScopeId.keys.filter { !activeMonitorScopeIds.contains($0) }
-        for scopeId in inactiveScopeIds {
-            panelsByMonitorScopeId.removeValue(forKey: scopeId)?.close()
-        }
+    static func refreshAll(themeOverride _: AppearanceTheme? = nil) {
+        // Keep the desktop visible behind the bars and window stacks.
+        removeAll()
     }
 
     static func hideAll() {
@@ -60,7 +64,7 @@ final class WorkspaceCanvasBackgroundPanel: NSPanelHud {
         }
     }
 
-    private func refresh(on monitor: Monitor) {
+    private func refresh(on monitor: Monitor, themeOverride: AppearanceTheme?) {
         guard TrayMenuModel.shared.isEnabled,
               config.workspaceSidebar.enabled,
               let screen = workspaceSidebarScreen(for: monitor),
@@ -69,86 +73,71 @@ final class WorkspaceCanvasBackgroundPanel: NSPanelHud {
             orderOut(nil)
             return
         }
-        let sidebarFrame = workspaceSidebarPanelFrame(
-            screenFrame: screen.frame,
-            visibleFrame: screen.visibleFrame,
-            width: screen.visibleFrame.width,
-            extraTopReserveHeight: CGFloat(config.workspaceSidebar.menuBarReserveHeight),
+        let projectThemeFamily = workspaceCanvasProjectThemeFamily(
+            activeProjectId: activeWorkspaceProjectId(for: monitor),
+            projectColors: config.workspaceSidebar.projectColors
         )
+        let theme = themeOverride ?? AppearanceTheme.current
+        if self.projectThemeFamily != projectThemeFamily || self.theme != theme {
+            self.projectThemeFamily = projectThemeFamily
+            self.theme = theme
+            let palette = WinMuxOverlayPalette(
+                theme: theme,
+                projectThemeFamily: projectThemeFamily
+            )
+            backgroundColor = palette.colorNSColor(.gray, .color8)
+            hostingView.rootView = WorkspaceCanvasBackgroundView(
+                projectThemeFamily: projectThemeFamily,
+                reserveHeight: CGFloat(config.workspaceSidebar.menuBarReserveHeight),
+                theme: theme
+            )
+        }
         let frame = workspaceCanvasBackgroundFrame(
-            sidebarFrame: sidebarFrame,
+            sidebarFrame: .zero,
             screenFrame: screen.frame
         )
         if self.frame != frame {
             setFrame(frame, display: true, animate: false)
         }
         orderFrontRegardless()
-        if let windowId = lowestNormalManagedWindowId() {
-            order(.below, relativeTo: windowId)
-        }
     }
+
 }
 
 func workspaceCanvasBackgroundFrame(
-    sidebarFrame: NSRect,
+    sidebarFrame _: NSRect,
     screenFrame: NSRect
 ) -> NSRect {
-    let maxY = max(screenFrame.maxY, sidebarFrame.maxY)
-    return NSRect(
-        x: sidebarFrame.minX,
-        y: sidebarFrame.minY,
-        width: sidebarFrame.width,
-        height: max(maxY - sidebarFrame.minY, 1),
-    )
+    screenFrame
 }
 
 struct WorkspaceCanvasBackgroundView: View {
-    @Environment(\.colorScheme) private var colorScheme
+    let projectThemeFamily: WorkspaceSidebarProjectThemeFamily?
+    let reserveHeight: CGFloat
+    let theme: AppearanceTheme
 
     var body: some View {
-        let palette = WinMuxOverlayPalette(colorScheme: colorScheme)
-        Rectangle()
-            .fill(workspaceCanvasBackground(for: palette))
-            .overlay(alignment: .top) {
-                LinearGradient(
-                    stops: [
-                        .init(color: palette.foreground(palette.isDark ? 0.035 : 0.055), location: 0),
-                        .init(color: .clear, location: 0.24),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .allowsHitTesting(false)
-            }
-            .ignoresSafeArea()
+        let palette = WinMuxOverlayPalette(
+            theme: theme,
+            projectThemeFamily: projectThemeFamily
+        )
+        ZStack(alignment: .topLeading) {
+            Rectangle()
+                .fill(workspaceCanvasBackground(for: palette))
+                .ignoresSafeArea()
+        }
     }
+}
+
+func workspaceCanvasProjectThemeFamily(
+    activeProjectId: WorkspaceProjectId,
+    projectColors: [String: String]
+) -> WorkspaceSidebarProjectThemeFamily? {
+    WorkspaceSidebarProjectThemeFamily.resolve(
+        configuredHex: projectColors[activeProjectId.rawValue]
+    )
 }
 
 func workspaceCanvasBackground(for palette: WinMuxOverlayPalette) -> Color {
-    palette.muted()
-}
-
-@MainActor
-private func lowestNormalManagedWindowId() -> Int? {
-    let visibleWindowIds = Set(MacWindow.allWindows
-        .filter { getWindowLevel(for: $0.windowId) == .normalWindow }
-        .map(\.windowId))
-    guard !visibleWindowIds.isEmpty else { return nil }
-
-    let options: CGWindowListOption = [.excludeDesktopElements, .optionOnScreenOnly]
-    guard let windowInfos = CGWindowListCopyWindowInfo(options, CGWindowID(0)) as? [[String: Any]] else {
-        return visibleWindowIds.map(Int.init).min()
-    }
-
-    return windowInfos
-        .compactMap { info -> UInt32? in
-            guard let rawWindowId = info[kCGWindowNumber as String] as? NSNumber,
-                  let rawLayer = info[kCGWindowLayer as String] as? NSNumber,
-                  MacOsWindowLevel.new(windowLevel: rawLayer.intValue) == .normalWindow
-            else { return nil }
-            let windowId = rawWindowId.uint32Value
-            return visibleWindowIds.contains(windowId) ? windowId : nil
-        }
-        .last
-        .map(Int.init)
+    palette.color(.gray, .color8)
 }

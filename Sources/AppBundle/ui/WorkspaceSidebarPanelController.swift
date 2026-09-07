@@ -11,9 +11,6 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     let viewModel: TrayMenuModel
     let hostingView: WorkspaceSidebarHostingView
     let monitorScopeId: String
-    var pendingExpand: DispatchWorkItem?
-    var pendingCollapse: DispatchWorkItem?
-    var pendingCollapseFinalize: DispatchWorkItem?
     var isHoverMonitoring = false
     var menuTrackingDepth = 0
     var menuTrackingGraceUntil: Date = .distantPast
@@ -34,6 +31,8 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     var bufferedCommandSidebarSearchKeys: [WorkspaceSidebarInlineTextKey] = []
     var commandMouseUnlockPoint: CGPoint?
     var commandMouseUnlockMonitors: [Any] = []
+    var projectActionMenuPresentationExtraWidth: CGFloat = 0
+    var projectMenuPresentationExtraHeight: CGFloat = 0
     var menuTrackingObservers: [NSObjectProtocol] = []
     var lastEdgeTrapSample: MousePointerSample?
     var edgeTrapStartedAt: TimeInterval?
@@ -42,7 +41,7 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     let hoverExitTolerance: CGFloat = 20
     let hoverOpenDelay: TimeInterval = 0.05
     let hoverCueAnimationResponse: TimeInterval = 0.18
-    let animationDuration: TimeInterval = 0.14
+    let animationDuration: TimeInterval = 0.11
     let menuTrackingEndGrace: TimeInterval = 0.75
     let edgeTrapBandWidth: CGFloat = 18
     let edgeTrapReleaseVelocityThreshold: CGFloat = 4
@@ -66,7 +65,7 @@ final class WorkspaceSidebarPanel: NSPanelHud {
         isExcludedFromWindowsMenu = true
         animationBehavior = .none
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        applyWinMuxLayer(.workspaceSidebar)
+        applyWinMuxLayer(.menuBarSurface)
         contentView = hostingView
         hostingView.frame = contentView?.bounds ?? .zero
         hostingView.autoresizingMask = [.width, .height]
@@ -74,6 +73,11 @@ final class WorkspaceSidebarPanel: NSPanelHud {
         standardWindowButton(.miniaturizeButton)?.isHidden = true
         standardWindowButton(.zoomButton)?.isHidden = true
         installMenuTrackingObservers()
+    }
+
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        // This panel intentionally occupies the native menu-bar strip.
+        frameRect
     }
 
     static var visiblePanels: [WorkspaceSidebarPanel] {
@@ -93,7 +97,9 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     }
 
     static func refreshAll() {
+        guard !isRestoringStartupLayout else { return }
         WorkspaceCanvasBackgroundPanel.refreshAll()
+        MenuBarStatusWidgetsController.shared.refreshIfInstalled()
         guard TrayMenuModel.shared.isEnabled, config.workspaceSidebar.enabled else {
             removeCachedPanels()
             return
@@ -138,6 +144,7 @@ final class WorkspaceSidebarPanel: NSPanelHud {
     func syncModelFromShared() {
         viewModel.setIfChanged(\.workspaceSidebarWorkspaces, to: TrayMenuModel.shared.workspaceSidebarWorkspaces)
         viewModel.setIfChanged(\.workspaceSidebarProjects, to: TrayMenuModel.shared.workspaceSidebarProjects)
+        viewModel.setIfChanged(\.workspaceSidebarFolders, to: TrayMenuModel.shared.workspaceSidebarFolders)
         viewModel.setIfChanged(\.workspaceSidebarActiveProjectId, to: resolvedLocalActiveProjectId())
         viewModel.setIfChanged(\.workspaceSidebarMonitorScopes, to: TrayMenuModel.shared.workspaceSidebarMonitorScopes)
         viewModel.setIfChanged(\.workspaceSidebarSelectedMonitorScopeId, to: resolvedLocalSelectedMonitorScopeId())
@@ -180,7 +187,6 @@ final class WorkspaceSidebarPanel: NSPanelHud {
 
     private func resetForTests() {
         stopHoverMonitoring()
-        cancelExpansionWork()
         endInlineTextEditing()
         menuTrackingDepth = 0
         menuTrackingGraceUntil = .distantPast
@@ -192,6 +198,8 @@ final class WorkspaceSidebarPanel: NSPanelHud {
         edgeTrapStartedAt = nil
         edgeTrapSuppressedUntil = 0
         splitBrowseCollapseSuppressedUntil = .distantPast
+        projectActionMenuPresentationExtraWidth = 0
+        projectMenuPresentationExtraHeight = 0
         resetHiddenSidebarState()
         ignoresMouseEvents = false
     }
@@ -242,6 +250,7 @@ final class WorkspaceSidebarPanel: NSPanelHud {
 }
 
 final class WorkspaceSidebarHostingView: NSHostingView<WorkspaceSidebarContainerView> {
+    override var isOpaque: Bool { false }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         true
     }

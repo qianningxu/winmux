@@ -5,14 +5,12 @@ struct WorkspaceSidebarWidgetStack: View {
     let sectionWidth: CGFloat
     let isCompact: Bool
     let showsNotePad: Bool
-    let showsTasks: Bool
 
     private var enabledWidgets: [WorkspaceSidebarWidgetConfig] {
         widgets.filter { widget in
             workspaceSidebarWidgetIsVisible(
                 widget,
                 showsNotePad: showsNotePad,
-                showsTasks: showsTasks,
                 isCompact: isCompact
             )
         }
@@ -23,7 +21,7 @@ struct WorkspaceSidebarWidgetStack: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: workspaceSidebarWidgetStackGap) {
             ForEach(renderItems) { item in
                 WorkspaceSidebarWidgetStackItemView(
                     item: item,
@@ -34,35 +32,31 @@ struct WorkspaceSidebarWidgetStack: View {
         }
         .frame(width: sectionWidth, alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(.easeInOut(duration: 0.16), value: isCompact)
     }
 }
 
 func workspaceSidebarWidgetIsVisible(
     _ widget: WorkspaceSidebarWidgetConfig,
     showsNotePad: Bool,
-    showsTasks: Bool = true,
     isCompact: Bool = false
 ) -> Bool {
     widget.enabled &&
+        (!isCompact || widget.type != .builtInTogglWeeklyFocus) &&
         widget.type != .builtInSpendingCategories &&
         widget.type != .builtInScheduleHeatmap &&
         widget.type != .builtInTodoList &&
-        (showsTasks || widget.type != .builtInTasks) &&
-        (!isCompact || widget.type != .builtInTasks)
+        widget.type != .builtInTasks
 }
 
 func workspaceSidebarHasVisibleWidgets(
     _ widgets: [WorkspaceSidebarWidgetConfig],
     showsNotePad: Bool,
-    showsTasks: Bool = true,
     isCompact: Bool = false
 ) -> Bool {
     widgets.contains {
         workspaceSidebarWidgetIsVisible(
             $0,
             showsNotePad: showsNotePad,
-            showsTasks: showsTasks,
             isCompact: isCompact
         )
     }

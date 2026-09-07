@@ -6,15 +6,36 @@ let workspaceProjectDefaultId = WorkspaceProjectId.defaultProject
 let workspaceDefaultFolderDisplayName = "Unfolded"
 let workspaceFolderDefaultId = WorkspaceFolderId(workspaceProjectDefaultId)
 
+func workspaceProjectUnfoldedFolderId(_ projectId: WorkspaceProjectId) -> WorkspaceFolderId {
+    projectId == workspaceProjectDefaultId
+        ? workspaceFolderDefaultId
+        : WorkspaceFolderId("unfolded-\(projectId.rawValue)")
+}
+
 struct WorkspaceProject: Hashable, Identifiable {
     let id: WorkspaceProjectId
-    let name: String
+    var name: String
     let order: Int
+    var unfoldedFolderId: WorkspaceFolderId
     var folderOrder: [WorkspaceFolderId] = []
-    /// Legacy compatibility mirror for call sites that still render folders through
-    /// the old project view model. Real tab ordering lives on WorkspaceFolder.
-    var workspaceOrder: [WorkspaceId] = []
     var linkedViewportIds: Set<MonitorViewportId> = []
+
+    init(
+        id: WorkspaceProjectId,
+        name: String,
+        order: Int,
+        unfoldedFolderId: WorkspaceFolderId? = nil,
+        folderOrder: [WorkspaceFolderId] = [],
+        linkedViewportIds: Set<MonitorViewportId> = []
+    ) {
+        self.id = id
+        self.name = name
+        self.order = order
+        let unfoldedFolderId = unfoldedFolderId ?? workspaceProjectUnfoldedFolderId(id)
+        self.unfoldedFolderId = unfoldedFolderId
+        self.folderOrder = folderOrder.isEmpty ? [unfoldedFolderId] : folderOrder
+        self.linkedViewportIds = linkedViewportIds
+    }
 }
 
 struct WorkspaceFolderId: RawRepresentable, Hashable, Identifiable, Sendable, Codable, ExpressibleByStringLiteral, CustomStringConvertible, Comparable {
@@ -69,14 +90,6 @@ struct WorkspaceFolder: Hashable, Identifiable {
         self.linkedViewportIds = linkedViewportIds
     }
 
-    init(backingProject project: WorkspaceProject) {
-        id = WorkspaceFolderId(project.id)
-        projectId = workspaceProjectDefaultId
-        name = project.name
-        order = project.order
-        workspaceOrder = project.workspaceOrder
-        linkedViewportIds = project.linkedViewportIds
-    }
 }
 
 enum WorkspaceMutationError: LocalizedError {
@@ -96,17 +109,17 @@ enum WorkspaceMutationError: LocalizedError {
             case .workspaceCannotBeDeleted(let name):
                 "Tab '\(name)' cannot be deleted."
             case .projectNotFound(let id):
-                "Folder '\(id)' no longer exists."
+                "Project '\(id)' no longer exists."
             case .projectCannotBeDeleted(let name):
-                "Folder '\(name)' cannot be deleted."
+                "Project '\(name)' cannot be deleted."
             case .workspaceCloseBlocked(let name, let count):
                 "Tab '\(name)' was not closed because \(count) window\(count == 1 ? "" : "s") stayed open."
             case .projectCloseBlocked(let name, let count):
-                "Folder '\(name)' was not deleted because \(count) window\(count == 1 ? "" : "s") stayed open."
+                "Project '\(name)' was not deleted because \(count) window\(count == 1 ? "" : "s") stayed open."
             case .emptyName:
                 "Name cannot be empty."
             case .duplicateProjectName(let name):
-                "A folder named '\(name)' already exists."
+                "A project named '\(name)' already exists."
         }
     }
 }

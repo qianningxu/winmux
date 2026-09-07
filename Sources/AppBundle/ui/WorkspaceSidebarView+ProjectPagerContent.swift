@@ -21,7 +21,6 @@ extension WorkspaceSidebarView {
                 topPadding: topPadding,
                 isInteractive: true,
                 showsPinnedActiveWorkspace: true,
-                showsCreateWorkspace: true,
                 allowsActivation: true,
             )
         } else if let browsedProjectId,
@@ -46,7 +45,6 @@ extension WorkspaceSidebarView {
                 topPadding: topPadding,
                 isInteractive: true,
                 showsPinnedActiveWorkspace: true,
-                showsCreateWorkspace: true,
                 allowsActivation: allowsWorkspaceActivation(projectId: snapshot.activeProjectId),
             )
         } else {
@@ -79,7 +77,7 @@ extension WorkspaceSidebarView {
                 pageWidth: pageWidth,
             )
 
-            HStack(alignment: .top, spacing: 0) {
+            HStack(alignment: .top, spacing: standardGap * 0) {
                 ForEach(Array(snapshot.projects.enumerated()), id: \.element.id) { index, project in
                     projectPageSlot(
                         index: index,

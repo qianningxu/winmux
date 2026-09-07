@@ -101,6 +101,9 @@ struct WorkspaceSidebarHorizontalBar: View {
     @State private var workspaceReorderTarget: WorkspaceSidebarHorizontalReorderTarget?
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.displayScale) private var displayScale
+
+    private var reversedScheme: ColorScheme { colorScheme == .dark ? .light : .dark }
 
     private var activeProject: WorkspaceSidebarProjectViewModel? {
         snapshot.projects.first { $0.id == snapshot.activeProjectId }
@@ -113,7 +116,7 @@ struct WorkspaceSidebarHorizontalBar: View {
 
     private var palette: WinMuxOverlayPalette {
         WinMuxOverlayPalette(
-            colorScheme: colorScheme,
+            colorScheme: reversedScheme,
             projectThemeFamily: workspaceSidebarProjectThemeFamily(
                 projects: snapshot.projects,
                 activeProjectId: snapshot.activeProjectId,
@@ -128,7 +131,7 @@ struct WorkspaceSidebarHorizontalBar: View {
     var body: some View {
         GeometryReader { geometry in
             let surfaceHeight = max(geometry.size.height - menuBarContentTopInset, 1)
-            let innerPadding = standardGap * 0.5
+            let innerPadding = standardGap * 0.125
             let contentHeight = max(surfaceHeight - innerPadding * 2, 1)
             let surfaceWidth = max(geometry.size.width - menuBarSurfaceHorizontalInset * 2, 1)
 
@@ -163,6 +166,7 @@ struct WorkspaceSidebarHorizontalBar: View {
         .background(WinMuxDesignTokens.transparent)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Tab bar")
+        .environment(\.colorScheme, reversedScheme)
         .onDisappear { clearWorkspaceReorderState() }
         .environment(\.workspaceSidebarProjectThemeFamily, workspaceSidebarProjectThemeFamily(
             projects: snapshot.projects,
@@ -215,68 +219,71 @@ struct WorkspaceSidebarHorizontalBar: View {
             )
             .frame(width: controlWidth, height: contentHeight)
         } else {
-            Menu {
-                ForEach(snapshot.projects) { project in
-                    Menu {
-                        Button("Switch Theme") {
-                            toggleWorkspaceSidebarAppearance()
+            ProjectMenuAppearanceHost(colorScheme: reversedScheme) {
+                Menu {
+                    ForEach(snapshot.projects) { project in
+                        Menu {
+                            Button("Switch theme") {
+                                toggleWorkspaceSidebarAppearance()
+                            }
+                            if projectsAreEnabled() {
+                                Divider()
+                                projectActions(for: project)
+                            }
+                        } label: {
+                            if project.id == snapshot.activeProjectId {
+                                Label(project.displayName, systemImage: "checkmark")
+                            } else {
+                                Text(project.displayName)
+                            }
+                        } primaryAction: {
+                            actions.send(.selectProject(project.id))
                         }
-                        if projectsAreEnabled() {
-                            Divider()
-                            projectActions(for: project)
-                        }
-                    } label: {
-                        if project.id == snapshot.activeProjectId {
-                            Label(project.displayName, systemImage: "checkmark")
-                        } else {
-                            Text(project.displayName)
-                        }
-                    } primaryAction: {
-                        actions.send(.selectProject(project.id))
                     }
-                }
-                if projectsAreEnabled() {
-                    Divider()
-                    Button("New Project") {
-                        actions.send(.createProject(displayName: nil))
+                    if projectsAreEnabled() {
+                        Divider()
+                        Button("New project") {
+                            actions.send(.createProject(displayName: nil))
+                        }
                     }
+                } label: {
+                    HStack(spacing: standardGap * 1.5) {
+                        Text(name)
+                            .font(.system(size: workspaceSidebarProjectLabelFontSize, weight: .semibold))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8.5, weight: .bold))
+                    }
+                    .foregroundStyle(palette.content(.primary))
+                    .frame(width: max(controlWidth - WinMuxBarStyle.contentInset * 2, 0), height: contentHeight)
+                    .padding(.horizontal, WinMuxBarStyle.contentInset)
+                    .contentShape(Rectangle())
                 }
-            } label: {
-                HStack(spacing: standardGap * 1.5) {
-                    Text(name)
-                        .font(.system(size: workspaceSidebarProjectLabelFontSize, weight: .semibold))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 8.5, weight: .bold))
-                }
-                .foregroundStyle(palette.content(.primary))
-                .frame(width: max(controlWidth - WinMuxBarStyle.contentInset * 2, 0), height: contentHeight)
-                .padding(.horizontal, WinMuxBarStyle.contentInset)
-                .contentShape(Rectangle())
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .layoutPriority(1)
+                .help("Switch project")
+                .accessibilityLabel("Project: \(name)")
             }
-            .menuStyle(.button)
-            .buttonStyle(.plain)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .layoutPriority(1)
-            .help("Switch Project")
-            .accessibilityLabel("Project: \(name)")
+            .frame(width: controlWidth, height: contentHeight)
         }
     }
 
     @ViewBuilder
     private func projectActions(for project: WorkspaceSidebarProjectViewModel) -> some View {
-        Button("Rename Project") {
+        Button("Rename project") {
             beginProjectRename(project)
         }
-        Menu("Project Color") {
+        Menu("Project color") {
             Button("Automatic") { actions.send(.setProjectColor(project.id, colorHex: nil)) }
             ForEach(workspaceSidebarProjectColorPresets) { preset in
                 Button(preset.name) { actions.send(.setProjectColor(project.id, colorHex: preset.hex)) }
             }
         }
-        Button("Delete Project", role: .destructive) {
+        Button("Delete project", role: .destructive) {
             actions.send(.deleteProject(project.id))
         }
         .disabled(!canDeleteWorkspaceProject(project.id))
@@ -285,7 +292,7 @@ struct WorkspaceSidebarHorizontalBar: View {
     private func workspaceTabStrip(contentHeight: CGFloat) -> some View {
         GeometryReader { geometry in
             let count = projectWorkspaces.count
-            let spacing = min(standardGap, geometry.size.width / CGFloat(max(count, 1)))
+            let spacing = min(standardGap * 0.25 / max(displayScale, 1), geometry.size.width / CGFloat(max(count, 1)))
             let tabWidth = max(0, (geometry.size.width - spacing * CGFloat(max(count - 1, 0))) / CGFloat(max(count, 1)))
             HStack(spacing: spacing) {
                 ForEach(Array(projectWorkspaces.enumerated()), id: \.element.id) { index, workspace in
@@ -608,10 +615,10 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
             actions.hoverWorkspace(workspace.name, hovering)
         }
         .contextMenu {
-            Button("Rename Tab", action: onBeginRename)
+            Button("Rename tab", action: onBeginRename)
             Divider()
             Button(role: .destructive, action: onClose) {
-                Text("Close Tab")
+                Text("Close tab")
             }
         }
         .modifier(WorkspaceSidebarWorkspaceReorderGestureModifier(

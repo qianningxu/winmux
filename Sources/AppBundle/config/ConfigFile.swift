@@ -57,6 +57,7 @@ func starterConfigText() -> String {
     let starterBindings: [String: String] = [
         ("alt-space", "layout horizontal vertical"),
         ("ctrl-f", "open-sidebar"),
+        ("alt-b", "open-sidebar"),
         ("alt-h", "focus left"),
         ("alt-j", "focus down"),
         ("alt-k", "focus up"),
@@ -89,16 +90,6 @@ func starterConfigText() -> String {
         ("alt-cmd-k", "swap up"),
         ("alt-shift-t", "layout floating tiling"),
         ("alt-shift-m", "fullscreen"),
-        ("ctrl-0", "folder 10"),
-        ("ctrl-1", "folder 1"),
-        ("ctrl-2", "folder 2"),
-        ("ctrl-3", "folder 3"),
-        ("ctrl-4", "folder 4"),
-        ("ctrl-5", "folder 5"),
-        ("ctrl-6", "folder 6"),
-        ("ctrl-7", "folder 7"),
-        ("ctrl-8", "folder 8"),
-        ("ctrl-9", "folder 9"),
         ("ctrl-q", "tab 11"),
         ("ctrl-w", "tab 12"),
         ("ctrl-e", "tab 13"),
@@ -118,24 +109,13 @@ func starterConfigText() -> String {
         ("alt-shift-7", "move-node-to-tab 7"),
         ("alt-shift-8", "move-node-to-tab 8"),
         ("alt-shift-9", "move-node-to-tab 9"),
-        ("ctrl-shift-0", "move-node-to-folder 10"),
-        ("ctrl-shift-1", "move-node-to-folder 1"),
-        ("ctrl-shift-2", "move-node-to-folder 2"),
-        ("ctrl-shift-3", "move-node-to-folder 3"),
-        ("ctrl-shift-4", "move-node-to-folder 4"),
-        ("ctrl-shift-5", "move-node-to-folder 5"),
-        ("ctrl-shift-6", "move-node-to-folder 6"),
-        ("ctrl-shift-7", "move-node-to-folder 7"),
-        ("ctrl-shift-8", "move-node-to-folder 8"),
-        ("ctrl-shift-9", "move-node-to-folder 9"),
         ("ctrl-shift-h", "move-node-to-tab --focus-follows-window prev"),
         ("ctrl-shift-l", "move-node-to-tab --focus-follows-window next"),
-        ("ctrl-shift-n", "move-node-to-folder default"),
     ].reduce(into: [:]) { result, pair in
         result[pair.0] = pair.1
     }
     let defaultText = (try? String(contentsOf: defaultConfigUrl, encoding: .utf8)) ?? """
-        config-version = 2
+        config-version = 3
 
         [mode.main.binding]
         """

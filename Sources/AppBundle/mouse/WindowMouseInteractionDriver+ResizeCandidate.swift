@@ -1,13 +1,13 @@
 import AppKit
 
 extension WindowMouseInteractionDriver {
-    func makePendingResizeCandidate() async -> PendingResizeCandidate? {
+    func makePendingResizeCandidate(sample capturedSample: MousePointerSample? = nil) async -> PendingResizeCandidate? {
         guard getCurrentMouseManipulationKind() == .none,
               let window = try? await getNativeFocusedWindow(),
               window.parent is TilingContainer,
               !window.isHiddenInCorner
         else { return nil }
-        let sample = MousePointerTracker.shared.currentSample
+        let sample = capturedSample ?? MousePointerTracker.shared.currentSample
         guard cachedResizeCandidateIsViable(window: window, sample: sample) else { return nil }
         let cachedRect = window.lastKnownActualRect ?? window.lastAppliedLayoutPhysicalRect
         guard let observedRect = (try? await window.getAxRect()) ?? cachedRect else { return nil }

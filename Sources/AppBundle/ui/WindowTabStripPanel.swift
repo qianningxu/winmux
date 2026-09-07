@@ -17,7 +17,7 @@ final class WindowTabStripPanel: NSPanelHud {
         isFloatingPanel = false
         isExcludedFromWindowsMenu = true
         animationBehavior = .none
-        backgroundColor = .clear
+        backgroundColor = WinMuxDesignTokens.transparentNSColor
         applyWinMuxLayer(.windowChrome)
         contentView = hostingView
         hostingView.frame = contentView?.bounds ?? .zero
@@ -32,7 +32,9 @@ final class WindowTabStripPanel: NSPanelHud {
         let nextContent = WindowTabGroupChromeContent(strip: displayStrip)
         guard shouldUpdate(content: nextContent, strip: displayStrip) else { return }
         if currentContent != nextContent {
-            hostingView.rootView = AnyView(WindowTabStripView(strip: displayStrip))
+            // This borderless chrome panel must use its entire content rect.
+            // Respecting the hosting view safe area leaves a visible top inset.
+            hostingView.rootView = AnyView(WindowTabStripView(strip: displayStrip).ignoresSafeArea())
             currentContent = nextContent
         }
         currentPanelFrame = displayStrip.frame

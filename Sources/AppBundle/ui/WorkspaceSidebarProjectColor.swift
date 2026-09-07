@@ -14,12 +14,24 @@ func workspaceSidebarProjectColor(projectId: WorkspaceProjectId) -> Color {
 }
 
 func workspaceSidebarProjectColor(projectId: WorkspaceProjectId, configuredHex: String?) -> Color {
-    if let configuredHex, let color = workspaceSidebarColor(hex: configuredHex) {
-        return color
-    }
-    return Color(
-        hue: workspaceSidebarProjectHue(projectId: projectId),
-        saturation: 0.30,
-        brightness: 0.82,
+    workspaceSidebarProjectColor(
+        projectId: projectId,
+        configuredHex: configuredHex,
+        step: .color7
     )
+}
+
+func workspaceSidebarProjectColor(
+    projectId _: WorkspaceProjectId,
+    configuredHex: String?,
+    step: GeistColorStep
+) -> Color {
+    if let family = WorkspaceSidebarProjectThemeFamily.resolve(configuredHex: configuredHex) {
+        return WinMuxOverlayPalette.adaptiveColor { palette in
+            GeistColorSystem.color(family, step, theme: palette.theme)
+        }
+    }
+    return WinMuxOverlayPalette.adaptiveColor { palette in
+        GeistColorSystem.color(.gray, step, theme: palette.theme)
+    }
 }

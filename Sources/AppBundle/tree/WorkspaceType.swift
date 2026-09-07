@@ -7,7 +7,9 @@ final class Workspace: TreeNode, NonLeafTreeNodeObject, Hashable, Comparable {
     nonisolated private var nameLogicalSegments: StringLogicalSegments
     private(set) var namingStyle: WorkspaceNamingStyle = .explicit
     private(set) var folderId: WorkspaceFolderId = workspaceFolderDefaultId
-    var projectId: WorkspaceProjectId { folderId.backingProjectId }
+    @MainActor var projectId: WorkspaceProjectId {
+        winMuxWorkspaceState.workspaceFoldersById[folderId]?.projectId ?? workspaceProjectDefaultId
+    }
     var preferredMonitorPoint: CGPoint?
     var lifecycle: WorkspaceLifecycle = .durable
 
@@ -100,12 +102,14 @@ extension Workspace {
     @MainActor
     func assignFolder(_ folderId: WorkspaceFolderId) {
         guard self.folderId != folderId else { return }
+        let previousFolderId = self.folderId
         winMuxWorkspaceState.assignWorkspace(self, toFolder: folderId)
+        pruneWorkspaceFolderIfEmpty(previousFolderId)
     }
 
     @MainActor
     func assignProject(_ projectId: WorkspaceProjectId) {
-        assignFolder(WorkspaceFolderId(projectId))
+        assignFolder(winMuxWorkspaceState.unfoldedFolderId(for: projectId))
     }
 
     @MainActor

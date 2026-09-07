@@ -7,6 +7,8 @@ extension ConfigTest {
     func testParseWorkspaceSidebar() {
         let (parsed, errors) = parseConfig(
             """
+            config-version = 3
+
             [tab-sidebar]
                 enabled = true
                 enable-focus = true
@@ -43,8 +45,8 @@ extension ConfigTest {
                 menuBarReserveHeight: 30,
                 projectDeletionAction: .moveWindowsToFallback,
                 workspaceLabels: ["1": "Code", "2": "Web"],
-                projectLabels: ["default": "Personal"],
-                projectColors: ["default": "#FF8844"],
+                folderLabels: ["default": "Personal"],
+                folderColors: ["default": "#FF8844"],
             ),
         )
 
@@ -99,8 +101,10 @@ extension ConfigTest {
 
         assertEquals(errors, [])
         XCTAssertEqual(parsed.workspaceSidebar.projectDeletionAction, .moveWindowsToFallback)
-        XCTAssertEqual(parsed.workspaceSidebar.projectLabels, ["default": "Legacy"])
-        XCTAssertEqual(parsed.workspaceSidebar.projectColors, ["default": "#60A5FA"])
+        XCTAssertEqual(parsed.workspaceSidebar.folderLabels, ["default": "Legacy"])
+        XCTAssertEqual(parsed.workspaceSidebar.folderColors, ["default": "#60A5FA"])
+        XCTAssertEqual(parsed.workspaceSidebar.projectLabels, ["default": "Main"])
+        XCTAssertEqual(parsed.workspaceSidebar.projectColors, [:])
     }
 
     func testParseWorkspaceSidebarLegacyWorkspaceLabelAlias() {
@@ -418,6 +422,21 @@ extension ConfigTest {
         assertEquals(heightErrors.descriptions, [
             "window-tabs.height: Must be greater than 20",
         ])
+    }
+
+    func testConfigMapExposesWindowTabsState() {
+        config.windowTabs = WindowTabsConfig(enabled: true, height: 40)
+
+        let configMap = buildConfigMap()
+
+        assertEquals(
+            try? configMap.find(keyPath: ["window-tabs", "enabled"].slice).get(),
+            .scalar(.bool(true)),
+        )
+        assertEquals(
+            try? configMap.find(keyPath: ["window-tabs", "height"].slice).get(),
+            .scalar(.int(40)),
+        )
     }
 
     func testParseRectangleShortcutsPresetIsRemoved() {

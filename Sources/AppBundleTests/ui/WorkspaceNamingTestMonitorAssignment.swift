@@ -332,7 +332,7 @@ extension WorkspaceNamingTest {
         Workspace.reconcileWorkspaceState()
 
         XCTAssertTrue(Workspace.existing(byName: projectWorkspace.name) === projectWorkspace)
-        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(project.id)])
+        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[project.unfoldedFolderId])
         XCTAssertEqual(activeWorkspaceProjectId(for: mainMonitor), workspaceProjectDefaultId)
         XCTAssertTrue(mainMonitor.activeWorkspace === defaultWorkspace)
         XCTAssertEqual(

@@ -27,3 +27,7 @@ xcuserdata/
 xcshareddata/
 
 /AGENTS.md
+
+# Local deployment cache and obsolete binary backups
+/.wrangler/
+/.backups/

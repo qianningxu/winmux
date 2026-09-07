@@ -12,7 +12,7 @@ func applySidebarWorkspaceMove(sourceNode: TreeNode, sourceWindow: Window, targe
         let binding = workspaceAppendBindingData(targetWorkspace: targetWorkspace, index: INDEX_BIND_LAST)
         sourceNode.bind(to: binding.parent, adaptiveWeight: binding.adaptiveWeight, index: binding.index)
     }
-    setWorkspaceSidebarFolderExpanded(targetWorkspace.projectId, isExpanded: true)
+    setWorkspaceSidebarFolderExpanded(targetWorkspace.folderId, isExpanded: true)
 }
 
 // Internal to keep cross-workspace insertion semantics unit-testable.

@@ -12,14 +12,13 @@ extension WorkspaceSidebarPanel {
     }
 
     static func trapCursorForVisiblePanelsIfNeeded() {
-        for panel in visiblePanels {
-            panel.trapCursorForLeftEdgeSidebarActivationIfNeeded()
-        }
+        // The sidebar is now a fixed horizontal menu-bar surface. There is no
+        // left-edge activation region to trap the pointer into.
     }
 
     func trapCursorForLeftEdgeSidebarActivationIfNeeded() {
         let sample = MousePointerTracker.shared.currentSample
-        let collapsedWidth = CGFloat(config.workspaceSidebar.collapsedWidth)
+        let collapsedWidth = workspaceSidebarCompactContentWidth
         debugWorkspaceSidebarEdgeTrapLog(
             "entry panel=\(monitorScopeId) visible=\(isVisible) enabled=\(config.workspaceSidebar.enabled) shift=\(currentSessionModifierFlags().contains(.maskShift)) mouseDrag=\(isMouseWindowDragInProgress()) sidebarDrag=\(isWorkspaceSidebarItemDragActive()) width=\(viewModel.workspaceSidebarVisibleWidth) collapsed=\(collapsedWidth) sample=\(sample) previous=\(String(describing: lastEdgeTrapSample)) suppressUntil=\(edgeTrapSuppressedUntil) startedAt=\(String(describing: edgeTrapStartedAt))"
         )

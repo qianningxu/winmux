@@ -162,7 +162,6 @@ extension WorkspaceSidebarPanel {
 
     func prepareForInlineTextEditing() {
         debugWorkspaceSidebarRenameLog("prepareForInlineTextEditing before visible=\(isVisible) isKey=\(isKeyWindow) ignoresMouse=\(ignoresMouseEvents) firstResponder=\(String(describing: firstResponder))")
-        cancelExpansionWork()
         expandSidebar(to: CGFloat(config.workspaceSidebar.width))
         ignoresMouseEvents = false
         orderFrontRegardless()

@@ -10,6 +10,7 @@ final class MonitorConfigurationObserver {
     private init() {}
 
     func prepareForStartup() {
+        refreshMonitorSnapshotCache()
         refreshMonitorPolicy(refreshReason: "MonitorConfigurationObserver.prepareForStartup")
     }
 
@@ -20,13 +21,16 @@ final class MonitorConfigurationObserver {
             object: nil,
             queue: .main,
         ) { _ in
+            invalidateMonitorSnapshotCache()
             Task { @MainActor in
                 MonitorConfigurationObserver.shared.handleScreenParametersChanged()
             }
         }
+        refreshMonitorSnapshotCache()
     }
 
     private func handleScreenParametersChanged() {
+        refreshMonitorSnapshotCache()
         refreshMonitorPolicy(refreshReason: NSApplication.didChangeScreenParametersNotification.rawValue)
         scheduleSettledRefresh()
     }
@@ -45,6 +49,7 @@ final class MonitorConfigurationObserver {
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 750_000_000)
             guard generation == screenChangeGeneration else { return }
+            refreshMonitorSnapshotCache()
             refreshMonitorPolicy(refreshReason: "\(NSApplication.didChangeScreenParametersNotification.rawValue).settled")
         }
     }

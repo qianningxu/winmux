@@ -232,16 +232,16 @@ struct WorkspaceSidebarTasksWidget: View {
     }
 
     private var expandedWidget: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: standardGap * 0) {
             Group {
                 if let errorMessage = store.agenda.errorMessage {
                     Text(errorMessage)
-                        .foregroundStyle(winMuxOverlayDestructive(0.92))
+                        .foregroundStyle(workspaceSidebarWidgetSemanticColor(.red, .color9))
                 } else if store.agenda.projects.isEmpty {
                     Text("Nothing scheduled today")
-                        .foregroundStyle(winMuxOverlayMutedForeground(0.72))
+                        .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                 } else {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: standardGap * 4) {
                         ForEach(store.agenda.projects.prefix(4)) { project in
                             projectRow(project)
                         }
@@ -250,28 +250,20 @@ struct WorkspaceSidebarTasksWidget: View {
             }
             .font(.system(size: 11, weight: .regular))
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 15)
+        .padding(.horizontal, standardGap * 8)
+        .padding(.vertical, standardGap * 7.5)
         .frame(width: sectionWidth, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: workspaceSidebarStatusCornerRadius, style: .continuous)
-                .fill(winMuxOverlayCard(0.94))
-                .overlay {
-                    RoundedRectangle(cornerRadius: workspaceSidebarStatusCornerRadius, style: .continuous)
-                        .strokeBorder(winMuxOverlayBorder(0.76), lineWidth: 0.75)
-                }
-                .shadow(color: winMuxOverlayShadow(darkOpacity: 0.24, lightOpacity: 0.14), radius: 10, y: 4)
-        )
+        .background(WorkspaceSidebarStatusCardBackground())
     }
 
     private func projectRow(_ project: WorkspaceSidebarAgendaProject) -> some View {
-        HStack(alignment: .center, spacing: 7) {
+        HStack(alignment: .center, spacing: standardGap * 3.5) {
             Circle()
-                .fill(winMuxOverlayForeground(0.94))
+                .fill(workspaceSidebarWidgetContent(.primary))
                 .frame(width: 4, height: 4)
 
             Text(project.name)
-                .foregroundStyle(winMuxOverlayForeground(0.94))
+                .foregroundStyle(workspaceSidebarWidgetContent(.primary))
                 .lineLimit(1)
 
             Spacer(minLength: 4)
@@ -279,7 +271,7 @@ struct WorkspaceSidebarTasksWidget: View {
             Text(project.hoursText)
                 .font(.system(size: 10, weight: .regular))
                 .monospacedDigit()
-                .foregroundStyle(winMuxOverlayMutedForeground(0.72))
+                .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
         }
     }
 }

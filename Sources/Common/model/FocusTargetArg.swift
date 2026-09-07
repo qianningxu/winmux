@@ -1,11 +1,15 @@
 public enum TabNextPrev: String, CaseIterable, Equatable, Sendable {
     case tabNext = "tab-next"
     case tabPrev = "tab-prev"
+    case paneNext = "pane-next"
+    case panePrev = "pane-prev"
+    case stackNext = "stack-next"
+    case stackPrev = "stack-prev"
 
     public var focusOffset: Int {
         switch self {
-            case .tabNext: 1
-            case .tabPrev: -1
+            case .tabNext, .paneNext, .stackNext: 1
+            case .tabPrev, .panePrev, .stackPrev: -1
         }
     }
 }

@@ -10,21 +10,53 @@ private let mouseInteractionVisibleWindowAlpha: Float = 1
 final class WindowMouseInteractionOpacityController {
     static let shared = WindowMouseInteractionOpacityController()
 
+    private let visibleWindowInventory: MouseInteractionVisibleWindowInventoryCache
     private var hiddenWindowIds: Set<UInt32> = []
     private var temporarilyMovedWindows: [UInt32: Rect] = [:]
+    private var activeWindowId: UInt32?
 
-    private init() {}
+    private init() {
+        let inventory = MouseInteractionVisibleWindowInventoryCache(
+            load: mouseInteractionVisibleWindowIdsToHide
+        )
+        visibleWindowInventory = inventory
+        inventory.didRefresh = { [weak self] windowIds in
+            self?.applyVisibleWindowInventory(windowIds)
+        }
+    }
+
+    func prepareWindowInventory() {
+        guard !isUnitTest else { return }
+        visibleWindowInventory.refreshIfNeeded()
+    }
 
     func update(activeWindowId: UInt32, hidesPassiveTabGroupChrome: Bool) {
         guard !isUnitTest else { return }
+        self.activeWindowId = activeWindowId
+        let windowsToHide = mouseInteractionManagedWindowsToHide(activeWindowId: activeWindowId)
+        var discoveredWindowIds = Set(windowsToHide.map(\.windowId))
+        if let cachedWindowIds = visibleWindowInventory.freshWindowIds {
+            discoveredWindowIds.formUnion(cachedWindowIds)
+        }
+        moveWindowsOutOfView(
+            windowsToHide: windowsToHide,
+            activeWindowId: activeWindowId,
+            hidesPassiveTabGroupChrome: hidesPassiveTabGroupChrome,
+        )
+        applyHiddenWindowIds(discoveredWindowIds, activeWindowId: activeWindowId)
+        visibleWindowInventory.refreshIfNeeded()
+    }
+
+    private func applyVisibleWindowInventory(_ windowIds: Set<UInt32>) {
+        guard let activeWindowId else { return }
+        applyHiddenWindowIds(windowIds, activeWindowId: activeWindowId)
+    }
+
+    private func applyHiddenWindowIds(_ discoveredWindowIds: Set<UInt32>, activeWindowId: UInt32) {
         let nextHiddenIds = nextMouseInteractionHiddenWindowIds(
             activeWindowId: activeWindowId,
             currentlyHidden: hiddenWindowIds,
-            discovered: Set(mouseInteractionWindowIdsToHide(activeWindowId: activeWindowId)),
-        )
-        moveWindowsOutOfView(
-            activeWindowId: activeWindowId,
-            hidesPassiveTabGroupChrome: hidesPassiveTabGroupChrome,
+            discovered: discoveredWindowIds,
         )
         setWindowListAlpha(
             windowIds: Array(hiddenWindowIds.subtracting(nextHiddenIds)),
@@ -38,6 +70,8 @@ final class WindowMouseInteractionOpacityController {
     }
 
     func restore() {
+        activeWindowId = nil
+        visibleWindowInventory.invalidate()
         if !hiddenWindowIds.isEmpty {
             setWindowListAlpha(windowIds: Array(hiddenWindowIds), alpha: mouseInteractionVisibleWindowAlpha)
         }
@@ -57,8 +91,11 @@ final class WindowMouseInteractionOpacityController {
         return temporarilyMovedWindows.keys.contains(windowId)
     }
 
-    private func moveWindowsOutOfView(activeWindowId: UInt32, hidesPassiveTabGroupChrome: Bool) {
-        let windowsToHide = mouseInteractionManagedWindowsToHide(activeWindowId: activeWindowId)
+    private func moveWindowsOutOfView(
+        windowsToHide: [Window],
+        activeWindowId: UInt32,
+        hidesPassiveTabGroupChrome: Bool
+    ) {
         if hidesPassiveTabGroupChrome {
             WindowTabStripPanelController.shared.setHiddenPassiveTabGroupChrome(
                 passiveTabGroupChromeIdsToHide(windows: windowsToHide, activeWindowId: activeWindowId)
@@ -80,6 +117,67 @@ final class WindowMouseInteractionOpacityController {
             window.lastKnownActualRect = rect
             window.setAxFrame(mouseInteractionHiddenTopLeftCorner(for: rect), nil)
         }
+    }
+}
+
+@MainActor
+final class MouseInteractionVisibleWindowInventoryCache {
+    typealias Load = @Sendable () -> Set<UInt32>
+    typealias Now = @MainActor () -> TimeInterval
+    typealias DidRefresh = @MainActor (Set<UInt32>) -> Void
+
+    static let maximumSnapshotAge: TimeInterval = 0.5
+
+    var didRefresh: DidRefresh?
+
+    private let load: Load
+    private let now: Now
+    private var snapshot: (windowIds: Set<UInt32>, capturedAt: TimeInterval)?
+    private var refreshTask: Task<Void, Never>?
+    private var refreshGeneration: UInt64 = 0
+
+    init(
+        load: @escaping Load,
+        now: @escaping Now = { ProcessInfo.processInfo.systemUptime }
+    ) {
+        self.load = load
+        self.now = now
+    }
+
+    var freshWindowIds: Set<UInt32>? {
+        let currentTime = now()
+        guard let snapshot,
+              currentTime >= snapshot.capturedAt,
+              currentTime - snapshot.capturedAt <= Self.maximumSnapshotAge
+        else { return nil }
+        return snapshot.windowIds
+    }
+
+    func refreshIfNeeded() {
+        guard refreshTask == nil, freshWindowIds == nil else { return }
+        refreshGeneration &+= 1
+        let generation = refreshGeneration
+        let load = load
+        refreshTask = Task { [weak self] in
+            let windowIds = await Task.detached(priority: .userInitiated) {
+                load()
+            }.value
+            guard !Task.isCancelled, let self, generation == self.refreshGeneration else { return }
+            self.refreshTask = nil
+            self.snapshot = (windowIds, self.now())
+            self.didRefresh?(windowIds)
+        }
+    }
+
+    func invalidate() {
+        refreshGeneration &+= 1
+        refreshTask?.cancel()
+        refreshTask = nil
+        snapshot = nil
+    }
+
+    deinit {
+        refreshTask?.cancel()
     }
 }
 
@@ -109,30 +207,6 @@ private func passiveTabGroupChromeIdsToHide(windows: [Window], activeWindowId: U
 }
 
 @MainActor
-func mouseInteractionWindowIdsToHide(activeWindowId: UInt32) -> [UInt32] {
-    var windowIds = Set(mouseInteractionManagedWindowIdsToHide(activeWindowId: activeWindowId))
-    windowIds.formUnion(mouseInteractionVisibleWindowIdsToHide(activeWindowId: activeWindowId))
-    return Array(windowIds)
-}
-
-@MainActor
-private func mouseInteractionManagedWindowIdsToHide(activeWindowId: UInt32) -> [UInt32] {
-    MacWindow.allWindows.compactMap { window in
-        guard window.windowId != activeWindowId,
-              !window.isHiddenInCorner,
-              window.nodeWorkspace?.isVisible == true
-        else {
-            return nil
-        }
-        return window.windowId
-    }
-}
-
-private func mouseInteractionVisibleWindowIdsToHide(activeWindowId: UInt32) -> [UInt32] {
-    mouseInteractionVisibleWindowsToHide(activeWindowId: activeWindowId).map(\.id)
-}
-
-@MainActor
 private func mouseInteractionManagedWindowsToHide(activeWindowId: UInt32) -> [Window] {
     MacWindow.allWindows.compactMap { window in
         guard window.windowId != activeWindowId,
@@ -145,20 +219,15 @@ private func mouseInteractionManagedWindowsToHide(activeWindowId: UInt32) -> [Wi
     }
 }
 
-private struct MouseInteractionVisibleWindow {
-    let id: UInt32
-}
-
-private func mouseInteractionVisibleWindowsToHide(activeWindowId: UInt32) -> [MouseInteractionVisibleWindow] {
+private func mouseInteractionVisibleWindowIdsToHide() -> Set<UInt32> {
     let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
     guard let windowInfos = CGWindowListCopyWindowInfo(options, CGWindowID(0)) as? [[String: Any]] else {
         return []
     }
 
     let currentProcessId = ProcessInfo.processInfo.processIdentifier
-    return windowInfos.compactMap { info in
+    return Set(windowInfos.compactMap { info -> UInt32? in
         guard let windowId = (info[kCGWindowNumber as String] as? NSNumber)?.uint32Value,
-              windowId != activeWindowId,
               let layer = (info[kCGWindowLayer as String] as? NSNumber)?.intValue,
               layer == 0,
               let ownerProcessId = (info[kCGWindowOwnerPID as String] as? NSNumber)?.intValue,
@@ -172,8 +241,8 @@ private func mouseInteractionVisibleWindowsToHide(activeWindowId: UInt32) -> [Mo
         else {
             return nil
         }
-        return MouseInteractionVisibleWindow(id: windowId)
-    }
+        return windowId
+    })
 }
 
 private func mouseInteractionHiddenTopLeftCorner(for rect: Rect) -> CGPoint {

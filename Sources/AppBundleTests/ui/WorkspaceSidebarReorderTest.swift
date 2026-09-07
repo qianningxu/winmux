@@ -7,6 +7,47 @@ import XCTest
 final class WorkspaceSidebarReorderTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
 
+    func testWindowDropOnFolderCreatesTabInThatExactFolder() {
+        let sourceWorkspace = focus.workspace
+        let sourceWindow = TestWindow.new(id: 490, parent: sourceWorkspace.rootTilingContainer)
+        let folder = createWorkspaceFolder()
+
+        XCTAssertTrue(applySidebarSourceToNewWorkspace(
+            sourceWindow.windowId,
+            subject: .window,
+            folderId: folder.id,
+            monitorScopeId: workspaceSidebarDefaultScopeId
+        ))
+
+        XCTAssertEqual(sourceWindow.nodeWorkspace?.folderId, folder.id)
+    }
+
+    func testTabGroupDropOnFolderCreatesWholeTabInThatExactFolder() {
+        let sourceWorkspace = focus.workspace
+        let tabGroup = TilingContainer(
+            parent: sourceWorkspace.rootTilingContainer,
+            adaptiveWeight: WEIGHT_AUTO,
+            .v,
+            .tabGroup,
+            index: INDEX_BIND_LAST
+        )
+        let first = TestWindow.new(id: 491, parent: tabGroup)
+        let second = TestWindow.new(id: 492, parent: tabGroup)
+        let folder = createWorkspaceFolder()
+
+        XCTAssertTrue(applySidebarSourceToNewWorkspace(
+            first.windowId,
+            subject: .group,
+            folderId: folder.id,
+            monitorScopeId: workspaceSidebarDefaultScopeId
+        ))
+
+        XCTAssertEqual(first.nodeWorkspace?.folderId, folder.id)
+        XCTAssertEqual(second.nodeWorkspace?.folderId, folder.id)
+        XCTAssertTrue(first.parent === tabGroup)
+        XCTAssertTrue(second.parent === tabGroup)
+    }
+
     func testWorkspaceDragTargetKeepsLastValidSlotForTransientSidebarFrameMiss() {
         let stableTarget = WorkspaceSidebarWorkspaceDragTarget.reorder(
             WorkspaceSidebarWorkspaceReorderTarget(
@@ -90,10 +131,10 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
     }
 
     func testSidebarWindowMoveCollapsesSourceFolderAndExpandsDestinationFolder() {
-        let sourceFolder = createWorkspaceProjectWithWindow(windowId: 501)
-        let destinationFolder = createWorkspaceProjectWithWindow(windowId: 502)
-        let sourceWorkspace = Workspace.all.first { $0.projectId == sourceFolder.id }.orDie()
-        let destinationWorkspace = Workspace.all.first { $0.projectId == destinationFolder.id }.orDie()
+        let sourceFolder = createWorkspaceFolderWithWindow(windowId: 501)
+        let destinationFolder = createWorkspaceFolderWithWindow(windowId: 502)
+        let sourceWorkspace = Workspace.all.first { $0.folderId == sourceFolder.id }.orDie()
+        let destinationWorkspace = Workspace.all.first { $0.folderId == destinationFolder.id }.orDie()
         let sourceWindow = Window.get(byId: 501).orDie()
         setWorkspaceSidebarFolderExpanded(sourceFolder.id, isExpanded: true)
 
@@ -104,9 +145,9 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         )
 
         XCTAssertEqual(sourceWindow.nodeWorkspace, destinationWorkspace)
-        XCTAssertFalse(workspaceSidebarFolderIsExpanded(sourceFolder.id))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(sourceFolder.id))
         XCTAssertTrue(workspaceSidebarFolderIsExpanded(destinationFolder.id))
-        XCTAssertFalse(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspaceFolderDefaultId))
         XCTAssertNotEqual(sourceWorkspace, destinationWorkspace)
     }
 
@@ -119,7 +160,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             placement: .before(first.name)
         ))
 
-        XCTAssertEqual(projectWorkspaces(projectId: workspaceProjectDefaultId).map(\.name), [
+        XCTAssertEqual(folderWorkspaces(folderId: workspaceFolderDefaultId).map(\.name), [
             third.name,
             first.name,
             second.name,
@@ -135,7 +176,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             placement: .after(second.name)
         ))
 
-        XCTAssertEqual(projectWorkspaces(projectId: workspaceProjectDefaultId).map(\.name), [
+        XCTAssertEqual(folderWorkspaces(folderId: workspaceFolderDefaultId).map(\.name), [
             second.name,
             first.name,
             third.name,
@@ -151,7 +192,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             placement: .after(third.name)
         ))
 
-        XCTAssertEqual(projectWorkspaces(projectId: workspaceProjectDefaultId).map(\.name), [
+        XCTAssertEqual(folderWorkspaces(folderId: workspaceFolderDefaultId).map(\.name), [
             second.name,
             third.name,
             first.name,
@@ -167,7 +208,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             placement: .before(second.name)
         ))
 
-        XCTAssertEqual(projectWorkspaces(projectId: workspaceProjectDefaultId).map(\.name), [
+        XCTAssertEqual(folderWorkspaces(folderId: workspaceFolderDefaultId).map(\.name), [
             first.name,
             second.name,
             third.name,
@@ -183,32 +224,35 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             placement: .after("missing")
         ))
 
-        XCTAssertEqual(projectWorkspaces(projectId: workspaceProjectDefaultId).map(\.name), [
+        XCTAssertEqual(folderWorkspaces(folderId: workspaceFolderDefaultId).map(\.name), [
             first.name,
             second.name,
             third.name,
         ])
     }
 
-    func testReorderWorkspaceCanMoveFlatTabBeforeFolderTab() {
+    func testReorderWorkspaceCanMoveUnfoldedTabBeforeFolderTab() {
         let (first, second, third) = makeOrderedDefaultWorkspaces()
-        let project = createWorkspaceProject()
-        let otherProjectWorkspace = Workspace.all.first { $0.projectId == project.id }.orDie()
+        let folder = createWorkspaceFolder()
+        let folderWorkspace = Workspace.get(byName: "folder-tab")
+        folderWorkspace.assignFolder(folder.id)
+        folderWorkspace.markAsAutomaticallyNamed()
+        setFolderWorkspaceOrder(folder.id, [folderWorkspace])
 
         XCTAssertTrue(reorderWorkspaceForSidebar(
             sourceWorkspaceName: first.name,
-            projectId: project.id,
-            placement: .before(otherProjectWorkspace.name)
+            folderId: folder.id,
+            placement: .before(folderWorkspace.name)
         ))
 
-        XCTAssertEqual(first.projectId, project.id)
-        XCTAssertEqual(projectWorkspaces(projectId: workspaceProjectDefaultId).map(\.name), [
+        XCTAssertEqual(first.folderId, folder.id)
+        XCTAssertEqual(folderWorkspaces(folderId: workspaceFolderDefaultId).map(\.name), [
             second.name,
             third.name,
         ])
-        XCTAssertEqual(projectWorkspaces(projectId: project.id).map(\.name), [
+        XCTAssertEqual(folderWorkspaces(folderId: folder.id).map(\.name), [
             first.name,
-            otherProjectWorkspace.name,
+            folderWorkspace.name,
         ])
     }
 
@@ -245,7 +289,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ])
     }
 
-    func testReorderWorkspaceUsesFlatPresentationOrderAcrossLegacyProjects() {
+    func testReorderWorkspaceRejectsCrossProjectMove() {
         let first = focus.workspace
         first.assignProject(workspaceProjectDefaultId)
         let project = createWorkspaceProject()
@@ -257,23 +301,17 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         setProjectWorkspaceOrder(workspaceProjectDefaultId, [first, third])
         setProjectWorkspaceOrder(project.id, [second])
 
-        XCTAssertEqual(orderedWorkspacesForPresentation().map(\.name), [
-            second.name,
-            first.name,
-            third.name,
-        ])
-
-        XCTAssertTrue(reorderWorkspaceForSidebar(
+        XCTAssertFalse(reorderWorkspaceForSidebar(
             sourceWorkspaceName: second.name,
-            projectId: workspaceProjectDefaultId,
+            folderId: workspaceFolderDefaultId,
             placement: .before(third.name)
         ))
 
-        XCTAssertEqual(orderedWorkspacesForPresentation().map(\.name), [
+        XCTAssertEqual(folderWorkspaces(folderId: workspaceFolderDefaultId).map(\.name), [
             first.name,
-            second.name,
             third.name,
         ])
+        XCTAssertEqual(projectWorkspaces(projectId: project.id).map(\.name), [second.name])
     }
 
     func testWorkspaceSidebarModelRefreshUsesReorderedWorkspaceOrder() async {
@@ -316,7 +354,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             placement: .before(second.name)
         ))
 
-        XCTAssertEqual(projectWorkspaces(projectId: workspaceProjectDefaultId).map(\.name), [
+        XCTAssertEqual(folderWorkspaces(folderId: workspaceFolderDefaultId).map(\.name), [
             first.name,
             hidden.name,
             third.name,
@@ -1260,7 +1298,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
 
         XCTAssertEqual(action, .reorderWorkspace(
             "folder-child",
-            projectId: workspaceProjectDefaultId,
+            folderId: WorkspaceFolderId(workspaceProjectDefaultId),
             placement: .before("flat")
         ))
         XCTAssertNotEqual(folderId, workspaceProjectDefaultId)
@@ -1378,10 +1416,10 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
 
         let entries = workspaceSidebarFolderListEntries(
             sections: [first, source, second],
-            sourceProjectId: source.id,
+            sourceProjectId: source.id.backingProjectId,
             target: WorkspaceSidebarFolderReorderTarget(
-                targetProjectId: second.id,
-                placement: .after(second.id)
+                targetProjectId: second.id.backingProjectId,
+                placement: .after(second.id.backingProjectId)
             )
         )
 
@@ -1400,7 +1438,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
 
         let entries = workspaceSidebarFolderListEntries(
             sections: [first, source, second],
-            sourceProjectId: source.id,
+            sourceProjectId: source.id.backingProjectId,
             target: nil
         )
 
@@ -1922,11 +1960,12 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertEqual(target.rootTilingContainer.layoutDescription, .h_tiles([
             .window(3),
         ]))
-        XCTAssertEqual(source.projectId, target.projectId)
-        XCTAssertNotEqual(source.projectId, workspaceProjectDefaultId)
-        XCTAssertEqual(workspaceProjects().first { $0.id == source.projectId }?.name, "Folder 1")
-        XCTAssertTrue(workspaceSidebarFolderIsExpanded(source.projectId))
-        XCTAssertEqual(projectWorkspaces(projectId: source.projectId).map(\.name), [
+        XCTAssertEqual(source.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(source.folderId, target.folderId)
+        XCTAssertNotEqual(source.folderId, workspaceFolderDefaultId)
+        XCTAssertEqual(workspaceFolderName(source.folderId), "Folder 1")
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(source.folderId))
+        XCTAssertEqual(folderWorkspaces(folderId: source.folderId).map(\.name), [
             target.name,
             source.name,
         ])
@@ -1942,20 +1981,20 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         }
         XCTAssertTrue(workspace.focusWorkspace())
 
-        let folderId = createSidebarFolderFromWorkspace(workspace.name)
+        let folderId = createWorkspaceFolderFromWorkspace(workspace.name)
 
         XCTAssertNotNil(folderId)
-        XCTAssertEqual(workspace.projectId, folderId)
-        XCTAssertNotEqual(workspace.projectId, workspaceProjectDefaultId)
-        XCTAssertEqual(workspaceProjects().first { $0.id == folderId }?.name, "Folder 1")
-        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspace.projectId))
-        XCTAssertEqual(projectWorkspaces(projectId: workspace.projectId).map(\.name), [workspace.name])
+        XCTAssertEqual(workspace.folderId, folderId)
+        XCTAssertNotEqual(workspace.folderId, workspaceFolderDefaultId)
+        XCTAssertEqual(folderId.map(workspaceFolderName), "Folder 1")
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspace.folderId))
+        XCTAssertEqual(folderWorkspaces(folderId: workspace.folderId).map(\.name), [workspace.name])
         XCTAssertEqual(focus.workspace, workspace)
     }
 
     func testCreateSidebarFolderFromWorkspaceIgnoresHiddenFolderIdsWhenChoosingDefaultName() throws {
         for ordinal in 1 ... 30 {
-            config.workspaceSidebar.projectLabels["project-\(ordinal)"] = "Folder \(ordinal)"
+            config.workspaceSidebar.folderLabels["project-\(ordinal)"] = "Folder \(ordinal)"
         }
         let unfolded = (1 ... 5).map { ordinal in
             let workspace = Workspace.get(byName: "unfolded-\(ordinal)")
@@ -1965,24 +2004,24 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             return workspace
         }
 
-        let firstFolderId = try XCTUnwrap(createSidebarFolderFromWorkspace(unfolded[0].name))
+        let firstFolderId = try XCTUnwrap(createWorkspaceFolderFromWorkspace(unfolded[0].name))
         XCTAssertEqual(firstFolderId.rawValue, "project-31")
         XCTAssertEqual(
-            winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(firstFolderId)]?.name,
+            winMuxWorkspaceState.workspaceFoldersById[firstFolderId]?.name,
             "Folder 1"
         )
 
-        let secondFolderId = try XCTUnwrap(createSidebarFolderFromWorkspace(unfolded[1].name))
+        let secondFolderId = try XCTUnwrap(createWorkspaceFolderFromWorkspace(unfolded[1].name))
         XCTAssertEqual(secondFolderId.rawValue, "project-32")
         XCTAssertEqual(
-            winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(secondFolderId)]?.name,
+            winMuxWorkspaceState.workspaceFoldersById[secondFolderId]?.name,
             "Folder 2"
         )
     }
 
-    func testCreateSidebarFolderFromWorkspaceInsertsFolderBeforeExistingFolders() {
-        let first = createWorkspaceProjectWithWindow(windowId: 31)
-        let second = createWorkspaceProjectWithWindow(windowId: 32)
+    func testCreateSidebarFolderFromWorkspaceAppendsBeforeUnfoldedFolder() {
+        let first = createWorkspaceFolderWithWindow(windowId: 31)
+        let second = createWorkspaceFolderWithWindow(windowId: 32)
         let workspace = Workspace.get(byName: "source")
         workspace.markAsAutomaticallyNamed()
         workspace.assignProject(workspaceProjectDefaultId)
@@ -1990,17 +2029,17 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             TestWindow.new(id: 33, parent: $0)
         }
 
-        let folderId = createSidebarFolderFromWorkspace(workspace.name)
+        let folderId = createWorkspaceFolderFromWorkspace(workspace.name)
 
         guard let folderId else {
             XCTFail("Expected sidebar folder creation to succeed")
             return
         }
-        XCTAssertEqual(workspaceProjects().map(\.id), [
-            folderId,
+        XCTAssertEqual(workspaceFolders(in: workspaceProjectDefaultId).map(\.id), [
             first.id,
             second.id,
-            workspaceProjectDefaultId,
+            folderId,
+            workspaceFolderDefaultId,
         ])
     }
 
@@ -2010,12 +2049,12 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         workspace.assignProject(workspaceProjectDefaultId)
         XCTAssertTrue(workspace.focusWorkspace())
 
-        XCTAssertNil(createSidebarFolderFromWorkspace(workspace.name))
+        XCTAssertNil(createWorkspaceFolderFromWorkspace(workspace.name))
         XCTAssertEqual(workspace.projectId, workspaceProjectDefaultId)
         XCTAssertEqual(workspaceProjects().map(\.id), [workspaceProjectDefaultId])
     }
 
-    func testCreateSidebarFolderFromWorkspacesMovesFlatTabsAcrossLegacyProjects() {
+    func testCreateSidebarFolderFromWorkspacesRejectsTabsFromDifferentProjects() {
         let project = createWorkspaceProject()
         let source = Workspace.get(byName: "source")
         source.markAsAutomaticallyNamed()
@@ -2030,15 +2069,14 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             TestWindow.new(id: 2, parent: $0)
         }
 
-        XCTAssertTrue(createSidebarFolderFromWorkspaces(
+        XCTAssertFalse(createSidebarFolderFromWorkspaces(
             sourceWorkspaceName: source.name,
             targetWorkspaceName: target.name
         ))
 
         XCTAssertNotNil(Workspace.existing(byName: source.name))
-        XCTAssertEqual(source.projectId, target.projectId)
-        XCTAssertNotEqual(source.projectId, project.id)
-        XCTAssertNotEqual(source.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(source.projectId, project.id)
+        XCTAssertEqual(target.projectId, workspaceProjectDefaultId)
         XCTAssertEqual(source.rootTilingContainer.layoutDescription, .h_tiles([
             .window(1),
         ]))
@@ -2048,8 +2086,9 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
     }
 
     func testMoveWorkspaceToSidebarFolderMovesTabWithoutComposingLayouts() {
-        let folder = createWorkspaceProject()
-        let folderWorkspace = Workspace.all.first { $0.projectId == folder.id }.orDie()
+        let folder = createWorkspaceFolder()
+        let folderWorkspace = Workspace.get(byName: "folder-tab")
+        folderWorkspace.assignFolder(folder.id)
         folderWorkspace.markAsAutomaticallyNamed()
         folderWorkspace.rootTilingContainer.apply {
             TestWindow.new(id: 1, parent: $0)
@@ -2062,11 +2101,12 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             TestWindow.new(id: 2, parent: $0)
             TestWindow.new(id: 3, parent: $0)
         }
-        setWorkspaceSidebarFolderExpanded(workspaceProjectDefaultId, isExpanded: true)
+        setWorkspaceSidebarFolderExpanded(workspaceFolderDefaultId, isExpanded: true)
 
-        XCTAssertTrue(moveWorkspaceToSidebarFolder(source.name, projectId: folder.id))
+        XCTAssertTrue(moveWorkspaceToSidebarFolder(source.name, folderId: folder.id))
 
-        XCTAssertEqual(source.projectId, folder.id)
+        XCTAssertEqual(source.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(source.folderId, folder.id)
         XCTAssertEqual(source.rootTilingContainer.layoutDescription, .h_tiles([
             .window(2),
             .window(3),
@@ -2074,17 +2114,18 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertEqual(folderWorkspace.rootTilingContainer.layoutDescription, .h_tiles([
             .window(1),
         ]))
-        XCTAssertEqual(projectWorkspaces(projectId: folder.id).map(\.name), [
+        XCTAssertEqual(folderWorkspaces(folderId: folder.id).map(\.name), [
             folderWorkspace.name,
             source.name,
         ])
         XCTAssertTrue(workspaceSidebarFolderIsExpanded(folder.id))
-        XCTAssertFalse(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspaceFolderDefaultId))
     }
 
     func testMoveWorkspaceToSidebarUnfoldedFolderMovesFolderChild() {
-        let folder = createWorkspaceProject()
-        let folderWorkspace = Workspace.all.first { $0.projectId == folder.id }.orDie()
+        let folder = createWorkspaceFolder()
+        let folderWorkspace = Workspace.get(byName: "folder-tab")
+        folderWorkspace.assignFolder(folder.id)
         folderWorkspace.markAsAutomaticallyNamed()
         folderWorkspace.rootTilingContainer.apply {
             TestWindow.new(id: 1, parent: $0)
@@ -2092,7 +2133,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
 
         let folderChild = Workspace.get(byName: "folder-child")
         folderChild.markAsAutomaticallyNamed()
-        folderChild.assignProject(folder.id)
+        folderChild.assignFolder(folder.id)
         folderChild.rootTilingContainer.apply {
             TestWindow.new(id: 2, parent: $0)
         }
@@ -2104,21 +2145,21 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             TestWindow.new(id: 3, parent: $0)
         }
         setProjectWorkspaceOrder(workspaceProjectDefaultId, [flat])
-        setProjectWorkspaceOrder(folder.id, [folderWorkspace, folderChild])
+        setFolderWorkspaceOrder(folder.id, [folderWorkspace, folderChild])
         setWorkspaceSidebarFolderExpanded(folder.id, isExpanded: true)
 
-        XCTAssertTrue(moveWorkspaceToSidebarFolder(folderChild.name, projectId: workspaceProjectDefaultId))
+        XCTAssertTrue(moveWorkspaceToSidebarFolder(folderChild.name, folderId: workspaceFolderDefaultId))
 
         XCTAssertEqual(folderChild.projectId, workspaceProjectDefaultId)
-        XCTAssertEqual(projectWorkspaces(projectId: workspaceProjectDefaultId).map(\.name), [
+        XCTAssertEqual(folderWorkspaces(folderId: workspaceFolderDefaultId).map(\.name), [
             flat.name,
             folderChild.name,
         ])
-        XCTAssertEqual(projectWorkspaces(projectId: folder.id).map(\.name), [
+        XCTAssertEqual(folderWorkspaces(folderId: folder.id).map(\.name), [
             folderWorkspace.name,
         ])
-        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
-        XCTAssertFalse(workspaceSidebarFolderIsExpanded(folder.id))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspaceFolderDefaultId))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(folder.id))
     }
 
     func testMoveWorkspaceToSidebarUnfoldedFolderKeepsOtherDisplayUnfoldedTab() {
@@ -2139,13 +2180,14 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         setMonitorsForTests([main, secondary])
         defer { setMonitorsForTests(nil) }
 
-        let folder = createWorkspaceProject()
-        let folderWorkspace = Workspace.all.first { $0.projectId == folder.id }.orDie()
+        let folder = createWorkspaceFolder()
+        let folderWorkspace = Workspace.get(byName: "folder-tab")
+        folderWorkspace.assignFolder(folder.id)
         folderWorkspace.markAsAutomaticallyNamed()
 
         let folderChild = Workspace.get(byName: "folder-child")
         folderChild.markAsAutomaticallyNamed()
-        folderChild.assignProject(folder.id)
+        folderChild.assignFolder(folder.id)
         folderChild.rootTilingContainer.apply {
             TestWindow.new(id: 2, parent: $0)
         }
@@ -2158,23 +2200,24 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         }
 
         setProjectWorkspaceOrder(workspaceProjectDefaultId, [otherDisplayFlatTab])
-        setProjectWorkspaceOrder(folder.id, [folderWorkspace, folderChild])
+        setFolderWorkspaceOrder(folder.id, [folderWorkspace, folderChild])
         XCTAssertTrue(main.setActiveWorkspace(folderChild))
         XCTAssertTrue(secondary.setActiveWorkspace(otherDisplayFlatTab))
-        XCTAssertEqual(projectWorkspaces(projectId: workspaceProjectDefaultId).compactMap(\.visibleMonitor).first?.rect.topLeftCorner, secondary.rect.topLeftCorner)
+        XCTAssertEqual(folderWorkspaces(folderId: workspaceFolderDefaultId).compactMap(\.visibleMonitor).first?.rect.topLeftCorner, secondary.rect.topLeftCorner)
 
-        XCTAssertTrue(moveWorkspaceToSidebarFolder(folderChild.name, projectId: workspaceProjectDefaultId))
+        XCTAssertTrue(moveWorkspaceToSidebarFolder(folderChild.name, folderId: workspaceFolderDefaultId))
 
         XCTAssertEqual(folderChild.projectId, workspaceProjectDefaultId)
-        XCTAssertEqual(projectWorkspaces(projectId: workspaceProjectDefaultId).map(\.name), [
+        XCTAssertEqual(folderWorkspaces(folderId: workspaceFolderDefaultId).map(\.name), [
             otherDisplayFlatTab.name,
             folderChild.name,
         ])
     }
 
     func testReorderWorkspaceCanMoveFolderChildIntoUnfoldedFolderAtSpecificPosition() {
-        let folder = createWorkspaceProject()
-        let folderWorkspace = Workspace.all.first { $0.projectId == folder.id }.orDie()
+        let folder = createWorkspaceFolder()
+        let folderWorkspace = Workspace.get(byName: "folder-tab")
+        folderWorkspace.assignFolder(folder.id)
         folderWorkspace.markAsAutomaticallyNamed()
         folderWorkspace.rootTilingContainer.apply {
             TestWindow.new(id: 1, parent: $0)
@@ -2182,7 +2225,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
 
         let folderChild = Workspace.get(byName: "folder-child")
         folderChild.markAsAutomaticallyNamed()
-        folderChild.assignProject(folder.id)
+        folderChild.assignFolder(folder.id)
         folderChild.rootTilingContainer.apply {
             TestWindow.new(id: 2, parent: $0)
         }
@@ -2194,27 +2237,28 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             TestWindow.new(id: 3, parent: $0)
         }
         setProjectWorkspaceOrder(workspaceProjectDefaultId, [flat])
-        setProjectWorkspaceOrder(folder.id, [folderWorkspace, folderChild])
+        setFolderWorkspaceOrder(folder.id, [folderWorkspace, folderChild])
 
         XCTAssertTrue(reorderWorkspaceForSidebar(
             sourceWorkspaceName: folderChild.name,
-            projectId: workspaceProjectDefaultId,
+            folderId: workspaceFolderDefaultId,
             placement: .before(flat.name)
         ))
 
         XCTAssertEqual(folderChild.projectId, workspaceProjectDefaultId)
-        XCTAssertEqual(projectWorkspaces(projectId: workspaceProjectDefaultId).map(\.name), [
+        XCTAssertEqual(folderWorkspaces(folderId: workspaceFolderDefaultId).map(\.name), [
             folderChild.name,
             flat.name,
         ])
-        XCTAssertEqual(projectWorkspaces(projectId: folder.id).map(\.name), [
+        XCTAssertEqual(folderWorkspaces(folderId: folder.id).map(\.name), [
             folderWorkspace.name,
         ])
     }
 
     func testReorderWorkspaceCanMoveFlatTabIntoFolderAtSpecificPosition() {
-        let folder = createWorkspaceProject()
-        let firstFolderTab = Workspace.all.first { $0.projectId == folder.id }.orDie()
+        let folder = createWorkspaceFolder()
+        let firstFolderTab = Workspace.get(byName: "first-folder")
+        firstFolderTab.assignFolder(folder.id)
         firstFolderTab.markAsAutomaticallyNamed()
         firstFolderTab.rootTilingContainer.apply {
             TestWindow.new(id: 1, parent: $0)
@@ -2222,7 +2266,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
 
         let secondFolderTab = Workspace.get(byName: "second-folder")
         secondFolderTab.markAsAutomaticallyNamed()
-        secondFolderTab.assignProject(folder.id)
+        secondFolderTab.assignFolder(folder.id)
         secondFolderTab.rootTilingContainer.apply {
             TestWindow.new(id: 2, parent: $0)
         }
@@ -2234,17 +2278,17 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             TestWindow.new(id: 3, parent: $0)
         }
         setProjectWorkspaceOrder(workspaceProjectDefaultId, [flat])
-        setProjectWorkspaceOrder(folder.id, [firstFolderTab, secondFolderTab])
+        setFolderWorkspaceOrder(folder.id, [firstFolderTab, secondFolderTab])
         setWorkspaceSidebarFolderExpanded(folder.id, isExpanded: false)
 
         XCTAssertTrue(reorderWorkspaceForSidebar(
             sourceWorkspaceName: flat.name,
-            projectId: folder.id,
+            folderId: folder.id,
             placement: .after(firstFolderTab.name)
         ))
 
-        XCTAssertEqual(flat.projectId, folder.id)
-        XCTAssertEqual(projectWorkspaces(projectId: folder.id).map(\.name), [
+        XCTAssertEqual(flat.folderId, folder.id)
+        XCTAssertEqual(folderWorkspaces(folderId: folder.id).map(\.name), [
             firstFolderTab.name,
             flat.name,
             secondFolderTab.name,
@@ -2253,33 +2297,33 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
     }
 
     func testReorderWorkspaceProjectForSidebarMovesFolderBeforeTargetFolder() {
-        let first = createWorkspaceProjectWithWindow(windowId: 401)
-        let second = createWorkspaceProjectWithWindow(windowId: 402)
-        let third = createWorkspaceProjectWithWindow(windowId: 403)
+        let first = createWorkspaceFolderWithWindow(windowId: 401)
+        let second = createWorkspaceFolderWithWindow(windowId: 402)
+        let third = createWorkspaceFolderWithWindow(windowId: 403)
 
-        XCTAssertTrue(reorderWorkspaceProjectForSidebar(
-            sourceProjectId: third.id,
-            placement: .before(first.id)
+        XCTAssertTrue(reorderWorkspaceFolderForSidebar(
+            sourceFolderId: third.id,
+            placement: .before(first.id.backingProjectId)
         ))
 
-        XCTAssertEqual(workspaceProjects().map(\.id), [
+        XCTAssertEqual(workspaceFolders(in: workspaceProjectDefaultId).map(\.id), [
             third.id,
             first.id,
             second.id,
-            workspaceProjectDefaultId,
+            workspaceFolderDefaultId,
         ])
     }
 
     func testReorderWorkspaceProjectForSidebarRejectsDefaultFolder() {
-        let folder = createWorkspaceProjectWithWindow(windowId: 411)
+        let folder = createWorkspaceFolderWithWindow(windowId: 411)
 
-        XCTAssertFalse(reorderWorkspaceProjectForSidebar(
-            sourceProjectId: folder.id,
+        XCTAssertFalse(reorderWorkspaceFolderForSidebar(
+            sourceFolderId: folder.id,
             placement: .before(workspaceProjectDefaultId)
         ))
-        XCTAssertFalse(reorderWorkspaceProjectForSidebar(
-            sourceProjectId: workspaceProjectDefaultId,
-            placement: .before(folder.id)
+        XCTAssertFalse(reorderWorkspaceFolderForSidebar(
+            sourceFolderId: workspaceFolderDefaultId,
+            placement: .before(folder.id.backingProjectId)
         ))
     }
 
@@ -2342,6 +2386,62 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         ]))
     }
 
+    func testMergeWorkspaceIntoActiveTabGroupFromSidebarStacksSourceWindowsAndRemovesSource() {
+        let source = Workspace.get(byName: "source")
+        source.markAsAutomaticallyNamed()
+        source.assignProject(workspaceProjectDefaultId)
+        source.rootTilingContainer.apply {
+            TestWindow.new(id: 1, parent: $0)
+        }
+        let target = Workspace.get(byName: "target")
+        target.markAsAutomaticallyNamed()
+        target.assignProject(workspaceProjectDefaultId)
+        let targetWindow = TestWindow.new(id: 2, parent: target.rootTilingContainer)
+        _ = targetWindow.focusWindow()
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(target))
+
+        XCTAssertTrue(mergeWorkspaceIntoActiveTabGroupFromSidebar(
+            sourceWorkspaceName: source.name,
+            pointer: mainMonitor.visibleRect.center
+        ))
+
+        XCTAssertNil(Workspace.existing(byName: source.name))
+        XCTAssertEqual(target.rootTilingContainer.layoutDescription, .v_tab_group([
+            .window(2),
+            .window(1),
+        ]))
+    }
+
+    func testMergeWorkspaceIntoActiveTabGroupFromSidebarUsesHoveredWindow() {
+        let source = Workspace.get(byName: "source")
+        source.markAsAutomaticallyNamed()
+        source.assignProject(workspaceProjectDefaultId)
+        source.rootTilingContainer.apply {
+            TestWindow.new(id: 1, parent: $0)
+        }
+        let target = Workspace.get(byName: "target")
+        target.markAsAutomaticallyNamed()
+        target.assignProject(workspaceProjectDefaultId)
+        let firstTargetWindow = TestWindow.new(id: 2, parent: target.rootTilingContainer)
+        let hoveredTargetWindow = TestWindow.new(id: 3, parent: target.rootTilingContainer)
+        _ = firstTargetWindow.focusWindow()
+        XCTAssertTrue(mainMonitor.setActiveWorkspace(target))
+
+        XCTAssertTrue(mergeWorkspaceIntoActiveTabGroupFromSidebar(
+            sourceWorkspaceName: source.name,
+            pointer: mainMonitor.visibleRect.center,
+            targetWindowId: hoveredTargetWindow.windowId
+        ))
+
+        XCTAssertEqual(target.rootTilingContainer.layoutDescription, .h_tiles([
+            .window(2),
+            .v_tab_group([
+                .window(3),
+                .window(1),
+            ]),
+        ]))
+    }
+
     func testCreateSidebarFolderFromWorkspacesRejectsVisibleTabsOnDifferentDisplays() {
         let main = WorkspaceSidebarDragTestMonitor(
             monitorAppKitNsScreenScreensId: 1,
@@ -2387,7 +2487,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
         XCTAssertNil(target)
     }
 
-    func testWorkspaceReorderEnablementRequiresExpandedIdleInteractiveRow() {
+    func testWorkspaceReorderEnablementAllowsExpandedAndCompactIdleInteractiveRows() {
         XCTAssertTrue(workspaceSidebarWorkspaceReorderIsEnabled(
             isCompact: false,
             isSearchFiltering: false,
@@ -2395,7 +2495,7 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
             isPinnedActiveWorkspace: false,
             isInteractive: true
         ))
-        XCTAssertFalse(workspaceSidebarWorkspaceReorderIsEnabled(
+        XCTAssertTrue(workspaceSidebarWorkspaceReorderIsEnabled(
             isCompact: true,
             isSearchFiltering: false,
             isRenamingWorkspace: false,
@@ -2494,7 +2594,11 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
     }
 
     private func setProjectWorkspaceOrder(_ projectId: WorkspaceProjectId, _ workspaces: [Workspace]) {
-        let folderId = WorkspaceFolderId(projectId)
+        let folderId = winMuxWorkspaceState.unfoldedFolderId(for: projectId)
+        setFolderWorkspaceOrder(folderId, workspaces)
+    }
+
+    private func setFolderWorkspaceOrder(_ folderId: WorkspaceFolderId, _ workspaces: [Workspace]) {
         var folder = winMuxWorkspaceState.workspaceFoldersById[folderId].orDie()
         folder.workspaceOrder = workspaces.map(\.id)
         winMuxWorkspaceState.workspaceFoldersById[folderId] = folder
@@ -2572,23 +2676,26 @@ final class WorkspaceSidebarReorderTest: XCTestCase {
     ) -> WorkspaceSidebarFolderSection {
         let projectId = WorkspaceProjectId(rawProjectId)
         return WorkspaceSidebarFolderSection(
-            project: WorkspaceSidebarProjectViewModel(
-                id: projectId,
+            folder: WorkspaceSidebarFolderViewModel(
+                id: WorkspaceFolderId(projectId),
+                projectId: workspaceProjectDefaultId,
                 displayName: displayName,
-                colorHex: nil
+                colorHex: nil,
+                isUnfolded: false
             ),
             workspaces: [sidebarWorkspace("\(rawProjectId)-workspace", projectId: projectId)]
         )
     }
 
-    private func createWorkspaceProjectWithWindow(windowId: UInt32) -> WorkspaceProject {
-        let project = createWorkspaceProject()
-        let workspace = Workspace.all.first { $0.projectId == project.id }.orDie()
+    private func createWorkspaceFolderWithWindow(windowId: UInt32) -> WorkspaceFolder {
+        let folder = createWorkspaceFolder()
+        let workspace = Workspace.get(byName: "folder-tab-\(windowId)")
+        workspace.assignFolder(folder.id)
         workspace.markAsAutomaticallyNamed()
         workspace.rootTilingContainer.apply {
             TestWindow.new(id: windowId, parent: $0)
         }
-        return project
+        return folder
     }
 }
 

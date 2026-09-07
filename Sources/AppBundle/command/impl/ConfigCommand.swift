@@ -14,6 +14,7 @@ struct ConfigCommand: Command {
                 let out = """
                     .
                     tab-sidebar
+                    window-tabs
                     mode
                     \(modeKeys.joined(separator: "\n"))
                     """
@@ -172,6 +173,15 @@ extension [Command] {
     return .map([
         "mode": .map(mode),
         "tab-sidebar": workspaceSidebarConfigMap(config.workspaceSidebar),
+        "window-tabs": windowTabsConfigMap(config.windowTabs),
+        "enable-projects": .scalar(.bool(config.enableProjects)),
+    ])
+}
+
+private func windowTabsConfigMap(_ config: WindowTabsConfig) -> ConfigMapValue {
+    .map([
+        "enabled": .scalar(.bool(config.enabled)),
+        "height": .scalar(.int(config.height)),
     ])
 }
 

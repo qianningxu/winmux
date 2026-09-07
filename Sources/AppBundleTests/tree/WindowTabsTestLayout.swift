@@ -154,8 +154,9 @@ import XCTest
     }
 
     @MainActor
-    func testHardSidebarTabsDisableTopTabStripBehavior() {
+    func testFullscreenTabGroupHidesTopTabStrip() {
         setUpWorkspacesForTests()
+        config.windowTabs.enabled = true
         let workspace = Workspace.get(byName: "tabs")
         let tabGroup = workspace.rootTilingContainer
         tabGroup.layout = .tabGroup
@@ -165,23 +166,19 @@ import XCTest
         active.isFullscreen = true
         active.markAsMostRecentChild()
 
-        XCTAssertFalse(tabGroup.usesWindowTabBehavior)
+        XCTAssertTrue(tabGroup.usesWindowTabBehavior)
         XCTAssertFalse(tabGroup.showsWindowTabs)
         XCTAssertEqual(tabGroup.windowTabBarHeight, 0)
     }
 
-    func testLegacyTopWindowTabsAreHardDisabledOutsideUnitTests() {
-        XCTAssertFalse(legacyWindowTabBehaviorIsEnabledForEnvironment(
+    func testWindowTabsAreEnabledByConfigurationOutsideUnitTests() {
+        XCTAssertTrue(legacyWindowTabBehaviorIsEnabledForEnvironment(
             configEnabled: true,
             isUnitTestProcess: false,
         ))
         XCTAssertFalse(legacyWindowTabBehaviorIsEnabledForEnvironment(
             configEnabled: false,
             isUnitTestProcess: false,
-        ))
-        XCTAssertTrue(legacyWindowTabBehaviorIsEnabledForEnvironment(
-            configEnabled: true,
-            isUnitTestProcess: true,
         ))
     }
 
@@ -217,6 +214,31 @@ import XCTest
         XCTAssertTrue(WindowTabStripPanelController.shared.hiddenPassiveTabGroupChromeIds.isEmpty)
         XCTAssertTrue(WindowTabStripPanelController.shared.visualPanels.isEmpty)
         XCTAssertTrue(WindowTabStripPanelController.shared.stripPanels.isEmpty)
+    }
+
+    @MainActor
+    func testUpdateWindowTabModelClearsTransientResizeChromeAfterMouseUp() async {
+        setUpWorkspacesForTests()
+        config.windowTabs.enabled = true
+        let owner = NSObject()
+        let staleStrip = WindowTabStripViewModel(
+            id: ObjectIdentifier(owner),
+            workspaceName: "tabs",
+            frame: CGRect(x: 100, y: 280, width: 300, height: 28),
+            groupFrame: CGRect(x: 100, y: 100, width: 300, height: 208),
+            activeWindowId: 1,
+            activeWindowCornerRadius: 12,
+            tabs: [],
+            occludingFloatingWindowFrames: []
+        )
+        TrayMenuModel.shared.windowTabStrips = [staleStrip]
+        WindowTabStripPanelController.shared.transientResizeTabGroupId = staleStrip.id
+        WindowTabStripPanelController.shared.transientResizeTabGroupStrip = staleStrip
+
+        await updateWindowTabModel()
+
+        XCTAssertNil(WindowTabStripPanelController.shared.transientResizeTabGroupId)
+        XCTAssertNil(WindowTabStripPanelController.shared.transientResizeTabGroupStrip)
     }
 
     @MainActor

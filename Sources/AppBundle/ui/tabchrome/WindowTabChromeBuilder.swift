@@ -6,15 +6,24 @@ func buildWindowTabChromeItemsFromSource10Tree() async -> [WindowTabChromeItem] 
     guard !shouldSuppressChromeForNativeFullscreenContent else { return [] }
     pruneCachedWindowTitles()
 
-    var items: [WindowTabChromeItem] = []
-    for workspace in Workspace.all where workspace.isVisible {
-        for container in workspace.rootTilingContainer.allTabbedContainersRecursive {
-            if let item = await makeWindowTabChromeItem(container: container, workspace: workspace) {
-                items.append(item)
-            }
+    let visibleWorkspaces = Workspace.all.filter(\.isVisible)
+    let titleWindows = visibleWorkspaces.flatMap { workspace in
+        workspace.rootTilingContainer.allTabbedContainersRecursive.flatMap { container in
+            container.children.compactMap(\.tabRepresentativeWindow)
         }
     }
-    return items
+
+    return await withWindowTabCachedWindowTitles(titleWindows) {
+        var items: [WindowTabChromeItem] = []
+        for workspace in visibleWorkspaces {
+            for container in workspace.rootTilingContainer.allTabbedContainersRecursive {
+                if let item = await makeWindowTabChromeItem(container: container, workspace: workspace) {
+                    items.append(item)
+                }
+            }
+        }
+        return items
+    }
 }
 
 @MainActor

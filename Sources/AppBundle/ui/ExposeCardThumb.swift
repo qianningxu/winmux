@@ -11,14 +11,13 @@ func exposeCardThumb(_ item: ExposeWindowItem, w: CGFloat, h: CGFloat, hov: Bool
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         } else {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color(nsColor: .windowBackgroundColor).opacity(0.1))
+                .fill(winMuxOverlayComponentBackground(.normal))
                 .overlay(
                     Image(systemName: "macwindow")
                         .font(.system(size: 24, weight: .ultraLight))
-                        .foregroundStyle(.white.opacity(0.1))
+                        .foregroundStyle(winMuxOverlayContent(.secondary))
                 )
         }
     }
     .frame(width: w, height: h)
-    .shadow(color: .black.opacity(hov ? 0.35 : 0.15), radius: hov ? 12 : 6, y: hov ? 6 : 2)
 }

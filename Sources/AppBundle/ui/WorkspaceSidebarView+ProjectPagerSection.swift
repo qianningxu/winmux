@@ -25,7 +25,7 @@ extension WorkspaceSidebarView {
                 browseMode = .activeProject
                 actions.send(.selectProject(projectId))
             },
-            onCreateProject: { actions.send(.createProject) },
+            onCreateProject: { actions.send(.createProject()) },
             onBeginRenameProject: { project in
                 beginProjectRename(project)
             },
@@ -45,7 +45,7 @@ extension WorkspaceSidebarView {
         .zIndex(2)
         .padding(.leading, leadingInset)
         .padding(.trailing, trailingInset)
-        .padding(.top, 6)
-        .padding(.bottom, 2)
+        .padding(.top, standardGap * 3)
+        .padding(.bottom, standardGap * 1)
     }
 }

@@ -4,6 +4,12 @@ import SQLite3
 struct SidebarSelfDataTimeEntry: Sendable {
     let start: Date
     let stop: Date
+    let projectID: Int64?
+    let projectName: String?
+
+    var isAssignedToProject: Bool {
+        projectID != nil
+    }
 }
 
 struct SidebarSelfDataScheduleBlock: Sendable {
@@ -19,6 +25,11 @@ struct SidebarSelfDataScheduleBlock: Sendable {
 struct SidebarSelfDataSpendingTransaction: Sendable {
     let created: Date
     let amount: Double
+}
+
+struct SidebarSelfDataSleepNight: Sendable {
+    let localDate: Date
+    let sleepSeconds: TimeInterval
 }
 
 struct SidebarSelfDataPeriod: Sendable {
@@ -49,14 +60,22 @@ enum SidebarSelfDataStore {
     static func loadTimeEntries(from sqliteURL: URL, now: Date) -> [SidebarSelfDataTimeEntry]? {
         let utcDateFormatter = makeUTCDateFormatter()
         return withDatabase(sqliteURL) { database in
-            query(database, sql: "select start_at_utc, stop_at_utc, duration_seconds from time_entries") { statement in
+            query(database, sql: "select start_at_utc, stop_at_utc, duration_seconds, project_id, project_name from time_entries") { statement in
                 guard let start = dateColumn(statement, 0, formatter: utcDateFormatter) else { return nil }
                 let rawStop = dateColumn(statement, 1, formatter: utcDateFormatter)
                 let durationSeconds = sqlite3_column_double(statement, 2)
                 let stop = rawStop ?? start.addingTimeInterval(durationSeconds)
                 let effectiveStop = min(stop, now)
                 guard effectiveStop > start else { return nil }
-                return SidebarSelfDataTimeEntry(start: start, stop: effectiveStop)
+                let projectID = sqlite3_column_type(statement, 3) == SQLITE_NULL
+                    ? nil
+                    : sqlite3_column_int64(statement, 3)
+                return SidebarSelfDataTimeEntry(
+                    start: start,
+                    stop: effectiveStop,
+                    projectID: projectID,
+                    projectName: textColumn(statement, 4)
+                )
             }
         }
     }
@@ -112,6 +131,33 @@ enum SidebarSelfDataStore {
                 return SidebarSelfDataSpendingTransaction(
                     created: created,
                     amount: -amountMinor / 100,
+                )
+            }
+        }
+    }
+
+    static func loadSleepNights(from sqliteURL: URL) -> [SidebarSelfDataSleepNight]? {
+        let localDateFormatter = makeLocalDateFormatter()
+        return withDatabase(sqliteURL) { database in
+            query(
+                database,
+                sql: """
+                    select
+                      local_date,
+                      case
+                        when core_seconds + deep_seconds + rem_seconds > 0
+                          then core_seconds + deep_seconds + rem_seconds
+                        else asleep_seconds
+                      end
+                    from sleep_nights
+                    """,
+            ) { statement in
+                guard let localDate = textColumn(statement, 0).flatMap({ localDateFormatter.date(from: $0) }) else {
+                    return nil
+                }
+                return SidebarSelfDataSleepNight(
+                    localDate: localDate,
+                    sleepSeconds: TimeInterval(max(0, sqlite3_column_int64(statement, 1))),
                 )
             }
         }

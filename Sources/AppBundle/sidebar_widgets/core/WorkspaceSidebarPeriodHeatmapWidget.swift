@@ -1,8 +1,6 @@
 import Foundation
 import SwiftUI
 
-private let periodProgressBlueStart = PeriodProgressHSL(hue: 212, saturation: 1.00, lightness: 0.97)
-private let periodProgressBlueEnd = PeriodProgressHSL(hue: 211, saturation: 1.00, lightness: 0.15)
 private let periodFallbackStart = "2026-06-15"
 private let periodFallbackEnd = "2026-09-12"
 private let periodFallbackToday = "2026-06-26"
@@ -326,7 +324,7 @@ private struct PeriodUnitRingGauge: View {
     var body: some View {
         Group {
             if isCompact {
-                VStack(spacing: 2) {
+                VStack(spacing: standardGap * 1) {
                     compactCaption
                     ring
                 }
@@ -350,11 +348,11 @@ private struct PeriodUnitRingGauge: View {
     }
 
     private var metricCaption: some View {
-        VStack(spacing: 1) {
+        VStack(spacing: standardGap * 0.5) {
             metricSummary(fontSize: valueFontSize, weight: .bold)
             Text(metric.value)
                 .font(.system(size: valueFontSize, weight: .medium, design: .monospaced))
-                .foregroundStyle(winMuxOverlayMutedForeground(0.82))
+                .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                 .lineLimit(1)
                 .minimumScaleFactor(0.45)
         }
@@ -366,14 +364,14 @@ private struct PeriodUnitRingGauge: View {
     }
 
     private func metricSummary(fontSize: CGFloat, weight: Font.Weight) -> some View {
-        HStack(spacing: 3) {
+        HStack(spacing: standardGap * 1.5) {
             Text(metric.label)
             Text("•")
                 .font(.system(size: max(fontSize * 0.42, 4), weight: .bold))
             Text(metric.percentageText)
         }
         .font(.system(size: fontSize, weight: weight, design: .monospaced))
-        .foregroundStyle(winMuxOverlayForeground(isCompact ? 0.82 : 0.92))
+        .foregroundStyle(workspaceSidebarWidgetContent(isCompact ? .secondary : .primary))
         .lineLimit(1)
         .minimumScaleFactor(isCompact ? 0.82 : 0.45)
         .frame(width: isCompact ? compactCaptionWidth : size)
@@ -446,29 +444,22 @@ private extension PeriodHeatmapSnapshot {
     }
 }
 
-private struct PeriodProgressHSL {
-    let hue: Double
-    let saturation: Double
-    let lightness: Double
-}
-
-private func periodRingSegmentColor(index: Int, filled: Int, total: Int, filledOnly: Bool) -> Color {
+private func periodRingSegmentColor(index: Int, filled: Int, total: Int, filledOnly: Bool) -> AnyShapeStyle {
     if !filledOnly {
-        return winMuxOverlayContrastingFill(darkOpacity: 0.10, lightOpacity: 0.09)
+        return AnyShapeStyle(workspaceSidebarWidgetComponentBackground(.normal))
     }
     let filledUnits = min(max(filled, 0), max(total, 1))
     guard index < filledUnits else {
-        return .clear
+        return AnyShapeStyle(WinMuxDesignTokens.transparent)
     }
-    return periodProgressColor(filledUnits: filledUnits, totalUnits: total)
+    return AnyShapeStyle(periodProgressColor(filledUnits: filledUnits, totalUnits: total))
 }
 
-private func periodProgressColor(filledUnits: Int, totalUnits: Int) -> Color {
+private func periodProgressColor(filledUnits: Int, totalUnits: Int) -> WorkspaceSidebarWidgetShapeStyle {
     let clamped = periodProgressColorStep(filledUnits: filledUnits, totalUnits: totalUnits)
-    let hue = interpolate(periodProgressBlueStart.hue, periodProgressBlueEnd.hue, clamped)
-    let saturation = interpolate(periodProgressBlueStart.saturation, periodProgressBlueEnd.saturation, clamped)
-    let lightness = interpolate(periodProgressBlueStart.lightness, periodProgressBlueEnd.lightness, clamped)
-    return Color(hue: hue / 360, saturation: saturation, brightness: hslLightnessToBrightness(lightness, saturation))
+    let step = min(1000, max(100, Int((100 + (clamped * 900)).rounded())))
+    let geistStep = min(10, max(1, Int((Double(step) / 100).rounded()))) * 100
+    return workspaceSidebarWidgetColor(GeistColorStep(rawValue: geistStep) ?? .color7)
 }
 
 func periodProgressColorStep(filledUnits: Int, totalUnits: Int) -> Double {
@@ -476,12 +467,4 @@ func periodProgressColorStep(filledUnits: Int, totalUnits: Int) -> Double {
     let clampedFilled = min(max(filledUnits, 0), clampedTotal)
     guard clampedFilled > 0 else { return 0 }
     return clampedTotal == 1 ? 1 : Double(clampedFilled - 1) / Double(clampedTotal - 1)
-}
-
-private func interpolate(_ start: Double, _ end: Double, _ progress: Double) -> Double {
-    start + ((end - start) * progress)
-}
-
-private func hslLightnessToBrightness(_ lightness: Double, _ saturation: Double) -> Double {
-    lightness + (saturation * min(lightness, 1 - lightness))
 }

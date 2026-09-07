@@ -3,6 +3,61 @@ import Foundation
 import AppKit
 import SwiftUI
 
+private struct MenuBarLabelImageCacheKey: Hashable {
+    let style: MenuBarStyle
+    let trayText: String
+    let trayItems: [TrayItem]
+}
+
+@MainActor
+private final class MenuBarLabelImageCache {
+    static let shared = MenuBarLabelImageCache()
+
+    private let limit: Int
+    private var images: [MenuBarLabelImageCacheKey: NSImage] = [:]
+    private var order: [MenuBarLabelImageCacheKey] = []
+
+    fileprivate init(limit: Int = 16) {
+        precondition(limit > 0)
+        self.limit = limit
+    }
+
+    func image(
+        for key: MenuBarLabelImageCacheKey,
+        render: () -> NSImage?
+    ) -> NSImage? {
+        if let image = images[key] {
+            order.removeAll { $0 == key }
+            order.append(key)
+            return image
+        }
+        guard let image = render() else { return nil }
+        images[key] = image
+        order.append(key)
+        while order.count > limit {
+            images.removeValue(forKey: order.removeFirst())
+        }
+        return image
+    }
+}
+
+@MainActor
+func exerciseMenuBarLabelImageCacheForTests(
+    capacity: Int,
+    keys: [String],
+    render: (String) -> NSImage
+) -> [NSImage] {
+    let cache = MenuBarLabelImageCache(limit: capacity)
+    return keys.map { value in
+        let key = MenuBarLabelImageCacheKey(
+            style: .systemText,
+            trayText: value,
+            trayItems: []
+        )
+        return cache.image(for: key) { render(value) }!
+    }
+}
+
 @MainActor
 struct MenuBarLabel: View {
     @Environment(\.colorScheme) var menuColorScheme: ColorScheme
@@ -10,13 +65,13 @@ struct MenuBarLabel: View {
     let color: Color?
     let style: MenuBarStyle?
 
-    let hStackSpacing = CGFloat(6)
+    let hStackSpacing = CGFloat(standardGap * 3)
     let itemSize = CGFloat(40)
     let itemBorderSize = CGFloat(3)
     let itemCornerRadius = CGFloat(6)
 
     private var finalColor: Color {
-        return color ?? (menuColorScheme == .dark ? Color.white : Color.black)
+        return color ?? winMuxOverlayContent(.primary)
     }
 
     init(style: MenuBarStyle? = nil, color: Color? = nil) {
@@ -38,6 +93,16 @@ struct MenuBarLabel: View {
     }
 
     private func renderedMenuBarImage() -> NSImage? {
+        guard color == nil else { return renderMenuBarImage() }
+        let key = MenuBarLabelImageCacheKey(
+            style: style ?? viewModel.experimentalUISettings.displayStyle,
+            trayText: viewModel.trayText,
+            trayItems: viewModel.trayItems,
+        )
+        return MenuBarLabelImageCache.shared.image(for: key, render: renderMenuBarImage)
+    }
+
+    private func renderMenuBarImage() -> NSImage? {
         let renderer = ImageRenderer(content: menuBarContent)
         guard let cgImage = renderer.cgImage else { return nil }
         // Using scale: 1 results in a blurry image for unknown reasons.
@@ -117,7 +182,7 @@ struct MenuBarLabel: View {
                 .font(.system(.largeTitle))
                 .foregroundStyle(finalColor)
                 .bold()
-                .padding(.bottom, 6)
+                .padding(.bottom, standardGap * 3)
             ForEach(otherWorkspaces, id: \.name) { item in
                 itemView(for: TrayItem(
                     type: .workspace,
@@ -144,7 +209,7 @@ struct MenuBarLabel: View {
         if item.hasFullscreenWindows {
             let strokeStyle = StrokeStyle(lineWidth: 2, lineCap: .square, lineJoin: .miter, miterLimit: 10, dash: [10, 5], dashPhase: 3)
             view
-                .padding(4)
+                .padding(standardGap * 2)
                 .overlay {
                     RoundedRectangle(cornerRadius: itemCornerRadius, style: .continuous)
                         .strokeBorder(finalColor, style: strokeStyle)

@@ -88,6 +88,43 @@ extension TreeNodeTest {
         XCTAssertEqual(decoded.sidebar?.projectLabels, [:])
     }
 
+    func testLegacyMultiFolderSidebarMigratesIntoMainAndRoundTripsIdempotently() throws {
+        let json = ##"{"projects":[{"id":"project-2","name":"Client","order":2,"workspaceNames":["alpha","beta"]},{"id":"default","name":"Unfolded","order":9,"workspaceNames":["gamma"]}],"collapsedFolderIds":["project-2"],"workspaceLabels":{"alpha":"Alpha Tab","gamma":"Gamma Tab"},"projectLabels":{"project-2":"Client Label","default":"Unfolded"},"projectColors":{"project-2":"#60A5FA","default":"#9B8FC4"}}"##
+        let migrated = try JSONDecoder().decode(FrozenSidebarState.self, from: Data(json.utf8))
+
+        XCTAssertEqual(migrated.projects.map(\.id), [workspaceProjectDefaultId])
+        XCTAssertEqual(migrated.projects[0].name, "Main")
+        XCTAssertEqual(migrated.projects[0].folders.map(\.id), ["project-2", "default"])
+        XCTAssertEqual(migrated.projects[0].folders.map(\.workspaceNames), [["alpha", "beta"], ["gamma"]])
+        XCTAssertEqual(migrated.collapsedFolderIds, ["project-2"])
+        XCTAssertEqual(migrated.workspaceLabels, ["alpha": "Alpha Tab", "gamma": "Gamma Tab"])
+        XCTAssertEqual(migrated.projectLabels, ["default": "Main"])
+        XCTAssertEqual(migrated.projectColors, [:])
+        XCTAssertEqual(migrated.folderLabels, ["project-2": "Client Label", "default": "Unfolded"])
+        XCTAssertEqual(migrated.folderColors, ["project-2": "#60A5FA", "default": "#9B8FC4"])
+
+        restoreFrozenSidebarState(migrated, restoredWorkspaceNames: [], materializeMissingWorkspaces: true)
+        XCTAssertEqual(workspaceProjects().map(\.id), [workspaceProjectDefaultId])
+        XCTAssertEqual(workspaceFolders(in: workspaceProjectDefaultId).map(\.id), ["project-2", "default"])
+        XCTAssertEqual(Workspace.existing(byName: "alpha")?.folderId, "project-2")
+        XCTAssertEqual(Workspace.existing(byName: "beta")?.folderId, "project-2")
+        XCTAssertEqual(Workspace.existing(byName: "gamma")?.folderId, "default")
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(WorkspaceFolderId("project-2")))
+
+        let checkpoint = FrozenSidebarState(restorableWorkspaces: Workspace.all.filter {
+            ["alpha", "beta", "gamma"].contains($0.name)
+        })
+        let restarted = try JSONDecoder().decode(
+            FrozenSidebarState.self,
+            from: JSONEncoder.winMuxDefault.encode(checkpoint)
+        )
+        XCTAssertEqual(restarted.projects.map(\.id), [workspaceProjectDefaultId])
+        XCTAssertEqual(restarted.projects[0].folders.map(\.id), ["project-2", "default"])
+        XCTAssertEqual(restarted.projects[0].folders.map(\.workspaceNames), [["alpha", "beta"], ["gamma"]])
+        XCTAssertEqual(restarted.folderLabels, migrated.folderLabels)
+        XCTAssertEqual(restarted.folderColors, migrated.folderColors)
+    }
+
     func testSnapshotCurrentFrozenWorldExcludesDetachedMinimizedWindow() {
         let workspace = Workspace.get(byName: "minimized")
         let window = TestWindow.new(id: 32, parent: workspace.rootTilingContainer)
@@ -109,16 +146,18 @@ extension TreeNodeTest {
         let second = Workspace.get(byName: "second")
         second.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 52, parent: second.rootTilingContainer)
-        let folder = createWorkspaceProject()
-        first.assignProject(folder.id)
-        second.assignProject(folder.id)
-        var storedFolder = winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(folder.id)].orDie()
+        let folder = createWorkspaceFolder()
+        first.assignFolder(folder.id)
+        second.assignFolder(folder.id)
+        var storedFolder = winMuxWorkspaceState.workspaceFoldersById[folder.id].orDie()
         storedFolder.workspaceOrder = [second.id, first.id]
-        winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(folder.id)] = storedFolder
+        winMuxWorkspaceState.workspaceFoldersById[folder.id] = storedFolder
         setWorkspaceSidebarFolderExpanded(folder.id, isExpanded: false)
 
         let frozenWorld = snapshotCurrentFrozenWorld()
-        let frozenFolder = frozenWorld.sidebar?.projects.first { $0.id == folder.id }
+        let frozenFolder = frozenWorld.sidebar?.projects
+            .first { $0.id == workspaceProjectDefaultId }?
+            .folders.first { $0.id == folder.id }
 
         XCTAssertEqual(frozenFolder?.workspaceNames, ["second", "first"])
         XCTAssertTrue(frozenWorld.sidebar?.collapsedFolderIds.contains(folder.id) == true)
@@ -128,11 +167,13 @@ extension TreeNodeTest {
         let workspace = Workspace.get(byName: "retained")
         workspace.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 54, parent: workspace.rootTilingContainer)
-        let emptyFolder = createWorkspaceProject()
+        let emptyFolder = createWorkspaceFolder()
 
         let frozenWorld = snapshotCurrentFrozenWorld()
 
-        XCTAssertTrue(frozenWorld.sidebar?.projects.contains(where: { $0.id == emptyFolder.id }) == true)
+        XCTAssertTrue(frozenWorld.sidebar?.projects
+            .first { $0.id == workspaceProjectDefaultId }?
+            .folders.contains(where: { $0.id == emptyFolder.id }) == true)
     }
 
     func testDefaultFolderOrderNormalizationIsIdempotent() {
@@ -158,15 +199,15 @@ extension TreeNodeTest {
         let first = Workspace.get(byName: "first")
         first.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 55, parent: first.rootTilingContainer)
-        let folder = createWorkspaceProject()
-        first.assignProject(folder.id)
+        let folder = createWorkspaceFolder()
+        first.assignFolder(folder.id)
         let sidebar = FrozenSidebarState(restorableWorkspaces: [first])
 
-        first.assignProject(workspaceProjectDefaultId)
+        first.assignFolder(workspaceFolderDefaultId)
         restoreFrozenSidebarState(sidebar, restoredWorkspaceNames: [first.name])
 
-        XCTAssertEqual(first.projectId, folder.id)
-        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(folder.id)])
+        XCTAssertEqual(first.folderId, folder.id)
+        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[folder.id])
     }
 
     func testRestorePersistedSidebarStateMaterializesMissingFolderTabs() throws {
@@ -192,15 +233,15 @@ extension TreeNodeTest {
         let workspace = Workspace.get(byName: "renamed")
         workspace.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 53, parent: workspace.rootTilingContainer)
-        let folder = createWorkspaceProject()
-        workspace.assignProject(folder.id)
+        let folder = createWorkspaceFolder()
+        workspace.assignFolder(folder.id)
         try renameWorkspaceForSidebar(workspaceName: workspace.name, displayName: "Design")
-        try renameWorkspaceProject(folder.id, displayName: "Client")
+        try renameWorkspaceFolder(folder.id, displayName: "Client")
 
         let frozenWorld = snapshotCurrentFrozenWorld()
 
         XCTAssertEqual(frozenWorld.sidebar?.workspaceLabels[workspace.name], "Design")
-        XCTAssertEqual(frozenWorld.sidebar?.projectLabels[folder.id.rawValue], "Client")
+        XCTAssertEqual(frozenWorld.sidebar?.folderLabels[folder.id.rawValue], "Client")
     }
 
     func testRestoreFrozenWorldRestoresSidebarOrderAndCollapsedFolders() async throws {
@@ -210,28 +251,27 @@ extension TreeNodeTest {
         let second = Workspace.get(byName: "second")
         second.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 62, parent: second.rootTilingContainer)
-        let folder = createWorkspaceProject()
-        let retainedFolderTab = try XCTUnwrap(projectWorkspaces(projectId: folder.id).first)
-        first.assignProject(folder.id)
-        second.assignProject(folder.id)
-        var storedFolder = winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(folder.id)].orDie()
+        let folder = createWorkspaceFolder()
+        first.assignFolder(folder.id)
+        second.assignFolder(folder.id)
+        var storedFolder = winMuxWorkspaceState.workspaceFoldersById[folder.id].orDie()
         storedFolder.workspaceOrder = [second.id, first.id]
-        winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(folder.id)] = storedFolder
+        winMuxWorkspaceState.workspaceFoldersById[folder.id] = storedFolder
         setWorkspaceSidebarFolderExpanded(folder.id, isExpanded: false)
         let frozenWorld = snapshotCurrentFrozenWorld()
 
-        first.assignProject(workspaceProjectDefaultId)
-        second.assignProject(workspaceProjectDefaultId)
+        first.assignFolder(workspaceFolderDefaultId)
+        second.assignFolder(workspaceFolderDefaultId)
         setWorkspaceSidebarFolderExpanded(folder.id, isExpanded: true)
 
         let didRestore = try await restoreFrozenWorldIfNeeded(frozenWorld, newlyDetectedWindow: firstWindow)
 
         XCTAssertTrue(didRestore)
-        XCTAssertEqual(first.projectId, folder.id)
-        XCTAssertEqual(second.projectId, folder.id)
+        XCTAssertEqual(first.folderId, folder.id)
+        XCTAssertEqual(second.folderId, folder.id)
         XCTAssertEqual(
-            winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(folder.id)]?.workspaceOrder,
-            [second.id, first.id, retainedFolderTab.id],
+            winMuxWorkspaceState.workspaceFoldersById[folder.id]?.workspaceOrder,
+            [second.id, first.id],
         )
         XCTAssertFalse(workspaceSidebarFolderIsExpanded(folder.id))
     }
@@ -240,21 +280,21 @@ extension TreeNodeTest {
         let workspace = Workspace.get(byName: "renamed")
         workspace.markAsAutomaticallyNamed()
         let window = TestWindow.new(id: 64, parent: workspace.rootTilingContainer)
-        let folder = createWorkspaceProject()
-        workspace.assignProject(folder.id)
+        let folder = createWorkspaceFolder()
+        workspace.assignFolder(folder.id)
         try renameWorkspaceForSidebar(workspaceName: workspace.name, displayName: "Design")
-        try renameWorkspaceProject(folder.id, displayName: "Client")
+        try renameWorkspaceFolder(folder.id, displayName: "Client")
         let frozenWorld = snapshotCurrentFrozenWorld()
 
         config.workspaceSidebar.workspaceLabels.removeValue(forKey: workspace.name)
-        config.workspaceSidebar.projectLabels.removeValue(forKey: folder.id.rawValue)
-        workspace.assignProject(workspaceProjectDefaultId)
+        config.workspaceSidebar.folderLabels.removeValue(forKey: folder.id.rawValue)
+        workspace.assignFolder(workspaceFolderDefaultId)
 
         let didRestore = try await restoreFrozenWorldIfNeeded(frozenWorld, newlyDetectedWindow: window)
 
         XCTAssertTrue(didRestore)
         XCTAssertEqual(config.workspaceSidebar.workspaceLabels[workspace.name], "Design")
-        XCTAssertEqual(config.workspaceSidebar.projectLabels[folder.id.rawValue], "Client")
+        XCTAssertEqual(config.workspaceSidebar.folderLabels[folder.id.rawValue], "Client")
     }
 
     func testRestoreFrozenWorldRemovesProvisionalFreshTabWithoutDuplicatingSavedTab() async throws {

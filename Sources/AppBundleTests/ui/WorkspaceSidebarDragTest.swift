@@ -230,8 +230,8 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertEqual(workspaceSidebarWorkspaceSectionHeightExpanded, workspaceSidebarTabRowHeight)
         XCTAssertEqual(workspaceSidebarHeaderRowLeadingPadding, workspaceSidebarRowHorizontalPadding)
         XCTAssertEqual(workspaceSidebarWindowRowsLeadingIndent, 0)
-        XCTAssertEqual(workspaceSidebarListItemSpacing, 2)
-        XCTAssertEqual(workspaceSidebarNestedRowSpacing, 2)
+        XCTAssertEqual(workspaceSidebarListItemSpacing, workspaceSidebarUnifiedGap / 2)
+        XCTAssertEqual(workspaceSidebarNestedRowSpacing, workspaceSidebarUnifiedGap / 2)
         XCTAssertEqual(workspaceSidebarFolderOuterVerticalMargin, 2)
         XCTAssertGreaterThan(workspaceSidebarTabGroupChildLeadingIndent, workspaceSidebarRowHorizontalPadding)
     }
@@ -371,7 +371,8 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         )
         let grouped = WorkspaceSidebarWorkspaceViewModel(
             name: "grouped",
-            projectId: projectId,
+            projectId: workspaceProjectDefaultId,
+            folderId: WorkspaceFolderId(projectId),
             displayName: "Grouped",
             sidebarLabel: "Grouped",
             isGeneratedName: false,
@@ -391,7 +392,8 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         )
         let emptyGrouped = WorkspaceSidebarWorkspaceViewModel(
             name: "empty-grouped",
-            projectId: emptyProjectId,
+            projectId: workspaceProjectDefaultId,
+            folderId: WorkspaceFolderId(emptyProjectId),
             displayName: "New Tab",
             sidebarLabel: "",
             isGeneratedName: true,
@@ -408,10 +410,10 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         let sections = workspaceSidebarFolderSections(
             projectId: workspaceProjectDefaultId,
             workspaces: workspaces,
-            projects: [
-                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: workspaceDefaultFolderDisplayName, colorHex: nil),
-                WorkspaceSidebarProjectViewModel(id: projectId, displayName: "Client", colorHex: nil),
-                WorkspaceSidebarProjectViewModel(id: emptyProjectId, displayName: "Empty", colorHex: nil),
+            folders: [
+                WorkspaceSidebarFolderViewModel(id: WorkspaceFolderId(projectId), projectId: workspaceProjectDefaultId, displayName: "Client", colorHex: nil, isUnfolded: false),
+                WorkspaceSidebarFolderViewModel(id: WorkspaceFolderId(emptyProjectId), projectId: workspaceProjectDefaultId, displayName: "Empty", colorHex: nil, isUnfolded: false),
+                WorkspaceSidebarFolderViewModel(id: workspaceFolderDefaultId, projectId: workspaceProjectDefaultId, displayName: workspaceDefaultFolderDisplayName, colorHex: nil, isUnfolded: true),
             ],
         )
 
@@ -422,6 +424,8 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         XCTAssertEqual(sections[1].workspaces.map(\.name), [])
         XCTAssertTrue(sections[2].isDefault)
         XCTAssertEqual(sections[2].workspaces.map(\.name), ["coding", "research"])
+        XCTAssertTrue(workspaceSidebarFolderUsesGroupPresentation(sections[0].folder))
+        XCTAssertFalse(workspaceSidebarFolderUsesGroupPresentation(sections[2].folder))
     }
 
     func testCompactFolderSectionsKeepOnlyCurrentFolder() {
@@ -429,7 +433,8 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         let targetScopeId = "monitor:0.0,0.0"
         let currentFolderWorkspace = WorkspaceSidebarWorkspaceViewModel(
             name: "active-codex",
-            projectId: currentProjectId,
+            projectId: workspaceProjectDefaultId,
+            folderId: WorkspaceFolderId(currentProjectId),
             displayName: "Codex",
             sidebarLabel: "",
             isGeneratedName: false,
@@ -470,9 +475,9 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         let sections = workspaceSidebarFolderSections(
             projectId: workspaceProjectDefaultId,
             workspaces: [currentFolderWorkspace, unfoldedWorkspace],
-            projects: [
-                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: workspaceDefaultFolderDisplayName, colorHex: nil),
-                WorkspaceSidebarProjectViewModel(id: currentProjectId, displayName: "s&p backtest", colorHex: nil),
+            folders: [
+                WorkspaceSidebarFolderViewModel(id: WorkspaceFolderId(currentProjectId), projectId: workspaceProjectDefaultId, displayName: "s&p backtest", colorHex: nil, isUnfolded: false),
+                WorkspaceSidebarFolderViewModel(id: workspaceFolderDefaultId, projectId: workspaceProjectDefaultId, displayName: workspaceDefaultFolderDisplayName, colorHex: nil, isUnfolded: true),
             ]
         )
         let compactSections = workspaceSidebarCompactFolderSections(
@@ -506,7 +511,8 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         )
         let foldered = WorkspaceSidebarWorkspaceViewModel(
             name: "foldered",
-            projectId: projectId,
+            projectId: workspaceProjectDefaultId,
+            folderId: WorkspaceFolderId(projectId),
             displayName: "Foldered",
             sidebarLabel: "",
             isGeneratedName: false,
@@ -528,9 +534,9 @@ final class WorkspaceSidebarDragTest: XCTestCase {
         let sections = workspaceSidebarFolderSections(
             projectId: workspaceProjectDefaultId,
             workspaces: [emptyDefault, foldered],
-            projects: [
-                WorkspaceSidebarProjectViewModel(id: workspaceProjectDefaultId, displayName: workspaceDefaultFolderDisplayName, colorHex: nil),
-                WorkspaceSidebarProjectViewModel(id: projectId, displayName: "Folder", colorHex: nil),
+            folders: [
+                WorkspaceSidebarFolderViewModel(id: WorkspaceFolderId(projectId), projectId: workspaceProjectDefaultId, displayName: "Folder", colorHex: nil, isUnfolded: false),
+                WorkspaceSidebarFolderViewModel(id: workspaceFolderDefaultId, projectId: workspaceProjectDefaultId, displayName: workspaceDefaultFolderDisplayName, colorHex: nil, isUnfolded: true),
             ],
         )
 
@@ -576,50 +582,46 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
-    func testFolderExpansionPreferenceKeepsAtMostOneFolderExpanded() {
+    func testFolderExpansionPreferenceAllowsMultipleFoldersExpanded() {
         setUpWorkspacesForTests()
-        let first = createWorkspaceProject()
-        let second = createWorkspaceProject()
+        let first = createWorkspaceFolder()
+        let second = createWorkspaceFolder()
 
-        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
-        XCTAssertFalse(workspaceSidebarFolderIsExpanded(first.id))
-        XCTAssertFalse(workspaceSidebarFolderIsExpanded(second.id))
-
-        setWorkspaceSidebarFolderExpanded(first.id, isExpanded: true)
-        XCTAssertFalse(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspaceFolderDefaultId))
         XCTAssertTrue(workspaceSidebarFolderIsExpanded(first.id))
-        XCTAssertFalse(workspaceSidebarFolderIsExpanded(second.id))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(second.id))
 
-        setWorkspaceSidebarFolderExpanded(second.id, isExpanded: true)
-        XCTAssertFalse(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
+        setWorkspaceSidebarFolderExpanded(first.id, isExpanded: false)
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspaceFolderDefaultId))
         XCTAssertFalse(workspaceSidebarFolderIsExpanded(first.id))
         XCTAssertTrue(workspaceSidebarFolderIsExpanded(second.id))
 
+        setWorkspaceSidebarFolderExpanded(first.id, isExpanded: true)
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspaceFolderDefaultId))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(first.id))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(second.id))
+
         setWorkspaceSidebarFolderExpanded(second.id, isExpanded: false)
-        XCTAssertFalse(workspaceSidebarFolderIsExpanded(workspaceProjectDefaultId))
-        XCTAssertFalse(workspaceSidebarFolderIsExpanded(first.id))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(workspaceFolderDefaultId))
+        XCTAssertTrue(workspaceSidebarFolderIsExpanded(first.id))
         XCTAssertFalse(workspaceSidebarFolderIsExpanded(second.id))
     }
 
-    func testFolderExpansionNormalizationPrefersCurrentFolderDuringMigration() {
-        let first = WorkspaceProjectId("folder-1")
-        let second = WorkspaceProjectId("folder-2")
-        let third = WorkspaceProjectId("folder-3")
-        let projectIds = [first, second, third]
-
-        let expandedProjectId = workspaceSidebarSingleExpandedFolderId(
-            projectIds: projectIds,
-            collapsedIds: [],
-            preferredProjectId: second
-        )
-        let collapsedIds = workspaceSidebarNormalizedCollapsedFolderIds(
-            projectIds: projectIds,
-            collapsedIds: [],
-            expandedProjectId: expandedProjectId
+    func testFolderExpansionMigratesLegacyProjectPreferenceToUnfoldedFolder() {
+        setUpWorkspacesForTests()
+        let project = createWorkspaceProject()
+        let unfoldedFolderId = winMuxWorkspaceState.unfoldedFolderId(for: project.id)
+        UserDefaults.standard.setValue(
+            [project.id.rawValue, "unknown-folder"],
+            forKey: "workspaceSidebar.collapsedFolderIds"
         )
 
-        XCTAssertEqual(expandedProjectId, second)
-        XCTAssertEqual(collapsedIds, [first.rawValue, third.rawValue])
+        XCTAssertFalse(workspaceSidebarFolderIsExpanded(unfoldedFolderId))
+        XCTAssertTrue(normalizeWorkspaceSidebarFolderExpansionPreference())
+        XCTAssertEqual(
+            collapsedWorkspaceSidebarFolderIdsPreference(),
+            [unfoldedFolderId.rawValue]
+        )
     }
 
     @MainActor
@@ -1128,7 +1130,7 @@ final class WorkspaceSidebarDragTest: XCTestCase {
             projectCount: 0,
             isCompact: false
         ))
-        XCTAssertTrue(workspaceSidebarProjectSwipeCaptureIsEnabled(
+        XCTAssertFalse(workspaceSidebarProjectSwipeCaptureIsEnabled(
             projectsEnabled: true,
             projectCount: 1,
             isCompact: false

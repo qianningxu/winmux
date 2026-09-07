@@ -10,6 +10,7 @@ func buildWorkspaceSidebarSnapshot() async -> WorkspaceSidebarSnapshot {
     return WorkspaceSidebarSnapshot(
         workspaces: TrayMenuModel.shared.workspaceSidebarWorkspaces,
         projects: TrayMenuModel.shared.workspaceSidebarProjects,
+        folders: TrayMenuModel.shared.workspaceSidebarFolders,
         activeProjectId: TrayMenuModel.shared.workspaceSidebarActiveProjectId,
         monitorScopes: TrayMenuModel.shared.workspaceSidebarMonitorScopes,
         selectedMonitorScopeId: TrayMenuModel.shared.workspaceSidebarSelectedMonitorScopeId,
@@ -32,6 +33,7 @@ func refreshWorkspaceSidebarModelState() async {
 func applyWorkspaceSidebarSnapshotToTrayModel(_ snapshot: WorkspaceSidebarSnapshot) {
     TrayMenuModel.shared.workspaceSidebarWorkspaces = snapshot.workspaces
     TrayMenuModel.shared.workspaceSidebarProjects = snapshot.projects
+    TrayMenuModel.shared.workspaceSidebarFolders = snapshot.folders
     TrayMenuModel.shared.workspaceSidebarActiveProjectId = snapshot.activeProjectId
     TrayMenuModel.shared.workspaceSidebarMonitorScopes = snapshot.monitorScopes
     TrayMenuModel.shared.workspaceSidebarSelectedMonitorScopeId = snapshot.selectedMonitorScopeId
@@ -48,7 +50,7 @@ func applyWorkspaceSidebarSnapshotToTrayModel(_ snapshot: WorkspaceSidebarSnapsh
 @MainActor
 func workspaceSidebarConfiguration() -> WorkspaceSidebarConfiguration {
     WorkspaceSidebarConfiguration(
-        collapsedWidth: CGFloat(config.workspaceSidebar.collapsedWidth),
+        collapsedWidth: workspaceSidebarCompactContentWidth,
         expandedWidth: CGFloat(config.workspaceSidebar.width),
         topPadding: TrayMenuModel.shared.workspaceSidebarTopPadding,
         showMonitorSelector: TrayMenuModel.shared.workspaceSidebarShowsMonitorSelector,

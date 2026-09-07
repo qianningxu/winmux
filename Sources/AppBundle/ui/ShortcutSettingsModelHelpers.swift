@@ -13,10 +13,10 @@ func buildShortcutSections() -> [ShortcutSettingsModel.Section] {
             title: "Focus",
             summary: "Directional focus movement while WinMux is managing windows.",
             actions: [
-                shortcutAction(id: "focus-left", title: "Focus Left", command: "focus left"),
-                shortcutAction(id: "focus-down", title: "Focus Down", command: "focus down"),
-                shortcutAction(id: "focus-up", title: "Focus Up", command: "focus up"),
-                shortcutAction(id: "focus-right", title: "Focus Right", command: "focus right"),
+                shortcutAction(id: "focus-left", title: "Focus left", command: "focus left"),
+                shortcutAction(id: "focus-down", title: "Focus down", command: "focus down"),
+                shortcutAction(id: "focus-up", title: "Focus up", command: "focus up"),
+                shortcutAction(id: "focus-right", title: "Focus right", command: "focus right"),
             ],
         ),
         .init(
@@ -25,10 +25,10 @@ func buildShortcutSections() -> [ShortcutSettingsModel.Section] {
             title: "Move",
             summary: "Reposition the focused tiled window inside the tree.",
             actions: [
-                shortcutAction(id: "move-left", title: "Move Left", command: "move left"),
-                shortcutAction(id: "move-down", title: "Move Down", command: "move down"),
-                shortcutAction(id: "move-up", title: "Move Up", command: "move up"),
-                shortcutAction(id: "move-right", title: "Move Right", command: "move right"),
+                shortcutAction(id: "move-left", title: "Move left", command: "move left"),
+                shortcutAction(id: "move-down", title: "Move down", command: "move down"),
+                shortcutAction(id: "move-up", title: "Move up", command: "move up"),
+                shortcutAction(id: "move-right", title: "Move right", command: "move right"),
             ],
         ),
         .init(
@@ -37,10 +37,10 @@ func buildShortcutSections() -> [ShortcutSettingsModel.Section] {
             title: "Splits",
             summary: "Create a shared split container with the nearest window in the chosen direction.",
             actions: [
-                shortcutAction(id: "split-left", title: "Split Left", command: "join-with left"),
-                shortcutAction(id: "split-down", title: "Split Down", command: "join-with down"),
-                shortcutAction(id: "split-up", title: "Split Up", command: "join-with up"),
-                shortcutAction(id: "split-right", title: "Split Right", command: "join-with right"),
+                shortcutAction(id: "split-left", title: "Split left", command: "join-with left"),
+                shortcutAction(id: "split-down", title: "Split down", command: "join-with down"),
+                shortcutAction(id: "split-up", title: "Split up", command: "join-with up"),
+                shortcutAction(id: "split-right", title: "Split right", command: "join-with right"),
             ],
         ),
         .init(
@@ -51,13 +51,13 @@ func buildShortcutSections() -> [ShortcutSettingsModel.Section] {
             actions: [
                 shortcutAction(
                     id: "toggle-floating",
-                    title: "Toggle Floating",
+                    title: "Toggle floating",
                     subtitle: "Switch the focused managed window between floating and tiling.",
                     command: "layout floating tiling"
                 ),
                 shortcutAction(
                     id: "fullscreen",
-                    title: "Toggle Fullscreen",
+                    title: "Toggle fullscreen",
                     command: "fullscreen"
                 ),
             ],
@@ -66,7 +66,7 @@ func buildShortcutSections() -> [ShortcutSettingsModel.Section] {
             id: "workspaces",
             category: .common,
             title: "Tabs",
-            summary: "Use one modifier pattern for Tab numbers, then override specific Tabs only when needed.",
+            summary: "Use one modifier pattern for tab numbers, then override specific tabs only when needed.",
             actions: [],
         ),
     ]

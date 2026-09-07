@@ -38,9 +38,9 @@ final class ConfigTest: XCTestCase {
         let toml = try String(contentsOf: projectRoot.appending(component: "resources/default-config.toml"), encoding: .utf8)
         let (parsed, errors) = parseConfig(toml)
         assertEquals(errors, [])
-        XCTAssertFalse(parsed.enableProjects)
+        XCTAssertTrue(parsed.enableProjects)
         XCTAssertFalse(parsed.windowTabs.enabled)
-        XCTAssertFalse(toml.contains("enable-projects"))
+        XCTAssertTrue(toml.contains("enable-projects = true"))
     }
 
     func testParseEnableProjects() {
@@ -50,7 +50,7 @@ final class ConfigTest: XCTestCase {
             """,
         )
         assertEquals(errors, [])
-        XCTAssertFalse(parsed.enableProjects)
+        XCTAssertTrue(parsed.enableProjects)
     }
 
     func testEnableProjectsDefaultsOffForMissingLegacyKey() {
@@ -101,7 +101,7 @@ final class ConfigTest: XCTestCase {
             config-version = 0
             """,
         )
-        assertEquals(errors.descriptions, ["config-version: Must be in [1, 2] range"])
+        assertEquals(errors.descriptions, ["config-version: Must be in [1, 3] range"])
     }
 
     func testExecOnTabChangeParsesWithLegacyWorkspaceAlias() {
@@ -250,6 +250,32 @@ final class ConfigTest: XCTestCase {
                 ],
             ),
         )
+    }
+
+    func testProjectCommandsAreRejectedFromEveryHotkeyBindingShape() {
+        let (config, errors) = parseConfig(
+            """
+            config-version = 3
+
+            [mode.main.binding]
+                alt-p = 'project 2'
+                alt-m = ['focus left', 'move-node-to-project 2']
+                esc-p = 'project next'
+                alt-1 = 'tab 1'
+
+            [mode.main.binding-tap]
+                left-alt = 'move-node-to-project default'
+            """
+        )
+
+        XCTAssertEqual(errors.count, 4)
+        XCTAssertTrue(errors.allSatisfy {
+            $0.description.contains("Project switch and move commands are CLI-only")
+        })
+        XCTAssertEqual(config.modes[mainModeId]?.bindings.count, 1)
+        XCTAssertEqual(config.modes[mainModeId]?.bindings.values.first?.commands.prettyDescription, "tab 1")
+        XCTAssertTrue(config.modes[mainModeId]?.tapBindings.isEmpty == true)
+        XCTAssertTrue(config.modes[mainModeId]?.sequenceBindings.isEmpty == true)
     }
 
     func testTapModifierStateClearsAfterMissedRelease() async throws {

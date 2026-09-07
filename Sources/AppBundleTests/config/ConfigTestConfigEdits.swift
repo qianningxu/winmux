@@ -84,7 +84,7 @@ extension ConfigTest {
             colorHex: "#60A5FA",
         )
 
-        XCTAssertTrue(added.contains("[tab-sidebar.folder-colors]"))
+        XCTAssertTrue(added.contains("[tab-sidebar.project-colors]"))
         XCTAssertTrue(added.contains("\"project-1\" = \"#60A5FA\""))
 
         let replaced = updateWorkspaceSidebarProjectColorConfig(
@@ -100,7 +100,7 @@ extension ConfigTest {
     func testUpdateWorkspaceSidebarProjectColorConfigRemovesLastColorSection() {
         let updated = updateWorkspaceSidebarProjectColorConfig(
             in: """
-            [tab-sidebar.folder-colors]
+            [tab-sidebar.project-colors]
             "project-1" = "#60A5FA"
 
             [mode.main.binding]
@@ -110,7 +110,7 @@ extension ConfigTest {
             colorHex: nil,
         )
 
-        XCTAssertFalse(updated.contains("[tab-sidebar.folder-colors]"))
+        XCTAssertFalse(updated.contains("[tab-sidebar.project-colors]"))
         XCTAssertTrue(updated.contains("[mode.main.binding]"))
     }
 
@@ -124,9 +124,37 @@ extension ConfigTest {
             colorHex: "#F87171",
         )
 
-        XCTAssertTrue(updated.contains("[tab-sidebar.folder-colors]"))
+        XCTAssertTrue(updated.contains("[tab-sidebar.project-colors]"))
         XCTAssertFalse(updated.contains("[workspace-sidebar.project-colors]"))
         XCTAssertTrue(updated.contains("\"project-1\" = \"#F87171\""))
+    }
+
+    func testProjectAndFolderMetadataEditsUseSeparateSections() {
+        let withProject = updateWorkspaceSidebarProjectLabelConfig(
+            in: "config-version = 3",
+            projectId: "project-1",
+            label: "Work"
+        )
+        let withFolder = updateWorkspaceSidebarFolderLabelConfig(
+            in: withProject,
+            folderId: "folder-1",
+            label: "Backend"
+        )
+        let withProjectColor = updateWorkspaceSidebarProjectColorConfig(
+            in: withFolder,
+            projectId: "project-1",
+            colorHex: "#60A5FA"
+        )
+        let updated = updateWorkspaceSidebarFolderColorConfig(
+            in: withProjectColor,
+            folderId: "folder-1",
+            colorHex: "#F87171"
+        )
+
+        XCTAssertTrue(updated.contains("[tab-sidebar.project-labels]"))
+        XCTAssertTrue(updated.contains("[tab-sidebar.folder-labels]"))
+        XCTAssertTrue(updated.contains("[tab-sidebar.project-colors]"))
+        XCTAssertTrue(updated.contains("[tab-sidebar.folder-colors]"))
     }
 
     func testSidebarConfigEditMigratesAllLegacyHeadersBeforeAddingFolderMetadata() {
@@ -144,7 +172,7 @@ extension ConfigTest {
 
         XCTAssertTrue(updated.contains("[tab-sidebar]"))
         XCTAssertTrue(updated.contains("[tab-sidebar.project-colors]"))
-        XCTAssertTrue(updated.contains("[tab-sidebar.folder-labels]"))
+        XCTAssertTrue(updated.contains("[tab-sidebar.project-labels]"))
         XCTAssertFalse(updated.contains("[workspace-sidebar"))
     }
 

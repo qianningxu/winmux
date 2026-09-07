@@ -17,7 +17,7 @@ final class WindowDropIntentOverlayPanelController {
         panel.isExcludedFromWindowsMenu = true
         panel.animationBehavior = .none
         panel.ignoresMouseEvents = true
-        panel.backgroundColor = .clear
+        panel.backgroundColor = WinMuxDesignTokens.transparentNSColor
         panel.applyWinMuxLayer(.windowIntentPreview)
         panel.contentView = hostingView
         hostingView.frame = panel.contentView?.bounds ?? .zero
@@ -50,9 +50,10 @@ final class WindowDropIntentOverlayPanelController {
             hostingView.rootView = AnyView(WindowDropIntentOverlayView(model: model))
             currentModel = model
         }
-        if !panel.isVisible {
-            panel.orderFrontRegardless()
-        }
+        // A dragged application window can be reordered above a panel that is
+        // still marked visible. Reassert the preview layer for every pointer
+        // sample so the top-stack and centre-swap frames cannot be obscured.
+        panel.orderFrontRegardless()
         logWindowDragLive(
             "dropOverlay show zone=\(activeZone) wasVisible=\(wasVisible) isVisible=\(panel.isVisible) level=\(panel.level.rawValue) frame=\(panel.frame) target=\(debugDescribe(model.targetFrame))"
         )

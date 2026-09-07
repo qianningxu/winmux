@@ -1,42 +1,199 @@
 import AppKit
 
-@MainActor private var exposeThumbnailCache: [UInt32: NSImage] = [:]
-@MainActor private var exposeThumbnailCacheOrder: [UInt32] = []
 private let exposeThumbnailCacheLimit = 64
+private let exposeThumbnailMaxPendingCaptures = 64
+let exposeThumbnailMaxConcurrentCaptures = 2
 
-@MainActor
-func captureExposeThumbnail(_ windowId: UInt32) -> NSImage? {
-    if let thumbnail = captureFreshExposeThumbnail(windowId) {
-        rememberExposeThumbnail(thumbnail, for: windowId)
-        return thumbnail
+private actor ExposeThumbnailCaptureLimiter {
+    private var availablePermits: Int
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    init(limit: Int) {
+        precondition(limit > 0)
+        availablePermits = limit
     }
-    return exposeThumbnailCache[windowId]
-}
 
-@MainActor
-@discardableResult
-func refreshExposeThumbnailCache(_ windowId: UInt32) -> NSImage? {
-    guard let thumbnail = captureFreshExposeThumbnail(windowId) else { return nil }
-    rememberExposeThumbnail(thumbnail, for: windowId)
-    return thumbnail
-}
-
-private func captureFreshExposeThumbnail(_ windowId: UInt32) -> NSImage? {
-    guard let cg = CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(windowId),
-                                           [.boundsIgnoreFraming, .nominalResolution]) else { return nil }
-    guard !isLikelyBlankWindowThumbnail(cg) else { return nil }
-    return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
-}
-
-@MainActor
-private func rememberExposeThumbnail(_ thumbnail: NSImage, for windowId: UInt32) {
-    exposeThumbnailCache[windowId] = thumbnail
-    exposeThumbnailCacheOrder.removeAll { $0 == windowId }
-    exposeThumbnailCacheOrder.append(windowId)
-    while exposeThumbnailCacheOrder.count > exposeThumbnailCacheLimit {
-        let expired = exposeThumbnailCacheOrder.removeFirst()
-        exposeThumbnailCache.removeValue(forKey: expired)
+    func acquire() async {
+        if availablePermits > 0 {
+            availablePermits -= 1
+            return
+        }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
     }
+
+    func release() {
+        if waiters.isEmpty {
+            availablePermits += 1
+        } else {
+            waiters.removeFirst().resume()
+        }
+    }
+}
+
+@MainActor
+final class ExposeThumbnailCaptureCoordinator {
+    typealias Capture = @Sendable (UInt32) -> CGImage?
+
+    private struct Request {
+        let generation: UInt64
+        let task: Task<CGImage?, Never>
+    }
+
+    private let cacheLimit: Int
+    private let maxPendingCaptures: Int
+    private let limiter: ExposeThumbnailCaptureLimiter
+    private let capture: Capture
+    private var cache: [UInt32: CGImage] = [:]
+    private var cacheOrder: [UInt32] = []
+    private var requests: [UInt32: Request] = [:]
+    private var nextGeneration: UInt64 = 0
+
+    init(
+        cacheLimit: Int = exposeThumbnailCacheLimit,
+        maxPendingCaptures: Int = exposeThumbnailMaxPendingCaptures,
+        maxConcurrentCaptures: Int = exposeThumbnailMaxConcurrentCaptures,
+        capture: @escaping Capture
+    ) {
+        precondition(cacheLimit > 0)
+        precondition(maxPendingCaptures > 0)
+        precondition(maxConcurrentCaptures > 0)
+        self.cacheLimit = cacheLimit
+        self.maxPendingCaptures = maxPendingCaptures
+        limiter = ExposeThumbnailCaptureLimiter(limit: maxConcurrentCaptures)
+        self.capture = capture
+    }
+
+    func thumbnail(for windowId: UInt32) async -> CGImage? {
+        guard !Task.isCancelled else { return cache[windowId] }
+        if let cachedThumbnail = cache[windowId] {
+            scheduleRefresh(for: windowId)
+            return cachedThumbnail
+        }
+        return await revalidatedThumbnail(for: windowId)
+    }
+
+    func revalidatedThumbnail(for windowId: UInt32) async -> CGImage? {
+        guard !Task.isCancelled else { return cache[windowId] }
+        guard let request = beginCapture(for: windowId) else {
+            return cache[windowId]
+        }
+        let freshThumbnail = await request.task.value
+        return finishCapture(freshThumbnail, for: windowId, generation: request.generation)
+    }
+
+    @discardableResult
+    func scheduleRefresh(for windowId: UInt32) -> Bool {
+        beginCapture(for: windowId) != nil
+    }
+
+    func cachedThumbnail(for windowId: UInt32) -> CGImage? {
+        cache[windowId]
+    }
+
+    var pendingCaptureCount: Int {
+        requests.count
+    }
+
+    func invalidatePendingCaptures(clearCache: Bool = false) {
+        for request in requests.values {
+            request.task.cancel()
+        }
+        requests = [:]
+        if clearCache {
+            cache = [:]
+            cacheOrder = []
+        }
+    }
+
+    private func beginCapture(for windowId: UInt32) -> Request? {
+        if let request = requests[windowId] {
+            return request
+        }
+        guard requests.count < maxPendingCaptures else { return nil }
+
+        nextGeneration &+= 1
+        let generation = nextGeneration
+        let limiter = limiter
+        let capture = capture
+        let task: Task<CGImage?, Never> = Task.detached(priority: .utility) {
+            await limiter.acquire()
+            guard !Task.isCancelled else {
+                await limiter.release()
+                return nil
+            }
+            let thumbnail = capture(windowId)
+            await limiter.release()
+            return thumbnail
+        }
+        let request = Request(generation: generation, task: task)
+        requests[windowId] = request
+
+        Task { @MainActor [weak self] in
+            let freshThumbnail = await task.value
+            self?.finishCapture(freshThumbnail, for: windowId, generation: generation)
+        }
+        return request
+    }
+
+    @discardableResult
+    private func finishCapture(_ cgImage: CGImage?, for windowId: UInt32, generation: UInt64) -> CGImage? {
+        guard requests[windowId]?.generation == generation else {
+            return cache[windowId]
+        }
+        requests.removeValue(forKey: windowId)
+        guard let cgImage else { return cache[windowId] }
+
+        remember(cgImage, for: windowId)
+        return cgImage
+    }
+
+    private func remember(_ thumbnail: CGImage, for windowId: UInt32) {
+        cache[windowId] = thumbnail
+        cacheOrder.removeAll { $0 == windowId }
+        cacheOrder.append(windowId)
+        while cacheOrder.count > cacheLimit {
+            let expired = cacheOrder.removeFirst()
+            cache.removeValue(forKey: expired)
+        }
+    }
+}
+
+@MainActor private let exposeThumbnailCaptures = ExposeThumbnailCaptureCoordinator(
+    capture: { windowId in captureFreshExposeThumbnail(windowId) }
+)
+
+@MainActor
+func captureExposeThumbnail(_ windowId: UInt32) async -> CGImage? {
+    await exposeThumbnailCaptures.thumbnail(for: windowId)
+}
+
+@MainActor
+func cachedExposeThumbnail(_ windowId: UInt32) -> CGImage? {
+    exposeThumbnailCaptures.cachedThumbnail(for: windowId)
+}
+
+@MainActor
+func captureRevalidatedExposeThumbnail(_ windowId: UInt32) async -> CGImage? {
+    await exposeThumbnailCaptures.revalidatedThumbnail(for: windowId)
+}
+
+@MainActor
+func refreshExposeThumbnailCache(_ windowId: UInt32) {
+    exposeThumbnailCaptures.scheduleRefresh(for: windowId)
+}
+
+private func captureFreshExposeThumbnail(_ windowId: UInt32) -> CGImage? {
+    guard let cgImage = CGWindowListCreateImage(
+        .null,
+        .optionIncludingWindow,
+        CGWindowID(windowId),
+        [.boundsIgnoreFraming, .nominalResolution]
+    ) else {
+        return nil
+    }
+    return isLikelyBlankWindowThumbnail(cgImage) ? nil : cgImage
 }
 
 func isLikelyBlankWindowThumbnail(_ image: CGImage, sampleGrid: Int = 18) -> Bool {

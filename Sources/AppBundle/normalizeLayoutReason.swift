@@ -8,11 +8,27 @@ func normalizeLayoutReason() async throws {
     try await validateStillPopups()
 }
 
+/// Normalizes only the windows refreshed from one AX creation notification.
+/// This keeps native fullscreen/minimize handling correct without making a
+/// new window wait for every other process to be queried.
 @MainActor
-private func validateStillPopups() async throws {
+func normalizeLayoutReason(for windows: [Window]) async throws {
+    let windowIds = Set(windows.map(\.windowId))
+    for workspace in Workspace.all {
+        let workspaceWindows = workspace.allLeafWindowsRecursive.filter {
+            windowIds.contains($0.windowId)
+        }
+        try await _normalizeLayoutReason(workspace: workspace, windows: workspaceWindows)
+    }
+    try await validateStillPopups(windowIds: windowIds)
+}
+
+@MainActor
+private func validateStillPopups(windowIds: Set<UInt32>? = nil) async throws {
     for node in macosPopupWindowsContainer.children {
         guard let popup = node as? MacWindow else { continue }
-        let windowLevel = getWindowLevel(for: popup.windowId)
+        guard windowIds?.contains(popup.windowId) ?? true else { continue }
+        let windowLevel = try await getWindowLevel(for: popup.windowId)
         if try await popup.isWindowHeuristic(windowLevel) {
             try await popup.relayoutWindow(on: focus.workspace)
             try await tryOnWindowDetected(popup)

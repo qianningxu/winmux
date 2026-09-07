@@ -238,7 +238,12 @@ func parseCommandOrCommands(_ raw: TOMLValueConvertible) -> Parsed<[any Command]
             )]
         }
     }
-    config.enableProjects = false
+    if config.configVersion < 3 {
+        config.workspaceSidebar.folderLabels.merge(config.workspaceSidebar.projectLabels) { current, _ in current }
+        config.workspaceSidebar.folderColors.merge(config.workspaceSidebar.projectColors) { current, _ in current }
+        config.workspaceSidebar.projectLabels = [workspaceProjectDefaultId.rawValue: "Main"]
+        config.workspaceSidebar.projectColors = [:]
+    }
     return (config, errors)
 }
 
@@ -252,7 +257,7 @@ func parseIndentForNestedContainersWithTheSameOrientation(
 
 func parseConfigVersion(_ raw: TOMLValueConvertible, _ backtrace: TomlBacktrace) -> ParsedToml<Int> {
     let min = 1
-    let max = 2
+    let max = 3
     return parseInt(raw, backtrace)
         .filter(.semantic(backtrace, "Must be in [\(min), \(max)] range")) { (min ... max).contains($0) }
 }

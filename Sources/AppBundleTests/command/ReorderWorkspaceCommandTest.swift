@@ -70,20 +70,38 @@ final class ReorderWorkspaceCommandTest: XCTestCase {
         ])
     }
 
-    func testReorderWorkspaceCommandAllowsLegacyProjectTabsWhenProjectsAreHardDisabled() async throws {
-        let first = focus.workspace
-        first.assignProject(workspaceProjectDefaultId)
+    func testReorderWorkspaceCommandUsesExplicitFolderInNonMainProject() async throws {
         let project = createWorkspaceProject()
-        let second = Workspace.all.first { $0.projectId == project.id }.orDie()
+        let first = projectWorkspaces(projectId: project.id).first.orDie()
+        first.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 7, parent: first.rootTilingContainer)
+        let second = Workspace.get(byName: "project-second")
+        second.assignProject(project.id)
+        second.markAsAutomaticallyNamed()
+        _ = TestWindow.new(id: 8, parent: second.rootTilingContainer)
+
+        let result = try await ReorderWorkspaceCommand(
+            args: ReorderWorkspaceCmdArgs(
+                source: .parse(second.name).getOrDie(),
+                beforeTarget: .parse(first.name).getOrDie()
+            )
+        ).run(.defaultEnv, .emptyStdin)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(projectWorkspaces(projectId: project.id).map(\.name), [second.name, first.name])
+    }
+
+    func testReorderWorkspaceCommandRejectsTabsFromDifferentProjects() async throws {
+        let first = focus.workspace
+        let project = createWorkspaceProject()
+        let second = projectWorkspaces(projectId: project.id).first.orDie()
         second.markAsAutomaticallyNamed()
         let third = Workspace.get(byName: "third")
-        third.assignProject(workspaceProjectDefaultId)
         third.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 4, parent: first.rootTilingContainer)
         _ = TestWindow.new(id: 5, parent: second.rootTilingContainer)
         _ = TestWindow.new(id: 6, parent: third.rootTilingContainer)
         setProjectWorkspaceOrder(workspaceProjectDefaultId, [first, third])
-        setProjectWorkspaceOrder(project.id, [second])
 
         let result = try await ReorderWorkspaceCommand(
             args: ReorderWorkspaceCmdArgs(
@@ -92,11 +110,9 @@ final class ReorderWorkspaceCommandTest: XCTestCase {
             )
         ).run(.defaultEnv, .emptyStdin)
 
-        assertEquals(result.exitCode, 0)
-        XCTAssertEqual(orderedWorkspacesForPresentation().map(\.name), [
-            first.name,
-            second.name,
-            third.name,
+        assertEquals(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, [
+            "Tabs '\(workspaceDisplayName(second.name))' and '\(workspaceDisplayName(third.name))' cannot be reordered together"
         ])
     }
 
@@ -119,7 +135,7 @@ final class ReorderWorkspaceCommandTest: XCTestCase {
     }
 
     private func setProjectWorkspaceOrder(_ projectId: WorkspaceProjectId, _ workspaces: [Workspace]) {
-        let folderId = WorkspaceFolderId(projectId)
+        let folderId = winMuxWorkspaceState.unfoldedFolderId(for: projectId)
         var folder = winMuxWorkspaceState.workspaceFoldersById[folderId].orDie()
         folder.workspaceOrder = workspaces.map(\.id)
         winMuxWorkspaceState.workspaceFoldersById[folderId] = folder

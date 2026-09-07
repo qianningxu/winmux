@@ -5,9 +5,9 @@ struct WindowStackSplitPreview {
 
 func shouldUseStickyWindowDragIntent(previewStyle: WindowTabDropPreviewStyle) -> Bool {
     switch previewStyle {
-        case .stackSplit:
+        case .tabInsert, .stackSplit, .swap:
             return true
-        case .tabInsert, .swap, .detach, .workspaceMove, .sidebarWorkspaceMove:
+        case .detach, .workspaceMove, .sidebarWorkspaceMove:
             return false
     }
 }

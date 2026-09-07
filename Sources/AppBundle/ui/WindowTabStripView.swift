@@ -17,6 +17,7 @@ struct WindowTabStripView: View {
     @State var tabAutoScrollDirection: WindowTabAutoScrollDirection?
     @State var editingTabId: UInt32?
     @State var editingTabTitle: String = ""
+    @Environment(\.colorScheme) var barColorScheme
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {

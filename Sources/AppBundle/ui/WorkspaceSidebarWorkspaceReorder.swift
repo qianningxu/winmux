@@ -91,14 +91,14 @@ func workspaceSidebarWorkspaceDragFinishAction(
         case .reorder(let reorderTarget):
             return .reorderWorkspace(
                 sourceWorkspaceName,
-                projectId: reorderTarget.projectId,
+                folderId: WorkspaceFolderId(reorderTarget.projectId),
                 placement: reorderTarget.placement
             )
         case .moveToFolder(let folderTarget):
             guard folderTarget.sourceWorkspaceName == sourceWorkspaceName else { return nil }
             return .moveWorkspaceToFolder(
                 folderTarget.sourceWorkspaceName,
-                projectId: folderTarget.projectId
+                folderId: WorkspaceFolderId(folderTarget.projectId)
             )
     }
 }
@@ -632,14 +632,13 @@ enum WorkspaceSidebarFolderListEntry: Identifiable, Equatable {
 }
 
 func workspaceSidebarWorkspaceReorderIsEnabled(
-    isCompact: Bool,
+    isCompact _: Bool,
     isSearchFiltering: Bool,
     isRenamingWorkspace: Bool,
     isPinnedActiveWorkspace: Bool,
     isInteractive: Bool
 ) -> Bool {
-    !isCompact &&
-        !isSearchFiltering &&
+    !isSearchFiltering &&
         !isRenamingWorkspace &&
         !isPinnedActiveWorkspace &&
         isInteractive
@@ -1055,19 +1054,19 @@ func workspaceSidebarFolderListEntries(
     target: WorkspaceSidebarFolderReorderTarget?
 ) -> [WorkspaceSidebarFolderListEntry] {
     let sourceSection = sourceProjectId.flatMap { projectId in
-        sections.first { $0.id == projectId }
+        sections.first { $0.id.backingProjectId == projectId }
     }
     guard let sourceSection, let target else {
         return sections.map { .folder($0, isDragAnchor: false) }
     }
     let retainsSourceGestureAnchor = true
     let visibleSections = sections.filter {
-        retainsSourceGestureAnchor || $0.id != sourceProjectId
+        retainsSourceGestureAnchor || $0.id.backingProjectId != sourceProjectId
     }
     func sectionEntry(_ section: WorkspaceSidebarFolderSection) -> WorkspaceSidebarFolderListEntry {
         .folder(
             section,
-            isDragAnchor: retainsSourceGestureAnchor && section.id == sourceProjectId
+            isDragAnchor: retainsSourceGestureAnchor && section.id.backingProjectId == sourceProjectId
         )
     }
     var entries: [WorkspaceSidebarFolderListEntry] = []
@@ -1078,12 +1077,12 @@ func workspaceSidebarFolderListEntries(
         case .after: false
     }
     for section in visibleSections {
-        if insertsBefore && section.id == targetProjectId {
+        if insertsBefore && section.id.backingProjectId == targetProjectId {
             entries.append(.placeholder(sourceSection))
             didInsertPlaceholder = true
         }
         entries.append(sectionEntry(section))
-        if !insertsBefore && section.id == targetProjectId {
+        if !insertsBefore && section.id.backingProjectId == targetProjectId {
             entries.append(.placeholder(sourceSection))
             didInsertPlaceholder = true
         }
@@ -1358,8 +1357,11 @@ struct WorkspaceSidebarWorkspaceReorderPlaceholder: View {
     let nestedContentIndent: CGFloat
     let previewWorkspace: WorkspaceSidebarWorkspaceViewModel?
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
 
-    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
     private var rowShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
     }
@@ -1377,26 +1379,23 @@ struct WorkspaceSidebarWorkspaceReorderPlaceholder: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
                     .cornerRadius(4)
-                    .opacity(0.92)
-                    .workspaceSidebarIconStroke(palette)
             } else {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(palette.gray200(palette.isDark ? 0.86 : 0.92))
+                    .fill(palette.componentBackground(.hover))
                     .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
-                    .workspaceSidebarIconStroke(palette)
             }
 
             if let previewWorkspace {
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: standardGap * 0.5) {
                     Text(previewWorkspace.displayName)
                         .font(.system(size: 13.5, weight: .medium))
-                        .foregroundStyle(palette.foreground(0.76))
+                        .foregroundStyle(palette.content(.primary))
                         .lineLimit(1)
                         .truncationMode(.tail)
                     if let subtitle = previewWorkspace.tabSummary.subtitle {
                         Text(subtitle)
                             .font(.system(size: 10.5, weight: .regular))
-                            .foregroundStyle(palette.foreground(0.42))
+                            .foregroundStyle(palette.content(.secondary))
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }
@@ -1404,7 +1403,7 @@ struct WorkspaceSidebarWorkspaceReorderPlaceholder: View {
                 .layoutPriority(1)
             } else {
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(palette.contrastingFill(darkOpacity: 0.18, lightOpacity: 0.12))
+                    .fill(palette.componentBackground(.active))
                     .frame(width: 92, height: 8)
             }
 
@@ -1414,21 +1413,12 @@ struct WorkspaceSidebarWorkspaceReorderPlaceholder: View {
         .frame(height: workspaceSidebarTabRowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            rowShape
-                .fill(palette.gray200(palette.isDark ? 0.96 : 1))
-            rowShape
-                .fill(palette.gray300(palette.isDark ? 0.20 : 0.32))
+            rowShape.fill(palette.componentBackground(.active))
         }
         .overlay {
             rowShape
-                .strokeBorder(palette.tabStroke(active: true), lineWidth: 0.95)
+                .strokeBorder(palette.geistBorder(.active), lineWidth: 0.95)
         }
-        .shadow(
-            color: palette.shadow(0.10, lightOpacity: 0.04),
-            radius: 4,
-            x: 0,
-            y: 1
-        )
         .padding(.leading, workspaceSidebarSectionInnerHorizontalInset + nestedContentIndent)
         .padding(.trailing, workspaceSidebarSectionInnerHorizontalInset)
         .frame(width: width, alignment: .leading)
@@ -1442,18 +1432,21 @@ struct WorkspaceSidebarFolderReorderPlaceholder: View {
     let width: CGFloat
     let section: WorkspaceSidebarFolderSection
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
 
-    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
 
     var body: some View {
         HStack(spacing: workspaceSidebarHeaderSpacing) {
             Image(systemName: "folder.fill")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(palette.foreground(0.58))
+                .foregroundStyle(palette.content(.secondary))
                 .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
             Text(section.project.displayName)
                 .font(.system(size: 13.5, weight: .semibold))
-                .foregroundStyle(palette.foreground(0.78))
+                .foregroundStyle(palette.content(.primary))
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 0)
@@ -1464,20 +1457,12 @@ struct WorkspaceSidebarFolderReorderPlaceholder: View {
         .frame(width: width, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
-                .fill(palette.gray200(palette.isDark ? 0.96 : 1))
-            RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
-                .fill(palette.gray300(palette.isDark ? 0.18 : 0.30))
+                .fill(palette.componentBackground(.active))
         }
         .overlay {
             RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
-                .strokeBorder(palette.tabStroke(active: true), lineWidth: 0.95)
+                .strokeBorder(palette.geistBorder(.active), lineWidth: 0.95)
         }
-        .shadow(
-            color: palette.shadow(0.10, lightOpacity: 0.04),
-            radius: 4,
-            x: 0,
-            y: 1
-        )
         .accessibilityHidden(true)
         .allowsHitTesting(false)
     }

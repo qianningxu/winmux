@@ -28,7 +28,10 @@ func initTerminationHandler() {
 
 private struct AppServerTerminationHandler: TerminationHandler {
     func beforeTermination() async throws {
-        persistFrozenWorldForRestartIfPossible()
+        // The snapshot is built on the main actor, then encoded and atomically
+        // written by the background persistence actor.  Await it here so a
+        // clean quit cannot outrun the final checkpoint.
+        await persistFrozenWorldForRestartAndWaitIfPossible()
         try await makeAllWindowsVisibleAndRestoreSize()
         await toggleReleaseServerIfDebug(.on)
     }
@@ -41,7 +44,7 @@ public func prepareAppBundleForTerminationIfNeeded() async {
     do {
         try await terminationHandler.beforeTermination()
     } catch {
-        persistFrozenWorldForRestartIfPossible()
+        await persistFrozenWorldForRestartAndWaitIfPossible()
     }
 }
 

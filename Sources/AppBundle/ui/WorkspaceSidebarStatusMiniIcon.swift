@@ -8,7 +8,7 @@ struct WorkspaceSidebarStatusMiniIcon: View {
     var body: some View {
         Image(systemName: symbolName)
             .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(tint.opacity(0.65))
+            .foregroundStyle(tint)
             .frame(width: 18, height: 18)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityDescription)

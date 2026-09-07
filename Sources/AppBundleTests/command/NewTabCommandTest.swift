@@ -39,12 +39,13 @@ final class NewTabCommandTest: XCTestCase {
         root.assignProject(workspaceProjectDefaultId)
         root.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 3, parent: root.rootTilingContainer)
-        let folder = createWorkspaceProject()
-        let folderTab = projectWorkspaces(projectId: folder.id).first.orDie()
+        let folder = createWorkspaceFolder()
+        let folderTab = Workspace.get(byName: "folder-tab")
+        folderTab.assignFolder(folder.id)
         folderTab.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 4, parent: folderTab.rootTilingContainer)
         winMuxWorkspaceState.workspaceFoldersById[workspaceFolderDefaultId]?.workspaceOrder = [root.id]
-        winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(folder.id)]?.workspaceOrder = [folderTab.id]
+        winMuxWorkspaceState.workspaceFoldersById[folder.id]?.workspaceOrder = [folderTab.id]
         XCTAssertTrue(root.focusWorkspace())
 
         let result = try await NewTabCommand(args: NewTabCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
@@ -58,8 +59,9 @@ final class NewTabCommandTest: XCTestCase {
     }
 
     func testNewTabCreatesFreshBlankTabInCurrentFolder() async throws {
-        let folder = createWorkspaceProject()
-        let folderTab = projectWorkspaces(projectId: folder.id).first.orDie()
+        let folder = createWorkspaceFolder()
+        let folderTab = Workspace.get(byName: "folder-tab")
+        folderTab.assignFolder(folder.id)
         folderTab.markAsAutomaticallyNamed()
         _ = TestWindow.new(id: 5, parent: folderTab.rootTilingContainer)
         XCTAssertTrue(folderTab.focusWorkspace())
@@ -67,9 +69,10 @@ final class NewTabCommandTest: XCTestCase {
         let result = try await NewTabCommand(args: NewTabCmdArgs(rawArgs: [])).run(.defaultEnv, .emptyStdin)
 
         assertEquals(result.exitCode, 0)
-        XCTAssertEqual(focus.workspace.projectId, folder.id)
+        XCTAssertEqual(focus.workspace.projectId, workspaceProjectDefaultId)
+        XCTAssertEqual(focus.workspace.folderId, folder.id)
         XCTAssertEqual(
-            projectWorkspaces(projectId: folder.id).map(\.name),
+            folderWorkspaces(folderId: folder.id).map(\.name),
             [folderTab.name, focus.workspace.name]
         )
     }

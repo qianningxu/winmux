@@ -17,7 +17,9 @@ struct WorkspaceSidebarWorkspaceSection: View {
     let isPendingActivationOnTargetMonitor: Bool
     let projectContextLabel: String?
     let projectContextColor: Color?
+    let projectDestinations: [WorkspaceSidebarProjectViewModel]
     let nestedContentIndent: CGFloat
+    let nestedContentTrailingInset: CGFloat
     @Binding var renamingWorkspaceName: String?
     @Binding var renamingWorkspaceText: String
     let onBeginRenameWorkspace: @MainActor () -> Void
@@ -41,13 +43,18 @@ struct WorkspaceSidebarWorkspaceSection: View {
     @State var isDropSettling = false
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) var projectThemeFamily
 
     let headerHeight: CGFloat = workspaceSidebarWorkspaceSectionHeaderHeight
     let rowHeight: CGFloat = workspaceSidebarWorkspaceRowHeight
 
-    var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+    var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
     var contentWidth: CGFloat { workspaceSidebarContentWidth(expansionProgress, layout: layout) }
-    var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
+    var sectionWidth: CGFloat {
+        max(workspaceSidebarSectionWidth(expansionProgress, layout: layout) - nestedContentTrailingInset, 1)
+    }
     var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }
     var showsWindowRows: Bool { false }
     var sectionMinHeight: CGFloat? {
@@ -82,27 +89,13 @@ struct WorkspaceSidebarWorkspaceSection: View {
 
     var body: some View {
         interactiveSectionContent
-            .padding(.vertical, isCompact ? 3 : 0)
+            .padding(.vertical, isCompact ? workspaceSidebarStandardGap / 2 : 0)
             .padding(.horizontal, workspaceSidebarSectionInnerHorizontalInset)
             .frame(width: sectionWidth, alignment: .leading)
             .frame(minHeight: sectionMinHeight, alignment: .top)
             .clipped()
             .opacity(compactFocusOpacity)
             .contentShape(Rectangle())
-            .contextMenu {
-                Button {
-                    debugWorkspaceSidebarRenameLog("workspaceContextRename workspace=\(workspace.name) displayName=\(workspace.displayName) compact=\(isCompact)")
-                    onBeginRenameWorkspace()
-                } label: {
-                    Text("Rename Tab")
-                }
-                Divider()
-                Button(role: .destructive) {
-                    actions.send(.closeWorkspace(workspace.name))
-                } label: {
-                    Text("Close Tab")
-                }
-            }
             .onHover { hover in
                 let visibleHover = hover && !isWorkspaceReorderInProgress
                 isHovered = visibleHover
@@ -125,7 +118,6 @@ struct WorkspaceSidebarWorkspaceSection: View {
             .help(isInUseOnOtherDisplay ? inUseOverrideText : workspace.displayName)
             .zIndex(isDropTarget ? 1 : 0)
             .animation(.spring(response: 0.2, dampingFraction: 0.82), value: dragPreview)
-            .animation(.spring(response: 0.2, dampingFraction: 0.82), value: expansionProgress)
             .animation(reduceMotion ? workspaceSidebarReducedMotionHoverAnimation : workspaceSidebarHoverAnimation, value: isHovered)
             .animation(reduceMotion ? workspaceSidebarReducedMotionHoverAnimation : workspaceSidebarHoverAnimation, value: hoveredWindowId)
             .animation(reduceMotion ? workspaceSidebarReducedMotionHoverAnimation : workspaceSidebarHoverAnimation, value: hoveredTabGroupId)
@@ -139,15 +131,9 @@ struct WorkspaceSidebarWorkspaceSection: View {
                     .allowsHitTesting(allowsWorkspaceActivation && isShowingInUseOverlay)
                     .zIndex(5)
             }
-            .shadow(
-                color: isDropTarget ? palette.shadow(0.12, lightOpacity: 0.045) : .clear,
-                radius: isDropTarget ? 5 : 0,
-                x: 0,
-                y: isDropTarget ? 2 : 0
-            )
             .background {
                 GeometryReader { geometry in
-                    Color.clear.preference(
+                    WinMuxDesignTokens.transparent.preference(
                         key: WorkspaceSidebarDropTargetPreferenceKey.self,
                         value: emitsDropTarget ? [WorkspaceSidebarDropTargetFrame(
                             kind: .workspace(workspace.name),
@@ -158,7 +144,7 @@ struct WorkspaceSidebarWorkspaceSection: View {
                         key: WorkspaceSidebarWorkspaceReorderFramePreferenceKey.self,
                         value: [WorkspaceSidebarWorkspaceReorderFrame(
                             workspaceName: workspace.name,
-                            projectId: workspace.projectId,
+                            projectId: workspace.folderId.backingProjectId,
                             frame: geometry.frame(in: .named("workspaceSidebarContent")),
                             isReorderable: isWorkspaceReorderEnabled,
                         )]
@@ -166,6 +152,38 @@ struct WorkspaceSidebarWorkspaceSection: View {
                 }
             }
     }
+
+    @ViewBuilder
+    var tabContextMenuItems: some View {
+        Button {
+            debugWorkspaceSidebarRenameLog("workspaceContextRename workspace=\(workspace.name) displayName=\(workspace.displayName) compact=\(isCompact)")
+            onBeginRenameWorkspace()
+        } label: {
+            Text("Rename tab")
+        }
+        if !projectDestinations.isEmpty {
+            Menu("Move to project") {
+                ForEach(projectDestinations) { project in
+                    Button(project.displayName) {
+                        actions.send(.moveWorkspaceToProject(workspace.name, projectId: project.id))
+                    }
+                }
+            }
+        }
+        Divider()
+        Button(role: .destructive) {
+            actions.send(.closeWorkspace(workspace.name))
+        } label: {
+            Text("Close tab")
+        }
+    }
+}
+
+func workspaceSidebarProjectDestinations(
+    projects: [WorkspaceSidebarProjectViewModel],
+    currentProjectId: WorkspaceProjectId
+) -> [WorkspaceSidebarProjectViewModel] {
+    projects.filter { $0.id != currentProjectId }
 }
 
 func workspaceSidebarPointerHoverIsVisible(

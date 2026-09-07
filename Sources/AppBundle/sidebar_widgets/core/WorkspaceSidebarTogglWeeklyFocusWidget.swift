@@ -1,10 +1,19 @@
+import Charts
 import Foundation
 import SwiftUI
 
-private let togglPeriodFocusColor = Color(red: 0xE5 / 255, green: 0x7C / 255, blue: 0xD8 / 255)
-private let togglWeekFocusColor = Color(red: 0x5E / 255, green: 0xC7 / 255, blue: 0xF2 / 255)
+private let togglWeekFocusTextColor = workspaceSidebarWidgetColor(.color9)
+private let togglWeekFocusBackgroundColor = workspaceSidebarWidgetColor(.color1)
+private let togglWeekFocusBorderColor = workspaceSidebarWidgetColor(.color4)
+private let togglWeekFocusFillColor = workspaceSidebarWidgetColor(.color7)
+private let togglWeekFocusCurrentFillColor = workspaceSidebarWidgetColor(.color8)
 private let togglWeeklyFocusMaxDailySeconds: TimeInterval = 4.5 * 60 * 60
 private let togglWeeklyFocusStartDateString = "2026-06-14"
+private let togglPeriodFocusChartHeight: CGFloat = 92
+private let togglPeriodFocusGuidelines: [Double] = [8.7, 6.5]
+private let togglPeriodFocusGuidelineColor = workspaceSidebarWidgetColor(.color6)
+private let togglPeriodFocusDotColor = workspaceSidebarWidgetColor(.color9)
+private let togglWeeklyFocusRefreshInterval: Duration = .seconds(60)
 
 struct WorkspaceSidebarTogglWeeklyFocusWidget: View {
     let id: String
@@ -12,27 +21,25 @@ struct WorkspaceSidebarTogglWeeklyFocusWidget: View {
     let isCompact: Bool
     let entriesPath: String
     let targetDate: String
+    @StateObject private var loader = WorkspaceSidebarTogglWeeklyFocusLoader()
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 60)) { context in
-            let snapshot = TogglWeeklyFocusAggregator(
-                entriesDirectory: URL(filePath: entriesPath, directoryHint: .isDirectory),
-                targetDateString: targetDate,
-            ).load(now: context.date)
+        let entriesDirectory = URL(filePath: entriesPath, directoryHint: .isDirectory)
+        let refreshKey = TogglWeeklyFocusRefreshKey(entriesDirectory: entriesDirectory, targetDate: targetDate)
 
-            Group {
-                if isCompact {
-                    WorkspaceSidebarCompactTogglWeeklyFocusCard(
-                        snapshot: snapshot,
-                        sectionWidth: sectionWidth,
-                    )
-                } else {
-                    WorkspaceSidebarExpandedTogglWeeklyFocusCard(
-                        snapshot: snapshot,
-                        sectionWidth: sectionWidth,
-                    )
-                }
+        Group {
+            if !isCompact {
+                WorkspaceSidebarExpandedTogglWeeklyFocusCard(
+                    snapshot: loader.snapshot ?? TogglWeeklyFocusSnapshot(),
+                    sectionWidth: sectionWidth,
+                )
             }
+        }
+        .task(id: refreshKey) {
+            await loader.refreshContinuously(
+                entriesDirectory: entriesDirectory,
+                targetDate: targetDate,
+            )
         }
         .id(id)
     }
@@ -44,29 +51,75 @@ struct WorkspaceSidebarTogglWeekFocusWidget: View {
     let isCompact: Bool
     let entriesPath: String
     let targetDate: String
+    @StateObject private var loader = WorkspaceSidebarTogglWeeklyFocusLoader()
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 60)) { context in
-            let snapshot = TogglWeeklyFocusAggregator(
-                entriesDirectory: URL(filePath: entriesPath, directoryHint: .isDirectory),
-                targetDateString: targetDate,
-            ).load(now: context.date)
+        let entriesDirectory = URL(filePath: entriesPath, directoryHint: .isDirectory)
+        let refreshKey = TogglWeeklyFocusRefreshKey(entriesDirectory: entriesDirectory, targetDate: targetDate)
 
-            Group {
-                if isCompact {
-                    WorkspaceSidebarCompactTogglWeekFocusCard(
-                        snapshot: snapshot,
-                        sectionWidth: sectionWidth,
-                    )
-                } else {
-                    WorkspaceSidebarExpandedTogglWeekFocusCard(
-                        snapshot: snapshot,
-                        sectionWidth: sectionWidth,
-                    )
-                }
+        Group {
+            if isCompact {
+                WorkspaceSidebarCompactTogglWeekFocusCard(
+                    snapshot: loader.snapshot ?? TogglWeeklyFocusSnapshot(),
+                    sectionWidth: sectionWidth,
+                )
+            } else {
+                WorkspaceSidebarExpandedTogglWeekFocusCard(
+                    snapshot: loader.snapshot ?? TogglWeeklyFocusSnapshot(),
+                    sectionWidth: sectionWidth,
+                )
             }
         }
+        .task(id: refreshKey) {
+            await loader.refreshContinuously(
+                entriesDirectory: entriesDirectory,
+                targetDate: targetDate,
+            )
+        }
         .id(id)
+    }
+}
+
+private struct TogglWeeklyFocusRefreshKey: Hashable, Sendable {
+    let entriesDirectory: URL
+    let targetDate: String
+}
+
+@MainActor
+final class WorkspaceSidebarTogglWeeklyFocusLoader: ObservableObject {
+    typealias Load = @Sendable (URL, String, Date) -> TogglWeeklyFocusSnapshot
+
+    @Published private(set) var snapshot: TogglWeeklyFocusSnapshot?
+
+    private let load: Load
+
+    init(load: @escaping Load = { entriesDirectory, targetDate, now in
+        TogglWeeklyFocusAggregator(
+            entriesDirectory: entriesDirectory,
+            targetDateString: targetDate,
+        ).load(now: now)
+    }) {
+        self.load = load
+    }
+
+    func refresh(entriesDirectory: URL, targetDate: String, now: Date = Date()) async {
+        let load = load
+        let nextSnapshot = await Task.detached(priority: .utility) {
+            load(entriesDirectory, targetDate, now)
+        }.value
+        guard !Task.isCancelled else { return }
+        snapshot = nextSnapshot
+    }
+
+    func refreshContinuously(entriesDirectory: URL, targetDate: String) async {
+        while !Task.isCancelled {
+            await refresh(entriesDirectory: entriesDirectory, targetDate: targetDate)
+            do {
+                try await Task.sleep(for: togglWeeklyFocusRefreshInterval)
+            } catch {
+                return
+            }
+        }
     }
 }
 
@@ -83,6 +136,10 @@ struct TogglWeeklyFocusWeek: Equatable, Identifiable, Sendable {
     var averageDailySeconds: TimeInterval {
         guard dayCount > 0 else { return 0 }
         return totalSeconds / TimeInterval(dayCount)
+    }
+
+    var averageDailyHours: Double {
+        averageDailySeconds / 3600
     }
 }
 
@@ -390,117 +447,71 @@ private enum TogglWeeklyFocusFrontMatter {
     }
 }
 
-private struct WorkspaceSidebarCompactTogglWeeklyFocusCard: View {
+private struct WorkspaceSidebarExpandedTogglWeeklyFocusCard: View {
     let snapshot: TogglWeeklyFocusSnapshot
     let sectionWidth: CGFloat
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
+
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
 
     var body: some View {
-        VStack(alignment: .center, spacing: 7) {
-            TogglPeriodFocusIcon()
-                .frame(width: 18, height: 18)
-                .foregroundStyle(togglPeriodFocusColor.opacity(0.90))
-                .padding(6)
-                .background {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(togglPeriodFocusColor.opacity(0.16))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .strokeBorder(togglPeriodFocusColor.opacity(0.44), lineWidth: 1)
-                        }
-                }
+        VStack(alignment: .leading, spacing: WinMuxSpacing.section) {
+            HStack(alignment: .firstTextBaseline, spacing: WinMuxSpacing.regular) {
+                Text("Periodically focus")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(palette.content(.primary))
+
+                Spacer(minLength: 2)
+
+                Text(averageText)
+                    .font(.system(size: 13, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(snapshot.errorMessage == nil ? palette.content(.secondary) : palette.color(.red, .color9))
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
 
             if let errorMessage = snapshot.errorMessage {
-                Text("!")
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(winMuxOverlayForeground(0.90))
-                    .lineLimit(1)
-                    .help(errorMessage)
+                Text(errorMessage)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(palette.content(.secondary))
+                    .lineLimit(2)
+            } else if snapshot.weeks.isEmpty {
+                Text("No weeks")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(palette.content(.secondary))
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                Text(togglWeeklyFocusCompactHoursText(snapshot.averageDailySeconds))
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(winMuxOverlayForeground(0.92))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-
-                VStack(spacing: 1) {
-                    Text("\(snapshot.weeksLeft)w")
-                    Text("left")
-                }
-                .font(.system(size: 17, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(winMuxOverlayMutedForeground(0.78))
-                .lineLimit(1)
+                TogglPeriodFocusLineChart(
+                    weeks: snapshot.weeks,
+                    averageHours: snapshot.averageDailySeconds / 3600,
+                    palette: palette,
+                )
+                    .frame(height: togglPeriodFocusChartHeight + 20)
+                    .padding(.horizontal, standardGap * 0)
             }
         }
-        .frame(width: sectionWidth, height: 150, alignment: .center)
-        .background(WorkspaceSidebarStatusCardBackground())
+        .padding(workspaceSidebarWidgetContentPadding)
+        .frame(width: sectionWidth, alignment: .leading)
+        .background(TogglPeriodFocusCardBackground(palette: palette))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(accessibilitySummary))
+    }
+
+    private var averageText: String {
+        snapshot.errorMessage == nil
+            ? togglWeeklyFocusCompactHoursText(snapshot.averageDailySeconds)
+            : "--"
     }
 
     private var accessibilitySummary: String {
         if let errorMessage = snapshot.errorMessage {
             return errorMessage
         }
-        return "Period, \(togglWeeklyFocusAccessibilityHoursText(snapshot.averageDailySeconds)) average daily focus, \(snapshot.weeksLeft) weeks left"
-    }
-}
-
-private struct WorkspaceSidebarExpandedTogglWeeklyFocusCard: View {
-    let snapshot: TogglWeeklyFocusSnapshot
-    let sectionWidth: CGFloat
-
-    private var guideRatio: CGFloat {
-        CGFloat(max(0, min(snapshot.averageDailySeconds / togglWeeklyFocusMaxDailySeconds, 1)))
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                HStack(spacing: 6) {
-                    TogglPeriodFocusIcon()
-                        .frame(width: 13, height: 13)
-                    Text("Period")
-                }
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(togglPeriodFocusColor.opacity(0.88))
-
-                Spacer(minLength: 8)
-
-                if snapshot.errorMessage == nil {
-                    Text("\(snapshot.weeksLeft)w left")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(winMuxOverlayForeground(0.92))
-                        .lineLimit(1)
-                }
-            }
-
-            if let errorMessage = snapshot.errorMessage {
-                Text(errorMessage)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(winMuxOverlayMutedForeground(0.80))
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else if snapshot.weeks.isEmpty {
-                Text("No weeks")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(winMuxOverlayMutedForeground(0.76))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                TogglWeeklyFocusChart(
-                    weeks: snapshot.weeks,
-                    averageDailySeconds: snapshot.averageDailySeconds,
-                    guideRatio: guideRatio,
-                )
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 11)
-        .frame(width: sectionWidth, alignment: .leading)
-        .background(WorkspaceSidebarStatusCardBackground())
-        .accessibilityElement(children: .combine)
+        return "Periodically focus, \(togglWeeklyFocusAccessibilityHoursText(snapshot.averageDailySeconds)) average daily focus"
     }
 }
 
@@ -509,41 +520,41 @@ private struct WorkspaceSidebarCompactTogglWeekFocusCard: View {
     let sectionWidth: CGFloat
 
     var body: some View {
-        VStack(alignment: .center, spacing: 7) {
+        VStack(alignment: .center, spacing: standardGap * 3.5) {
             TogglWeekFocusIcon()
                 .frame(width: 18, height: 18)
-                .foregroundStyle(togglWeekFocusColor.opacity(0.90))
-                .padding(6)
+                .foregroundStyle(togglWeekFocusTextColor)
+                .padding(standardGap * 3)
                 .background {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(togglWeekFocusColor.opacity(0.16))
+                        .fill(togglWeekFocusBackgroundColor)
                         .overlay {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .strokeBorder(togglWeekFocusColor.opacity(0.44), lineWidth: 1)
+                                .strokeBorder(togglWeekFocusBorderColor, lineWidth: 1)
                         }
                 }
 
             if let errorMessage = snapshot.errorMessage {
                 Text("!")
                     .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(winMuxOverlayForeground(0.90))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.primary))
                     .lineLimit(1)
                     .help(errorMessage)
             } else {
                 Text(togglWeeklyFocusCompactHoursText(snapshot.currentWeekDailyAverageSeconds))
                     .font(.system(size: 17, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(winMuxOverlayForeground(0.92))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.primary))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
 
-                VStack(spacing: 1) {
+                VStack(spacing: standardGap * 0.5) {
                     Text("this")
                     Text("week")
                 }
                 .font(.system(size: 17, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(winMuxOverlayMutedForeground(0.78))
+                .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                 .lineLimit(1)
             }
         }
@@ -566,15 +577,15 @@ private struct WorkspaceSidebarExpandedTogglWeekFocusCard: View {
     let sectionWidth: CGFloat
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: standardGap * 5) {
+            HStack(alignment: .firstTextBaseline, spacing: standardGap * 4) {
+                HStack(spacing: standardGap * 3) {
                     TogglWeekFocusIcon()
                         .frame(width: 13, height: 13)
                     Text("Week")
                 }
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(togglWeekFocusColor.opacity(0.88))
+                .foregroundStyle(togglWeekFocusTextColor)
 
                 Spacer(minLength: 8)
 
@@ -582,7 +593,7 @@ private struct WorkspaceSidebarExpandedTogglWeekFocusCard: View {
                     Text(togglWeeklyFocusCompactHoursText(snapshot.totalWeekSeconds))
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(winMuxOverlayForeground(0.92))
+                        .foregroundStyle(workspaceSidebarWidgetContent(.primary))
                         .lineLimit(1)
                 }
             }
@@ -590,124 +601,156 @@ private struct WorkspaceSidebarExpandedTogglWeekFocusCard: View {
             if let errorMessage = snapshot.errorMessage {
                 Text(errorMessage)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(winMuxOverlayMutedForeground(0.80))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if snapshot.days.isEmpty {
                 Text("No days")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(winMuxOverlayMutedForeground(0.76))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 TogglWeeklyFocusDayList(days: snapshot.days)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 11)
+        .padding(workspaceSidebarUnifiedGap)
         .frame(width: sectionWidth, alignment: .leading)
         .background(WorkspaceSidebarStatusCardBackground())
         .accessibilityElement(children: .combine)
     }
 }
 
-private struct TogglWeeklyFocusChart: View {
+private struct TogglPeriodFocusLineChart: View {
     let weeks: [TogglWeeklyFocusWeek]
-    let averageDailySeconds: TimeInterval
-    let guideRatio: CGFloat
+    let averageHours: Double
+    let palette: WinMuxOverlayPalette
 
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .topLeading) {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(weeks.enumerated()), id: \.element.id) { index, week in
-                        TogglWeeklyFocusWeekRow(
-                            week: week,
-                            labelText: togglWeeklyFocusWeekLabelText(for: week, previousWeek: weeks.getOrNil(atIndex: index - 1)),
-                        )
-                    }
-                }
-
-                let guideX = max(0, min(geometry.size.width * guideRatio, geometry.size.width))
-                Rectangle()
-                    .fill(winMuxOverlayForeground(0.30))
-                    .frame(width: 1)
-                    .position(x: guideX, y: geometry.size.height / 2)
-
-                Text(togglWeeklyFocusCompactHoursText(averageDailySeconds))
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(winMuxOverlayForeground(0.92))
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 3)
-                    .background {
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(winMuxOverlayCard(0.96))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                    .strokeBorder(winMuxOverlayBorder(0.70), lineWidth: 1)
-                            }
-                            .shadow(color: winMuxOverlayShadow(darkOpacity: 0.18, lightOpacity: 0.12), radius: 8, y: 3)
-                    }
-                    .position(x: guideX, y: geometry.size.height / 2)
-            }
-        }
-        .frame(height: chartHeight)
+    private var completedWeeks: [TogglWeeklyFocusWeek] {
+        weeks.filter { !$0.isFuture }
     }
 
-    private var chartHeight: CGFloat {
-        CGFloat(weeks.count) * 22 + CGFloat(max(weeks.count - 1, 0)) * 6
+    private var yDomain: ClosedRange<Double> {
+        let values = completedWeeks.map(\.averageDailyHours)
+        let upperBound = max(
+            1,
+            max(values.max() ?? 0, togglPeriodFocusGuidelines.max() ?? 0) * 1.08,
+        )
+        return 0 ... upperBound
+    }
+
+    private var xDomain: ClosedRange<Date> {
+        let fallback = Date()
+        return (weeks.first?.startDate ?? fallback) ... (weeks.last?.startDate ?? fallback)
+    }
+
+    var body: some View {
+        chart
+            .chartXAxis {
+                AxisMarks(values: axisDates) { value in
+                    AxisValueLabel {
+                        if let date = value.as(Date.self) {
+                            Text(togglPeriodFocusMonthLabel(for: date))
+                                .font(.system(size: 11, weight: .regular))
+                                .foregroundStyle(palette.content(.secondary))
+                                .fixedSize(horizontal: true, vertical: false)
+                                .offset(y: standardGap * 3)
+                        }
+                    }
+                }
+            }
+            .chartYAxis(.hidden)
+    }
+
+    private var chart: some View {
+        Chart {
+            RuleMark(y: .value("X axis", 0))
+                .foregroundStyle(palette.geistBorder(.normal))
+                .lineStyle(StrokeStyle(lineWidth: 1))
+
+            ForEach(togglPeriodFocusGuidelines, id: \.self) { guideline in
+                RuleMark(y: .value("Guideline", guideline))
+                    .foregroundStyle(togglPeriodFocusGuidelineColor)
+                    .lineStyle(StrokeStyle(lineWidth: 1.25, dash: [5, 4]))
+                    .annotation(position: .trailing, alignment: .center, spacing: standardGap * 3) {
+                        Text(String(format: "%.1fh", guideline))
+                            .font(.system(size: 9, weight: .medium))
+                            .monospacedDigit()
+                            .foregroundStyle(palette.content(.secondary).opacity(0.45))
+                    }
+            }
+
+            if averageHours > 0 {
+                RuleMark(y: .value("Average", averageHours))
+                    .foregroundStyle(palette.content(.secondary).opacity(0.8))
+                    .lineStyle(StrokeStyle(lineWidth: 1.25, dash: [2, 3]))
+                    .annotation(position: .trailing, alignment: .center, spacing: standardGap * 3) {
+                        Text(String(format: "%.1fh", averageHours))
+                            .font(.system(size: 9, weight: .medium))
+                            .monospacedDigit()
+                            .foregroundStyle(palette.content(.primary))
+                    }
+            }
+
+            ForEach(completedWeeks) { week in
+                LineMark(
+                    x: .value("Week", week.startDate),
+                    y: .value("Daily average", week.averageDailyHours),
+                )
+                .interpolationMethod(.catmullRom)
+                .foregroundStyle(palette.highContrastBackground(.normal))
+                .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+            }
+
+            ForEach(completedWeeks) { week in
+                PointMark(
+                    x: .value("Week", week.startDate),
+                    y: .value("Daily average", week.averageDailyHours),
+                )
+                .foregroundStyle(
+                    togglPeriodFocusDotColor
+                )
+                .symbolSize(week.isCurrent ? 34 : 20)
+            }
+        }
+        .chartXScale(domain: xDomain, range: .plotDimension(startPadding: 0, endPadding: 0))
+        .chartYScale(domain: yDomain)
+        .chartLegend(.hidden)
+        .chartPlotStyle { plotArea in
+            plotArea
+                .padding(.leading, standardGap * 0)
+                .padding(.trailing, standardGap * 13)
+                .padding(.bottom, standardGap * 4)
+        }
+    }
+
+    private var axisDates: [Date] {
+        weeks.enumerated().compactMap { index, week in
+            guard index == 0 || Calendar.current.component(.month, from: week.startDate)
+                != Calendar.current.component(.month, from: weeks[index - 1].startDate)
+            else {
+                return nil
+            }
+            return week.startDate
+        }
     }
 }
 
-private struct TogglWeeklyFocusWeekRow: View {
-    let week: TogglWeeklyFocusWeek
-    let labelText: String
-
-    private var ratio: CGFloat {
-        CGFloat(max(0, min(week.averageDailySeconds / togglWeeklyFocusMaxDailySeconds, 1)))
-    }
+private struct TogglPeriodFocusCardBackground: View {
+    let palette: WinMuxOverlayPalette
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(labelText)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(week.isFuture ? winMuxOverlayMutedForeground(0.62) : winMuxOverlayForeground(0.88))
-                    .lineLimit(1)
-
-                Spacer(minLength: 8)
-
-                Text(week.isFuture ? "--" : togglWeeklyFocusCompactHoursText(week.averageDailySeconds))
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(week.isFuture ? winMuxOverlayMutedForeground(0.48) : winMuxOverlayMutedForeground(0.90))
-                    .lineLimit(1)
+        RoundedRectangle(cornerRadius: workspaceSidebarStatusCornerRadius, style: .continuous)
+            .fill(palette.geistBackground(.primary))
+            .overlay {
+                RoundedRectangle(cornerRadius: workspaceSidebarStatusCornerRadius, style: .continuous)
+                    .strokeBorder(palette.geistBorder(.normal), lineWidth: 0.75)
             }
-
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(winMuxOverlayContrastingFill(darkOpacity: week.isFuture ? 0.045 : 0.07, lightOpacity: week.isFuture ? 0.05 : 0.07))
-
-                    if !week.isFuture, week.averageDailySeconds > 0 {
-                        Capsule()
-                            .fill(togglPeriodFocusColor.opacity(0.56))
-                            .frame(width: max(3, geometry.size.width * ratio))
-                    }
-                }
-            }
-            .frame(height: 4)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(accessibilityText))
     }
+}
 
-    private var accessibilityText: String {
-        if week.isFuture {
-            return "\(labelText), future week"
-        }
-        return "\(labelText), \(togglWeeklyFocusAccessibilityHoursText(week.averageDailySeconds)) average daily focus"
-    }
+func togglPeriodFocusMonthLabel(for date: Date) -> String {
+    let label = date.formatted(.dateTime.month(.abbreviated))
+    return String(label.prefix(3))
 }
 
 private struct TogglWeeklyFocusDayList: View {
@@ -718,7 +761,7 @@ private struct TogglWeeklyFocusDayList: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: standardGap * 3) {
             ForEach(days) { day in
                 TogglWeeklyFocusDayRow(day: day, maxSeconds: maxSeconds)
             }
@@ -736,11 +779,11 @@ private struct TogglWeeklyFocusDayRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+        VStack(alignment: .leading, spacing: standardGap * 2) {
+            HStack(alignment: .firstTextBaseline, spacing: standardGap * 4) {
                 Text(togglWeeklyFocusDayLabelText(for: day.date))
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(day.isFuture ? winMuxOverlayMutedForeground(0.62) : winMuxOverlayForeground(0.88))
+                    .foregroundStyle(workspaceSidebarWidgetContent(day.isFuture ? .secondary : .primary))
                     .lineLimit(1)
 
                 Spacer(minLength: 8)
@@ -748,18 +791,18 @@ private struct TogglWeeklyFocusDayRow: View {
                 Text(day.isFuture ? "--" : togglWeeklyFocusCompactHoursText(day.totalSeconds))
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(day.isFuture ? winMuxOverlayMutedForeground(0.48) : winMuxOverlayMutedForeground(0.90))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                     .lineLimit(1)
             }
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(winMuxOverlayContrastingFill(darkOpacity: day.isFuture ? 0.045 : 0.07, lightOpacity: day.isFuture ? 0.05 : 0.07))
+                        .fill(workspaceSidebarWidgetComponentBackground(day.isFuture ? .normal : .hover))
 
                     if !day.isFuture, day.totalSeconds > 0 {
                         Capsule()
-                            .fill(togglWeekFocusColor.opacity(day.isToday ? 0.76 : 0.50))
+                            .fill(day.isToday ? togglWeekFocusCurrentFillColor : togglWeekFocusFillColor)
                             .frame(width: max(3, geometry.size.width * ratio))
                     }
                 }

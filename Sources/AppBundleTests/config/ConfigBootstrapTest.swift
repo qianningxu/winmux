@@ -16,6 +16,7 @@ final class ConfigBootstrapTest: XCTestCase {
 
         XCTAssertEqual(bindingMap["alt-space"], "layout horizontal vertical")
         XCTAssertEqual(bindingMap["ctrl-f"], "open-sidebar")
+        XCTAssertEqual(bindingMap["alt-b"], "open-sidebar")
         XCTAssertEqual(bindingMap["alt-h"], "focus left")
         XCTAssertEqual(bindingMap["alt-1"], "tab 1")
         XCTAssertEqual(bindingMap["alt-0"], "tab 10")
@@ -27,16 +28,17 @@ final class ConfigBootstrapTest: XCTestCase {
         XCTAssertEqual(bindingMap["alt-cmd-j"], "swap down")
         XCTAssertEqual(bindingMap["alt-cmd-k"], "swap up")
         XCTAssertEqual(bindingMap["cmd-shift-i"], "balance-sizes")
-        XCTAssertEqual(bindingMap["ctrl-1"], "folder 1")
-        XCTAssertEqual(bindingMap["ctrl-0"], "folder 10")
+        XCTAssertNil(bindingMap["ctrl-1"])
+        XCTAssertNil(bindingMap["ctrl-0"])
         XCTAssertEqual(bindingMap["ctrl-t"], "tab 15")
         XCTAssertEqual(bindingMap["ctrl-h"], "tab prev")
         XCTAssertEqual(bindingMap["cmd-ctrl-h"], "tab prev")
         XCTAssertEqual(bindingMap["alt-shift-1"], "move-node-to-tab 1")
         XCTAssertEqual(bindingMap["alt-shift-0"], "move-node-to-tab 10")
-        XCTAssertEqual(bindingMap["ctrl-shift-1"], "move-node-to-folder 1")
-        XCTAssertEqual(bindingMap["ctrl-shift-2"], "move-node-to-folder 2")
-        XCTAssertEqual(bindingMap["ctrl-shift-0"], "move-node-to-folder 10")
+        XCTAssertNil(bindingMap["ctrl-shift-1"])
+        XCTAssertNil(bindingMap["ctrl-shift-2"])
+        XCTAssertNil(bindingMap["ctrl-shift-0"])
+        XCTAssertNil(bindingMap["ctrl-shift-n"])
         XCTAssertEqual(bindingMap["ctrl-shift-h"], "move-node-to-tab --focus-follows-window prev")
         XCTAssertEqual(bindingMap["alt-shift-t"], "layout floating tiling")
         XCTAssertEqual(bindingMap["alt-shift-m"], "fullscreen")
@@ -51,7 +53,7 @@ final class ConfigBootstrapTest: XCTestCase {
         XCTAssertEqual(parsedConfig.workspaceSidebar.width, 212)
         XCTAssertEqual(
             parsedConfig.workspaceSidebar.resolvedWidgets.filter(\.enabled).map(\.type),
-            [.builtInTasks, .builtInTodayFocus],
+            [.builtInTodayFocus],
         )
         XCTAssertTrue(parsedConfig.autoReloadConfig)
         if case .constant(let horizontalGap) = parsedConfig.gaps.inner.horizontal {
@@ -69,7 +71,8 @@ final class ConfigBootstrapTest: XCTestCase {
         } else {
             XCTFail("Expected constant outer left gap")
         }
-        XCTAssertEqual(parsedConfig.configVersion, 2)
+        XCTAssertEqual(parsedConfig.configVersion, 3)
+        XCTAssertTrue(parsedConfig.enableProjects)
     }
 
     func testEnsureBootstrapConfigCopiesLegacyConfig() throws {
@@ -192,7 +195,7 @@ final class ConfigBootstrapTest: XCTestCase {
         XCTAssertEqual(errors.descriptions, [])
         XCTAssertTrue(parsedConfig.workspaceSidebar.enabled)
         XCTAssertFalse(parsedConfig.windowTabs.enabled)
-        XCTAssertEqual(parsedConfig.configVersion, 2)
+        XCTAssertEqual(parsedConfig.configVersion, 3)
         XCTAssertEqual(parsedConfig.modes[mainModeId]?.bindings.values.map(\.descriptionWithKeyNotation).sorted(), ["alt-1", "alt-h", "alt-j", "alt-l", "alt-shift-1"])
     }
 }

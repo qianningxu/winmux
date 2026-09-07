@@ -356,5 +356,5 @@ func noteCurrentMousePointerSample(timestamp: TimeInterval = ProcessInfo.process
 }
 
 func normalizeAppKitScreenPoint(_ point: CGPoint) -> CGPoint {
-    point.copy(\.y, mainMonitor.height - point.y)
+    point.copy(\.y, mainMonitorHeight - point.y)
 }

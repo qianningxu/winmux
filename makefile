@@ -95,14 +95,25 @@ release:
 	log_path="$$release_dir/$$app_name-$(VERSION)-xcodebuild.log"; \
 	rm -rf "$$archive_path" "$$zip_path" "$$derived_data_path"; \
 	mkdir -p "$$release_dir"; \
-	xcodebuild-pretty "$$log_path" \
-	    -project WinMux.xcodeproj \
-	    -scheme WinMux \
-	    -configuration Release \
-	    -archivePath "$$archive_path" \
-	    -derivedDataPath "$$derived_data_path" \
-	    CODE_SIGNING_ALLOWED=NO \
-	    archive; \
+	if xcodebuild -version >/dev/null 2>&1; then \
+	    xcodebuild-pretty "$$log_path" \
+	        -project WinMux.xcodeproj \
+	        -scheme WinMux \
+	        -configuration Release \
+	        -archivePath "$$archive_path" \
+	        -derivedDataPath "$$derived_data_path" \
+	        CODE_SIGNING_ALLOWED=NO \
+	        archive; \
+	else \
+	    installed_app="$(APP_INSTALL_DIR)/$$app_name.app"; \
+	    test -d "$$installed_app"; \
+	    swift build -c release --product WinMuxApp; \
+	    mkdir -p "$$(dirname "$$app_path")"; \
+	    ditto "$$installed_app" "$$app_path"; \
+	    cp ".build/release/WinMuxApp" "$$app_path/Contents/MacOS/$$app_name"; \
+	    cp "resources/default-config.toml" "$$app_path/Contents/Resources/default-config.toml"; \
+	    rm -f "$$app_path/Contents/Resources/folders.png" "$$app_path/Contents/Resources/winmux-overview.png"; \
+	fi; \
 	test -d "$$app_path"; \
 	codesign --force --deep --sign "$(CODESIGN_IDENTITY)" \
 	    --entitlements resources/WinMux.entitlements \

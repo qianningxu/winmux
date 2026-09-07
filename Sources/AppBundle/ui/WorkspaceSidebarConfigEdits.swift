@@ -143,9 +143,23 @@ func updateWorkspaceSidebarProjectLabelConfig(
 ) -> String {
     updateTomlKeyValueSectionConfig(
         in: canonicalWorkspaceSidebarConfigRoots(in: configText),
-        sectionHeader: "[tab-sidebar.folder-labels]",
-        legacySectionHeaders: ["[tab-sidebar.project-labels]", "[workspace-sidebar.folder-labels]", "[workspace-sidebar.project-labels]"],
+        sectionHeader: "[tab-sidebar.project-labels]",
+        legacySectionHeaders: ["[workspace-sidebar.project-labels]"],
         key: projectId,
+        value: label,
+    )
+}
+
+func updateWorkspaceSidebarFolderLabelConfig(
+    in configText: String,
+    folderId: String,
+    label: String?,
+) -> String {
+    updateTomlKeyValueSectionConfig(
+        in: canonicalWorkspaceSidebarConfigRoots(in: configText),
+        sectionHeader: "[tab-sidebar.folder-labels]",
+        legacySectionHeaders: ["[workspace-sidebar.folder-labels]"],
+        key: folderId,
         value: label,
     )
 }
@@ -157,9 +171,23 @@ func updateWorkspaceSidebarProjectColorConfig(
 ) -> String {
     updateTomlKeyValueSectionConfig(
         in: canonicalWorkspaceSidebarConfigRoots(in: configText),
-        sectionHeader: "[tab-sidebar.folder-colors]",
-        legacySectionHeaders: ["[tab-sidebar.project-colors]", "[workspace-sidebar.folder-colors]", "[workspace-sidebar.project-colors]"],
+        sectionHeader: "[tab-sidebar.project-colors]",
+        legacySectionHeaders: ["[workspace-sidebar.project-colors]"],
         key: projectId,
+        value: colorHex,
+    )
+}
+
+func updateWorkspaceSidebarFolderColorConfig(
+    in configText: String,
+    folderId: String,
+    colorHex: String?,
+) -> String {
+    updateTomlKeyValueSectionConfig(
+        in: canonicalWorkspaceSidebarConfigRoots(in: configText),
+        sectionHeader: "[tab-sidebar.folder-colors]",
+        legacySectionHeaders: ["[workspace-sidebar.folder-colors]"],
+        key: folderId,
         value: colorHex,
     )
 }
@@ -269,12 +297,42 @@ func persistWorkspaceSidebarProjectLabel(projectId: String, label: String?) thro
 }
 
 @MainActor
+func persistWorkspaceSidebarFolderLabel(folderId: String, label: String?) throws {
+    let targetUrl = preferredWorkspaceSidebarConfigUrl()
+    let currentText = (try? String(contentsOf: targetUrl, encoding: .utf8)) ?? ""
+    let updatedText = updateWorkspaceSidebarFolderLabelConfig(
+        in: currentText,
+        folderId: folderId,
+        label: label,
+    )
+    if let parent = targetUrl.deletingLastPathComponent().takeIf({ $0.path != targetUrl.path }) {
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+    }
+    try updatedText.write(to: targetUrl, atomically: true, encoding: .utf8)
+}
+
+@MainActor
 func persistWorkspaceSidebarProjectColor(projectId: String, colorHex: String?) throws {
     let targetUrl = preferredWorkspaceSidebarConfigUrl()
     let currentText = (try? String(contentsOf: targetUrl, encoding: .utf8)) ?? ""
     let updatedText = updateWorkspaceSidebarProjectColorConfig(
         in: currentText,
         projectId: projectId,
+        colorHex: colorHex,
+    )
+    if let parent = targetUrl.deletingLastPathComponent().takeIf({ $0.path != targetUrl.path }) {
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+    }
+    try updatedText.write(to: targetUrl, atomically: true, encoding: .utf8)
+}
+
+@MainActor
+func persistWorkspaceSidebarFolderColor(folderId: String, colorHex: String?) throws {
+    let targetUrl = preferredWorkspaceSidebarConfigUrl()
+    let currentText = (try? String(contentsOf: targetUrl, encoding: .utf8)) ?? ""
+    let updatedText = updateWorkspaceSidebarFolderColorConfig(
+        in: currentText,
+        folderId: folderId,
         colorHex: colorHex,
     )
     if let parent = targetUrl.deletingLastPathComponent().takeIf({ $0.path != targetUrl.path }) {

@@ -24,8 +24,11 @@ struct WorkspaceSidebarMonitorSelector: View {
 
     @State private var isProjectMenuOpen = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
 
-    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
 
     private var projectPopupWidth: CGFloat {
         let names = browsableProjects.map(\.displayName) + ["Other Folders"]
@@ -65,7 +68,7 @@ struct WorkspaceSidebarMonitorSelector: View {
     }
 
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: standardGap * 1.5) {
             ForEach(Array(quickScopes.enumerated()), id: \.element.id) { index, scope in
                 monitorScopePill(scope)
                 if index == quickScopes.count - 1, !browsableProjects.isEmpty {
@@ -104,7 +107,7 @@ struct WorkspaceSidebarMonitorSelector: View {
             Text(scope.id == workspaceSidebarFocusedScopeId ? "Focus" : scope.displayName)
                 .font(.system(size: 12.5, weight: isActive ? .semibold : .medium))
                 .lineLimit(1)
-                .foregroundStyle(isActive ? palette.foreground(1) : palette.foreground(0.68))
+                .foregroundStyle(palette.content(isActive ? .primary : .secondary))
                 .modifier(WorkspaceSidebarDropdownControlStyle(isActive: isActive))
         }
         .buttonStyle(.plain)
@@ -113,7 +116,7 @@ struct WorkspaceSidebarMonitorSelector: View {
         .background {
             if workspaceSidebarMonitorScopePoint(scope.id) != nil {
                 GeometryReader { geometry in
-                    Color.clear.preference(
+                    WinMuxDesignTokens.transparent.preference(
                         key: WorkspaceSidebarDropTargetPreferenceKey.self,
                         value: [WorkspaceSidebarDropTargetFrame(
                             kind: .monitor(scope.id),
@@ -142,15 +145,15 @@ struct WorkspaceSidebarMonitorSelector: View {
             guard !browsableProjects.isEmpty else { return }
             isProjectMenuOpen.toggle()
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: standardGap * 2) {
                 Text(selectedProject?.displayName ?? "Other Folders")
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(palette.foreground(isActive ? 0.86 : 0.72))
+                    .foregroundStyle(palette.content(isActive ? .primary : .secondary))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(palette.foreground(isActive ? 0.86 : 0.72))
+                    .foregroundStyle(palette.content(isActive ? .primary : .secondary))
                     .rotationEffect(.degrees(isProjectMenuOpen ? 180 : 0))
             }
             .modifier(WorkspaceSidebarDropdownControlStyle(isActive: isActive))
@@ -180,7 +183,7 @@ struct WorkspaceSidebarMonitorSelector: View {
                             isProjectMenuOpen = false
                         }
                     },
-                    onCreate: {},
+                    onCreate: { _ in },
                     onRename: { project in
                         onRenameProject(project)
                         isProjectMenuOpen = false

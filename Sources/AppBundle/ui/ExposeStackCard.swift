@@ -16,7 +16,7 @@ struct ExposeStackCard: View {
         let visibleItems = Array(group.items.prefix(4))
         let thumbH = ch - 24
 
-        VStack(spacing: 4) {
+        VStack(spacing: standardGap * 2) {
             ZStack {
                 ForEach(Array(visibleItems.enumerated().reversed()), id: \.element.id) { index, item in
                     exposeStackThumb(item: item, index: index, visibleCount: visibleItems.count, activeIndex: activeIndex, thumbH: thumbH)
@@ -26,15 +26,15 @@ struct ExposeStackCard: View {
             .overlay(alignment: .bottomTrailing) {
                 Text("\(group.items.count)")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(winMuxOverlayGeistBackground(.primary))
                     .frame(width: 24, height: 24)
-                    .background(Circle().fill(Color.accentColor))
-                    .offset(x: 6, y: 6)
+                    .background(Circle().fill(winMuxOverlayColor(.blue, .color7)))
+                    .offset(x: standardGap * 3, y: standardGap * 3)
             }
 
             Text(group.items[safe: activeIndex]?.title ?? group.items.first?.title ?? "Folder")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(hov ? 0.95 : 0.6))
+                .foregroundStyle(winMuxOverlayContent(hov ? .primary : .secondary))
                 .lineLimit(1)
                 .frame(maxWidth: cw)
         }
@@ -60,7 +60,7 @@ struct ExposeStackCard: View {
         let itemWithThumbnail = item.withThumbnail(thumbnails[item.id])
 
         return exposeCardThumb(itemWithThumbnail, w: cardW, h: cardH, hov: isActive && hov)
-            .offset(x: CGFloat(depthIndex) * 10, y: CGFloat(depthIndex) * 4)
+            .offset(x: CGFloat(depthIndex) * standardGap * 5, y: CGFloat(depthIndex) * standardGap * 2)
             .rotation3DEffect(
                 .degrees(Double(depthIndex) * -4),
                 axis: (x: 0.15, y: 1.0, z: 0.0),

@@ -11,16 +11,16 @@ struct ShortcutGeneralView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: standardGap * 12) {
                 if projectsAreEnabled() {
                     GeneralSection(title: "Management") {
-                        VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: standardGap * 6) {
                             HStack {
-                                VStack(alignment: .leading, spacing: 2) {
+                                VStack(alignment: .leading, spacing: standardGap * 1) {
                                     Text("Deleting folders")
                                     Text("Close windows keeps app confirmation dialogs visible and aborts deletion if a window stays open.")
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(winMuxOverlayContent(.secondary))
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                                 Spacer()
@@ -41,7 +41,7 @@ struct ShortcutGeneralView: View {
                 }
 
                 GeneralSection(title: "Appearance") {
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: standardGap * 7) {
                         HStack {
                             Text("Menu bar style")
                             Spacer()
@@ -62,16 +62,16 @@ struct ShortcutGeneralView: View {
                         }
 
                         HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Sidebar menu bar space")
+                            VStack(alignment: .leading, spacing: standardGap * 1) {
+                                Text("Tab bar menu area")
                                 Text("Use 0 px when the macOS menu bar auto-hides.")
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(winMuxOverlayContent(.secondary))
                             }
                             Spacer()
                             Text("\(workspaceSidebarMenuBarReserveHeight) px")
                                 .font(.system(size: 12, design: .monospaced))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(winMuxOverlayContent(.secondary))
                                 .frame(width: 48, alignment: .trailing)
                             Stepper(
                                 "",
@@ -88,19 +88,19 @@ struct ShortcutGeneralView: View {
                 }
 
                 GeneralSection(title: "Configuration") {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: standardGap * 6) {
                         HStack {
-                            Button("Open Config File") { openConfigAction() }
-                            Button("Reload Config") { reloadConfigAction() }
+                            Button("Open configuration file") { openConfigAction() }
+                            Button("Reload configuration") { reloadConfigAction() }
                         }
                         
                         Text("Shortcuts are edited here. Advanced configuration remains in `winmux.toml`.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(winMuxOverlayContent(.secondary))
                     }
                 }
             }
-            .padding(24)
+            .padding(standardGap * 12)
         }
     }
 
@@ -177,19 +177,19 @@ struct GeneralSection<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: standardGap * 4) {
             Text(title)
                 .font(.headline)
             
-            VStack(spacing: 0) {
+            VStack(spacing: standardGap * 0) {
                 content
-                    .padding(14)
+                    .padding(standardGap * 7)
             }
-            .background(Color(nsColor: .controlBackgroundColor))
+            .background(winMuxOverlayGeistBackground(.primary))
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color(nsColor: .separatorColor).opacity(0.5), lineWidth: 0.5)
+                    .stroke(winMuxOverlayBorder(.normal), lineWidth: 0.5)
             )
         }
     }

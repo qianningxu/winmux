@@ -15,7 +15,7 @@ final class WindowTabGroupVisualPanel: NSPanelHud {
         isFloatingPanel = false
         isExcludedFromWindowsMenu = true
         animationBehavior = .none
-        backgroundColor = .clear
+        backgroundColor = WinMuxDesignTokens.transparentNSColor
         ignoresMouseEvents = true
         applyWinMuxLayer(.windowChrome)
         contentView = hostingView

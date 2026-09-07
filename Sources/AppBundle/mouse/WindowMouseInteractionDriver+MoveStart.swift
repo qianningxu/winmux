@@ -16,6 +16,7 @@ extension WindowMouseInteractionDriver {
         let isNewSession = moveSession != session
         if isNewSession {
             WindowDragFrameGate.shared.reset(windowId: windowId)
+            WorkspaceSidebarPanel.refreshAll()
         }
         moveSession = session
         if shouldHideOtherWindowsDuringMove(session: session) {

@@ -2,13 +2,13 @@ import SwiftUI
 
 struct WorkspaceSidebarDropdownControlStyle: ViewModifier {
     let isActive: Bool
-    var activeFill: Color = winMuxOverlayContrastingFill(darkOpacity: 0.12, lightOpacity: 0.10)
-    var activeStroke: Color = winMuxOverlayContrastingFill(darkOpacity: 0.18, lightOpacity: 0.14)
-    var inactiveFill: Color = winMuxOverlayContrastingFill(darkOpacity: 0.06, lightOpacity: 0.055)
-    var inactiveHoverFill: Color = winMuxOverlayContrastingFill(darkOpacity: 0.10, lightOpacity: 0.08)
-    var inactiveStroke: Color = winMuxOverlayContrastingFill(darkOpacity: 0.08, lightOpacity: 0.10)
-    var inactiveHoverStroke: Color = winMuxOverlayContrastingFill(darkOpacity: 0.14, lightOpacity: 0.13)
     @State private var isHovered = false
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
+
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
 
     func body(content: Content) -> some View {
         content
@@ -18,8 +18,10 @@ struct WorkspaceSidebarDropdownControlStyle: ViewModifier {
                 RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius, style: .continuous)
                     .fill(controlFill)
                     .overlay {
+                        if isHovered || isActive {
                         RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius, style: .continuous)
-                            .strokeBorder(controlStroke, lineWidth: isHovered || isActive ? 0.65 : 0.5)
+                            .strokeBorder(controlStroke, lineWidth: isActive ? 0.8 : 0.65)
+                        }
                     }
             }
             .contentShape(Rectangle())
@@ -31,16 +33,16 @@ struct WorkspaceSidebarDropdownControlStyle: ViewModifier {
 
     private var controlFill: Color {
         if isActive {
-            return activeFill
+            return palette.componentBackground(.active)
         }
-        return isHovered ? inactiveHoverFill : inactiveFill
+        return isHovered ? palette.componentBackground(.hover) : WinMuxDesignTokens.transparent
     }
 
     private var controlStroke: Color {
         if isActive {
-            return activeStroke
+            return palette.geistBorder(.active)
         }
-        return isHovered ? inactiveHoverStroke : inactiveStroke
+        return palette.geistBorder(.hover)
     }
 }
 
@@ -49,8 +51,11 @@ struct WorkspaceSidebarDropdownMenuRowStyle: ViewModifier {
     var rowHeight: CGFloat = workspaceSidebarDropdownHeight
     @State private var isHovered = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
 
-    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
 
     func body(content: Content) -> some View {
         content
@@ -70,14 +75,28 @@ struct WorkspaceSidebarDropdownMenuRowStyle: ViewModifier {
 
     private var rowFill: Color {
         if isSelected {
-            return palette.contrastingFill(darkOpacity: isHovered ? 0.10 : 0.06, lightOpacity: isHovered ? 0.08 : 0.055)
+            return palette.componentBackground(.active)
         }
-        return palette.contrastingFill(darkOpacity: isHovered ? 0.07 : 0, lightOpacity: isHovered ? 0.055 : 0)
+        return isHovered ? palette.componentBackground(.hover) : WinMuxDesignTokens.transparent
     }
 }
 
 func checkmark(isVisible: Bool) -> some View {
-    Image(systemName: "checkmark")
-        .font(.system(size: 9, weight: .bold))
-        .foregroundStyle(winMuxOverlayForeground(isVisible ? 0.80 : 0))
+    WorkspaceSidebarCheckmark(isVisible: isVisible)
+}
+
+private struct WorkspaceSidebarCheckmark: View {
+    let isVisible: Bool
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
+
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
+
+    var body: some View {
+        Image(systemName: "checkmark")
+            .font(.system(size: 9, weight: .bold))
+            .foregroundStyle(isVisible ? palette.content(.primary) : WinMuxDesignTokens.transparent)
+    }
 }

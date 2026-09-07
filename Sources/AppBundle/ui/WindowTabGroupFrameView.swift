@@ -8,10 +8,10 @@ struct WindowTabGroupFrameView: View {
     private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     var body: some View {
-        RoundedRectangle(cornerRadius: windowTabStripCornerRadius + windowTabGroupShellHorizontalInset(), style: .continuous)
+        RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous)
             .fill(palette.color(.gray, .color3))
             .overlay {
-                RoundedRectangle(cornerRadius: windowTabStripCornerRadius + windowTabGroupShellHorizontalInset(), style: .continuous)
+                RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous)
                     .strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
             }
             .frame(width: groupSize.width, height: groupSize.height)

@@ -3,18 +3,37 @@ import Foundation
 extension WindowTabStripPanelController {
     @discardableResult
     func updateResizingTabGroupChrome(window: Window, activeWindowRect: Rect) -> Bool {
-        clearTransientResizeChrome()
-        return false
+        guard let transientStrip = resizingTabGroupStrip(window: window, activeWindowRect: activeWindowRect) else {
+            transientResizeTabGroupId = nil
+            transientResizeTabGroupStrip = nil
+            return false
+        }
+
+        transientResizeTabGroupId = transientStrip.id
+        transientResizeTabGroupStrip = transientStrip
+        if hiddenPassiveTabGroupChromeIds.contains(transientStrip.id) {
+            orderOutPanels(id: transientStrip.id)
+            return true
+        }
+        visualPanel(for: transientStrip.id).update(with: transientStrip)
+        updateInteractivePanelForResizingStrip(transientStrip)
+        return true
     }
 
-    func clearTransientResizeChrome() {
-        guard transientResizeTabGroupId != nil || transientResizeTabGroupStrip != nil else { return }
+    @discardableResult
+    func clearTransientResizeChrome() -> Bool {
+        guard transientResizeTabGroupId != nil || transientResizeTabGroupStrip != nil else { return false }
         transientResizeTabGroupId = nil
         transientResizeTabGroupStrip = nil
+        return true
     }
 
     func updateInteractivePanelForResizingStrip(_ strip: WindowTabStripViewModel) {
-        hideAll()
+        if mouseInteractionChromeMode != nil {
+            orderOutIfVisible(stripPanels[strip.id])
+        } else {
+            stripPanel(for: strip.id).update(with: strip)
+        }
     }
 
     func resizingTabGroupStrip(window: Window, activeWindowRect: Rect) -> WindowTabStripViewModel? {

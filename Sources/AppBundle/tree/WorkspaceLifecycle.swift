@@ -4,7 +4,7 @@ import Common
 @MainActor
 func switchWorkspaceProject(_ projectId: WorkspaceProjectId, on monitor: Monitor) -> Workspace? {
     materializePersistedWorkspaceProjects()
-    guard winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(projectId)] != nil else {
+    guard winMuxWorkspaceState.projectsById[projectId] != nil else {
         debugWorkspaceSidebarProjectLog("switchProjectAbort unknownProject=\(projectId.rawValue)")
         return nil
     }
@@ -39,9 +39,17 @@ func preferredWorkspace(projectId: WorkspaceProjectId, monitor: Monitor) -> Work
 
 @MainActor
 func createBlankWorkspace(projectId: WorkspaceProjectId, monitor: Monitor) -> Workspace {
+    winMuxWorkspaceState.ensureProjectExists(projectId)
+    return createBlankWorkspace(folderId: winMuxWorkspaceState.unfoldedFolderId(for: projectId), monitor: monitor)
+}
+
+@MainActor
+func createBlankWorkspace(folderId: WorkspaceFolderId, monitor: Monitor) -> Workspace {
+    winMuxWorkspaceState.ensureFolderExists(folderId)
+    let projectId = winMuxWorkspaceState.workspaceFoldersById[folderId]?.projectId ?? workspaceProjectDefaultId
     let workspace = Workspace.get(byName: nextAutomaticWorkspaceName(projectId: projectId, monitor: monitor))
     workspace.markAsTransientBlank()
-    workspace.assignProject(projectId)
+    workspace.assignFolder(folderId)
     workspace.seedMonitorIfNeeded(monitor)
     return workspace
 }
@@ -50,7 +58,16 @@ func createBlankWorkspace(projectId: WorkspaceProjectId, monitor: Monitor) -> Wo
 func createFreshAdjacentBlankWorkspace(projectId: WorkspaceProjectId, monitor: Monitor, after anchor: Workspace?) -> Workspace {
     let workspace = createBlankWorkspace(projectId: projectId, monitor: monitor)
     if let anchor {
-        _ = winMuxWorkspaceState.reorderWorkspace(workspace.id, inProject: projectId, destination: .after(anchor.id))
+        _ = winMuxWorkspaceState.reorderWorkspace(workspace.id, inFolder: workspace.folderId, destination: .after(anchor.id))
+    }
+    return workspace
+}
+
+@MainActor
+func createFreshAdjacentBlankWorkspace(folderId: WorkspaceFolderId, monitor: Monitor, after anchor: Workspace?) -> Workspace {
+    let workspace = createBlankWorkspace(folderId: folderId, monitor: monitor)
+    if let anchor, anchor.folderId == folderId {
+        _ = winMuxWorkspaceState.reorderWorkspace(workspace.id, inFolder: folderId, destination: .after(anchor.id))
     }
     return workspace
 }
@@ -224,12 +241,26 @@ func closeWorkspaceIfEmptiedByLastWindowClosure(_ workspace: Workspace?) {
         return
     }
 
-    let retainedEmptyWorkspaceIds = retainedEmptyWorkspaceIdsByScope()
-    let replacement = replacementWorkspaceForPrunedWorkspace(
-        workspace,
-        retainedEmptyWorkspaceIds: retainedEmptyWorkspaceIds,
-        excludingWorkspaceIds: [workspace.id]
-    )
+    let isLastWorkspaceInProject = projectWorkspaces(projectId: workspace.projectId)
+        .filter { !$0.isArchived }
+        .count == 1
+    let replacement: Workspace?
+    if isLastWorkspaceInProject {
+        let fallbackProjectId = workspaceProjectFallbackForDeletion(excluding: workspace.projectId)
+        replacement = getOrCreateFallbackWorkspace(
+            projectId: fallbackProjectId,
+            monitor: workspace.workspaceMonitor,
+            excluding: workspace,
+            excludingIds: [workspace.id]
+        )
+    } else {
+        let retainedEmptyWorkspaceIds = retainedEmptyWorkspaceIdsByScope()
+        replacement = replacementWorkspaceForPrunedWorkspace(
+            workspace,
+            retainedEmptyWorkspaceIds: retainedEmptyWorkspaceIds,
+            excludingWorkspaceIds: [workspace.id]
+        )
+    }
     if workspace.isVisible, let replacement {
         check(
             workspace.workspaceMonitor.setActiveWorkspace(replacement),
@@ -389,20 +420,20 @@ func ensureVisibleActiveProjectWorkspaces() {
 
 @MainActor
 private func fallbackProjectIdForMissingActiveWorkspace(on viewportId: MonitorViewportId) -> WorkspaceProjectId {
-    guard let viewport = winMuxWorkspaceState.monitorViewportsById[viewportId] else {
-        return workspaceProjectDefaultId
-    }
-    if let previousProjectId = viewport.previousWorkspaceId.flatMap({ winMuxWorkspaceState.workspaceById[$0]?.projectId }) {
+    let viewport = winMuxWorkspaceState.monitorViewportsById[viewportId]
+    if let previousProjectId = viewport?.previousWorkspaceId.flatMap({ winMuxWorkspaceState.workspaceById[$0]?.projectId }) {
         return previousProjectId
     }
-    if let rememberedProjectId = viewport.lastActiveWorkspaceByProject
+    if let rememberedProjectId = viewport?.lastActiveWorkspaceByProject
         .sorted(by: { $0.key < $1.key })
         .first(where: { entry in winMuxWorkspaceState.workspaceById[entry.value] != nil })?
         .key
     {
         return rememberedProjectId
     }
-    return workspaceProjectDefaultId
+    return winMuxWorkspaceState.projectsById[workspaceProjectDefaultId].map { _ in workspaceProjectDefaultId }
+        ?? workspaceProjects().first?.id
+        ?? createWorkspaceProject(displayName: "Default").id
 }
 
 @MainActor

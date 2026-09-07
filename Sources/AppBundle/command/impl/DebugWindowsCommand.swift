@@ -79,7 +79,7 @@ private func dumpWindowDebugInfo(_ window: Window) async throws -> String {
 
     var result: [String: Json] = try await window.dumpAxInfo()
 
-    let windowLevel = getWindowLevel(for: window.windowId)
+    let windowLevel = try await getWindowLevel(for: window.windowId)
     let windowLevelJson = windowLevel?.toJson() ?? .null
     result["WinMux.windowLevel"] = windowLevelJson
     result["WinMux.axWindowId"] = .uint32(window.windowId)

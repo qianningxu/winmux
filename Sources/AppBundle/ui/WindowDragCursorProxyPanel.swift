@@ -18,7 +18,7 @@ final class WindowDragCursorProxyPanel: NSPanelHud {
         isExcludedFromWindowsMenu = true
         animationBehavior = .none
         ignoresMouseEvents = true
-        backgroundColor = .clear
+        backgroundColor = WinMuxDesignTokens.transparentNSColor
         applyWinMuxLayer(.dragCursorProxy)
         level = NSWindow.Level(rawValue: WinMuxPanelLayer.workspaceSidebar.level.rawValue + 1)
         contentView = hostingView

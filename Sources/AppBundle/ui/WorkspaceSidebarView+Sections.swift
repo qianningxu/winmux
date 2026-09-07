@@ -9,22 +9,17 @@ extension WorkspaceSidebarView {
     ) -> some View {
         WorkspaceSidebarMonitorSelector(
             scopes: snapshot.monitorScopes,
-            projects: snapshot.projects,
+            projects: [],
             selectedScopeId: snapshot.selectedMonitorScopeId,
             activeProjectId: snapshot.activeProjectId,
-            browsedProjectId: browsedProjectId,
+            browsedProjectId: nil,
             expansionProgress: expansionProgress,
             sectionWidth: workspaceSidebarTopSectionWidth(expansionProgress: expansionProgress),
             onSelectScope: { scopeId in
-                if scopeId == workspaceSidebarDefaultScopeId {
-                    browseMode = .activeProject
-                }
                 actions.send(.selectMonitorScope(scopeId))
             },
             onSelectProject: { projectId in
-                WorkspaceSidebarPanel.panel(for: snapshot.targetMonitorScopeId)?.cancelExpansionWork()
-                browseMode = projectId.map { .split(otherProjectId: $0) } ?? .activeProject
-                showsPinnedActiveWorkspaceForBrowsedProject = false
+                // Project browsing is available only from the top-left selector.
             },
             onRenameProject: { project in
                 beginProjectRename(project)
@@ -64,19 +59,18 @@ extension WorkspaceSidebarView {
         leadingInset: CGFloat,
         trailingInset: CGFloat,
     ) -> some View {
-        WorkspaceSidebarWidgetStack(
+        let sectionWidth = workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration)
+        return WorkspaceSidebarWidgetStack(
             widgets: snapshot.configuration.widgets,
-            sectionWidth: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration),
+            sectionWidth: sectionWidth,
             isCompact: isCompact,
             showsNotePad: showsNotePad,
-            showsTasks: showsTasks,
         )
         .fixedSize(horizontal: false, vertical: true)
         .layoutPriority(1)
         .padding(.leading, leadingInset)
         .padding(.trailing, trailingInset)
-        .padding(.top, 4)
-        .padding(.bottom, workspaceSidebarStatusBottomPadding(isCompact: isCompact) + 4)
+        .padding(.bottom, workspaceSidebarStatusBottomPadding(isCompact: isCompact))
     }
 
     func sidebarSearchSection(
@@ -84,17 +78,17 @@ extension WorkspaceSidebarView {
         leadingInset: CGFloat,
         trailingInset: CGFloat,
     ) -> some View {
-        HStack(spacing: 7) {
-            let palette = WinMuxOverlayPalette(colorScheme: colorScheme)
+        HStack(spacing: standardGap * 3.5) {
+            let palette = sidebarPalette
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(palette.foreground(0.66))
+                .foregroundStyle(palette.content(.secondary))
                 .frame(width: 14)
 
             Text(searchText)
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
-                .foregroundStyle(palette.foreground(0.9))
+                .foregroundStyle(palette.content(.primary))
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {
@@ -103,22 +97,22 @@ extension WorkspaceSidebarView {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(palette.foreground(0.7))
+                    .foregroundStyle(palette.content(.secondary))
                     .frame(width: 18, height: 18)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Clear search")
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, standardGap * 4)
         .frame(width: workspaceSidebarSectionWidth(expansionProgress, layout: snapshot.configuration), height: workspaceSidebarSearchHeight)
         .background {
             RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius, style: .continuous)
-                .fill(WinMuxOverlayPalette(colorScheme: colorScheme).contrastingFill(darkOpacity: 0.11, lightOpacity: 0.09))
+                .fill(sidebarPalette.componentBackground(.normal))
         }
         .overlay {
             RoundedRectangle(cornerRadius: workspaceSidebarDropdownCornerRadius, style: .continuous)
-                .strokeBorder(WinMuxOverlayPalette(colorScheme: colorScheme).contrastingFill(darkOpacity: 0.12, lightOpacity: 0.13), lineWidth: 0.6)
+                .strokeBorder(sidebarPalette.geistBorder(.normal), lineWidth: 0.6)
         }
         .padding(.leading, leadingInset)
         .padding(.trailing, trailingInset)

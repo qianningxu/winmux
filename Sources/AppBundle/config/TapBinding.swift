@@ -90,7 +90,9 @@ func parseTapBindings(_ raw: TOMLValueConvertible, _ backtrace: TomlBacktrace, _
                 "Unsupported tap binding key '\(binding)'. Supported keys: \(TapModifierKey.allCases.map(\.rawValue).joined(separator: ", "))",
             ))
             .flatMap { tapKey -> ParsedToml<TapBinding> in
-                parseCommandOrCommands(rawCommand).toParsedToml(backtrace).map {
+                parseCommandOrCommands(rawCommand).toParsedToml(backtrace).flatMap {
+                    validateHotkeyBindingCommands($0, backtrace: backtrace)
+                }.map {
                     TapBinding(tapKey, $0, descriptionWithKeyNotation: binding)
                 }
             }

@@ -5,6 +5,8 @@ struct WorkspaceSidebarPanelLayout {
     let expandedWidth: CGFloat
     let collapsedWidth: CGFloat
     let metrics: WorkspaceSidebarSideAreaMetrics
+    let topBarRegion: NSRect
+    let barHeight: CGFloat
 }
 
 extension WorkspaceSidebarPanel {
@@ -19,21 +21,26 @@ extension WorkspaceSidebarPanel {
         else { return nil }
         guard !shouldSuppressWorkspaceSidebarForFullscreenContent() else { return nil }
 
-        let sidebarConfig = config.workspaceSidebar
-        let expandedWidth = CGFloat(sidebarConfig.width)
-        let collapsedWidth = CGFloat(sidebarConfig.collapsedWidth)
-        guard expandedWidth > 0, collapsedWidth > 0 else { return nil }
+        let barHeight = workspaceSidebarTopBarHeight(for: screen)
+        let topBarRegion = workspaceSidebarTopBarRegion(for: screen, barHeight: barHeight)
+        guard topBarRegion.width > 0, barHeight > 0 else { return nil }
+        let frame = workspaceSidebarTopBarPanelFrame(
+            screenFrame: screen.frame,
+            visibleFrame: screen.visibleFrame,
+            auxiliaryTopLeftArea: screen.auxiliaryTopLeftArea,
+            auxiliaryTopRightArea: screen.auxiliaryTopRightArea,
+            barHeight: barHeight,
+            extraWidth: projectActionMenuPresentationExtraWidth,
+            extraHeight: projectMenuPresentationExtraHeight,
+        )
 
         return WorkspaceSidebarPanelLayout(
-            frame: workspaceSidebarPanelFrame(
-                screenFrame: screen.frame,
-                visibleFrame: screen.visibleFrame,
-                width: screen.visibleFrame.width,
-                extraTopReserveHeight: CGFloat(sidebarConfig.menuBarReserveHeight)
-            ),
-            expandedWidth: expandedWidth,
-            collapsedWidth: collapsedWidth,
+            frame: frame,
+            expandedWidth: frame.width,
+            collapsedWidth: frame.width,
             metrics: .standard,
+            topBarRegion: topBarRegion,
+            barHeight: barHeight,
         )
     }
 
@@ -50,6 +57,139 @@ func workspaceSidebarScreen(for monitor: Monitor) -> NSScreen? {
     NSScreen.screens.getOrNil(
         atIndex: monitor.monitorAppKitNsScreenScreensId - 1
     ) ?? NSScreen.screens.first
+}
+
+let workspaceSidebarTopBarFallbackStatusLaneWidth: CGFloat = 520
+
+@MainActor
+func workspaceSidebarTopBarHeight(for screen: NSScreen) -> CGFloat {
+    let nativeMenuBarHeight = max(
+        screen.frame.maxY - screen.visibleFrame.maxY,
+        NSStatusBar.system.thickness,
+    )
+    return max(nativeMenuBarHeight, screen.safeAreaInsets.top)
+}
+
+@MainActor
+func workspaceSidebarTopBarRegion(for screen: NSScreen, barHeight: CGFloat? = nil) -> NSRect {
+    let resolvedBarHeight = max(barHeight ?? workspaceSidebarTopBarHeight(for: screen), 1)
+    return workspaceSidebarTopBarRegionFrame(
+        screenFrame: screen.frame,
+        auxiliaryTopLeftArea: screen.auxiliaryTopLeftArea,
+        barHeight: resolvedBarHeight,
+    )
+}
+
+@MainActor
+func menuBarStatusWidgetRegion(for screen: NSScreen, barHeight: CGFloat? = nil) -> NSRect {
+    let resolvedBarHeight = max(barHeight ?? workspaceSidebarTopBarHeight(for: screen), 1)
+    return menuBarStatusWidgetRegionFrame(
+        screenFrame: screen.frame,
+        auxiliaryTopRightArea: screen.auxiliaryTopRightArea,
+        barHeight: resolvedBarHeight,
+    )
+}
+
+@MainActor
+func workspaceSidebarTopBarVisibleOverlap(for monitor: Monitor) -> CGFloat {
+    guard let screen = workspaceSidebarScreen(for: monitor) else { return 0 }
+    let barHeight = workspaceSidebarTopBarHeight(for: screen)
+    let visualSurfaceBottom = screen.frame.maxY - barHeight
+    return max(screen.visibleFrame.maxY - visualSurfaceBottom, 0)
+}
+
+func workspaceSidebarTopBarRegionFrame(
+    screenFrame: NSRect,
+    auxiliaryTopLeftArea: NSRect?,
+    barHeight: CGFloat,
+) -> NSRect {
+    let resolvedBarHeight = max(barHeight, 1)
+    if let auxiliaryTopLeftArea,
+       auxiliaryTopLeftArea.width > 0,
+       auxiliaryTopLeftArea.height > 0
+    {
+        return NSRect(
+            x: auxiliaryTopLeftArea.minX,
+            y: screenFrame.maxY - resolvedBarHeight,
+            width: auxiliaryTopLeftArea.width,
+            height: resolvedBarHeight,
+        )
+    }
+
+    let statusLaneWidth = min(
+        workspaceSidebarTopBarFallbackStatusLaneWidth,
+        max(screenFrame.width * 0.45, 1),
+    )
+    return NSRect(
+        x: screenFrame.minX,
+        y: screenFrame.maxY - resolvedBarHeight,
+        width: max(screenFrame.width - statusLaneWidth, 1),
+        height: resolvedBarHeight,
+    )
+}
+
+func menuBarStatusWidgetRegionFrame(
+    screenFrame: NSRect,
+    auxiliaryTopRightArea: NSRect?,
+    barHeight: CGFloat,
+) -> NSRect {
+    let resolvedBarHeight = max(barHeight, 1)
+    if let auxiliaryTopRightArea,
+       auxiliaryTopRightArea.width > 0,
+       auxiliaryTopRightArea.height > 0
+    {
+        return NSRect(
+            x: auxiliaryTopRightArea.minX,
+            y: screenFrame.maxY - resolvedBarHeight,
+            width: auxiliaryTopRightArea.width,
+            height: resolvedBarHeight,
+        )
+    }
+
+    let statusLaneWidth = min(
+        workspaceSidebarTopBarFallbackStatusLaneWidth,
+        max(screenFrame.width * 0.45, 1),
+    )
+    return NSRect(
+        x: screenFrame.maxX - statusLaneWidth,
+        y: screenFrame.maxY - resolvedBarHeight,
+        width: statusLaneWidth,
+        height: resolvedBarHeight,
+    )
+}
+
+func workspaceSidebarTopBarPanelFrame(
+    screenFrame: NSRect,
+    visibleFrame _: NSRect,
+    auxiliaryTopLeftArea: NSRect?,
+    auxiliaryTopRightArea: NSRect? = nil,
+    barHeight: CGFloat,
+    extraWidth: CGFloat = 0,
+    extraHeight: CGFloat = 0,
+) -> NSRect {
+    let resolvedBarHeight = max(barHeight, 1)
+    let baseRegion = workspaceSidebarTopBarRegionFrame(
+        screenFrame: screenFrame,
+        auxiliaryTopLeftArea: auxiliaryTopLeftArea,
+        barHeight: resolvedBarHeight,
+    )
+
+    let top = min(max(baseRegion.maxY, screenFrame.minY + 1), screenFrame.maxY)
+    let barBottom = min(max(baseRegion.minY, screenFrame.minY), top - 1)
+    let bottom = max(screenFrame.minY, barBottom - max(extraHeight, 0))
+    let statusRegion = menuBarStatusWidgetRegionFrame(
+        screenFrame: screenFrame,
+        auxiliaryTopRightArea: auxiliaryTopRightArea,
+        barHeight: resolvedBarHeight,
+    )
+    let maxWidth = max(statusRegion.minX - baseRegion.minX, 1)
+    let width = min(max(baseRegion.width + max(extraWidth, 0), 1), maxWidth)
+    return NSRect(
+        x: baseRegion.minX,
+        y: bottom,
+        width: width,
+        height: max(top - bottom, 1),
+    )
 }
 
 func workspaceSidebarPanelFrame(

@@ -73,17 +73,22 @@ func getOrCreateFallbackWorkspace(
 
 @MainActor
 func projectWorkspaces(projectId: WorkspaceProjectId) -> [Workspace] {
-    let folderId = WorkspaceFolderId(projectId)
-    guard let folder = winMuxWorkspaceState.workspaceFoldersById[folderId] else { return [] }
-    let indexedWorkspaces = folder.workspaceOrder
-        .compactMap { winMuxWorkspaceState.workspaceById[$0] }
-        .filter { $0.folderId == folderId }
-    if !indexedWorkspaces.isEmpty {
-        return indexedWorkspaces
+    winMuxWorkspaceState.pruneProjectWorkspaceIndexes()
+    var seen: Set<WorkspaceId> = []
+    var result: [Workspace] = []
+    for folder in workspaceFoldersInSidebarOrder(projectId: projectId) {
+        for workspaceId in folder.workspaceOrder {
+            guard let workspace = winMuxWorkspaceState.workspaceById[workspaceId],
+                  workspace.folderId == folder.id,
+                  seen.insert(workspaceId).inserted
+            else { continue }
+            result.append(workspace)
+        }
     }
-    return Workspace.all
-        .filter { $0.folderId == folderId }
-        .sorted()
+    result.append(contentsOf: Workspace.all.filter {
+        $0.projectId == projectId && seen.insert($0.id).inserted
+    })
+    return result
 }
 
 @MainActor
@@ -107,18 +112,25 @@ func orderedWorkspaces(in projectId: WorkspaceProjectId) -> [Workspace] {
 
 @MainActor
 func orderedWorkspacesForPresentation() -> [Workspace] {
-    guard projectsAreEnabled() else {
-        return orderedWorkspacesAcrossProjectIndexes()
-    }
+    winMuxWorkspaceState.pruneProjectWorkspaceIndexes()
+    return orderedWorkspacesForPresentationFromPreparedHierarchy(workspaceProjects())
+}
+
+@MainActor
+func orderedWorkspacesForPresentationFromPreparedHierarchy(
+    _ projects: [WorkspaceProject]
+) -> [Workspace] {
     var seen: Set<WorkspaceId> = []
     var result: [Workspace] = []
-    for project in workspaceProjects() {
-        for workspaceId in project.workspaceOrder {
-            guard let workspace = winMuxWorkspaceState.workspaceById[workspaceId],
-                  !workspace.isArchived,
-                  seen.insert(workspaceId).inserted
-            else { continue }
-            result.append(workspace)
+    for project in projects {
+        for folder in workspaceFoldersInSidebarOrder(projectId: project.id) {
+            for workspaceId in folder.workspaceOrder {
+                guard let workspace = winMuxWorkspaceState.workspaceById[workspaceId],
+                      !workspace.isArchived,
+                      seen.insert(workspaceId).inserted
+                else { continue }
+                result.append(workspace)
+            }
         }
     }
     result.append(contentsOf: Workspace.all.filter { !$0.isArchived && seen.insert($0.id).inserted })

@@ -17,25 +17,25 @@ struct WorkspaceSidebarWindowRow: View {
     let suppressFocusedStyle: Bool
     let rowHeight: CGFloat
     let isHovered: Bool
+    let isActiveInteraction: Bool
     let style: Style
     let appBundleIds: [String?]
     let appBundlePaths: [String?]
     let reservesCloseButtonSpace: Bool
     let leadingContentInset: CGFloat
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
 
     private var isTabGroupHeader: Bool { style == .tabGroupHeader }
     private var isTabGroupChild: Bool { style == .tabGroupChild }
     private var isActiveRow: Bool { isFocused && !suppressFocusedStyle }
-    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
-    private var rowShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
     }
-
     var body: some View {
         HStack(spacing: workspaceSidebarAppIconTextSpacing) {
             if leadingContentInset > 0 {
-                Color.clear
+                WinMuxDesignTokens.transparent
                     .frame(width: leadingContentInset)
             }
             appIconStack
@@ -48,36 +48,22 @@ struct WorkspaceSidebarWindowRow: View {
             if let badge {
                 Text(badge)
                     .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(palette.foreground(isTabGroupHeader ? 0.50 : 0.38))
+                    .foregroundStyle(palette.content(.secondary))
             }
             if reservesCloseButtonSpace {
-                Color.clear
+                WinMuxDesignTokens.transparent
                     .frame(width: workspaceSidebarWindowCloseButtonReservedWidth)
             }
         }
         .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
-        .padding(.vertical, 1)
+        .padding(.vertical, standardGap * 0.5)
         .frame(height: rowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            rowShape
-                .fill(rowBackgroundFill)
-            if isHovered && !isActiveRow {
-                rowShape
-                    .fill(rowHoverOverlayFill)
-            }
-        }
-        .overlay {
-            if showsRowStroke {
-                rowShape
-                    .strokeBorder(rowBorderColor, lineWidth: isActiveRow ? 0.95 : 0.75)
-            }
-        }
-        .shadow(
-            color: activeRowShadowColor,
-            radius: isActiveRow && !isTabGroupHeader ? 1.5 : 0,
-            x: 0,
-            y: isActiveRow && !isTabGroupHeader ? 0.5 : 0
+        .workspaceSidebarTabRowChrome(
+            palette,
+            isSelected: isActiveRow,
+            isHovered: isHovered,
+            isActiveInteraction: isActiveInteraction
         )
         .contentShape(Rectangle())
     }
@@ -85,7 +71,7 @@ struct WorkspaceSidebarWindowRow: View {
     @ViewBuilder
     private var appIconStack: some View {
         if isTabGroupHeader {
-            HStack(spacing: -3) {
+            HStack(spacing: standardGap * -1.5) {
                 ForEach(Array(appIconInputs.prefix(4).enumerated()), id: \.offset) { _, input in
                     appIcon(input)
                 }
@@ -107,12 +93,6 @@ struct WorkspaceSidebarWindowRow: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: rowIconSize, height: rowIconSize)
                     .cornerRadius(isTabGroupChild ? 4 : 3)
-                    .opacity(rowIconOpacity)
-                    .workspaceSidebarIconStroke(
-                        palette,
-                        cornerRadius: isTabGroupChild ? 4 : 3,
-                        isActive: isActiveRow
-                    )
             }
         }
     }
@@ -134,40 +114,11 @@ struct WorkspaceSidebarWindowRow: View {
 
     private var rowTextColor: Color {
         if isActiveRow {
-            return palette.foreground(isTabGroupHeader ? 0.96 : 1)
+            return palette.content(.primary)
         }
-        if isTabGroupChild {
-            return palette.foreground(0.86)
-        }
-        return palette.foreground(0.78)
+        return palette.content(isTabGroupChild ? .primary : .secondary)
     }
 
-    private var rowIconOpacity: Double {
-        1
-    }
-
-    private var rowBackgroundFill: Color {
-        if isActiveRow, !isTabGroupHeader {
-            return palette.selectedSurface()
-        }
-        return Color.clear
-    }
-
-    private var rowHoverOverlayFill: Color {
-        palette.tabHoverSurface()
-    }
-
-    private var showsRowStroke: Bool {
-        isHovered || (isActiveRow && !isTabGroupHeader)
-    }
-
-    private var rowBorderColor: Color {
-        palette.tabStroke(active: isActiveRow && !isTabGroupHeader)
-    }
-
-    private var activeRowShadowColor: Color {
-        palette.shadow(0.14, lightOpacity: 0.08)
-    }
 }
 
 // MARK: - Drop Preview Row
@@ -178,44 +129,45 @@ struct WorkspaceSidebarPreviewRow: View {
     let rowHeight: CGFloat
     let expandedContentWidth: CGFloat
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
 
-    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
 
     var body: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: standardGap * 3.5) {
             ZStack {
                 Circle()
-                    .fill(palette.gray200(palette.isDark ? 0.86 : 0.94))
+                    .fill(palette.componentBackground(.hover))
                 Image(systemName: preview.isTabGroup ? "square.stack.3d.up.fill" : "macwindow")
                     .font(.system(size: 9.5, weight: .semibold))
-                    .foregroundStyle(palette.foreground(0.68))
+                    .foregroundStyle(palette.content(.secondary))
             }
             .frame(width: 18, height: 18)
-            .opacity(0.92)
 
             Text(preview.label)
                 .font(.system(size: 11.2, weight: .semibold))
-                .foregroundStyle(palette.foreground(0.82))
+                .foregroundStyle(palette.content(.primary))
                 .lineLimit(1)
                 .opacity(max(expansionProgress, 0.12))
             Spacer(minLength: 0)
         }
         .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
-        .padding(.vertical, 1.5)
+        .padding(.vertical, standardGap * 0.75)
         .frame(height: rowHeight + 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
-                .fill(palette.selectedSurface(palette.isDark ? 0.86 : 0.94))
+                .fill(palette.geistBackground(.primary))
                 .overlay {
                     RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
                         .strokeBorder(
-                            palette.tabStroke(active: true),
+                            palette.geistBorder(.active),
                             lineWidth: 0.9
                         )
                 }
         )
-        .shadow(color: palette.shadow(0.10, lightOpacity: 0.035), radius: 4, y: 1)
         .contentShape(Rectangle())
         .allowsHitTesting(false)
     }

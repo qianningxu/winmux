@@ -32,13 +32,19 @@ extension Workspace {
         // If monitors are aligned vertically and the monitor below has smaller width, then macOS may not allow the
         // window on the upper monitor to take full width. rect.height - 1 resolves this problem
         // But I also faced this problem in monitors horizontal configuration. ¯\_(ツ)_/¯
-        try await layoutRecursive(rect.topLeftCorner, width: rect.width, height: rect.height - 1, virtual: rect, context)
+        let bottomAdjustment: CGFloat = config.workspaceSidebar.enabled ? 0 : 1
+        try await layoutRecursive(rect.topLeftCorner, width: rect.width, height: rect.height - bottomAdjustment, virtual: rect, context)
     }
 }
 
 extension TreeNode {
     @MainActor
     fileprivate func layoutRecursive(_ point: CGPoint, width: CGFloat, height: CGFloat, virtual: Rect, _ context: LayoutContext) async throws {
+        try checkCancellation()
+        guard !TrayMenuModel.shared.isEnabled || context.workspace.isVisible else { return }
+        // AX calls below can suspend this MainActor task. A newer refresh may move or
+        // detach the subtree before this layout pass resumes.
+        guard self === context.workspace || nodeWorkspace === context.workspace else { return }
         let physicalRect = Rect(topLeftX: point.x, topLeftY: point.y, width: width, height: height)
         switch nodeCases {
             case .workspace(let workspace):
@@ -63,9 +69,16 @@ extension TreeNode {
                         if !isFullscreenTab {
                             window.isFullscreen = false
                         }
+                        // A matching cached target is not evidence the window
+                        // is onscreen: a cancelled hide/frame job may have moved
+                        // it since the last observation. Verify before reusing it.
+                        let sidebarInset = context.workspace.workspaceMonitor.workspaceSidebarInset
+                        let actualRect = sidebarInset > 0 ? try await window.getAxRect() : window.lastKnownActualRect
+                        try checkCancellation()
+                        guard !TrayMenuModel.shared.isEnabled || context.workspace.isVisible else { return }
                         if shouldSynchronouslyApplySidebarProtectedFrame(
-                            sidebarInset: context.workspace.workspaceMonitor.workspaceSidebarInset,
-                            actualRect: window.lastKnownActualRect,
+                            sidebarInset: sidebarInset,
+                            actualRect: actualRect,
                             targetRect: physicalRect
                         ), let macWindow = window as? MacWindow {
                             try await macWindow.setAxFrameBlocking(point, CGSize(width: width, height: height))
@@ -124,7 +137,7 @@ private struct LayoutContext {
     @MainActor
     init(_ workspace: Workspace) {
         self.workspace = workspace
-        self.resolvedGaps = ResolvedGaps(gaps: config.gaps, monitor: workspace.workspaceMonitor)
+        self.resolvedGaps = ResolvedGaps(gaps: config.gaps, monitor: workspace.workspaceMonitor, canvasGap: config.workspaceSidebar.enabled ? Int(workspaceSidebarStandardGap) : nil)
     }
 }
 
@@ -176,7 +189,9 @@ extension TilingContainer {
 
         let lastIndex = children.indices.last
         for (i, child) in children.enumerated() {
-            child.setWeight(orientation, child.getWeight(orientation) + delta)
+            guard nodeWorkspace === context.workspace, child.parent === self else { return }
+            let childWeight = child.getWeight(orientation) + delta
+            child.setWeight(orientation, childWeight)
             let rawGap = context.resolvedGaps.inner.get(orientation).toDouble()
             // Gaps. Consider 4 cases:
             // 1. Multiple children. Layout first child
@@ -186,18 +201,18 @@ extension TilingContainer {
             let gap = rawGap - (i == 0 ? rawGap / 2 : 0) - (i == lastIndex ? rawGap / 2 : 0)
             try await child.layoutRecursive(
                 i == 0 ? point : point.addingOffset(orientation, rawGap / 2),
-                width: orientation == .h ? child.hWeight - gap : width,
-                height: orientation == .v ? child.vWeight - gap : height,
+                width: orientation == .h ? childWeight - gap : width,
+                height: orientation == .v ? childWeight - gap : height,
                 virtual: Rect(
                     topLeftX: virtualPoint.x,
                     topLeftY: virtualPoint.y,
-                    width: orientation == .h ? child.hWeight : width,
-                    height: orientation == .v ? child.vWeight : height,
+                    width: orientation == .h ? childWeight : width,
+                    height: orientation == .v ? childWeight : height,
                 ),
                 context,
             )
-            virtualPoint = orientation == .h ? virtualPoint.addingXOffset(child.hWeight) : virtualPoint.addingYOffset(child.vWeight)
-            point = orientation == .h ? point.addingXOffset(child.hWeight) : point.addingYOffset(child.vWeight)
+            virtualPoint = orientation == .h ? virtualPoint.addingXOffset(childWeight) : virtualPoint.addingYOffset(childWeight)
+            point = orientation == .h ? point.addingXOffset(childWeight) : point.addingYOffset(childWeight)
         }
     }
 

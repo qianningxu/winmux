@@ -1,13 +1,14 @@
-config-version = 2
+config-version = 3
 
 start-at-login = false
 auto-reload-config = true
+enable-projects = true
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true
 folder-padding = 30
 
-window-tabs.enabled = false
-window-tabs.height = 36
+window-tabs.enabled = true
+window-tabs.height = 28
 
 default-root-container-layout = 'tiles'
 default-root-container-orientation = 'auto'
@@ -35,24 +36,26 @@ on-mode-changed = []
     enabled = true
     collapsed-width = 44
     width = 212
-    # Omit monitor to show an independent sidebar on every display.
-    # Legacy monitor = 'main' is also treated as all displays for this sidebar.
+    # Omit monitor to show an independent tab bar on every display.
+    # Legacy monitor = 'main' is also treated as all displays for the tab bar.
     # Use monitor = 1, 'secondary', 2, or a list to restrict it.
-    menu-bar-reserve-height = 28
+    menu-bar-reserve-height = 36
     folder-deletion-action = 'close-windows'
     widgets = [
-        { id = 'tasks', type = 'built-in/tasks', enabled = true, tasks-path = '/Users/side/Documents/now/my_app/self/self_ob/Others/Tasks' },
         { id = 'time-date', type = 'built-in/time-date', enabled = false, show-date = true },
         { id = 'today-focus', type = 'built-in/today-focus', enabled = true, entries-path = '/Users/side/Documents/now/my_app/self/self_data/data' },
         { id = 'period-heatmap', type = 'built-in/period-heatmap', enabled = false, entries-path = '/Users/side/Documents/now/my_app/self/self_data/data' },
         { id = 'toggl-week-focus', type = 'built-in/toggl-week-focus', enabled = false, entries-path = '/Users/side/Documents/now/my_app/self/self_data/data', target-date = '2026-09-13' },
-        { id = 'toggl-weekly-focus', type = 'built-in/toggl-weekly-focus', enabled = false, entries-path = '/Users/side/Documents/now/my_app/self/self_data/data', target-date = '2026-09-13' },
+        { id = 'toggl-weekly-focus', type = 'built-in/toggl-weekly-focus', enabled = true, entries-path = '/Users/side/Documents/now/my_app/self/self_data/data', target-date = '2026-09-13' },
     ]
 
 [mode.main.binding]
+    cmd-s = 'focus --wrap-around pane-next'
+    alt-s = 'focus --wrap-around stack-next'
     ctrl-tab = []
     ctrl-shift-tab = []
     ctrl-f = 'open-sidebar'
+    alt-b = 'open-sidebar'
     alt-space = 'layout horizontal vertical'
     alt-h = 'focus left'
     alt-j = 'focus down'
@@ -83,19 +86,13 @@ on-mode-changed = []
     cmd-shift-j = 'join-with down'
     cmd-shift-k = 'join-with up'
     cmd-shift-l = 'join-with right'
+    ctrl-cmd-shift-h = 'stack-with left'
+    ctrl-cmd-shift-j = 'stack-with down'
+    ctrl-cmd-shift-k = 'stack-with up'
+    ctrl-cmd-shift-l = 'stack-with right'
     cmd-shift-i = 'balance-sizes'
     alt-cmd-j = 'swap down'
     alt-cmd-k = 'swap up'
-    ctrl-0 = 'folder 10'
-    ctrl-1 = 'folder 1'
-    ctrl-2 = 'folder 2'
-    ctrl-3 = 'folder 3'
-    ctrl-4 = 'folder 4'
-    ctrl-5 = 'folder 5'
-    ctrl-6 = 'folder 6'
-    ctrl-7 = 'folder 7'
-    ctrl-8 = 'folder 8'
-    ctrl-9 = 'folder 9'
     ctrl-q = 'tab 11'
     ctrl-w = 'tab 12'
     ctrl-e = 'tab 13'
@@ -115,16 +112,5 @@ on-mode-changed = []
     alt-shift-7 = 'move-node-to-tab 7'
     alt-shift-8 = 'move-node-to-tab 8'
     alt-shift-9 = 'move-node-to-tab 9'
-    ctrl-shift-0 = 'move-node-to-folder 10'
-    ctrl-shift-1 = 'move-node-to-folder 1'
-    ctrl-shift-2 = 'move-node-to-folder 2'
-    ctrl-shift-3 = 'move-node-to-folder 3'
-    ctrl-shift-4 = 'move-node-to-folder 4'
-    ctrl-shift-5 = 'move-node-to-folder 5'
-    ctrl-shift-6 = 'move-node-to-folder 6'
-    ctrl-shift-7 = 'move-node-to-folder 7'
-    ctrl-shift-8 = 'move-node-to-folder 8'
-    ctrl-shift-9 = 'move-node-to-folder 9'
     ctrl-shift-h = 'move-node-to-tab --focus-follows-window prev'
     ctrl-shift-l = 'move-node-to-tab --focus-follows-window next'
-    ctrl-shift-n = 'move-node-to-folder default'

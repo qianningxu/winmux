@@ -25,8 +25,11 @@ struct WorkspaceSidebarProjectPager: View {
     @State var projectTrackContentWidth: CGFloat = 0
     @State var projectTrackViewportWidth: CGFloat = 0
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) var projectThemeFamily
 
-    var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+    var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
     var sectionWidth: CGFloat { workspaceSidebarSectionWidth(expansionProgress, layout: layout) }
     var isCompact: Bool { expansionProgress < workspaceSidebarRowsRevealProgress }
     var currentIndex: Int? {
@@ -114,7 +117,7 @@ struct WorkspaceSidebarProjectPager: View {
         .padding(.horizontal, isCompact ? 2 : 0)
         .frame(width: sectionWidth, height: pagerHeight, alignment: .bottom)
         .contextMenu {
-            Button("New Folder") {
+            Button("New folder") {
                 onCreateProject()
             }
         }

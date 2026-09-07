@@ -28,6 +28,23 @@ final class WorkspaceTabMigrationTest: XCTestCase {
         XCTAssertFalse(Workspace.all.contains { $0.rootTilingContainer.layout == .tabGroup && $0.rootTilingContainer.children.count > 1 })
     }
 
+    func testWindowTabsKeepTabGroupsDuringWorkspaceReconciliation() {
+        config.windowTabs.enabled = true
+        let workspace = Workspace.get(byName: "1")
+        let root = workspace.rootTilingContainer
+        root.layout = .tabGroup
+        let first = TestWindow.new(id: 1, parent: root)
+        let second = TestWindow.new(id: 2, parent: root)
+        second.markAsMostRecentChild()
+
+        Workspace.reconcileWorkspaceState()
+
+        XCTAssertEqual(root.layout, .tabGroup)
+        XCTAssertEqual(root.children, [first, second])
+        XCTAssertTrue(first.nodeWorkspace === workspace)
+        XCTAssertTrue(second.nodeWorkspace === workspace)
+    }
+
     func testRootTabGroupMigrationPreservesOldTabOrderButKeepsActiveChildInOriginalTab() {
         let workspace = Workspace.get(byName: "1")
         workspace.markAsAutomaticallyNamed()
@@ -118,10 +135,10 @@ final class WorkspaceTabMigrationTest: XCTestCase {
         XCTAssertFalse(root.allTabbedContainersRecursive.contains { $0.layout == .tabGroup })
     }
 
-    func testProjectsAreHardDisabledForWorkspaceTabs() {
+    func testProjectsCanBeEnabledForWorkspaceTabs() {
         config.enableProjects = true
 
-        XCTAssertFalse(projectsAreEnabled())
+        XCTAssertTrue(projectsAreEnabled())
         XCTAssertEqual(buildWorkspaceSidebarProjectViewModels().map(\.id), [workspaceProjectDefaultId])
     }
 }

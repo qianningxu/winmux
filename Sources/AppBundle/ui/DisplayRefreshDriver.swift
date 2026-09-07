@@ -5,6 +5,47 @@ import QuartzCore
 
 private let displayRefreshHostClockFrequency = CVGetHostClockFrequency()
 
+final class DisplayRefreshFrameCoalescer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var latestTimestamp: CFTimeInterval?
+    private var hasOutstandingDelivery = false
+    private var generation: UInt64 = 0
+
+    /// Returns a token only when the caller must schedule the single delivery task.
+    func enqueue(timestamp: CFTimeInterval) -> UInt64? {
+        lock.lock()
+        defer { lock.unlock() }
+
+        latestTimestamp = latestTimestamp.map { max($0, timestamp) } ?? timestamp
+        guard !hasOutstandingDelivery else { return nil }
+        hasOutstandingDelivery = true
+        return generation
+    }
+
+    /// Keeps delivery outstanding until the task has drained every frame that
+    /// arrived while it was running.
+    func takeLatestTimestampOrFinish(generation deliveryGeneration: UInt64) -> CFTimeInterval? {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard deliveryGeneration == generation else { return nil }
+        guard let latestTimestamp else {
+            hasOutstandingDelivery = false
+            return nil
+        }
+        self.latestTimestamp = nil
+        return latestTimestamp
+    }
+
+    func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+        generation &+= 1
+        latestTimestamp = nil
+        hasOutstandingDelivery = false
+    }
+}
+
 private func displayRefreshDriverCallback(
     _: CVDisplayLink,
     _ now: UnsafePointer<CVTimeStamp>,
@@ -18,9 +59,7 @@ private func displayRefreshDriverCallback(
     let timestamp = displayRefreshHostClockFrequency > 0
         ? Double(now.pointee.hostTime) / displayRefreshHostClockFrequency
         : CACurrentMediaTime()
-    Task { @MainActor in
-        driver.fire(timestamp: timestamp)
-    }
+    driver.enqueueDisplayRefresh(timestamp: timestamp)
     return kCVReturnSuccess
 }
 
@@ -36,6 +75,7 @@ final class DisplayRefreshDriver: @unchecked Sendable {
     private var subscriptions: [ObjectIdentifier: Subscription] = [:]
     private var displayLink: CVDisplayLink?
     private var fallbackTimer: Timer?
+    nonisolated private let pendingFrames = DisplayRefreshFrameCoalescer()
 
     private init() {}
 
@@ -75,10 +115,8 @@ final class DisplayRefreshDriver: @unchecked Sendable {
     }
 
     private func startFallbackTimer() {
-        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { _ in
-            Task { @MainActor in
-                DisplayRefreshDriver.shared.fire(timestamp: CACurrentMediaTime())
-            }
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            self?.enqueueDisplayRefresh(timestamp: CACurrentMediaTime())
         }
         fallbackTimer = timer
         RunLoop.main.add(timer, forMode: .common)
@@ -93,6 +131,7 @@ final class DisplayRefreshDriver: @unchecked Sendable {
         }
         fallbackTimer?.invalidate()
         fallbackTimer = nil
+        pendingFrames.reset()
     }
 
     private func pruneReleasedOwners() {
@@ -117,6 +156,20 @@ final class DisplayRefreshDriver: @unchecked Sendable {
         }
         for subscription in subscriptions.values {
             subscription.callback(timestamp)
+        }
+    }
+
+    nonisolated fileprivate func enqueueDisplayRefresh(timestamp: CFTimeInterval) {
+        guard let generation = pendingFrames.enqueue(timestamp: timestamp) else { return }
+        Task { @MainActor [self] in
+            await deliverPendingDisplayRefreshFrames(generation: generation)
+        }
+    }
+
+    private func deliverPendingDisplayRefreshFrames(generation: UInt64) async {
+        while let timestamp = pendingFrames.takeLatestTimestampOrFinish(generation: generation) {
+            fire(timestamp: timestamp)
+            await Task.yield()
         }
     }
 

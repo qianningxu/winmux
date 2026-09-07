@@ -2,6 +2,7 @@ import AppKit
 
 @MainActor
 func buildWorkspaceSidebarModelState() async -> WorkspaceSidebarModelState {
+    let hierarchy = prepareWorkspaceSidebarHierarchyInputs()
     let currentFocus = focus
     let availableMonitors = sortedMonitors
     let focusedMonitorScopeId = workspaceSidebarMonitorScopeId(for: currentFocus.workspace.workspaceMonitor)
@@ -10,21 +11,23 @@ func buildWorkspaceSidebarModelState() async -> WorkspaceSidebarModelState {
         focusedMonitorScopeId: focusedMonitorScopeId,
     )
     let activeProjectId = currentFocus.workspace.projectId
-    let projects = buildWorkspaceSidebarProjectViewModels()
+    let projects = buildWorkspaceSidebarProjectViewModels(from: hierarchy.projects)
+    let folders = buildWorkspaceSidebarFolderViewModels(from: hierarchy.folders)
     let workspaces = await buildWorkspaceSidebarWorkspaceViewModels(
+        from: hierarchy.orderedWorkspaces,
         currentFocus: currentFocus,
         workspaceLabels: config.workspaceSidebar.workspaceLabels,
         availableMonitors: availableMonitors,
     )
-    let gaps = ResolvedGaps(gaps: config.gaps, monitor: workspaceSidebarResolvedPanelMonitor())
     return WorkspaceSidebarModelState(
         workspaces: workspaces,
         projects: projects,
+        folders: folders,
         activeProjectId: activeProjectId,
         monitorScopes: monitorScopes,
         focusedMonitorScopeId: focusedMonitorScopeId,
         showsMonitorSelector: availableMonitors.count > 1,
-        topPadding: max(CGFloat(gaps.outer.top), workspaceSidebarMinimumTopPadding),
+        topPadding: 0,
         hoveredWorkspaceName: TrayMenuModel.shared.workspaceSidebarHoveredWorkspaceName,
     )
 }

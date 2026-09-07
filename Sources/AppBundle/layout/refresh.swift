@@ -1,6 +1,24 @@
 import AppKit
 import Common
 
+@MainActor private(set) var isRestoringStartupLayout = false
+@MainActor private var refreshDeferredDuringStartup = false
+
+@MainActor
+func beginStartupLayoutRestoration() {
+    isRestoringStartupLayout = true
+}
+
+@MainActor
+func finishStartupLayoutRestoration() {
+    isRestoringStartupLayout = false
+    WorkspaceSidebarPanel.refreshAll()
+    if refreshDeferredDuringStartup {
+        refreshDeferredDuringStartup = false
+        scheduleRefreshSession(.windowInventoryReconciliation)
+    }
+}
+
 @MainActor
 private var activeRefreshTask: Task<(), any Error>? = nil
 
@@ -53,6 +71,12 @@ func shouldNoteWindowInventoryActivity(forAxNotification notification: String) -
 }
 
 private func shouldDropScheduledRefresh(_ newEvent: RefreshSessionEvent, activeEvent: RefreshSessionEvent?) -> Bool {
+    if case .workspaceSidebarWidthChanged = newEvent,
+       let activeEvent,
+       !activeEvent.isWorkspaceSidebarWidthChange
+    {
+        return true
+    }
     guard isAxGeometryRefreshEvent(newEvent), let activeEvent else { return false }
     if isAxGeometryRefreshEvent(activeEvent) {
         return true
@@ -71,7 +95,10 @@ func shouldSyncFocusBackToMacOs(
     if nativeFocused?.participatesInWorkspaceFocus == false {
         return false
     }
-    if nativeFocused == nil && frontmostActivationPolicy == .accessory {
+    // A newly activated regular app can have no AX focused window while
+    // its first window is being created. Do not reactivate the previous app
+    // during that gap (System Settings is a common example).
+    if nativeFocused == nil && frontmostActivationPolicy != nil {
         return false
     }
     return true
@@ -82,6 +109,10 @@ func scheduleRefreshSession(
     _ event: RefreshSessionEvent,
     optimisticallyPreLayoutWorkspaces: Bool = false,
 ) {
+    if isRestoringStartupLayout {
+        refreshDeferredDuringStartup = true
+        return
+    }
     if shouldDropScheduledRefresh(event, activeEvent: activeScheduledRefreshEvent) {
         debugFocusLog("scheduleRefreshSession dropped event=\(event) active=\(activeScheduledRefreshEvent?.description ?? "nil")")
         return
@@ -130,6 +161,23 @@ func runRefreshSessionBlocking(
     let state = signposter.beginInterval(#function, "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
     defer { signposter.endInterval(#function, state) }
     if !TrayMenuModel.shared.isEnabled { return }
+    if case .workspaceSidebarWidthChanged = event {
+        beginRefreshSessionActivity()
+        defer { endRefreshSessionActivity() }
+        if shouldLayoutWorkspaces {
+            try await $refreshSessionEvent.withValue(event) {
+                for monitor in monitors {
+                    try checkCancellation()
+                    try await monitor.activeWorkspace.layoutWorkspace()
+                }
+            }
+        }
+        // Sidebar expansion changes the active window rects without taking the
+        // normal refresh path. Rebuild the tab chrome from those new rects so
+        // its frame cannot retain the pre-sidebar geometry.
+        await updateWindowTabModel()
+        return
+    }
     beginRefreshSessionActivity()
     defer { endRefreshSessionActivity() }
     let focusSnapshot = captureRefreshSessionFocusSnapshot()
@@ -149,7 +197,22 @@ func runRefreshSessionBlocking(
                 try checkCancellation()
 
                 refreshModel()
-                if event.requiresWindowRefreshBarrier {
+                let targetedWindowCreationApp = event.axWindowCreatedSourcePid
+                    .flatMap { MacApp.allAppsMap[$0] }
+                if let targetedWindowCreationApp {
+                    let refreshedWindows = try await refresh(windowCreatedBy: targetedWindowCreationApp)
+                    try checkCancellation()
+                    try await normalizeLayoutReason(for: refreshedWindows)
+                    try checkCancellation()
+                    // The new window is in the tree now. Layout before the
+                    // sidebar/model update so its first resize does not wait
+                    // for unrelated UI bookkeeping.
+                    refreshModel()
+                    if shouldLayoutWorkspaces {
+                        try await layoutWorkspaces()
+                        try checkCancellation()
+                    }
+                } else if event.requiresWindowRefreshBarrier {
                     if let refreshOverrideForTests {
                         try await refreshOverrideForTests()
                     } else {
@@ -159,7 +222,7 @@ func runRefreshSessionBlocking(
                     gcMonitors()
                 }
 
-                if event.requiresLayoutReasonNormalization {
+                if event.requiresLayoutReasonNormalization, targetedWindowCreationApp == nil {
                     if let normalizeLayoutReasonOverrideForTests {
                         try await normalizeLayoutReasonOverrideForTests()
                     } else {
@@ -172,8 +235,10 @@ func runRefreshSessionBlocking(
                 await updateWorkspaceSidebarModel()
                 SecureInputPanel.shared.refresh()
                 if shouldLayoutWorkspaces {
-                    try await layoutWorkspaces()
-                    try checkCancellation()
+                    if targetedWindowCreationApp == nil {
+                        try await layoutWorkspaces()
+                        try checkCancellation()
+                    }
                     if shouldSyncFocusBackToMacOs(
                         nativeFocused: nativeFocused,
                         frontmostActivationPolicy: frontmostActivationPolicy,
@@ -207,6 +272,7 @@ func runLightSession<T>(
     _ event: RefreshSessionEvent,
     _: RunSessionGuard,
     shouldSchedulePostRefresh: Bool = true,
+    prioritizeFocusSync: Bool = false,
     body: @MainActor () async throws -> T,
 ) async throws -> T {
     let state = signposter.beginInterval(#function, "event: \(event) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
@@ -229,26 +295,43 @@ func runLightSession<T>(
                 let focusBefore = focus.windowOrNil
 
                 refreshModel()
-                let result = try await body()
-                try checkCancellation()
-                refreshModel()
+                do {
+                    let result = try await body()
+                    try checkCancellation()
+                    refreshModel()
 
-                let focusAfter = focus.windowOrNil
+                    let focusAfter = focus.windowOrNil
 
-                updateTrayText()
-                await updateWorkspaceSidebarModel()
-                SecureInputPanel.shared.refresh()
-                try await layoutWorkspaces()
-                try checkCancellation()
-                await updateWindowTabModel()
-                if focusBefore != focusAfter {
-                    focusAfter?.nativeFocus() // syncFocusToMacOs
+                    updateTrayText()
+                    SecureInputPanel.shared.refresh()
+                    if prioritizeFocusSync {
+                        try await layoutWorkspaces()
+                        try checkCancellation()
+                        if focusBefore != focusAfter {
+                            focusAfter?.nativeFocus()
+                        }
+                        await updateWorkspaceSidebarModel()
+                        await updateWindowTabModel()
+                    } else {
+                        await updateWorkspaceSidebarModel()
+                        try await layoutWorkspaces()
+                        try checkCancellation()
+                        await updateWindowTabModel()
+                        if focusBefore != focusAfter {
+                            focusAfter?.nativeFocus() // syncFocusToMacOs
+                        }
+                    }
+                    if shouldSchedulePostRefresh {
+                        scheduleRefreshSession(event)
+                    }
+                    debugFocusLog("runLightSession end event=\(event) nativeFocused=\(nativeFocused?.windowId.description ?? "nil") focusBefore=\(focusBefore?.windowId.description ?? "nil") focusAfter=\(focusAfter?.windowId.description ?? "nil") logicalFocus=\(debugDescribe(focus))")
+                    return result
+                } catch {
+                    if shouldSchedulePostRefresh {
+                        scheduleRefreshSession(event)
+                    }
+                    throw error
                 }
-                if shouldSchedulePostRefresh {
-                    scheduleRefreshSession(event)
-                }
-                debugFocusLog("runLightSession end event=\(event) nativeFocused=\(nativeFocused?.windowId.description ?? "nil") focusBefore=\(focusBefore?.windowId.description ?? "nil") focusAfter=\(focusAfter?.windowId.description ?? "nil") logicalFocus=\(debugDescribe(focus))")
-                return result
             }
         }
     }
@@ -313,9 +396,28 @@ func refreshModel() {
 private func refresh() async throws {
     // Garbage collect terminated apps and windows before working with all windows
     let mapping = try await MacApp.refreshAllAndGetAliveWindowIds(frontmostAppBundleId: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+    try await reconcileRefreshedWindows(mapping, isFullInventory: true)
+}
+
+@MainActor
+private func refresh(windowCreatedBy app: MacApp) async throws -> [Window] {
+    let windowIds = try await app.refreshAndGetAliveWindowIdsForWindowCreation(
+        frontmostAppBundleId: NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+    )
+    try await reconcileRefreshedWindows([app: windowIds], isFullInventory: false)
+    return windowIds.compactMap { MacWindow.allWindowsMap[$0] }
+}
+
+@MainActor
+private func reconcileRefreshedWindows(
+    _ mapping: [MacApp: [UInt32]],
+    isFullInventory: Bool
+) async throws {
+    let refreshedApps = Set(mapping.keys.map(ObjectIdentifier.init))
     let aliveWindowIds = mapping.values.flatMap { $0 }.toSet()
 
     for window in MacWindow.allWindows {
+        guard refreshedApps.contains(ObjectIdentifier(window.macApp)) else { continue }
         if !aliveWindowIds.contains(window.windowId) {
             window.garbageCollect(skipClosedWindowsCache: false)
         }
@@ -325,14 +427,19 @@ private func refresh() async throws {
             try await MacWindow.getOrRegister(windowId: windowId, macApp: app)
         }
     }
-    finalizePersistedFrozenWorldAfterRefresh(aliveWindowIds: aliveWindowIds)
+    // A targeted creation refresh has no inventory data for other apps.
+    // Only a complete scan can reconcile persisted windows globally.
+    if isFullInventory {
+        finalizePersistedFrozenWorldAfterRefresh(aliveWindowIds: aliveWindowIds)
+    }
 
     // Garbage collect workspaces after apps, because workspaces contain apps.
     Workspace.reconcileWorkspaceState()
 }
 
-func refreshObs(_: AXObserver, _: AXUIElement, notif: CFString, _: UnsafeMutableRawPointer?) {
+func refreshObs(_: AXObserver, element: AXUIElement, notif: CFString, _: UnsafeMutableRawPointer?) {
     let notif = notif as String
+    let sourcePid = notif == kAXWindowCreatedNotification as String ? axProcessId(element) : nil
     if notif == kAXFocusedWindowChangedNotification as String || notif == kAXUIElementDestroyedNotification as String {
         debugFocusLog("refreshObs notif=\(notif)")
     }
@@ -341,8 +448,17 @@ func refreshObs(_: AXObserver, _: AXUIElement, notif: CFString, _: UnsafeMutable
         if shouldNoteWindowInventoryActivity(forAxNotification: notif) {
             GlobalObserver.noteWindowInventoryActivity()
         }
-        scheduleRefreshSession(.ax(notif))
+        if let sourcePid {
+            scheduleRefreshSession(.axWindowCreated(pid: sourcePid))
+        } else {
+            scheduleRefreshSession(.ax(notif))
+        }
     }
+}
+
+private func axProcessId(_ element: AXUIElement) -> pid_t? {
+    var pid: pid_t = 0
+    return AXUIElementGetPid(element, &pid) == .success ? pid : nil
 }
 
 enum OptimalHideCorner {
@@ -406,6 +522,8 @@ private func layoutWorkspaces() async throws {
         let corner = monitorToOptimalHideCorner[workspace.workspaceMonitor.rect.topLeftCorner] ?? .bottomRightCorner
         let shouldReassertHiddenWindows = refreshSessionEvent?.canReuseLastAppliedWindowFrames != true
         for window in workspace.allLeafWindowsRecursive {
+            try checkCancellation()
+            guard !workspace.isVisible else { break }
             guard let macWindow = window as? MacWindow else { continue }
             macWindow.lastAppliedLayoutPhysicalRect = nil
             macWindow.lastAppliedLayoutVirtualRect = nil

@@ -129,7 +129,7 @@ func parseFocusCmdArgs(_ args: StrArrSlice) -> ParsedCmd<FocusCmdArgs> {
         .filter("--tab-index is incompatible with other options") {
             $0.tabIndex == nil || $0 == FocusCmdArgs(rawArgs: args, tabIndex: $0.tabIndex.orDie())
         }
-        .filter("(dfs-next|dfs-prev|tab-next|tab-prev) only supports the current Tab boundary (--boundaries tab)") {
+        .filter("Relative window, pane, and stack focus only supports the current tab boundary (--boundaries tab)") {
             $0.target.requiresWorkspaceBoundaries.implies($0.boundaries.isCurrentTab)
         }
 }

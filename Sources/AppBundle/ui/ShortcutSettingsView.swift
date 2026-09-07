@@ -66,8 +66,8 @@ enum SettingsSidebarItem: Hashable, Identifiable {
 
     var label: String {
         switch self {
-            case .managedShortcuts: "Managed Shortcuts"
-            case .commonShortcuts: "Common Shortcuts"
+            case .managedShortcuts: "Managed shortcuts"
+            case .commonShortcuts: "Common shortcuts"
             case .general: "General"
             case .advanced: "Advanced"
         }
@@ -136,12 +136,12 @@ struct ShortcutCategoryView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 32) {
+            LazyVStack(alignment: .leading, spacing: standardGap * 16) {
                 if let error = model.errorMessage {
                     Text(error)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(winMuxOverlayGeistBackground(.primary))
                         .padding()
-                        .background(Color.red)
+                        .background(winMuxOverlayColor(.red, .color7))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
 
@@ -150,7 +150,7 @@ struct ShortcutCategoryView: View {
                     ShortcutSectionView(model: model, section: section)
                 }
             }
-            .padding(24)
+            .padding(standardGap * 12)
         }
     }
 }
@@ -160,15 +160,15 @@ struct ShortcutSectionView: View {
     let section: ShortcutSettingsModel.Section
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: standardGap * 8) {
             if section.id != "managed-focus" {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: standardGap * 1) {
                     Text(section.title)
                         .font(.headline)
                     if let summary = section.summary {
                         Text(summary)
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(winMuxOverlayContent(.secondary))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -185,20 +185,20 @@ struct ShortcutSectionView: View {
             } else if section.id == "workspaces" {
                 WorkspaceShortcutSectionView(model: model)
             } else {
-                VStack(spacing: 0) {
+                VStack(spacing: standardGap * 0) {
                     ForEach(section.actions.indices, id: \.self) { index in
                         let action = section.actions[index]
                         ShortcutRow(model: model, action: action)
                         if index < section.actions.count - 1 {
-                            Divider().padding(.leading, 12)
+                            Divider().padding(.leading, standardGap * 6)
                         }
                     }
                 }
-                .background(Color(nsColor: .controlBackgroundColor))
+                .background(winMuxOverlayGeistBackground(.primary))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color(nsColor: .separatorColor).opacity(0.5), lineWidth: 0.5)
+                        .stroke(winMuxOverlayBorder(.normal), lineWidth: 0.5)
                 )
             }
         }
@@ -211,14 +211,14 @@ struct ShortcutRow: View {
     let action: ShortcutSettingsModel.Action
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: standardGap * 6) {
+            VStack(alignment: .leading, spacing: standardGap * 1) {
                 Text(action.title)
                     .font(.system(size: 13, weight: .medium))
                 if let subtitle = action.subtitle {
                     Text(subtitle)
                         .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(winMuxOverlayContent(.secondary))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -231,7 +231,7 @@ struct ShortcutRow: View {
             )
             .frame(width: 140, height: 22)
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
+        .padding(.vertical, standardGap * 5)
+        .padding(.horizontal, standardGap * 6)
     }
 }

@@ -10,16 +10,15 @@ struct MoveNodeToProjectCommand: Command {
         guard let sourceWorkspace = window.nodeWorkspace else {
             return io.err("Window \(window.windowId) doesn't belong to any Tab")
         }
-        guard let folderId = resolveWorkspaceSidebarFolderTarget(
+        guard let project = resolveProjectTarget(
             args.target.val,
-            currentFolderId: WorkspaceFolderId(sourceWorkspace.projectId),
+            currentProjectId: sourceWorkspace.projectId,
             wrapAround: args.wrapAround,
-            monitor: window.nodeMonitor ?? sourceWorkspace.workspaceMonitor
         ) else {
-            return io.err("Can't resolve folder target")
+            return io.err("Can't resolve project target")
         }
         let monitor = window.nodeMonitor ?? sourceWorkspace.workspaceMonitor
-        let targetWorkspace = trailingWorkspaceForProjectMove(projectId: folderId.backingProjectId, monitor: monitor)
+        let targetWorkspace = trailingWorkspaceForProjectMove(projectId: project.id, monitor: monitor)
         return moveWindowToWorkspace(
             window,
             targetWorkspace,

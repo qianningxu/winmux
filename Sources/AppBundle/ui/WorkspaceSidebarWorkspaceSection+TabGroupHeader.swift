@@ -20,6 +20,7 @@ extension WorkspaceSidebarWorkspaceSection {
                 suppressFocusedStyle: isSearchFiltering,
                 rowHeight: workspaceSidebarNestedTabRowHeight,
                 isHovered: hoveredTabGroupId == group.representativeWindowId,
+                isActiveInteraction: activeSidebarDragSourceWindowId == group.representativeWindowId,
                 style: .tabGroupHeader,
                 appBundleIds: group.tabs.map(\.appBundleId),
                 appBundlePaths: group.tabs.map(\.appBundlePath),
@@ -29,7 +30,7 @@ extension WorkspaceSidebarWorkspaceSection {
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(WorkspaceSidebarTabRowButtonStyle())
         .padding(.leading, workspaceSidebarTabGroupChildLeadingIndent)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
@@ -45,6 +46,5 @@ extension WorkspaceSidebarWorkspaceSection {
             hoveredTabGroupId = hover ? group.representativeWindowId :
                 (hoveredTabGroupId == group.representativeWindowId ? nil : hoveredTabGroupId)
         }
-        .opacity(1)
     }
 }

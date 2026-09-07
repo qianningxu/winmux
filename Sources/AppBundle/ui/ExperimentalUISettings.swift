@@ -11,7 +11,6 @@ struct ExperimentalUISettings {
         }
         set {
             UserDefaults.standard.setValue(newValue.rawValue, forKey: ExperimentalUISettingsItems.displayStyle.rawValue)
-            UserDefaults.standard.synchronize()
         }
     }
 }
@@ -40,7 +39,7 @@ enum ExperimentalUISettingsItems: String {
 
 @MainActor
 func getExperimentalUISettingsMenu(viewModel: TrayMenuModel) -> some View {
-    let color = AppearanceTheme.current == .dark ? Color.white : Color.black
+    let color = winMuxOverlayContent(.primary)
     return Menu {
         Picker("Menu bar style", selection: Binding(
             get: { viewModel.experimentalUISettings.displayStyle },

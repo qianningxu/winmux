@@ -13,6 +13,7 @@ public final class TrayMenuModel: ObservableObject {
     @Published var workspaces: [WorkspaceViewModel] = []
     @Published var workspaceSidebarWorkspaces: [WorkspaceSidebarWorkspaceViewModel] = []
     @Published var workspaceSidebarProjects: [WorkspaceSidebarProjectViewModel] = []
+    @Published var workspaceSidebarFolders: [WorkspaceSidebarFolderViewModel] = []
     @Published var workspaceSidebarActiveProjectId: WorkspaceProjectId = workspaceProjectDefaultId
     @Published var workspaceSidebarMonitorScopes: [WorkspaceSidebarMonitorScopeViewModel] = []
     /// Panel-local UI state. The shared model keeps this only as a compatibility default for legacy callers.
@@ -26,7 +27,7 @@ public final class TrayMenuModel: ObservableObject {
     @Published var isWorkspaceSidebarExpanded: Bool = false
     @Published var isWorkspaceSidebarPinnedExpanded: Bool = workspaceSidebarPinnedExpandedPreference()
     @Published var workspaceSidebarVisibleWidth: CGFloat = 0
-    @Published var workspaceSidebarTopPadding: CGFloat = 8
+    @Published var workspaceSidebarTopPadding: CGFloat = standardGap * 4
     @Published var workspaceSidebarHoveredWorkspaceName: String? = nil
     @Published var experimentalUISettings: ExperimentalUISettings = ExperimentalUISettings()
 

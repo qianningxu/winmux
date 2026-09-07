@@ -2,10 +2,30 @@ import AppKit
 import Common
 import SwiftUI
 
+enum WorkspaceSidebarPostRefreshPolicy: Equatable, Sendable {
+    case none
+    case reconcileNativeWindowInventory
+
+    var shouldSchedulePostRefresh: Bool {
+        self == .reconcileNativeWindowInventory
+    }
+}
+
+func workspaceSidebarProjectDeletionPostRefreshPolicy(
+    for action: WorkspaceProjectDeletionAction
+) -> WorkspaceSidebarPostRefreshPolicy {
+    switch action {
+        case .closeWindows:
+            .reconcileNativeWindowInventory
+        case .moveWindowsToFallback:
+            .none
+    }
+}
+
 @MainActor
 func focusWorkspaceFromSidebar(_ workspaceName: String, targetMonitorScopeId: String? = nil) {
     WorkspaceSidebarPanel.suppressEdgeTrapForWorkspaceActivation()
-    runWorkspaceSidebarSession {
+    runWorkspaceSidebarSession(prioritizeFocusSync: true) {
         guard let workspace = Workspace.existing(byName: workspaceName) else { return }
         _ = focusWorkspaceFromSidebar(workspace, targetMonitorScopeId: targetMonitorScopeId)
     }
@@ -33,7 +53,7 @@ func focusWorkspaceFromSidebar(_ workspace: Workspace, targetMonitorScopeId: Str
 @MainActor
 func overrideWorkspaceInUseFromSidebar(_ workspaceName: String, targetMonitorScopeId: String? = nil) {
     WorkspaceSidebarPanel.suppressEdgeTrapForWorkspaceActivation()
-    runWorkspaceSidebarSession {
+    runWorkspaceSidebarSession(prioritizeFocusSync: true) {
         guard let workspace = Workspace.existing(byName: workspaceName),
               let targetMonitorScopeId,
               let targetMonitor = workspaceSidebarMonitor(forScopeId: targetMonitorScopeId)
@@ -44,11 +64,21 @@ func overrideWorkspaceInUseFromSidebar(_ workspaceName: String, targetMonitorSco
 }
 
 @MainActor
-func runWorkspaceSidebarSession(_ body: @escaping @MainActor () async throws -> Void) {
-    guard let token: RunSessionGuard = .isServerEnabled else { return }
-    Task { @MainActor in
+@discardableResult
+func runWorkspaceSidebarSession(
+    postRefresh: WorkspaceSidebarPostRefreshPolicy = .none,
+    prioritizeFocusSync: Bool = false,
+    _ body: @escaping @MainActor () async throws -> Void
+) -> Task<Void, Never>? {
+    guard let token: RunSessionGuard = .isServerEnabled else { return nil }
+    return Task { @MainActor in
         do {
-            try await runLightSession(.menuBarButton, token) {
+            try await runLightSession(
+                .menuBarButton,
+                token,
+                shouldSchedulePostRefresh: postRefresh.shouldSchedulePostRefresh,
+                prioritizeFocusSync: prioritizeFocusSync
+            ) {
                 try await body()
             }
             persistSidebarStateForRestartIfPossible()
@@ -60,16 +90,7 @@ func runWorkspaceSidebarSession(_ body: @escaping @MainActor () async throws -> 
 
 @MainActor
 func runWorkspaceSidebarPostMutationSession() {
-    guard let token: RunSessionGuard = .isServerEnabled else { return }
-    Task { @MainActor in
-        do {
-            await updateWorkspaceSidebarModel()
-            try await runLightSession(.menuBarButton, token) {}
-            persistSidebarStateForRestartIfPossible()
-        } catch {
-            showWorkspaceSidebarError(error.localizedDescription)
-        }
-    }
+    runWorkspaceSidebarSession {}
 }
 
 @MainActor
@@ -85,16 +106,17 @@ func setWorkspaceSidebarPinnedExpanded(
     _ isPinned: Bool,
     viewModel: TrayMenuModel = TrayMenuModel.shared,
 ) {
-    setWorkspaceSidebarPinnedExpandedPreference(isPinned)
-    viewModel.isWorkspaceSidebarPinnedExpanded = isPinned
+    // Horizontal top-bar mode is always expanded. Keep the legacy action
+    // callable for old bindings, but normalize every request to the new
+    // invariant instead of collapsing the panel.
+    let normalizedPinnedState = true
+    setWorkspaceSidebarPinnedExpandedPreference(normalizedPinnedState)
+    viewModel.isWorkspaceSidebarPinnedExpanded = normalizedPinnedState
     for panel in WorkspaceSidebarPanel.visiblePanels {
-        panel.viewModel.isWorkspaceSidebarPinnedExpanded = isPinned
-        panel.cancelExpansionWork()
-        if isPinned {
-            panel.expandSidebar(to: CGFloat(config.workspaceSidebar.width))
-        } else {
-            panel.updateHoverStateFromMousePosition()
-        }
+        panel.viewModel.isWorkspaceSidebarPinnedExpanded = normalizedPinnedState
+        panel.viewModel.isWorkspaceSidebarExpanded = true
+        panel.orderFrontRegardless()
+        panel.updateMousePassthrough()
     }
     WorkspaceSidebarPanel.refreshAll()
 }
@@ -201,10 +223,14 @@ func createWorkspaceFromSidebarButton() {
 func createWorkspaceFromSidebarButton(projectId: WorkspaceProjectId, monitorScopeId: String) {
     runWorkspaceSidebarSession {
         let targetMonitor = workspaceSidebarTargetMonitor(scopeId: monitorScopeId)
+        let activeWorkspace = targetMonitor.activeWorkspace
+        let folderId = activeWorkspace.projectId == projectId
+            ? activeWorkspace.folderId
+            : winMuxWorkspaceState.unfoldedFolderId(for: projectId)
         let workspace = createFreshAdjacentBlankWorkspace(
-            projectId: projectId,
+            folderId: folderId,
             monitor: targetMonitor,
-            after: targetMonitor.activeWorkspace,
+            after: activeWorkspace
         )
         _ = workspace.focusWorkspace()
     }
@@ -212,11 +238,10 @@ func createWorkspaceFromSidebarButton(projectId: WorkspaceProjectId, monitorScop
 
 @MainActor
 func closeWindowFromSidebar(_ windowId: UInt32) {
-    runWorkspaceSidebarSession {
+    runWorkspaceSidebarSession(postRefresh: .reconcileNativeWindowInventory) {
         var args = CloseCmdArgs(rawArgs: [])
         args.windowId = windowId
         _ = try await CloseCommand(args: args).run(.defaultEnv, .emptyStdin)
-        await updateWorkspaceSidebarModel()
     }
 }
 
@@ -248,7 +273,7 @@ func createWorkspaceFromSidebarDrag(
         targetContainer = workspace.rootTilingContainer
     }
     sourceNode.bind(to: targetContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
-    setWorkspaceSidebarFolderExpanded(projectId, isExpanded: true)
+    setWorkspaceSidebarFolderExpanded(workspace.folderId, isExpanded: true)
     return true
 }
 
@@ -273,10 +298,19 @@ func moveTabGroupToNewWorkspaceFromSidebar(_ windowId: UInt32, projectId: Worksp
 }
 
 @MainActor
+func moveWindowToNewWorkspaceInFolderFromSidebar(_ windowId: UInt32, folderId: WorkspaceFolderId, monitorScopeId: String) {
+    moveSidebarSourceToNewWorkspace(windowId, subject: .window, folderId: folderId, monitorScopeId: monitorScopeId)
+}
+
+@MainActor
+func moveTabGroupToNewWorkspaceInFolderFromSidebar(_ windowId: UInt32, folderId: WorkspaceFolderId, monitorScopeId: String) {
+    moveSidebarSourceToNewWorkspace(windowId, subject: .group, folderId: folderId, monitorScopeId: monitorScopeId)
+}
+
+@MainActor
 private func moveSidebarSource(_ windowId: UInt32, subject: WindowDragSubject, toWorkspace workspaceName: String) {
     runWorkspaceSidebarSession {
         guard applySidebarSource(windowId, subject: subject, toWorkspace: workspaceName) else { return }
-        await updateWorkspaceSidebarModel()
     }
 }
 
@@ -287,14 +321,29 @@ private func moveSidebarSourceToNewWorkspace(
     projectId: WorkspaceProjectId,
     monitorScopeId: String,
 ) {
+    let folderId = winMuxWorkspaceState.unfoldedFolderId(for: projectId)
+    moveSidebarSourceToNewWorkspace(
+        windowId,
+        subject: subject,
+        folderId: folderId,
+        monitorScopeId: monitorScopeId
+    )
+}
+
+@MainActor
+private func moveSidebarSourceToNewWorkspace(
+    _ windowId: UInt32,
+    subject: WindowDragSubject,
+    folderId: WorkspaceFolderId,
+    monitorScopeId: String,
+) {
     runWorkspaceSidebarSession {
         guard applySidebarSourceToNewWorkspace(
             windowId,
             subject: subject,
-            projectId: projectId,
+            folderId: folderId,
             monitorScopeId: monitorScopeId
         ) else { return }
-        await updateWorkspaceSidebarModel()
     }
 }
 
@@ -317,21 +366,37 @@ private func applySidebarSourceToNewWorkspace(
     projectId: WorkspaceProjectId,
     monitorScopeId: String,
 ) -> Bool {
+    applySidebarSourceToNewWorkspace(
+        windowId,
+        subject: subject,
+        folderId: winMuxWorkspaceState.unfoldedFolderId(for: projectId),
+        monitorScopeId: monitorScopeId
+    )
+}
+
+@MainActor
+func applySidebarSourceToNewWorkspace(
+    _ windowId: UInt32,
+    subject: WindowDragSubject,
+    folderId: WorkspaceFolderId,
+    monitorScopeId: String,
+) -> Bool {
     guard let sourceWindow = Window.get(byId: windowId) else { return false }
+    guard winMuxWorkspaceState.workspaceFoldersById[folderId] != nil else { return false }
     let sourceNode = dragSubjectNode(for: sourceWindow, subject: subject)
     let targetMonitor = workspaceSidebarTargetMonitor(
         scopeId: monitorScopeId,
         fallbackWindow: sourceWindow,
         fallbackPoint: mouseLocation,
     )
-    let workspace = getOrCreateAdjacentBlankWorkspace(projectId: projectId, monitor: targetMonitor)
+    let workspace = createBlankWorkspace(folderId: folderId, monitor: targetMonitor)
     let targetContainer: NonLeafTreeNodeObject = sourceNode is Window && sourceWindow.isFloating
         ? workspace
         : workspace.rootTilingContainer
     syncClosedWindowsCacheToCurrentWorld()
     suppressPostDragAxObserverEvents(for: sourceNode.allLeafWindowsRecursive.map(\.windowId))
     sourceNode.bind(to: targetContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
-    setWorkspaceSidebarFolderExpanded(projectId, isExpanded: true)
+    setWorkspaceSidebarFolderExpanded(folderId, isExpanded: true)
     return true
 }
 
@@ -480,7 +545,7 @@ func selectWorkspaceSidebarProject(
         debugWorkspaceSidebarProjectLog("selectProjectAbort unknownProject=\(projectId.rawValue)")
         return
     }
-    runWorkspaceSidebarSession {
+    runWorkspaceSidebarSession(prioritizeFocusSync: true) {
         let monitor = workspaceSidebarTargetMonitor(
             scopeId: targetMonitorScopeId ?? viewModel.workspaceSidebarTargetMonitorScopeId
         )
@@ -496,7 +561,6 @@ func selectWorkspaceSidebarProject(
         } else {
             debugWorkspaceSidebarProjectLog("selectProjectSwitchResult project=\(projectId.rawValue) workspace=nil")
         }
-        await updateWorkspaceSidebarModel()
         debugWorkspaceSidebarProjectLog(
             "selectProjectEnd project=\(projectId.rawValue) activeAfter=\(viewModel.workspaceSidebarActiveProjectId.rawValue)"
         )
@@ -505,19 +569,24 @@ func selectWorkspaceSidebarProject(
 
 @MainActor
 func createWorkspaceSidebarProject(
+    displayName: String? = nil,
     viewModel: TrayMenuModel = TrayMenuModel.shared,
     targetMonitorScopeId: String? = nil,
 ) {
-    runWorkspaceSidebarSession {
-        let project = createWorkspaceProject()
-        let monitor = workspaceSidebarTargetMonitor(
-            scopeId: targetMonitorScopeId ?? viewModel.workspaceSidebarTargetMonitorScopeId
-        )
-        if let workspace = switchWorkspaceProject(project.id, on: monitor) {
-            _ = workspace.focusWorkspace()
-            viewModel.workspaceSidebarActiveProjectId = project.id
+    runWorkspaceSidebarSession(prioritizeFocusSync: true) {
+        let displayName = displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let displayName {
+            guard !displayName.isEmpty else { throw WorkspaceMutationError.emptyName }
+            guard !workspaceProjects().contains(where: {
+                $0.name.caseInsensitiveCompare(displayName) == .orderedSame
+            }) else {
+                throw WorkspaceMutationError.duplicateProjectName(displayName)
+            }
         }
-        await updateWorkspaceSidebarModel()
+        let project = createWorkspaceProject()
+        if let displayName {
+            try renameWorkspaceProject(project.id, displayName: displayName)
+        }
     }
 }
 
@@ -530,57 +599,42 @@ func createWorkspaceSidebarFolder(
         let monitor = workspaceSidebarTargetMonitor(
             scopeId: targetMonitorScopeId ?? viewModel.workspaceSidebarTargetMonitorScopeId
         )
-        guard let folderProjectId = createSidebarFolderFromWorkspace(monitor.activeWorkspace.name) else {
+        guard createWorkspaceFolderFromWorkspace(monitor.activeWorkspace.name) != nil else {
             showWorkspaceSidebarError("Open a window in this tab before creating a folder.")
             return
         }
-        viewModel.workspaceSidebarActiveProjectId = folderProjectId
-        await updateWorkspaceSidebarModel()
     }
 }
 
 @MainActor
 @discardableResult
 func createSidebarFolderFromWorkspace(_ workspaceName: String) -> WorkspaceProjectId? {
+    createWorkspaceFolderFromWorkspace(workspaceName)?.backingProjectId
+}
+
+@MainActor
+@discardableResult
+func createWorkspaceFolderFromWorkspace(_ workspaceName: String) -> WorkspaceFolderId? {
     materializePersistedWorkspaceProjects()
     guard let workspace = Workspace.existing(byName: workspaceName),
           !workspace.isArchived,
           workspaceHasLifecycleWindows(workspace) || workspace.isConfiguredPersistent
     else { return nil }
 
-    let project = createWorkspaceSidebarFolderProject()
+    let folder = createWorkspaceFolder(in: workspace.projectId)
     do {
-        try renameWorkspaceProject(project.id, displayName: workspaceSidebarDefaultFolderName(project))
+        try renameWorkspaceFolder(folder.id, displayName: workspaceSidebarDefaultFolderName(projectId: workspace.projectId))
     } catch {
-        winMuxWorkspaceState.workspaceFoldersById.removeValue(forKey: WorkspaceFolderId(project.id))
+        winMuxWorkspaceState.removeFolder(folder.id)
         return nil
     }
-    workspace.assignProject(project.id)
-    let folderId = WorkspaceFolderId(project.id)
-    var storedFolder = winMuxWorkspaceState.workspaceFoldersById[folderId].orDie()
+    workspace.assignFolder(folder.id)
+    var storedFolder = winMuxWorkspaceState.workspaceFoldersById[folder.id].orDie()
     storedFolder.workspaceOrder = [workspace.id]
-    winMuxWorkspaceState.workspaceFoldersById[folderId] = storedFolder
-    setWorkspaceSidebarFolderExpanded(project.id, isExpanded: true)
+    winMuxWorkspaceState.workspaceFoldersById[folder.id] = storedFolder
+    setWorkspaceSidebarFolderExpanded(folder.id, isExpanded: true)
     checkWorkspaceHierarchyInvariants()
-    return project.id
-}
-
-@MainActor
-private func createWorkspaceSidebarFolderProject() -> WorkspaceProject {
-    materializePersistedWorkspaceProjects()
-    let identity = winMuxWorkspaceState.nextGeneratedFolderIdentity()
-    let order = winMuxWorkspaceState.nextFolderOrder()
-    let folder = WorkspaceFolder(id: identity.id, name: identity.name, order: order)
-    winMuxWorkspaceState.registerFolder(folder)
-    let project = WorkspaceProject(
-        id: folder.id.backingProjectId,
-        name: folder.name,
-        order: folder.order,
-        workspaceOrder: folder.workspaceOrder,
-        linkedViewportIds: folder.linkedViewportIds,
-    )
-    moveWorkspaceSidebarFolderProjectToTop(project.id)
-    return project
+    return folder.id
 }
 
 @MainActor
@@ -610,13 +664,16 @@ private func moveWorkspaceSidebarFolderProjectToTop(_ projectId: WorkspaceProjec
 }
 
 @MainActor
-private func workspaceSidebarDefaultFolderName(_ project: WorkspaceProject) -> String {
+private func workspaceSidebarDefaultFolderName(projectId: WorkspaceProjectId) -> String {
     let visibleFolderIds = Set(userFacingWorkspaces(
         orderedWorkspacesForPresentation(),
         focusedWorkspace: focus.workspace,
     ).lazy
         .map(\.folderId)
-        .filter { $0 != workspaceFolderDefaultId && $0.backingProjectId != project.id })
+        .filter {
+            $0 != winMuxWorkspaceState.unfoldedFolderId(for: projectId) &&
+                winMuxWorkspaceState.workspaceFoldersById[$0]?.projectId == projectId
+        })
     let usedOrdinals = Set(visibleFolderIds.compactMap { folderId in
         winMuxWorkspaceState.workspaceFoldersById[folderId]
             .flatMap { workspaceSidebarGeneratedFolderOrdinal($0.name) }
@@ -643,7 +700,13 @@ private func workspaceSidebarGeneratedFolderOrdinal(_ name: String) -> Int? {
 func renameWorkspaceSidebarProject(_ projectId: WorkspaceProjectId, displayName: String) {
     runWorkspaceSidebarSession {
         try renameWorkspaceProject(projectId, displayName: displayName)
-        await updateWorkspaceSidebarModel()
+    }
+}
+
+@MainActor
+func renameWorkspaceSidebarFolder(_ folderId: WorkspaceFolderId, displayName: String) {
+    runWorkspaceSidebarSession {
+        try renameWorkspaceFolder(folderId, displayName: displayName)
     }
 }
 
@@ -659,7 +722,29 @@ func setWorkspaceSidebarProjectColor(_ project: WorkspaceSidebarProjectViewModel
         if !isUnitTest {
             try persistWorkspaceSidebarProjectColor(projectId: project.id.rawValue, colorHex: normalizedColorHex)
         }
-        await updateWorkspaceSidebarModel()
+    }
+}
+
+@MainActor
+func setWorkspaceSidebarFolderColor(_ folderId: WorkspaceFolderId, colorHex: String?) {
+    runWorkspaceSidebarSession {
+        let normalizedColorHex = colorHex.flatMap(normalizedWorkspaceSidebarColorHex)
+        if let normalizedColorHex {
+            config.workspaceSidebar.folderColors[folderId.rawValue] = normalizedColorHex
+        } else {
+            config.workspaceSidebar.folderColors.removeValue(forKey: folderId.rawValue)
+        }
+        if !isUnitTest {
+            try persistWorkspaceSidebarFolderColor(folderId: folderId.rawValue, colorHex: normalizedColorHex)
+        }
+    }
+}
+
+@MainActor
+func deleteWorkspaceSidebarFolder(_ folderId: WorkspaceFolderId) {
+    guard canDeleteWorkspaceFolder(folderId) else { return }
+    runWorkspaceSidebarSession {
+        try deleteWorkspaceFolder(folderId)
     }
 }
 
@@ -670,9 +755,12 @@ func deleteWorkspaceSidebarProject(
 ) {
     guard canDeleteWorkspaceProject(project.id) else { return }
     guard confirmWorkspaceSidebarProjectDeletion(project) else { return }
-    runWorkspaceSidebarSession {
+    runWorkspaceSidebarSession(
+        postRefresh: workspaceSidebarProjectDeletionPostRefreshPolicy(
+            for: config.workspaceSidebar.projectDeletionAction
+        )
+    ) {
         try await deleteWorkspaceProjectFromSidebar(project.id)
-        await updateWorkspaceSidebarModel()
     }
 }
 
@@ -684,17 +772,17 @@ private func confirmWorkspaceSidebarProjectDeletion(_ project: WorkspaceSidebarP
     let alert = NSAlert()
     switch config.workspaceSidebar.projectDeletionAction {
         case .closeWindows:
-            alert.messageText = "Close Folder Windows?"
+            alert.messageText = "Close Project Windows?"
             alert.informativeText = """
-            WinMux will ask macOS to close \(windowCount) window\(windowCount == 1 ? "" : "s") in “\(project.displayName)”. Apps may show their own confirmation dialogs for unsaved work. If any window stays open, WinMux will keep the folder.
+            WinMux will ask macOS to close \(windowCount) window\(windowCount == 1 ? "" : "s") in “\(project.displayName)”. Apps may show their own confirmation dialogs for unsaved work. If any window stays open, WinMux will keep the project.
             """
-            alert.addButton(withTitle: "Close Folder")
+            alert.addButton(withTitle: "Close Project")
         case .moveWindowsToFallback:
-            alert.messageText = "Delete Folder?"
+            alert.messageText = "Delete Project?"
             alert.informativeText = """
-            WinMux will delete “\(project.displayName)” and move \(windowCount) window\(windowCount == 1 ? "" : "s") to another folder.
+            WinMux will delete “\(project.displayName)” and move \(windowCount) window\(windowCount == 1 ? "" : "s") to another project.
             """
-            alert.addButton(withTitle: "Delete Folder")
+            alert.addButton(withTitle: "Delete project")
     }
     alert.addButton(withTitle: "Cancel")
     alert.alertStyle = .warning
@@ -706,16 +794,14 @@ func renameWorkspaceFromSidebar(_ workspaceName: String, displayName: String) {
     debugWorkspaceSidebarRenameLog("renameWorkspaceFromSidebar workspace=\(workspaceName) displayName=\(displayName)")
     runWorkspaceSidebarSession {
         try renameWorkspaceForSidebar(workspaceName: workspaceName, displayName: displayName)
-        await updateWorkspaceSidebarModel()
     }
 }
 
 @MainActor
 func closeWorkspaceFromSidebar(_ workspace: WorkspaceSidebarWorkspaceViewModel) {
     guard confirmWorkspaceSidebarTabClosure(workspace) else { return }
-    runWorkspaceSidebarSession {
+    runWorkspaceSidebarSession(postRefresh: .reconcileNativeWindowInventory) {
         try await closeWorkspaceWindowsFromSidebar(workspaceName: workspace.name)
-        await updateWorkspaceSidebarModel()
     }
 }
 
@@ -730,7 +816,7 @@ private func confirmWorkspaceSidebarTabClosure(_ workspace: WorkspaceSidebarWork
     alert.informativeText = """
     WinMux will ask macOS to close \(windowCount) windows in “\(workspace.displayName)”. Apps may show their own confirmation dialogs for unsaved work. If any window stays open, WinMux will keep the tab.
     """
-    alert.addButton(withTitle: "Close Tab")
+    alert.addButton(withTitle: "Close tab")
     alert.addButton(withTitle: "Cancel")
     alert.alertStyle = .warning
     return alert.runModal() == .alertFirstButtonReturn
@@ -741,11 +827,11 @@ func workspaceSidebarTabClosureRequiresConfirmation(windowCount: Int) -> Bool {
 }
 
 @MainActor
-func reorderWorkspaceFromSidebar(_ workspaceName: String, projectId: WorkspaceProjectId, placement: WorkspaceReorderPlacement) {
+func reorderWorkspaceFromSidebar(_ workspaceName: String, folderId: WorkspaceFolderId, placement: WorkspaceReorderPlacement) {
     guard RunSessionGuard.isServerEnabled != nil else { return }
     let didReorder = reorderWorkspaceForSidebar(
         sourceWorkspaceName: workspaceName,
-        projectId: projectId,
+        folderId: folderId,
         placement: placement
     )
     guard didReorder else { return }
@@ -755,21 +841,40 @@ func reorderWorkspaceFromSidebar(_ workspaceName: String, projectId: WorkspacePr
 @MainActor
 func moveWorkspaceToFolderFromSidebar(
     _ workspaceName: String,
+    folderId: WorkspaceFolderId
+) {
+    guard RunSessionGuard.isServerEnabled != nil else { return }
+    guard moveWorkspaceToSidebarFolder(workspaceName, folderId: folderId) else { return }
+    runWorkspaceSidebarPostMutationSession()
+}
+
+@MainActor
+func moveWorkspaceToProjectFromSidebar(
+    _ workspaceName: String,
     projectId: WorkspaceProjectId
 ) {
     guard RunSessionGuard.isServerEnabled != nil else { return }
-    guard moveWorkspaceToSidebarFolder(workspaceName, projectId: projectId) else { return }
+    guard moveWorkspaceToProject(workspaceName: workspaceName, destinationProjectId: projectId) else { return }
+    runWorkspaceSidebarPostMutationSession()
+}
+
+@MainActor
+func moveWorkspaceSidebarFolderToProject(
+    _ folderId: WorkspaceFolderId,
+    projectId: WorkspaceProjectId
+) {
+    guard RunSessionGuard.isServerEnabled != nil else { return }
+    guard moveWorkspaceFolderToProject(folderId: folderId, destinationProjectId: projectId) else { return }
     runWorkspaceSidebarPostMutationSession()
 }
 
 @MainActor
 func reorderWorkspaceSidebarFolder(
-    _ projectId: WorkspaceProjectId,
+    _ folderId: WorkspaceFolderId,
     placement: WorkspaceSidebarFolderReorderPlacement
 ) {
     runWorkspaceSidebarSession {
-        guard reorderWorkspaceProjectForSidebar(sourceProjectId: projectId, placement: placement) else { return }
-        await updateWorkspaceSidebarModel()
+        guard reorderWorkspaceFolderForSidebar(sourceFolderId: folderId, placement: placement) else { return }
     }
 }
 
@@ -785,7 +890,6 @@ func mergeWorkspacesFromSidebar(
             targetWorkspaceName: targetWorkspaceName,
             position: position
         ) else { return }
-        await updateWorkspaceSidebarModel()
     }
 }
 
@@ -812,20 +916,21 @@ func createSidebarFolderFromWorkspaces(
     let folderWorkspaces = orderedWorkspacesForPresentation()
         .filter { $0 == sourceWorkspace || $0 == targetWorkspace }
     let orderedFolderWorkspaces = folderWorkspaces.count == 2 ? folderWorkspaces : [targetWorkspace, sourceWorkspace]
-    let project = createWorkspaceSidebarFolderProject()
+    guard sourceWorkspace.projectId == targetWorkspace.projectId else { return false }
+    let folder = createWorkspaceFolder(in: sourceWorkspace.projectId)
     do {
-        try renameWorkspaceProject(project.id, displayName: workspaceSidebarDefaultFolderName(project))
+        try renameWorkspaceFolder(folder.id, displayName: workspaceSidebarDefaultFolderName(projectId: sourceWorkspace.projectId))
     } catch {
+        winMuxWorkspaceState.removeFolder(folder.id)
         return false
     }
     for workspace in orderedFolderWorkspaces {
-        workspace.assignProject(project.id)
+        workspace.assignFolder(folder.id)
     }
-    let folderId = WorkspaceFolderId(project.id)
-    var storedFolder = winMuxWorkspaceState.workspaceFoldersById[folderId].orDie()
+    var storedFolder = winMuxWorkspaceState.workspaceFoldersById[folder.id].orDie()
     storedFolder.workspaceOrder = orderedFolderWorkspaces.map(\.id)
-    winMuxWorkspaceState.workspaceFoldersById[folderId] = storedFolder
-    setWorkspaceSidebarFolderExpanded(project.id, isExpanded: true)
+    winMuxWorkspaceState.workspaceFoldersById[folder.id] = storedFolder
+    setWorkspaceSidebarFolderExpanded(folder.id, isExpanded: true)
     checkWorkspaceHierarchyInvariants()
     return true
 }
@@ -836,18 +941,27 @@ func moveWorkspaceToSidebarFolder(
     _ workspaceName: String,
     projectId: WorkspaceProjectId
 ) -> Bool {
+    moveWorkspaceToSidebarFolder(workspaceName, folderId: WorkspaceFolderId(projectId))
+}
+
+@MainActor
+@discardableResult
+func moveWorkspaceToSidebarFolder(
+    _ workspaceName: String,
+    folderId: WorkspaceFolderId
+) -> Bool {
     materializePersistedWorkspaceProjects()
-    let folderId = WorkspaceFolderId(projectId)
     guard var folder = winMuxWorkspaceState.workspaceFoldersById[folderId],
           let workspace = Workspace.existing(byName: workspaceName),
-          workspace.projectId != projectId,
+          workspace.folderId != folderId,
+          workspace.projectId == folder.projectId,
           !workspace.isArchived
     else { return false }
-    workspace.assignProject(projectId)
+    workspace.assignFolder(folderId)
     folder.workspaceOrder.removeAll { $0 == workspace.id }
     folder.workspaceOrder.append(workspace.id)
     winMuxWorkspaceState.workspaceFoldersById[folderId] = folder
-    setWorkspaceSidebarFolderExpanded(projectId, isExpanded: true)
+    setWorkspaceSidebarFolderExpanded(folderId, isExpanded: true)
     checkWorkspaceHierarchyInvariants()
     return true
 }
@@ -864,8 +978,74 @@ func mergeWorkspaceIntoActiveViewFromSidebarIfPossible(
             pointer: pointer,
             position: position
         ) else { return }
-        await updateWorkspaceSidebarModel()
     }
+}
+
+@MainActor
+func mergeWorkspaceIntoActiveTabGroupFromSidebarIfPossible(
+    sourceWorkspaceName: String,
+    pointer: CGPoint,
+    targetWindowId: UInt32
+) {
+    runWorkspaceSidebarSession {
+        guard mergeWorkspaceIntoActiveTabGroupFromSidebar(
+            sourceWorkspaceName: sourceWorkspaceName,
+            pointer: pointer,
+            targetWindowId: targetWindowId
+        ) else { return }
+    }
+}
+
+@MainActor
+@discardableResult
+func mergeWorkspaceIntoActiveTabGroupFromSidebar(
+    sourceWorkspaceName: String,
+    pointer: CGPoint,
+    targetWindowId: UInt32? = nil
+) -> Bool {
+    guard let sourceWorkspace = Workspace.existing(byName: sourceWorkspaceName),
+          WorkspaceSidebarPanel.panel(containing: pointer) == nil
+    else { return false }
+    let targetWorkspace = pointer.monitorApproximation.activeWorkspace
+    guard targetWorkspace != sourceWorkspace,
+          !sourceWorkspace.isArchived,
+          !targetWorkspace.isArchived,
+          !projectsAreEnabled() || sourceWorkspace.projectId == targetWorkspace.projectId
+    else { return false }
+    guard let targetWindow = targetWindowId.flatMap(Window.get)
+        ?? targetWorkspace.rootTilingContainer.mostRecentWindowRecursive
+        ?? targetWorkspace.rootTilingContainer.anyLeafWindowRecursive
+    else { return false }
+    guard let targetWindowWorkspace = targetWindow.nodeWorkspace,
+          targetWindowWorkspace === targetWorkspace
+    else { return false }
+    if let sourceMonitor = sourceWorkspace.visibleMonitor,
+       let targetMonitor = targetWorkspace.visibleMonitor,
+       sourceMonitor.rect.topLeftCorner != targetMonitor.rect.topLeftCorner
+    {
+        return false
+    }
+
+    let sourceWindows = sourceWorkspace.rootTilingContainer.allLeafWindowsRecursive
+    guard !sourceWindows.isEmpty else { return false }
+    syncClosedWindowsCacheToCurrentWorld()
+    suppressPostDragAxObserverEvents(for: sourceWindows.map(\.windowId) + [targetWindow.windowId])
+    for sourceWindow in sourceWindows {
+        createOrAppendWindowTabStack(sourceWindow: sourceWindow, onto: targetWindow)
+    }
+    moveWorkspaceFloatingContent(from: sourceWorkspace, to: targetWorkspace)
+    moveWorkspaceNativeContent(from: sourceWorkspace, to: targetWorkspace)
+
+    if let sourceMonitor = sourceWorkspace.visibleMonitor, targetWorkspace.visibleMonitor == nil {
+        _ = sourceMonitor.setActiveWorkspace(targetWorkspace)
+    }
+    if focus.workspace == sourceWorkspace {
+        _ = setFocus(to: targetWorkspace.toLiveFocus())
+    }
+    _ = targetWorkspace.focusWorkspace()
+    removeWorkspaceFromRegistry(sourceWorkspace)
+    checkWorkspaceHierarchyInvariants()
+    return true
 }
 
 @MainActor
@@ -983,7 +1163,7 @@ private func moveWorkspaceNativeContent(from sourceWorkspace: Workspace, to targ
 @MainActor
 func focusWindowFromSidebar(_ windowId: UInt32) {
     WorkspaceSidebarPanel.suppressEdgeTrapForWorkspaceActivation()
-    runWorkspaceSidebarSession {
+    runWorkspaceSidebarSession(prioritizeFocusSync: true) {
         guard let window = Window.get(byId: windowId),
               let liveFocus = window.toLiveFocusOrNil()
         else {
@@ -993,7 +1173,6 @@ func focusWindowFromSidebar(_ windowId: UInt32) {
             return
         }
         _ = setFocus(to: liveFocus)
-        window.nativeFocus()
     }
 }
 
@@ -1161,7 +1340,7 @@ func commitActiveWorkspaceSidebarDrag(to target: WorkspaceSidebarDropTargetKind)
             return applySidebarSourceToNewWorkspace(
                 sourceWindow.windowId,
                 subject: activeDrag.subject,
-                projectId: projectId,
+                folderId: WorkspaceFolderId(projectId),
                 monitorScopeId: monitorScopeId
             )
         case .newWorkspace(let projectId, let monitorScopeId):

@@ -127,21 +127,21 @@ import XCTest
     }
 
     func testStickyWindowDragIntentEnabledForTabInsertAndSwapPreviews() {
-        XCTAssertFalse(shouldUseStickyWindowDragIntent(previewStyle: .tabInsert))
+        XCTAssertTrue(shouldUseStickyWindowDragIntent(previewStyle: .tabInsert))
         XCTAssertTrue(shouldUseStickyWindowDragIntent(previewStyle: .stackSplit))
-        XCTAssertFalse(shouldUseStickyWindowDragIntent(previewStyle: .swap))
+        XCTAssertTrue(shouldUseStickyWindowDragIntent(previewStyle: .swap))
         XCTAssertFalse(shouldUseStickyWindowDragIntent(previewStyle: .workspaceMove))
         XCTAssertFalse(shouldUseStickyWindowDragIntent(previewStyle: .sidebarWorkspaceMove))
     }
 
     @MainActor
-    func testTabInsertWindowDragIntentKindIsHardDisabled() {
+    func testTabInsertWindowDragIntentKindTracksWindowTabsFeatureFlag() {
         config.windowTabs.enabled = true
-        XCTAssertFalse(isWindowDragIntentKindEnabled(.tabStack(targetWindowId: 1)))
+        XCTAssertTrue(isWindowDragIntentKindEnabled(.tabStack(targetWindowId: 1)))
 
         config.windowTabs.enabled = false
         XCTAssertFalse(isWindowDragIntentKindEnabled(.tabStack(targetWindowId: 1)))
-        XCTAssertFalse(isWindowDragIntentKindEnabled(.swap(targetWindowId: 1)))
+        XCTAssertTrue(isWindowDragIntentKindEnabled(.swap(targetWindowId: 1)))
     }
 
     @MainActor
@@ -159,8 +159,9 @@ import XCTest
     }
 
     @MainActor
-    func testLegacyWindowTabPanelRefreshEntrypointsCannotCreatePanels() {
+    func testWindowTabPanelRefreshEntrypointsCreatePanelsWhenEnabled() {
         setUpWorkspacesForTests()
+        config.windowTabs.enabled = true
         let owner = NSObject()
         let strip = WindowTabStripViewModel(
             id: ObjectIdentifier(owner),
@@ -188,8 +189,8 @@ import XCTest
         )
         WindowTabStripPanelController.shared.updateInteractivePanelForResizingStrip(strip)
 
-        XCTAssertTrue(WindowTabStripPanelController.shared.visualPanels.isEmpty)
-        XCTAssertTrue(WindowTabStripPanelController.shared.stripPanels.isEmpty)
+        XCTAssertEqual(WindowTabStripPanelController.shared.visualPanels.count, 1)
+        XCTAssertEqual(WindowTabStripPanelController.shared.stripPanels.count, 1)
     }
 
     @MainActor

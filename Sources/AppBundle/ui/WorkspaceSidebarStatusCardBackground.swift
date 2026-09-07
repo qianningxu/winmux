@@ -2,15 +2,18 @@ import SwiftUI
 
 struct WorkspaceSidebarStatusCardBackground: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
 
-    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
 
     var body: some View {
         RoundedRectangle(cornerRadius: workspaceSidebarStatusCornerRadius, style: .continuous)
-            .fill(palette.contrastingFill(darkOpacity: 0.06, lightOpacity: 0.055))
+            .fill(palette.componentBackground(.normal))
             .overlay {
                 RoundedRectangle(cornerRadius: workspaceSidebarStatusCornerRadius, style: .continuous)
-                    .strokeBorder(palette.contrastingFill(darkOpacity: 0.08, lightOpacity: 0.10), lineWidth: 0.5)
+                    .strokeBorder(palette.geistBorder(.normal), lineWidth: 0.75)
             }
     }
 }

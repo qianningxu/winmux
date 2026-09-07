@@ -39,7 +39,7 @@ extension WorkspaceSidebarView {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
             guard projectSwipeStartProjectId == nil else { return }
-            actions.send(.createProject)
+            actions.send(.createProject())
         }
     }
 }

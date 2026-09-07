@@ -64,7 +64,6 @@ func refreshPendingWindowDragIntentFromGlobalMouseDrag() {
         cancelManipulatedWithMouseState()
         return
     }
-    WorkspaceSidebarPanel.refreshAll()
     WindowMouseInteractionDriver.shared.noteGlobalDragActivity()
 }
 
@@ -98,6 +97,11 @@ func setPendingWindowDragIntent(
        pendingWindowDragIntent.previewRect.isEqual(to: destination.previewRect),
        pendingWindowDragIntent.interactionRect.isEqual(to: destination.interactionRect)
     {
+        if let overlay = destination.dropIntentOverlay {
+            WindowDropIntentOverlayPanelController.shared.show(overlay)
+        } else {
+            WindowDropIntentOverlayPanelController.shared.hide()
+        }
         return true
     }
 

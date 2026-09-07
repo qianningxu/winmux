@@ -12,22 +12,22 @@ struct ShortcutAdvancedView: View {
     @State private var hasLoaded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: standardGap * 6) {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Config Editor")
+                VStack(alignment: .leading, spacing: standardGap * 1) {
+                    Text("Configuration editor")
                         .font(.headline)
                     if let targetUrl {
                         Text(targetUrl.path)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(winMuxOverlayContent(.secondary))
                             .textSelection(.enabled)
                     }
                 }
 
                 Spacer()
 
-                Button("Reload From Disk") {
+                Button("Reload from disk") {
                     loadFromDisk()
                 }
                 Button("Validate") {
@@ -42,31 +42,31 @@ struct ShortcutAdvancedView: View {
             if let validationMessage {
                 Text(validationMessage)
                     .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(.red)
-                    .padding(12)
+                    .foregroundStyle(winMuxOverlayColor(.red, .color9))
+                    .padding(standardGap * 6)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.red.opacity(0.08))
+                    .background(winMuxOverlayColor(.red, .color1))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .textSelection(.enabled)
             } else if let saveMessage {
                 Text(saveMessage)
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 2)
+                    .foregroundStyle(winMuxOverlayContent(.secondary))
+                    .padding(.horizontal, standardGap * 1)
             }
 
             TextEditor(text: $configText)
                 .font(.system(size: 12, design: .monospaced))
                 .scrollContentBackground(.hidden)
-                .padding(8)
-                .background(Color(nsColor: .textBackgroundColor))
+                .padding(standardGap * 4)
+                .background(winMuxOverlayGeistBackground(.primary))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color(nsColor: .separatorColor).opacity(0.5), lineWidth: 0.5)
+                        .stroke(winMuxOverlayBorder(.normal), lineWidth: 0.5)
                 )
         }
-        .padding(24)
+        .padding(standardGap * 12)
         .task {
             guard !hasLoaded else { return }
             hasLoaded = true

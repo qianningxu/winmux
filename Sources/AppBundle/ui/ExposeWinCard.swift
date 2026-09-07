@@ -11,7 +11,7 @@ struct ExposeWinCard: View {
     private var isHovered: Bool { hoverOverride ?? localHover }
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: standardGap * 2) {
             ZStack(alignment: .topTrailing) {
                 exposeCardThumb(item, w: cw, h: ch - 20, hov: isHovered)
                 if let badgeLabel {
@@ -20,7 +20,7 @@ struct ExposeWinCard: View {
             }
             Text(item.title)
                 .font(.system(size: 11, weight: item.isFocused ? .semibold : .regular))
-                .foregroundStyle(.white.opacity(isHovered ? 0.95 : 0.6))
+                .foregroundStyle(winMuxOverlayContent(isHovered ? .primary : .secondary))
                 .lineLimit(1)
                 .frame(maxWidth: cw)
         }
@@ -35,16 +35,16 @@ struct ExposeWinCard: View {
     }
 
     private func exposeGroupBadge(label: String) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: standardGap * 2) {
             Image(systemName: "square.stack.3d.up.fill")
                 .font(.system(size: 8, weight: .bold))
             Text(label)
                 .font(.system(size: 10, weight: .bold, design: .rounded))
         }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(Capsule().fill(Color.accentColor))
-        .padding(6)
+        .foregroundStyle(winMuxOverlayGeistBackground(.primary))
+        .padding(.horizontal, standardGap * 4)
+        .padding(.vertical, standardGap * 2.5)
+        .background(Capsule().fill(winMuxOverlayColor(.blue, .color7)))
+        .padding(standardGap * 3)
     }
 }

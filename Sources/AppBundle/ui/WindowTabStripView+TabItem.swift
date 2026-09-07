@@ -25,7 +25,7 @@ extension WindowTabStripView {
         .frame(width: context.tabWidth, height: itemHeight, alignment: .leading)
         .background {
             GeometryReader { proxy in
-                Color.clear.preference(
+                WinMuxDesignTokens.transparent.preference(
                     key: WindowTabStripTabFramePreferenceKey.self,
                     value: [tab.windowId: proxy.frame(in: .named(context.scrollCoordinateSpaceName))],
                 )
@@ -33,23 +33,18 @@ extension WindowTabStripView {
         }
         .offset(x: tabVisualOffset(for: tab, context: context))
         .zIndex(draggingTabId == tab.windowId || isEditing ? 1 : 0)
-        .shadow(
-            color: draggingTabId == tab.windowId ? winMuxOverlayShadow(darkOpacity: 0.18, lightOpacity: 0.12) : Color.clear,
-            radius: draggingTabId == tab.windowId ? 7 : 0,
-            y: draggingTabId == tab.windowId ? 2 : 0,
-        )
         .transaction { $0.animation = nil }
         .onHover { hovering in
             updateHoveredTab(tab.windowId, hovering: hovering)
         }
         .contextMenu {
-            Button("Rename Tab") {
+            Button("Rename tab") {
                 beginRenamingTab(tab)
             }
-            Button("Close Tab") {
+            Button("Close tab") {
                 closeWindowFromTabStrip(tab.windowId, fallbackWorkspace: tab.workspaceName)
             }
-            Button("Move Window Out") {
+            Button("Move window out of stack") {
                 removeWindowFromTabStrip(tab.windowId, fallbackWorkspace: tab.workspaceName)
             }
         }
@@ -102,8 +97,8 @@ extension WindowTabStripView {
                 onCommit: { commitRenamingTab(tab) },
                 onCancel: cancelRenamingTab,
             )
-            .padding(.leading, 30)
-            .padding(.trailing, 10)
+            .padding(.leading, standardGap * 15)
+            .padding(.trailing, standardGap * 5)
             .frame(width: context.tabWidth, height: itemHeight, alignment: .leading)
         }
     }
@@ -132,7 +127,7 @@ extension WindowTabStripView {
         } label: {
             Image(systemName: "xmark")
                 .font(.system(size: 8.5, weight: .bold))
-                .foregroundStyle(winMuxOverlayForeground(0.78))
+                .foregroundStyle(winMuxOverlayContent(.secondary))
                 .frame(width: windowTabStripCloseButtonSize, height: windowTabStripCloseButtonSize)
                 .contentShape(Rectangle())
         }

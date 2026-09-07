@@ -3,14 +3,22 @@ import Foundation
 import XCTest
 
 final class WorkspaceSidebarWidgetStackTest: XCTestCase {
-    func testTasksWidgetIsHiddenWhenSidebarIsCompact() {
+    func testTaskListWidgetsAreAlwaysHidden() {
         let tasks = widget(id: "tasks", type: .builtInTasks)
+        let todoList = widget(id: "todo-list", type: .builtInTodoList)
 
-        XCTAssertTrue(workspaceSidebarWidgetIsVisible(tasks, showsNotePad: false, isCompact: false))
-        XCTAssertFalse(workspaceSidebarWidgetIsVisible(tasks, showsNotePad: false, showsTasks: false, isCompact: false))
+        XCTAssertFalse(workspaceSidebarWidgetIsVisible(tasks, showsNotePad: false, isCompact: false))
         XCTAssertFalse(workspaceSidebarWidgetIsVisible(tasks, showsNotePad: false, isCompact: true))
-        XCTAssertFalse(workspaceSidebarHasVisibleWidgets([tasks], showsNotePad: false, showsTasks: false, isCompact: false))
+        XCTAssertFalse(workspaceSidebarWidgetIsVisible(todoList, showsNotePad: false, isCompact: false))
+        XCTAssertFalse(workspaceSidebarHasVisibleWidgets([tasks, todoList], showsNotePad: false, isCompact: false))
         XCTAssertFalse(workspaceSidebarHasVisibleWidgets([tasks], showsNotePad: false, isCompact: true))
+    }
+
+    func testPeriodicallyFocusIsExpandedOnly() {
+        let periodicallyFocus = widget(id: "toggl-weekly-focus", type: .builtInTogglWeeklyFocus)
+
+        XCTAssertTrue(workspaceSidebarWidgetIsVisible(periodicallyFocus, showsNotePad: false, isCompact: false))
+        XCTAssertFalse(workspaceSidebarWidgetIsVisible(periodicallyFocus, showsNotePad: false, isCompact: true))
     }
 
     func testRotationGroupsKeepFirstPositionAndCollectEnabledMembers() {

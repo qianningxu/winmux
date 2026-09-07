@@ -9,6 +9,10 @@ extension WorkspaceSidebarProjectPager {
         let isCurrent = index == currentIndex
         let isDotHovered = hoveredProjectDotId == project.id
         let projectColor = workspaceSidebarProjectColor(projectId: project.id, configuredHex: project.colorHex)
+        let projectMuted = workspaceSidebarProjectColor(projectId: project.id, configuredHex: project.colorHex, step: .color4)
+        let projectHover = workspaceSidebarProjectColor(projectId: project.id, configuredHex: project.colorHex, step: .color5)
+        let projectActive = workspaceSidebarProjectColor(projectId: project.id, configuredHex: project.colorHex, step: .color6)
+        let projectStrong = workspaceSidebarProjectColor(projectId: project.id, configuredHex: project.colorHex, step: .color8)
         Button {
             debugWorkspaceSidebarProjectLog(
                 "dotButton project=\(project.id.rawValue) selected=\(selectedProjectId.rawValue) currentIndex=\(currentIndex?.description ?? "nil") compact=\(isCompact) projects=\(projects.map(\.id.rawValue))"
@@ -18,15 +22,15 @@ extension WorkspaceSidebarProjectPager {
         } label: {
             ZStack {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(isDotHovered ? projectColor.opacity(0.14) : Color.clear)
+                    .fill(isDotHovered ? workspaceSidebarProjectColor(projectId: project.id, configuredHex: project.colorHex, step: .color2) : WinMuxDesignTokens.transparent)
                     .frame(width: 34, height: 22)
                 Capsule(style: .continuous)
-                    .fill(isCurrent ? projectColor.opacity(0.86) : projectColor.opacity(isDotHovered ? 0.58 : (isHovered ? 0.44 : 0.32)))
+                    .fill(isCurrent ? projectColor : (isDotHovered ? projectActive : (isHovered ? projectHover : projectMuted)))
                     .frame(width: isCurrent ? 28 : 13, height: isCompact ? 10 : 9)
                     .overlay {
                         Capsule(style: .continuous)
                             .strokeBorder(
-                                isCurrent ? projectColor.opacity(0.94) : projectColor.opacity(isDotHovered ? 0.70 : (isHovered ? 0.54 : 0.36)),
+                                isCurrent ? projectStrong : (isDotHovered ? projectActive : (isHovered ? projectHover : projectMuted)),
                                 lineWidth: isDotHovered || isCurrent ? 0.8 : 0.5,
                             )
                     }

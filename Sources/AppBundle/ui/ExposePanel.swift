@@ -65,7 +65,7 @@ final class ExposePanel: NSPanelHud {
         isFloatingPanel = true
         isExcludedFromWindowsMenu = true
         animationBehavior = .none
-        backgroundColor = .clear
+        backgroundColor = WinMuxDesignTokens.transparentNSColor
         applyWinMuxLayer(.overlay)
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         contentView = hostingView

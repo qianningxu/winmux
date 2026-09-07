@@ -341,6 +341,15 @@ final class MacApp: AbstractApp {
         }
     }
 
+    /// The AX creation notification already identifies the app that changed.
+    /// Scanning every regular app here would delay the first tile frame for
+    /// the new window, so use this only for that notification's fast path.
+    func refreshAndGetAliveWindowIdsForWindowCreation(
+        frontmostAppBundleId: String?
+    ) async throws -> [UInt32] {
+        try await refreshAndGetAliveWindowIds(frontmostAppBundleId: frontmostAppBundleId)
+    }
+
     private func refreshAndGetAliveWindowIds(frontmostAppBundleId: String?) async throws -> [UInt32] {
         if nsApp.isTerminated {
             await destroy()

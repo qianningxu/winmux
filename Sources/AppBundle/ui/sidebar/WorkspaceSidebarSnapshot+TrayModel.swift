@@ -5,6 +5,7 @@ func workspaceSidebarSnapshot(from model: TrayMenuModel) -> WorkspaceSidebarSnap
     WorkspaceSidebarSnapshot(
         workspaces: model.workspaceSidebarWorkspaces,
         projects: model.workspaceSidebarProjects,
+        folders: model.workspaceSidebarFolders,
         activeProjectId: model.workspaceSidebarActiveProjectId,
         monitorScopes: model.workspaceSidebarMonitorScopes,
         selectedMonitorScopeId: model.workspaceSidebarSelectedMonitorScopeId,

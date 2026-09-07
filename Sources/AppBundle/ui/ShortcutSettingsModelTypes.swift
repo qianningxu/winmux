@@ -45,8 +45,8 @@ extension ShortcutSettingsModel {
 
         var subtitle: String {
             switch self {
-                case .switchTo: "Change focus to Tab N"
-                case .moveTo: "Send the focused window to Tab N"
+                case .switchTo: "Change focus to tab N"
+                case .moveTo: "Send the focused window to tab N"
             }
         }
     }

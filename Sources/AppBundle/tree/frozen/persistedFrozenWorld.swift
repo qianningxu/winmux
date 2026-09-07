@@ -2,6 +2,7 @@ import Common
 import Foundation
 
 private let persistedFrozenWorldVersion = 1
+private let persistedSidebarStateVersion = 2
 private let persistedFrozenWorldFilename = "window-state.json"
 private let persistedSidebarStateFilename = "sidebar-state.json"
 @MainActor private var pendingPersistedFrozenWorld: FrozenWorld? = nil
@@ -11,19 +12,148 @@ private let persistedSidebarStateFilename = "sidebar-state.json"
 @MainActor private var didLoadPersistedSidebarStateDuringCurrentSession = false
 @MainActor private var isPersistedSidebarStateReady = false
 @MainActor private var isSidebarStatePersistenceScheduled = false
+@MainActor private var restartStatePersistenceGeneration: UInt64 = 0
+@MainActor private var persistedStateDirectory: URL?
 
-private struct PersistedFrozenWorldEnvelope: Codable {
+private struct PersistedFrozenWorldEnvelope: Codable, Sendable {
     let version: Int
     let world: FrozenWorld
 }
 
-private struct PersistedSidebarStateEnvelope: Codable {
+private struct PersistedSidebarStateEnvelope: Codable, Sendable {
     let version: Int
     let sidebar: FrozenSidebarState
 }
 
+private enum PendingFrozenWorldWrite: Sendable {
+    case snapshot(FrozenWorld)
+    case remove
+}
+
+private struct PendingSidebarWrite: Sendable {
+    let generation: UInt64
+    let state: FrozenSidebarState
+    let url: URL
+}
+
+private struct PendingWorldWrite: Sendable {
+    let generation: UInt64
+    let write: PendingFrozenWorldWrite
+    let url: URL
+}
+
+/// Performs persistence away from the main actor while keeping the newest
+/// snapshot for each file.  Actor isolation serializes atomic replacements so
+/// an older, slower write can never finish after a newer write and overwrite it.
+private actor RestartStatePersistenceWriter {
+    private var pendingSidebar: PendingSidebarWrite?
+    private var pendingWorld: PendingWorldWrite?
+    private var newestSidebarGeneration: UInt64 = 0
+    private var newestWorldGeneration: UInt64 = 0
+    private var isDraining = false
+    private var flushWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func enqueue(
+        sidebar: PendingSidebarWrite?,
+        world: PendingWorldWrite?,
+    ) {
+        if let sidebar,
+           sidebar.generation >= newestSidebarGeneration
+        {
+            pendingSidebar = sidebar
+            newestSidebarGeneration = sidebar.generation
+        }
+        if let world,
+           world.generation >= newestWorldGeneration
+        {
+            pendingWorld = world
+            newestWorldGeneration = world.generation
+        }
+        startDrainIfNeeded()
+    }
+
+    func flush() async {
+        guard isDraining || pendingSidebar != nil || pendingWorld != nil else { return }
+        await withCheckedContinuation { continuation in
+            flushWaiters.append(continuation)
+            startDrainIfNeeded()
+        }
+    }
+
+    private func startDrainIfNeeded() {
+        guard !isDraining, pendingSidebar != nil || pendingWorld != nil else { return }
+        isDraining = true
+        Task { drain() }
+    }
+
+    private func drain() {
+        while pendingSidebar != nil || pendingWorld != nil {
+            let sidebar = pendingSidebar
+            let world = pendingWorld
+            pendingSidebar = nil
+            pendingWorld = nil
+
+            // Write the durable sidebar copy first.  The world snapshot embeds
+            // a fallback sidebar, so this ordering favors the newest metadata.
+            if let sidebar {
+                writeSidebar(sidebar.state, url: sidebar.url)
+            }
+            if let world {
+                writeWorld(world.write, url: world.url)
+            }
+        }
+
+        isDraining = false
+        let waiters = flushWaiters
+        flushWaiters.removeAll(keepingCapacity: true)
+        for waiter in waiters {
+            waiter.resume()
+        }
+    }
+
+    private func writeSidebar(_ sidebar: FrozenSidebarState, url: URL) {
+        do {
+            let data = try persistenceData(
+                PersistedSidebarStateEnvelope(version: persistedSidebarStateVersion, sidebar: sidebar),
+            )
+            try data.write(to: url, options: .atomic)
+        } catch {
+            // Restart persistence is best effort and must never interrupt UI.
+        }
+    }
+
+    private func writeWorld(_ write: PendingFrozenWorldWrite, url: URL) {
+        do {
+            switch write {
+                case .remove:
+                    try? FileManager.default.removeItem(at: url)
+                case .snapshot(let world):
+                    let data = try persistenceData(
+                        PersistedFrozenWorldEnvelope(version: persistedFrozenWorldVersion, world: world),
+                    )
+                    try data.write(to: url, options: .atomic)
+            }
+        } catch {
+            // Restart persistence is best effort and must never interrupt quit.
+        }
+    }
+}
+
+private let restartStatePersistenceWriter = RestartStatePersistenceWriter()
+
+private func persistenceData<T: Encodable>(_ value: T) throws -> Data {
+    let encoder = JSONEncoder()
+    // Pretty-printing is useful for diagnostics but needlessly increases the
+    // encode and atomic-write cost for these frequently updated snapshots.
+    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+    return try encoder.encode(value)
+}
+
 @MainActor
-private func persistedFrozenWorldUrl() throws -> URL {
+private func persistedStateDirectoryUrl() throws -> URL {
+    if let persistedStateDirectory {
+        return persistedStateDirectory
+    }
     let appSupport = try FileManager.default.url(
         for: .applicationSupportDirectory,
         in: .userDomainMask,
@@ -32,13 +162,19 @@ private func persistedFrozenWorldUrl() throws -> URL {
     )
     let directory = appSupport.appendingPathComponent(winMuxAppName, isDirectory: true)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    return directory.appendingPathComponent(persistedFrozenWorldFilename, isDirectory: false)
+    persistedStateDirectory = directory
+    return directory
+}
+
+@MainActor
+private func persistedFrozenWorldUrl() throws -> URL {
+    try persistedStateDirectoryUrl()
+        .appendingPathComponent(persistedFrozenWorldFilename, isDirectory: false)
 }
 
 @MainActor
 private func persistedSidebarStateUrl() throws -> URL {
-    try persistedFrozenWorldUrl()
-        .deletingLastPathComponent()
+    try persistedStateDirectoryUrl()
         .appendingPathComponent(persistedSidebarStateFilename, isDirectory: false)
 }
 
@@ -49,16 +185,8 @@ private func persistedSidebarStateUrl() throws -> URL {
 @MainActor
 func persistSidebarStateForRestartIfPossible() {
     guard !isUnitTest, isPersistedSidebarStateReady else { return }
-    do {
-        let sidebar = FrozenSidebarState(restorableWorkspaces: Workspace.all.filter { !$0.isArchived })
-        let data = try JSONEncoder.winMuxDefault.encode(
-            PersistedSidebarStateEnvelope(version: persistedFrozenWorldVersion, sidebar: sidebar),
-        )
-        try data.write(to: persistedSidebarStateUrl(), options: .atomic)
-    } catch {
-        // Folder persistence is best effort and must never interrupt a UI
-        // mutation or shutdown.
-    }
+    let sidebar = FrozenSidebarState(restorableWorkspaces: Workspace.all.filter { !$0.isArchived })
+    enqueueRestartState(sidebar: sidebar, world: nil)
 }
 
 /// State mutations often happen through an `inout` access to
@@ -79,6 +207,87 @@ func scheduleSidebarStatePersistenceForRestart() {
 }
 
 @MainActor
+private func enqueueRestartState(
+    sidebar: FrozenSidebarState?,
+    world: PendingFrozenWorldWrite?,
+) {
+    restartStatePersistenceGeneration &+= 1
+    let generation = restartStatePersistenceGeneration
+    do {
+        let sidebarWrite = try sidebar.map {
+            PendingSidebarWrite(
+                generation: generation,
+                state: $0,
+                url: try persistedSidebarStateUrl(),
+            )
+        }
+        let worldWrite = try world.map {
+            PendingWorldWrite(
+                generation: generation,
+                write: $0,
+                url: try persistedFrozenWorldUrl(),
+            )
+        }
+        Task {
+            await restartStatePersistenceWriter.enqueue(
+                sidebar: sidebarWrite,
+                world: worldWrite,
+            )
+        }
+    } catch {
+        // Best effort. Path resolution failures should not affect the UI.
+    }
+}
+
+@MainActor
+private func captureRestartState() -> (
+    sidebar: FrozenSidebarState?,
+    world: PendingFrozenWorldWrite
+) {
+    let world = snapshotCurrentFrozenWorld()
+    let sidebar = isPersistedSidebarStateReady ? world.sidebar : nil
+    return (
+        sidebar,
+        world.windowIds.isEmpty ? .remove : .snapshot(world),
+    )
+}
+
+/// Enqueue the complete restart snapshot and wait until the background writer
+/// has atomically committed it.  This is reserved for termination, where a
+/// fire-and-forget write could otherwise be lost to process exit.
+@MainActor
+func persistFrozenWorldForRestartAndWaitIfPossible() async {
+    guard !isUnitTest else { return }
+    let snapshot = captureRestartState()
+    restartStatePersistenceGeneration &+= 1
+    let generation = restartStatePersistenceGeneration
+    do {
+        let sidebarWrite: PendingSidebarWrite?
+        if let sidebar = snapshot.sidebar {
+            sidebarWrite = PendingSidebarWrite(
+                generation: generation,
+                state: sidebar,
+                url: try persistedSidebarStateUrl(),
+            )
+        } else {
+            sidebarWrite = nil
+        }
+        let worldWrite = PendingWorldWrite(
+            generation: generation,
+            write: snapshot.world,
+            url: try persistedFrozenWorldUrl(),
+        )
+        await restartStatePersistenceWriter.enqueue(
+            sidebar: sidebarWrite,
+            world: worldWrite,
+        )
+    } catch {
+        // Best effort. The flush below still drains any earlier checkpoint.
+    }
+    await restartStatePersistenceWriter.flush()
+}
+
+@MainActor
 func loadPersistedSidebarStateForStartupIfPresent() {
     defer {
         didRestorePersistedSidebarStateDuringCurrentSession = false
@@ -93,7 +302,9 @@ func loadPersistedSidebarStateForStartupIfPresent() {
         }
         let data = try Data(contentsOf: url)
         let envelope = try JSONDecoder().decode(PersistedSidebarStateEnvelope.self, from: data)
-        pendingPersistedSidebarState = envelope.version == persistedFrozenWorldVersion ? envelope.sidebar : nil
+        pendingPersistedSidebarState = (1 ... persistedSidebarStateVersion).contains(envelope.version)
+            ? envelope.sidebar
+            : nil
         didLoadPersistedSidebarStateDuringCurrentSession = pendingPersistedSidebarState != nil
     } catch {
         pendingPersistedSidebarState = nil
@@ -119,25 +330,6 @@ func finalizePersistedSidebarStateAfterStartupIfNeeded() {
     // were updated in a defer block, so this write always returned at its
     // readiness guard and the restored folders were never checkpointed.
     persistSidebarStateForRestartIfPossible()
-}
-
-@MainActor
-func persistFrozenWorldForRestartIfPossible() {
-    persistSidebarStateForRestartIfPossible()
-    do {
-        let url = try persistedFrozenWorldUrl()
-        let world = snapshotCurrentFrozenWorld()
-        guard !world.windowIds.isEmpty else {
-            try? FileManager.default.removeItem(at: url)
-            return
-        }
-        let data = try JSONEncoder.winMuxDefault.encode(
-            PersistedFrozenWorldEnvelope(version: persistedFrozenWorldVersion, world: world),
-        )
-        try data.write(to: url, options: .atomic)
-    } catch {
-        // Best effort. Failure to save restart state must not block termination.
-    }
 }
 
 @discardableResult

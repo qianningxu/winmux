@@ -47,12 +47,14 @@ let focus_help_generated = """
                  (dfs-next|dfs-prev)
        OR: focus [-h|--help] [--ignore-floating] [--wrap-around]
                  [--boundaries <boundary>] [--boundaries-action <action>]
-                 (tab-next|tab-prev)
+                 (tab-next|tab-prev|pane-next|pane-prev|stack-next|stack-prev)
        OR: focus [-h|--help] --tab-index <tab-index>
        OR: focus [-h|--help] --window-id <window-id>
        OR: focus [-h|--help] --dfs-index <dfs-index>
 
     Boundary values: tab, all-monitors-outer-frame. Legacy value: workspace.
+    pane-next/pane-prev switch panes, treating each window stack as one pane.
+    stack-next/stack-prev switch windows only inside the focused window stack.
     """
 let fullscreen_help_generated = """
     USAGE: fullscreen [-h|--help]     [--window-id <window-id>] [--no-outer-gaps]
@@ -112,14 +114,14 @@ let move_node_to_monitor_help_generated = """
                                 [--fail-if-noop] <monitor-pattern>...
     """
 let move_node_to_project_help_generated = """
-    USAGE: move-node-to-folder [-h|--help] [--focus-follows-window]
-                                     [--fail-if-noop] [--window-id <window-id>]
-                                     (folder-index|default|unfolded)
-       OR: move-node-to-folder [-h|--help] [--focus-follows-window]
-                                     [--wrap-around] (next|prev)
+    USAGE: move-node-to-project [-h|--help] [--focus-follows-window]
+                                      [--fail-if-noop] [--window-id <window-id>]
+                                      (project-index|default)
+       OR: move-node-to-project [-h|--help] [--focus-follows-window]
+                                      [--wrap-around] (next|prev)
 
-    Move the focused window to a sidebar folder as a standalone trailing Tab.
-    Legacy spelling: move-node-to-project.
+    Move the focused window to a standalone trailing tab in the target project's Unfolded folder.
+    Legacy spelling: move-node-to-folder.
     """
 let move_node_to_workspace_help_generated = """
     USAGE: move-node-to-tab [-h|--help] [--focus-follows-window] [--wrap-around]
@@ -139,11 +141,11 @@ let move_help_generated = """
     Boundary values: tab, all-monitors-outer-frame. Legacy value: workspace.
     """
 let project_help_generated = """
-    USAGE: folder [-h|--help] [--fail-if-noop] (folder-index|default|unfolded)
-       OR: folder [-h|--help] [--wrap-around] (next|prev)
+    USAGE: project [-h|--help] [--fail-if-noop] (project-index|default)
+       OR: project [-h|--help] [--wrap-around] (next|prev)
 
-    Focus a sidebar folder. Folders are numbered top to bottom in sidebar order, including Unfolded.
-    Legacy spelling: project.
+    Focus a project. Projects are numbered top to bottom in project-selector order.
+    Legacy spelling: folder.
     """
 let reload_config_help_generated = """
     USAGE: reload-config [-h|--help] [--no-gui] [--dry-run]

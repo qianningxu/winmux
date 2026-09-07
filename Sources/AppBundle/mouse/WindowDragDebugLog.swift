@@ -1,14 +1,18 @@
 import CoreGraphics
 
 @MainActor
-func logWindowDragHitTestIfNeeded(signature: String, _ message: @autoclosure () -> String) {
+func logWindowDragHitTestIfNeeded(signature: @autoclosure () -> String, _ message: @autoclosure () -> String) {
+    guard isDebug else { return }
+    let signature = signature()
     guard lastWindowDragHitTestLogSignature != signature else { return }
     lastWindowDragHitTestLogSignature = signature
     debugFocusLog(message())
 }
 
 @MainActor
-func logWindowDragIntentIfNeeded(signature: String, _ message: @autoclosure () -> String) {
+func logWindowDragIntentIfNeeded(signature: @autoclosure () -> String, _ message: @autoclosure () -> String) {
+    guard isDebug else { return }
+    let signature = signature()
     guard lastWindowDragIntentLogSignature != signature else { return }
     lastWindowDragIntentLogSignature = signature
     debugFocusLog(message())

@@ -13,15 +13,8 @@ struct WindowDropIntentOverlayView: View {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(gridBaseFill)
 
-            inactiveCanvasFill
-
-            if let projection = layoutProjection {
-                displacedPaneView(projection.displaced)
-                activePaneView(projection.active)
-            } else {
-                ForEach(localZones.filter { $0.zone == model.activeZone }) { zone in
-                    activePaneView(zone.frame)
-                }
+            ForEach(localZones) { zone in
+                dropZoneView(zone)
             }
 
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -39,7 +32,7 @@ struct WindowDropIntentOverlayView: View {
     }
 
     private var localZones: [WindowIntentZone] {
-        WindowIntentZoneBuilder.splitZones(in: Rect(
+        WindowIntentZoneBuilder.zones(in: Rect(
             topLeftX: 0,
             topLeftY: 0,
             width: model.targetFrame.width,
@@ -47,75 +40,43 @@ struct WindowDropIntentOverlayView: View {
         ))
     }
 
-    private var layoutProjection: (active: Rect, displaced: Rect)? {
-        guard let activeZone = model.activeZone,
-              let position = activeZone.stackSplitPosition
-        else { return nil }
-        let frame = Rect(
-            topLeftX: 0,
-            topLeftY: 0,
-            width: model.targetFrame.width,
-            height: model.targetFrame.height
-        )
-        let active: Rect
-        let displaced: Rect
-        switch position {
-            case .left:
-                active = Rect(topLeftX: 0, topLeftY: 0, width: frame.width / 2, height: frame.height)
-                displaced = Rect(topLeftX: frame.width / 2, topLeftY: 0, width: frame.width / 2, height: frame.height)
-            case .right:
-                active = Rect(topLeftX: frame.width / 2, topLeftY: 0, width: frame.width / 2, height: frame.height)
-                displaced = Rect(topLeftX: 0, topLeftY: 0, width: frame.width / 2, height: frame.height)
-            case .above:
-                active = Rect(topLeftX: 0, topLeftY: 0, width: frame.width, height: frame.height / 2)
-                displaced = Rect(topLeftX: 0, topLeftY: frame.height / 2, width: frame.width, height: frame.height / 2)
-            case .below:
-                active = Rect(topLeftX: 0, topLeftY: frame.height / 2, width: frame.width, height: frame.height / 2)
-                displaced = Rect(topLeftX: 0, topLeftY: 0, width: frame.width, height: frame.height / 2)
-        }
-        guard active.width > 0, active.height > 0, displaced.width > 0, displaced.height > 0 else {
-            return nil
-        }
-        return (active, displaced)
-    }
-
-    private func activePaneView(_ rect: Rect) -> some View {
-        ZStack {
+    private func dropZoneView(_ zone: WindowIntentZone) -> some View {
+        let isActive = zone.zone == model.activeZone
+        let rect = zone.frame
+        return ZStack {
             RoundedRectangle(cornerRadius: zoneCornerRadius(for: rect), style: .continuous)
-                .fill(gridZoneFill)
+                .fill(isActive ? gridZoneFill : inactiveZoneFill)
                 .overlay {
                     RoundedRectangle(cornerRadius: zoneCornerRadius(for: rect), style: .continuous)
-                        .strokeBorder(activeZoneStroke, lineWidth: borderLineWidth)
+                        .strokeBorder(isActive ? activeZoneStroke : inactiveZoneStroke, lineWidth: borderLineWidth)
                 }
-                .shadow(
-                    color: palette.shadow(0.12, lightOpacity: 0.05),
-                    radius: 10,
-                    x: 0,
-                    y: 2
-                )
-            if let activeZone = model.activeZone,
-               let name = symbolName(for: activeZone)
+            if let name = symbolName(for: zone.zone)
             {
                 Image(systemName: name)
                     .font(.system(size: iconSize(for: rect), weight: .semibold))
-                    .foregroundStyle(gridSymbol)
+                    .foregroundStyle(isActive ? activeGridSymbol : gridSymbol)
             }
         }
-        .padding(6)
+        .padding(zoneInsets(for: zone.zone))
         .frame(width: rect.width, height: rect.height)
         .position(x: rect.center.x, y: rect.center.y)
     }
 
-    private func displacedPaneView(_ rect: Rect) -> some View {
-        RoundedRectangle(cornerRadius: zoneCornerRadius(for: rect), style: .continuous)
-            .fill(displacedZoneFill)
-            .overlay {
-                RoundedRectangle(cornerRadius: zoneCornerRadius(for: rect), style: .continuous)
-                    .strokeBorder(displacedZoneStroke, lineWidth: 0.8)
-            }
-            .padding(6)
-            .frame(width: rect.width, height: rect.height)
-            .position(x: rect.center.x, y: rect.center.y)
+    private func zoneInsets(for zone: WindowDropZone) -> EdgeInsets {
+        let outer = WinMuxSpacing.section
+        let inner = WinMuxSpacing.comfortable
+        return switch zone {
+            case .tab:
+                EdgeInsets(top: outer, leading: outer, bottom: inner, trailing: outer)
+            case .left:
+                EdgeInsets(top: inner, leading: outer, bottom: outer, trailing: inner)
+            case .right:
+                EdgeInsets(top: inner, leading: inner, bottom: outer, trailing: outer)
+            case .top, .middle:
+                EdgeInsets(top: inner, leading: inner, bottom: inner, trailing: inner)
+            case .bottom:
+                EdgeInsets(top: inner, leading: inner, bottom: outer, trailing: inner)
+        }
     }
 
     private func symbolName(for zone: WindowDropZone) -> String? {
@@ -140,36 +101,37 @@ struct WindowDropIntentOverlayView: View {
     }
 
     private var gridBaseFill: Color {
-        palette.dropIntentBackdrop()
-    }
-
-    private var inactiveCanvasFill: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(palette.dropIntentInactivePane())
+        // A Gray 700 surface stays visible over light content while the
+        // opacity preserves the window underneath it.
+        palette.color(.gray, .color7).opacity(0.75)
     }
 
     private var gridOuterStroke: Color {
-        palette.gray500(palette.isDark ? 0.44 : 0.52)
+        palette.color(.gray, .color9).opacity(0.85)
     }
 
     private var gridZoneFill: Color {
-        palette.dropIntentSplitPlacementPane()
+        palette.color(.gray, .color9).opacity(0.45)
     }
 
-    private var displacedZoneFill: Color {
-        palette.dropIntentSplitExistingPane()
+    private var inactiveZoneFill: Color {
+        palette.color(.gray, .color8).opacity(0.18)
     }
 
-    private var displacedZoneStroke: Color {
-        palette.gray500(palette.isDark ? 0.32 : 0.38)
+    private var inactiveZoneStroke: Color {
+        palette.color(.gray, .color8).opacity(0.75)
     }
 
     private var activeZoneStroke: Color {
-        palette.gray500(palette.isDark ? 0.78 : 0.88)
+        palette.color(.gray, .color10).opacity(0.90)
     }
 
     private var gridSymbol: Color {
-        palette.foreground(0.82)
+        palette.content(.primary).opacity(0.72)
+    }
+
+    private var activeGridSymbol: Color {
+        palette.content(.primary).opacity(0.92)
     }
 
     private func zoneCornerRadius(for frame: Rect) -> CGFloat {

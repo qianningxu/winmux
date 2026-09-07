@@ -1,6 +1,7 @@
 import AppKit
 import Common
 import CoreGraphics
+import Foundation
 
 private struct MonitorImpl {
     let monitorAppKitNsScreenScreensId: Int
@@ -27,31 +28,63 @@ protocol Monitor: WinMuxAny {
     var isMain: Bool { get }
 }
 
-final class LazyMonitor: Monitor {
-    private let screen: NSScreen
-    let monitorAppKitNsScreenScreensId: Int
-    let name: String
-    let width: CGFloat
-    let height: CGFloat
-    let isMain: Bool
-    private var _rect: Rect?
-    private var _visibleRect: Rect?
+final class InvalidatableSnapshotCache<Value: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var generation: UInt64 = 0
+    private var storedValue: Value?
 
-    init(monitorAppKitNsScreenScreensId: Int, isMain: Bool, _ screen: NSScreen) {
-        self.monitorAppKitNsScreenScreensId = monitorAppKitNsScreenScreensId
-        self.name = screen.localizedName
-        self.width = screen.frame.width // Don't call rect because it would cause recursion during mainMonitor init
-        self.height = screen.frame.height // Don't call rect because it would cause recursion during mainMonitor init
-        self.screen = screen
-        self.isMain = isMain
+    func valueIfPresent() -> Value? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedValue
     }
 
-    var rect: Rect {
-        _rect ?? screen.rect.also { _rect = $0 }
+    func value(orCreate create: () -> Value) -> Value {
+        while true {
+            lock.lock()
+            if let storedValue {
+                lock.unlock()
+                return storedValue
+            }
+            let expectedGeneration = generation
+            lock.unlock()
+
+            let candidate = create()
+
+            lock.lock()
+            // Never publish a capture that began before an invalidation.
+            if generation == expectedGeneration {
+                let result = storedValue ?? candidate
+                storedValue = result
+                lock.unlock()
+                return result
+            }
+            if let storedValue {
+                lock.unlock()
+                return storedValue
+            }
+            lock.unlock()
+        }
     }
 
-    var visibleRect: Rect {
-        _visibleRect ?? screen.visibleRect.also { _visibleRect = $0 }
+    func invalidate() {
+        lock.lock()
+        generation &+= 1
+        storedValue = nil
+        lock.unlock()
+    }
+}
+
+// Production snapshots contain only immutable MonitorImpl values.
+private final class ScreenSnapshot: @unchecked Sendable {
+    let mainMonitor: Monitor
+    let mainMonitorHeight: CGFloat
+    let monitors: [Monitor]
+
+    init(mainMonitor: Monitor, mainMonitorHeight: CGFloat, monitors: [Monitor]) {
+        self.mainMonitor = mainMonitor
+        self.mainMonitorHeight = mainMonitorHeight
+        self.monitors = monitors
     }
 }
 
@@ -64,12 +97,12 @@ extension NSScreen {
         (deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber).map { CGDirectDisplayID(truncating: $0) }
     }
 
-    fileprivate func toMonitor(monitorAppKitNsScreenScreensId: Int) -> Monitor {
+    fileprivate func toMonitor(monitorAppKitNsScreenScreensId: Int, mainMonitorHeight: CGFloat) -> MonitorImpl {
         MonitorImpl(
             monitorAppKitNsScreenScreensId: monitorAppKitNsScreenScreensId,
             name: localizedName,
-            rect: rect,
-            visibleRect: visibleRect,
+            rect: frame.monitorFrameNormalized(mainMonitorHeight: mainMonitorHeight),
+            visibleRect: visibleFrame.monitorFrameNormalized(mainMonitorHeight: mainMonitorHeight),
             isMain: isMainScreen,
         )
     }
@@ -77,17 +110,17 @@ extension NSScreen {
     fileprivate var isMainScreen: Bool {
         displayId == CGMainDisplayID()
     }
+}
 
-    /// The property is a replacement for Apple's crazy ``frame``
-    ///
-    /// - For ``MacWindow.topLeftCorner``, (0, 0) is main screen top left corner, and positive y-axis goes down.
-    /// - For ``frame``, (0, 0) is main screen bottom left corner, and positive y-axis goes up (which is crazy).
-    ///
-    /// The property "normalizes" ``frame``
-    fileprivate var rect: Rect { frame.monitorFrameNormalized() }
-
-    /// Same as ``rect`` but for ``visibleFrame``
-    fileprivate var visibleRect: Rect { visibleFrame.monitorFrameNormalized() }
+private extension CGRect {
+    func monitorFrameNormalized(mainMonitorHeight: CGFloat) -> Rect {
+        Rect(
+            topLeftX: minX,
+            topLeftY: mainMonitorHeight - maxY,
+            width: width,
+            height: height,
+        )
+    }
 }
 
 private let testMonitorRect = Rect(topLeftX: 0, topLeftY: 0, width: 1920, height: 1080)
@@ -98,36 +131,95 @@ private let testMonitor = MonitorImpl(
     visibleRect: testMonitorRect,
     isMain: true,
 )
+private let monitorSnapshotCache = InvalidatableSnapshotCache<ScreenSnapshot>()
+private let monitorsOverrideForTestsLock = NSLock()
 nonisolated(unsafe) private var monitorsOverrideForTests: [Monitor]? = nil
+
+private func captureCurrentScreenSnapshot() -> ScreenSnapshot {
+    precondition(Thread.isMainThread, "NSScreen geometry must be captured on the main thread")
+    let screens = NSScreen.screens
+    let indexedScreens = screens.withIndex
+    guard let selectedMainScreen = indexedScreens.singleOrNil(where: \.value.isMainScreen) ?? indexedScreens.first else {
+        return ScreenSnapshot(mainMonitor: testMonitor, mainMonitorHeight: testMonitor.height, monitors: [testMonitor])
+    }
+
+    let mainMonitorHeight = selectedMainScreen.value.frame.height
+    let monitorValues = indexedScreens.map { index, screen in
+        screen.toMonitor(
+            monitorAppKitNsScreenScreensId: index + 1,
+            mainMonitorHeight: mainMonitorHeight,
+        )
+    }
+    let selectedMainMonitor = monitorValues[selectedMainScreen.index]
+    let mainMonitor = selectedMainMonitor.isMain
+        ? selectedMainMonitor
+        : MonitorImpl(
+            monitorAppKitNsScreenScreensId: selectedMainMonitor.monitorAppKitNsScreenScreensId,
+            name: selectedMainMonitor.name,
+            rect: selectedMainMonitor.rect,
+            visibleRect: selectedMainMonitor.visibleRect,
+            isMain: true,
+        )
+    return ScreenSnapshot(
+        mainMonitor: mainMonitor,
+        mainMonitorHeight: mainMonitorHeight,
+        monitors: monitorValues.map { $0 },
+    )
+}
+
+private func loadCurrentScreenSnapshotOnMainThread() -> ScreenSnapshot {
+    if Thread.isMainThread {
+        return monitorSnapshotCache.valueIfPresent() ?? captureCurrentScreenSnapshot()
+    }
+    return DispatchQueue.main.sync {
+        monitorSnapshotCache.valueIfPresent() ?? captureCurrentScreenSnapshot()
+    }
+}
+
+private var currentScreenSnapshot: ScreenSnapshot {
+    monitorSnapshotCache.value(orCreate: loadCurrentScreenSnapshotOnMainThread)
+}
+
+func invalidateMonitorSnapshotCache() {
+    monitorSnapshotCache.invalidate()
+}
+
+@MainActor
+func refreshMonitorSnapshotCache() {
+    invalidateMonitorSnapshotCache()
+    guard !isUnitTest else { return }
+    _ = currentScreenSnapshot
+}
 
 @MainActor
 func setMonitorsForTests(_ monitors: [Monitor]?) {
+    monitorsOverrideForTestsLock.lock()
     monitorsOverrideForTests = monitors
+    monitorsOverrideForTestsLock.unlock()
+}
+
+private func currentMonitorsOverrideForTests() -> [Monitor]? {
+    monitorsOverrideForTestsLock.lock()
+    defer { monitorsOverrideForTestsLock.unlock() }
+    return monitorsOverrideForTests
 }
 
 var mainMonitor: Monitor {
-    if isUnitTest, let monitor = monitorsOverrideForTests?.first(where: \.isMain) ?? monitorsOverrideForTests?.first {
-        return monitor
+    if isUnitTest {
+        let override = currentMonitorsOverrideForTests()
+        return override?.first(where: \.isMain) ?? override?.first ?? testMonitor
     }
-    if isUnitTest { return testMonitor }
-    let screens = NSScreen.screens
-    // Fallback: If main screen can't be found (e.g., during display reconfiguration),
-    // return screens.first or testMonitor to avoid crash
-    let screen = screens.withIndex.singleOrNil(where: \.value.isMainScreen) ?? screens.first.map { (0, $0) }
-    guard let screen else { return testMonitor }
-    return LazyMonitor(monitorAppKitNsScreenScreensId: screen.index + 1, isMain: true, screen.value)
+    return currentScreenSnapshot.mainMonitor
+}
+
+var mainMonitorHeight: CGFloat {
+    if isUnitTest { return mainMonitor.height }
+    return currentScreenSnapshot.mainMonitorHeight
 }
 
 var monitors: [Monitor] {
-    if isUnitTest, let override = monitorsOverrideForTests {
-        return override
-    }
-    if isUnitTest { return [mainMonitor] }
-    let screens = NSScreen.screens
-    guard !screens.isEmpty else { return [mainMonitor] }
-    return screens.withIndex.map { index, screen in
-        screen.toMonitor(monitorAppKitNsScreenScreensId: index + 1)
-    }
+    if isUnitTest { return currentMonitorsOverrideForTests() ?? [testMonitor] }
+    return currentScreenSnapshot.monitors
 }
 
 var sortedMonitors: [Monitor] {

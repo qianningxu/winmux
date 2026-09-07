@@ -7,6 +7,13 @@ struct FocusCommand: Command {
 
     func run(_ env: CmdEnv, _ io: CmdIo) async throws -> Bool {
         guard let target = args.resolveTargetOrReportError(env, io) else { return false }
+        // Pane and stack navigation operate on the existing tiling tree. A
+        // floating window must not be temporarily inserted into a stack.
+        if case .tabRelative(let nextPrev) = args.target,
+           nextPrev != .tabNext && nextPrev != .tabPrev
+        {
+            return focusRelativeInActiveTab(target, args.boundariesAction, nextPrev)
+        }
         // todo bug: floating windows break mru
         let floatingWindows = args.floatingAsTiling ? try await makeFloatingWindowsSeenAsTiling(workspace: target.workspace) : []
         defer {
@@ -127,7 +134,14 @@ struct FocusCommand: Command {
     _ boundariesAction: FocusCmdArgs.WhenBoundariesCrossed,
     _ nextPrev: TabNextPrev,
 ) -> Bool {
-    let windows = composedWindowsInActiveTab(target)
+    let windows: [Window] = switch nextPrev {
+        case .tabNext, .tabPrev:
+            composedWindowsInActiveTab(target)
+        case .paneNext, .panePrev:
+            paneWindowsForFocus(target.workspace.rootTilingContainer, focusedWindow: target.windowOrNil)
+        case .stackNext, .stackPrev:
+            target.windowOrNil?.nearestWindowTabGroup?.allLeafWindowsRecursive ?? []
+    }
     guard let currentIndex = windows.firstIndex(where: { $0 == target.windowOrNil }) else {
         return switch boundariesAction {
             case .stop, .wrapAroundTheWorkspace: true
@@ -150,7 +164,21 @@ struct FocusCommand: Command {
         }
     }
 
-    return windows[targetIndex].focusWindow()
+    return windows[targetIndex] === target.windowOrNil || windows[targetIndex].focusWindow()
+}
+
+@MainActor
+private func paneWindowsForFocus(_ node: TreeNode, focusedWindow: Window?) -> [Window] {
+    if let window = node as? Window { return [window] }
+    guard let container = node as? TilingContainer else { return [] }
+    if container.layout == .tabGroup {
+        // A stack occupies one pane. Returning to it restores its selected window.
+        let selected = focusedWindow.flatMap { window in
+            window.parents.contains(where: { $0 === container }) ? window : nil
+        } ?? container.mostRecentWindowRecursive
+        return selected.map { [$0] } ?? []
+    }
+    return container.children.flatMap { paneWindowsForFocus($0, focusedWindow: focusedWindow) }
 }
 
 @MainActor

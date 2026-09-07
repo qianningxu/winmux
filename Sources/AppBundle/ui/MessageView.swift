@@ -28,6 +28,11 @@ struct MessageView: View {
     @StateObject private var model: MessageModel
     @Environment(\.dismiss) private var dismiss: DismissAction
     @FocusState var focus: Bool
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme)
+    }
 
     init(model: MessageModel) {
         self._model = .init(wrappedValue: model)
@@ -37,7 +42,7 @@ struct MessageView: View {
         VStack(alignment: .leading) {
             HStack(alignment: .center) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.yellow)
+                    .foregroundStyle(palette.color(.amber, .color9))
                     .font(.system(size: 48))
                 Text("\(model.message?.description ?? "")")
                     .padding(.horizontal)
@@ -65,7 +70,7 @@ struct MessageView: View {
                 }
                 .padding()
             }
-            .background(Color(.controlBackgroundColor))
+            .background(palette.geistBackground(.primary))
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .padding(.horizontal)
             HStack {

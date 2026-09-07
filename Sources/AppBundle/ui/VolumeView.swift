@@ -36,11 +36,12 @@ struct VolumeView: View {
     @State var volume: Float? = nil
 
     @Environment(\.colorScheme) var colorScheme: ColorScheme
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
     private var barColor: Color {
-        colorScheme == .dark ? Color.white : Color.black
+        palette.content(.primary)
     }
     private var fontColor: Color {
-        colorScheme == .dark ? Color.black : Color.white
+        palette.geistBackground(.primary)
     }
     private var speakerImage: String {
         guard let volume else { return "speaker.fill" }
@@ -58,7 +59,7 @@ struct VolumeView: View {
         ZStack(alignment: .bottom) {
             if let volume {
                 Rectangle()
-                    .fill(Color.gray.opacity(0.8))
+                    .fill(palette.geistBorder(.hover))
                 Rectangle()
                     .fill(barColor)
                     .frame(height: CGFloat(volume) * bar.height)
@@ -67,7 +68,7 @@ struct VolumeView: View {
                         .font(.system(size: 12, weight: .bold))
                     Image(systemName: speakerImage)
                         .frame(width: 30, height: 30, alignment: .center)
-                        .padding(.bottom, 10)
+                        .padding(.bottom, standardGap * 5)
                 }
                 .foregroundStyle(fontColor)
             }

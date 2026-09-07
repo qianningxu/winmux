@@ -68,17 +68,17 @@ struct ResolvedGaps {
         let right: Int
     }
 
-    init(gaps: Gaps, monitor: any Monitor) {
+    init(gaps: Gaps, monitor: any Monitor, canvasGap: Int? = nil) {
         inner = .init(
-            vertical: gaps.inner.vertical.getValue(for: monitor),
-            horizontal: gaps.inner.horizontal.getValue(for: monitor),
+            vertical: canvasGap ?? gaps.inner.vertical.getValue(for: monitor),
+            horizontal: canvasGap ?? gaps.inner.horizontal.getValue(for: monitor),
         )
 
         outer = .init(
-            left: gaps.outer.left.getValue(for: monitor),
-            bottom: gaps.outer.bottom.getValue(for: monitor),
+            left: canvasGap ?? gaps.outer.left.getValue(for: monitor),
+            bottom: canvasGap ?? gaps.outer.bottom.getValue(for: monitor),
             top: gaps.outer.top.getValue(for: monitor),
-            right: gaps.outer.right.getValue(for: monitor),
+            right: canvasGap ?? gaps.outer.right.getValue(for: monitor),
         )
     }
 }

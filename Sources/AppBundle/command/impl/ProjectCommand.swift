@@ -7,26 +7,23 @@ struct ProjectCommand: Command {
     func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
         guard let target = args.resolveTargetOrReportError(env, io) else { return false }
         let monitor = target.workspace.workspaceMonitor
-        let currentFolderId = WorkspaceFolderId(target.workspace.projectId)
-        guard let folderId = resolveWorkspaceSidebarFolderTarget(
+        let currentProjectId = target.workspace.projectId
+        guard let project = resolveProjectTarget(
             args.target.val,
-            currentFolderId: currentFolderId,
+            currentProjectId: currentProjectId,
             wrapAround: args.wrapAround,
-            monitor: monitor
         ) else {
-            return io.err("Can't resolve folder target")
+            return io.err("Can't resolve project target")
         }
-        let folderName = workspaceFolderDisplayName(folderId, fallbackName: folderId == workspaceFolderDefaultId ? workspaceDefaultFolderDisplayName : "Folder")
-        if folderId == currentFolderId {
+        if project.id == currentProjectId {
             if !args.failIfNoop {
-                io.err("Folder '\(folderName)' is already focused. Tip: use --fail-if-noop to exit with non-zero code")
+                io.err("Project '\(project.name)' is already focused. Tip: use --fail-if-noop to exit with non-zero code")
             }
             return !args.failIfNoop
         }
-        guard let workspace = switchWorkspaceFolder(folderId, on: monitor) else {
-            return io.err("Can't switch to folder '\(folderName)'")
+        guard let workspace = switchWorkspaceProject(project.id, on: monitor) else {
+            return io.err("Can't switch to project '\(project.name)'")
         }
-        setWorkspaceSidebarFolderExpanded(folderId.backingProjectId, isExpanded: true)
         return workspace.focusWorkspace()
     }
 }
@@ -61,30 +58,37 @@ func workspaceSidebarFolderNavigationProjectIds(monitor: Monitor? = nil) -> [Wor
 
 @MainActor
 func workspaceSidebarFolderNavigationFolderIds(monitor: Monitor? = nil) -> [WorkspaceFolderId] {
-    workspaceSidebarFolderNavigationSections(monitor: monitor).map { WorkspaceFolderId($0.id) }
+    let projectId = monitor.map { activeWorkspaceProjectId(for: $0) } ?? focus.workspace.projectId
+    return workspaceFolders(in: projectId).map(\.id)
 }
 
 @MainActor
 func workspaceSidebarFolderNavigationSections(monitor: Monitor? = nil) -> [WorkspaceSidebarFolderSection] {
-    workspaceSidebarFolderSections(
-        projectId: workspaceFolderDefaultId.backingProjectId,
+    let projectId = monitor.map { activeWorkspaceProjectId(for: $0) } ?? focus.workspace.projectId
+    return workspaceSidebarFolderSections(
+        projectId: projectId,
         workspaces: workspaceSidebarFolderNavigationWorkspaceViewModels(monitor: monitor),
-        projects: workspaceSidebarFolderNavigationProjectViewModels(),
+        folders: workspaceSidebarFolderNavigationFolderViewModels(projectId: projectId),
     )
 }
 
 @MainActor
-private func workspaceSidebarNavigationWorkspaces(monitor _: Monitor?) -> [Workspace] {
-    userFacingWorkspaces(orderedWorkspacesForPresentation(), focusedWorkspace: focus.workspace)
+private func workspaceSidebarNavigationWorkspaces(monitor: Monitor?) -> [Workspace] {
+    let projectId = monitor.map { activeWorkspaceProjectId(for: $0) } ?? focus.workspace.projectId
+    return userFacingWorkspaces(orderedWorkspaces(in: projectId), focusedWorkspace: focus.workspace)
 }
 
 @MainActor
-private func workspaceSidebarFolderNavigationProjectViewModels() -> [WorkspaceSidebarProjectViewModel] {
-    workspaceFolders().map {
-        WorkspaceSidebarProjectViewModel(
-            id: $0.id.backingProjectId,
+private func workspaceSidebarFolderNavigationFolderViewModels(
+    projectId: WorkspaceProjectId
+) -> [WorkspaceSidebarFolderViewModel] {
+    workspaceFolders(in: projectId).map {
+        WorkspaceSidebarFolderViewModel(
+            id: $0.id,
+            projectId: $0.projectId,
             displayName: $0.name,
-            colorHex: config.workspaceSidebar.projectColors[$0.id.rawValue].flatMap(normalizedWorkspaceSidebarColorHex)
+            colorHex: config.workspaceSidebar.folderColors[$0.id.rawValue].flatMap(normalizedWorkspaceSidebarColorHex),
+            isUnfolded: $0.id == winMuxWorkspaceState.unfoldedFolderId(for: projectId)
         )
     }
 }
@@ -98,6 +102,7 @@ private func workspaceSidebarFolderNavigationWorkspaceViewModels(
         return WorkspaceSidebarWorkspaceViewModel(
             name: workspace.name,
             projectId: workspace.projectId,
+            folderId: workspace.folderId,
             displayName: workspaceDisplayName(workspace.name),
             sidebarLabel: config.workspaceSidebar.workspaceLabels[workspace.name] ?? "",
             isGeneratedName: workspace.usesAutomaticDisplayName,

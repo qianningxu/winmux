@@ -39,6 +39,8 @@ extension WorkspaceSidebarView {
         isSidebarCollapsing = false
         isSidebarExpanding = false
         cancelWorkspaceReorderDrag()
+        finishProjectRename(cancelled: true)
+        finishFolderRename(cancelled: true)
         finishWorkspaceRename(cancelled: true)
         resetProjectEdgeDrag()
         resetProjectSwipeWithoutAnimation()

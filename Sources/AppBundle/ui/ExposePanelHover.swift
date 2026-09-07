@@ -4,8 +4,8 @@ import SwiftUI
 
 let exposeOverviewCoordinateSpace = "WinMux.expose.overview"
 let exposeCardTitleHeight: CGFloat = 20
-let exposeExpandedGroupSpacing: CGFloat = 16
-let exposeExpandedGroupHoverPadding: CGFloat = 26
+let exposeExpandedGroupSpacing: CGFloat = standardGap * 8
+let exposeExpandedGroupHoverPadding: CGFloat = standardGap * 13
 
 struct ExposeHoverTargetFrame: Equatable {
     let itemId: UInt32
@@ -87,7 +87,7 @@ func shouldKeepExpandedGroupVisible(
 func hoveredCollapsedGroupFrame(
     at location: CGPoint,
     within frames: [ExposeCollapsedGroupFrame],
-    padding: CGFloat = 0,
+    padding: CGFloat = standardGap * 0,
 ) -> ExposeCollapsedGroupFrame? {
     frames.last(where: { $0.frame.insetBy(dx: -padding, dy: -padding).contains(location) })
 }
@@ -120,4 +120,3 @@ func exposeThumbnailWindowIds(from entries: [ExposeEntry]) -> [UInt32] {
     }
     return result
 }
-

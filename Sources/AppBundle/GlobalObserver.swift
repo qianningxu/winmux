@@ -2,6 +2,63 @@ import AppKit
 import Common
 import HotKey
 
+private struct PointerActivityBatch: @unchecked Sendable {
+    let latestSample: MousePointerSample
+    let leftMouseDownSample: MousePointerSample?
+    let hasGlobalLeftMouseDrag: Bool
+}
+
+private final class PointerActivityCoalescer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var latestSample: MousePointerSample?
+    private var leftMouseDownSample: MousePointerSample?
+    private var hasGlobalLeftMouseDrag = false
+    private var isConsumerScheduled = false
+
+    func submit(
+        sample: MousePointerSample,
+        isLeftMouseDown: Bool,
+        isGlobalLeftMouseDrag: Bool
+    ) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        latestSample = sample
+        if isLeftMouseDown {
+            leftMouseDownSample = sample
+        }
+        hasGlobalLeftMouseDrag = hasGlobalLeftMouseDrag || isGlobalLeftMouseDrag
+        guard !isConsumerScheduled else { return false }
+        isConsumerScheduled = true
+        return true
+    }
+
+    func nextBatchOrFinish() -> PointerActivityBatch? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let latestSample else {
+            isConsumerScheduled = false
+            return nil
+        }
+        let batch = PointerActivityBatch(
+            latestSample: latestSample,
+            leftMouseDownSample: leftMouseDownSample,
+            hasGlobalLeftMouseDrag: hasGlobalLeftMouseDrag
+        )
+        self.latestSample = nil
+        leftMouseDownSample = nil
+        hasGlobalLeftMouseDrag = false
+        return batch
+    }
+
+    func discardPending() {
+        lock.lock()
+        defer { lock.unlock() }
+        latestSample = nil
+        leftMouseDownSample = nil
+        hasGlobalLeftMouseDrag = false
+    }
+}
+
 enum GlobalObserver {
     @MainActor private static var isInitialized = false
     @MainActor private static var notificationObserverTokens: [NSObjectProtocol] = []
@@ -11,6 +68,8 @@ enum GlobalObserver {
     @MainActor private static var isWindowInventoryPollingRequested = false
     @MainActor private static var isWindowInventoryPollingStarted = false
     @MainActor private static var isWindowInventoryPollingSuspendedForSleep = false
+    @MainActor private static var resizeCandidateCaptureGeneration: UInt64 = 0
+    private static let pointerActivityCoalescer = PointerActivityCoalescer()
 
     private static func onNotif(_ notification: Notification) {
         // Third line of defence against lock screen window. See: closedWindowsCache
@@ -81,27 +140,66 @@ enum GlobalObserver {
         }
     }
 
-    private static func onPointerActivity(_ event: NSEvent) {
+    private static func onPointerActivity(_ event: NSEvent, handlesGlobalWindowDrag: Bool) {
         let isLeftMouseDownEvent = event.type == .leftMouseDown
-        let timestamp = event.timestamp
-        let screenPoint = NSEvent.mouseLocation
-        let point = normalizeAppKitScreenPoint(screenPoint)
+        let sample = MousePointerSample(
+            point: normalizeAppKitScreenPoint(NSEvent.mouseLocation),
+            timestamp: event.timestamp
+        )
+        let shouldScheduleConsumer = pointerActivityCoalescer.submit(
+            sample: sample,
+            isLeftMouseDown: isLeftMouseDownEvent,
+            isGlobalLeftMouseDrag: handlesGlobalWindowDrag && event.type == .leftMouseDragged
+        )
+        guard shouldScheduleConsumer else { return }
         Task { @MainActor in
-            MousePointerTracker.shared.note(point: point, timestamp: timestamp)
-            WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
-            WorkspaceSidebarPanel.updateHoverStateForVisiblePanels()
-            if isLeftMouseDownEvent {
-                await WindowMouseInteractionDriver.shared.capturePendingResizeCandidate()
+            while let batch = pointerActivityCoalescer.nextBatchOrFinish() {
+                if let downSample = batch.leftMouseDownSample {
+                    WindowMouseInteractionOpacityController.shared.prepareWindowInventory()
+                    processPointerSample(downSample)
+                    schedulePendingResizeCandidateCapture(for: downSample)
+                }
+                if batch.latestSample != batch.leftMouseDownSample {
+                    processPointerSample(batch.latestSample)
+                }
+                if batch.hasGlobalLeftMouseDrag {
+                    refreshPendingWindowDragIntentFromGlobalMouseDrag()
+                }
+                noteTapBindingKeyDown()
             }
-            noteTapBindingKeyDown()
+        }
+    }
+
+    @MainActor
+    private static func processPointerSample(_ sample: MousePointerSample) {
+        MousePointerTracker.shared.note(point: sample.point, timestamp: sample.timestamp)
+        WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
+        WorkspaceSidebarPanel.updateHoverStateForVisiblePanels()
+    }
+
+    @MainActor
+    private static func schedulePendingResizeCandidateCapture(for sample: MousePointerSample) {
+        resizeCandidateCaptureGeneration &+= 1
+        let generation = resizeCandidateCaptureGeneration
+        Task { @MainActor in
+            let driver = WindowMouseInteractionDriver.shared
+            let candidate = await driver.makePendingResizeCandidate(sample: sample)
+            guard generation == resizeCandidateCaptureGeneration,
+                  isLeftMouseButtonDown,
+                  getCurrentMouseManipulationKind() == .none
+            else { return }
+            driver.pendingResizeCandidate = candidate
         }
     }
 
     private static func onLeftMouseUp(_ event: NSEvent, handlesWorkspaceFocusFallback: Bool) {
+        pointerActivityCoalescer.discardPending()
         let timestamp = event.timestamp
         let point = normalizeAppKitScreenPoint(NSEvent.mouseLocation)
         Task { @MainActor in
+            resizeCandidateCaptureGeneration &+= 1
             MousePointerTracker.shared.note(point: point, timestamp: timestamp)
+            await WindowMouseInteractionDriver.shared.flushBeforeMouseUp()
             finishWorkspaceSidebarDragAfterGlobalMouseUp()
             guard let token: RunSessionGuard = .isServerEnabled else {
                 WorkspaceSidebarPanel.updateHoverStateForVisiblePanels()
@@ -185,25 +283,17 @@ enum GlobalObserver {
             return event
         })
 
-        retainEventMonitor(NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDragged) { event in
-            let timestamp = event.timestamp
-            let point = normalizeAppKitScreenPoint(NSEvent.mouseLocation)
-            Task { @MainActor in
-                MousePointerTracker.shared.note(point: point, timestamp: timestamp)
-                WorkspaceSidebarPanel.trapCursorForVisiblePanelsIfNeeded()
-                refreshPendingWindowDragIntentFromGlobalMouseDrag()
-            }
-        })
-
         let pointerActivityMask: NSEvent.EventTypeMask = [
             .mouseMoved,
             .leftMouseDown, .rightMouseDown, .otherMouseDown,
             .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
             .scrollWheel,
         ]
-        retainEventMonitor(NSEvent.addGlobalMonitorForEvents(matching: pointerActivityMask, handler: onPointerActivity))
+        retainEventMonitor(NSEvent.addGlobalMonitorForEvents(matching: pointerActivityMask) { event in
+            onPointerActivity(event, handlesGlobalWindowDrag: true)
+        })
         retainEventMonitor(NSEvent.addLocalMonitorForEvents(matching: pointerActivityMask) { event in
-            onPointerActivity(event)
+            onPointerActivity(event, handlesGlobalWindowDrag: false)
             return event
         })
 

@@ -30,13 +30,12 @@ extension WorkspaceSidebarView {
                 topPadding: topPadding,
                 isInteractive: index == displayIndex,
                 showsPinnedActiveWorkspace: showsPinnedActiveWorkspaceForBrowsedProject,
-                showsCreateWorkspace: browsedProjectId == nil,
                 allowsActivation: allowsWorkspaceActivation(projectId: project.id),
             )
                     .frame(width: pageWidth, alignment: .topLeading)
                     .allowsHitTesting(index == displayIndex)
         } else {
-            Color.clear
+            WinMuxDesignTokens.transparent
                 .frame(width: pageWidth, alignment: .topLeading)
                 .allowsHitTesting(false)
         }
@@ -51,8 +50,8 @@ extension WorkspaceSidebarView {
         topPadding: CGFloat,
         isInteractive: Bool,
         showsPinnedActiveWorkspace: Bool = true,
-        showsCreateWorkspace: Bool = true,
         allowsActivation: Bool? = nil,
+        expandsToAvailableHeight: Bool = false,
     ) -> some View {
         let allSections = folderSections(projectId: projectId, workspaces: workspaces)
         let sections = workspaceSidebarIsCompact(expansionProgress: expansionProgress)
@@ -64,7 +63,8 @@ extension WorkspaceSidebarView {
                 )
             )
             : allSections
-        return ScrollView {
+        @ViewBuilder
+        func content() -> some View {
             VStack(alignment: .leading, spacing: workspaceSidebarListItemSpacing) {
                 if showsPinnedActiveWorkspace,
                    let pinnedActiveWorkspace = pinnedActiveWorkspace(
@@ -91,13 +91,17 @@ extension WorkspaceSidebarView {
                                     expansionProgress: expansionProgress,
                                     layout: snapshot.configuration,
                                     monitorScopeId: snapshot.targetMonitorScopeId,
-                                    isExpanded: isFolderExpanded(section.project.id),
+                                    isExpanded: isFolderExpanded(section.folder.id),
                                     onToggle: {
-                                        setFolderExpanded(section.project.id, !isFolderExpanded(section.project.id))
+                                        setFolderExpanded(section.folder.id, !isFolderExpanded(section.folder.id))
                                     },
                                     onDropPayload: { payload in
-                                        handleFolderPayloadDrop(payload, projectId: section.project.id)
+                                        handleFolderPayloadDrop(payload, folderId: section.folder.id)
                                     },
+                                    projectDestinations: workspaceSidebarProjectDestinations(
+                                        projects: snapshot.projects,
+                                        currentProjectId: section.folder.projectId
+                                    ),
                                     actions: actions,
                                     emitsDropTarget: true,
                                     dropPreview: folderDropPreview(section.project.id),
@@ -109,16 +113,16 @@ extension WorkspaceSidebarView {
                                         isInteractive: isInteractive
                                     ),
                                     isFolderReorderSource: isFolderReorderSource(section.project.id),
-                                    renamingProjectId: $renamingProjectId,
-                                    renamingProjectText: $renamingProjectText,
-                                    onBeginRenameProject: { project in
-                                        beginProjectRename(project, browseIfNeeded: false)
+                                    renamingFolderId: $renamingFolderId,
+                                    renamingFolderText: $renamingFolderText,
+                                    onBeginRenameFolder: { folder in
+                                        beginFolderRename(folder)
                                     },
-                                    onCommitRenameProject: {
-                                        finishProjectRename()
+                                    onCommitRenameFolder: {
+                                        finishFolderRename()
                                     },
-                                    onCancelRenameProject: {
-                                        finishProjectRename(cancelled: true)
+                                    onCancelRenameFolder: {
+                                        finishFolderRename(cancelled: true)
                                     },
                                     onFolderReorderDragChanged: { pointer in
                                         updateFolderReorderDrag(section: section, pointer: pointer)
@@ -129,18 +133,23 @@ extension WorkspaceSidebarView {
                                     content: {
                                         workspaceList(
                                             workspaces: section.workspaces,
-                                            projectId: section.project.id,
+                                            projectId: section.folder.id.backingProjectId,
                                             expansionProgress: expansionProgress,
                                             isInteractive: isInteractive,
                                             allowsActivation: allowsActivation,
-                                            nestedContentIndent: workspaceSidebarTabGroupChildLeadingIndent,
+                                            nestedContentIndent: section.folder.isUnfolded
+                                                ? 0
+                                                : workspaceSidebarTabGroupChildLeadingIndent,
+                                            nestedContentTrailingInset: section.folder.isUnfolded
+                                                ? 0
+                                                : workspaceSidebarStandardGap,
                                         )
                                     }
                                 )
                             } else {
                                 workspaceList(
                                     workspaces: section.workspaces,
-                                    projectId: section.project.id,
+                                    projectId: section.folder.id.backingProjectId,
                                     expansionProgress: expansionProgress,
                                     isInteractive: isInteractive,
                                     allowsActivation: allowsActivation,
@@ -153,41 +162,6 @@ extension WorkspaceSidebarView {
                                 section: section
                             )
                     }
-                }
-                if showsCreateWorkspace && workspaceSidebarShowsCreateWorkspace(selectedScopeId: snapshot.selectedMonitorScopeId) {
-                    let createMonitorScopeId = workspaceSidebarWorkspaceCreateScope(
-                        selectedScopeId: snapshot.selectedMonitorScopeId,
-                        targetMonitorScopeId: snapshot.targetMonitorScopeId,
-                        focusedScopeId: snapshot.focusedMonitorScopeId,
-                    )
-                    WorkspaceSidebarCreateWorkspaceSection(
-                        projectId: projectId,
-                        monitorScopeId: createMonitorScopeId,
-                        dragPreview: snapshot.dropPreview,
-                        expansionProgress: expansionProgress,
-                        layout: snapshot.configuration,
-                        emitsDropTarget: true,
-                        onCreateWorkspace: {
-                            actions.send(.createFolder)
-                        },
-                        onDropPayload: { payload in
-                            switch payload {
-                                case .window(let windowId):
-                                    actions.send(.moveWindowToNewWorkspace(
-                                        windowId,
-                                        projectId: projectId,
-                                        monitorScopeId: createMonitorScopeId,
-                                    ))
-                                case .tabGroup(let representativeWindowId):
-                                    actions.send(.moveTabGroupToNewWorkspace(
-                                        representativeWindowId,
-                                        projectId: projectId,
-                                        monitorScopeId: createMonitorScopeId,
-                                    ))
-                            }
-                        },
-                        actions: actions,
-                    )
                 }
             }
             // Structural changes in a VStack do not reliably inherit a
@@ -204,7 +178,38 @@ extension WorkspaceSidebarView {
             .padding(.bottom, workspaceSidebarMinimumTopPadding)
             .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.88), value: snapshot.dropPreview)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        let maximumHeight: CGFloat = expandsToAvailableHeight
+            ? .infinity
+            : workspaceSidebarWorkspaceListMaximumHeight
+
+        return Group {
+            if expandsToAvailableHeight {
+                GeometryReader { geometry in
+                    ScrollView {
+                        content()
+                            .frame(
+                                minHeight: geometry.size.height,
+                                alignment: .topLeading
+                            )
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                    }
+                    .contentShape(Rectangle())
+                }
+            } else {
+                ViewThatFits(in: .vertical) {
+                    content()
+                    ScrollView {
+                        content()
+                    }
+                }
+            }
+        }
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: maximumHeight,
+            alignment: .topLeading
+        )
+        .layoutPriority(expandsToAvailableHeight ? 1 : 0)
     }
 
     @ViewBuilder
@@ -215,6 +220,7 @@ extension WorkspaceSidebarView {
         isInteractive: Bool,
         allowsActivation: Bool?,
         nestedContentIndent: CGFloat = 0,
+        nestedContentTrailingInset: CGFloat = 0,
     ) -> some View {
         ForEach(workspaceListEntries(workspaces: workspaces, projectId: projectId)) { entry in
             switch entry {
@@ -229,6 +235,7 @@ extension WorkspaceSidebarView {
                         projectContextLabel: browsedProjectId != nil && projectId != snapshot.activeProjectId ? projectName(projectId) : nil,
                         projectContextColor: browsedProjectId != nil && projectId != snapshot.activeProjectId ? projectColor(projectId) : nil,
                         nestedContentIndent: nestedContentIndent,
+                        nestedContentTrailingInset: nestedContentTrailingInset,
                     )
                     .modifier(WorkspaceSidebarProjectedDragAnchorModifier(isActive: isDragAnchor))
                 case .placeholder:
@@ -252,22 +259,22 @@ extension WorkspaceSidebarView {
     @MainActor
     private func handleFolderPayloadDrop(
         _ payload: WorkspaceSidebarDragPayload,
-        projectId: WorkspaceProjectId
+        folderId: WorkspaceFolderId
     ) {
         switch payload {
             case .window(let windowId):
-                actions.send(.moveWindowToNewWorkspace(
+                actions.send(.moveWindowToNewWorkspaceInFolder(
                     windowId,
-                    projectId: projectId,
+                    folderId: folderId,
                     monitorScopeId: snapshot.targetMonitorScopeId,
                 ))
             case .tabGroup(let representativeWindowId):
                 if let workspaceName = workspaceSidebarPayloadSourceWorkspaceName(payload) {
-                    actions.send(.moveWorkspaceToFolder(workspaceName, projectId: projectId))
+                    actions.send(.moveWorkspaceToFolder(workspaceName, folderId: folderId))
                 } else {
-                    actions.send(.moveTabGroupToNewWorkspace(
+                    actions.send(.moveTabGroupToNewWorkspaceInFolder(
                         representativeWindowId,
-                        projectId: projectId,
+                        folderId: folderId,
                         monitorScopeId: snapshot.targetMonitorScopeId,
                     ))
                 }
@@ -294,7 +301,6 @@ extension WorkspaceSidebarView {
                 topPadding: topPadding,
                 isInteractive: true,
                 showsPinnedActiveWorkspace: false,
-                showsCreateWorkspace: true,
                 allowsActivation: true,
             )
             .frame(width: sectionWidth + leadingInset, alignment: .topLeading)
@@ -308,7 +314,6 @@ extension WorkspaceSidebarView {
                 topPadding: topPadding,
                 isInteractive: true,
                 showsPinnedActiveWorkspace: false,
-                showsCreateWorkspace: true,
                 allowsActivation: false,
             )
             .frame(width: sectionWidth + trailingInset, alignment: .topLeading)
@@ -330,6 +335,7 @@ extension WorkspaceSidebarView {
         projectContextLabel: String? = nil,
         projectContextColor: Color? = nil,
         nestedContentIndent: CGFloat = 0,
+        nestedContentTrailingInset: CGFloat = 0,
     ) -> some View {
         let isFromOtherDisplay = false
         let isInUseOnOtherDisplay = allowsWorkspaceActivation &&
@@ -359,7 +365,12 @@ extension WorkspaceSidebarView {
             ),
             projectContextLabel: projectContextLabel,
             projectContextColor: projectContextColor,
+            projectDestinations: workspaceSidebarProjectDestinations(
+                projects: snapshot.projects,
+                currentProjectId: workspace.projectId
+            ),
             nestedContentIndent: nestedContentIndent,
+            nestedContentTrailingInset: nestedContentTrailingInset,
             renamingWorkspaceName: $renamingWorkspaceName,
             renamingWorkspaceText: $renamingWorkspaceText,
             onBeginRenameWorkspace: {
@@ -382,10 +393,10 @@ extension WorkspaceSidebarView {
             isWorkspaceReorderSource: isWorkspaceReorderSource(workspace),
             isWorkspaceReorderInProgress: workspaceReorderDrag != nil,
             onWorkspaceReorderDragChanged: { pointer in
-                updateWorkspaceReorderDrag(workspace: workspace, projectId: workspace.projectId, pointer: pointer)
+                updateWorkspaceReorderDrag(workspace: workspace, projectId: workspace.folderId.backingProjectId, pointer: pointer)
             },
             onWorkspaceReorderDragEnded: { pointer in
-                finishWorkspaceReorderDrag(workspace: workspace, projectId: workspace.projectId, pointer: pointer)
+                finishWorkspaceReorderDrag(workspace: workspace, projectId: workspace.folderId.backingProjectId, pointer: pointer)
             },
             activeInUseOverrideWorkspaceName: $activeInUseOverrideWorkspaceName,
             onBeginWorkspaceActivation: beginPendingWorkspaceActivation,
@@ -452,7 +463,7 @@ extension WorkspaceSidebarView {
         workspaceSidebarFolderSections(
             projectId: projectId,
             workspaces: workspaces,
-            projects: snapshot.projects,
+            folders: snapshot.folders,
         )
     }
 

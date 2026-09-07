@@ -1,20 +1,9 @@
 import SwiftUI
 
 extension WorkspaceSidebarPanel {
-    func setHovering(_ isHovering: Bool) {
-        let expandedWidth = CGFloat(config.workspaceSidebar.width)
-        let collapsedWidth = CGFloat(config.workspaceSidebar.collapsedWidth)
-        if viewModel.workspaceSidebarVisibleWidth > collapsedWidth + 0.5 || pendingCollapse != nil {
-            debugWorkspaceSidebarHoverLog("setHovering panel=\(monitorScopeId) isHovering=\(isHovering) visible=\(viewModel.workspaceSidebarVisibleWidth) frame=\(frame) mouse=\(NSEvent.mouseLocation)")
-        }
-        if isHovering {
-            handleHoverEnter(
-                expandedWidth: max(expandedWidth, viewModel.workspaceSidebarVisibleWidth),
-                collapsedWidth: collapsedWidth
-            )
-        } else {
-            handleHoverExit(collapsedWidth: collapsedWidth)
-        }
+    func setHovering(_: Bool) {
+        // The horizontal tab bar does not expand or collapse on hover.
+        updateMousePassthrough()
     }
 
     func shouldLockExpansionForSidebarDrag() -> Bool {

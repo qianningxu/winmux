@@ -2,12 +2,71 @@ import CoreGraphics
 import Foundation
 
 @MainActor
-private var cache: [UInt32: MacOsWindowLevel] = [:]
+private let windowLevelCache = WindowLevelCache(loadInventory: copyWindowLevelInventory)
 
 @MainActor
-func getWindowLevel(for windowId: UInt32) -> MacOsWindowLevel? {
-    if let existing = cache[windowId] { return existing }
+func getWindowLevel(for windowId: UInt32) async throws -> MacOsWindowLevel? {
+    try await windowLevelCache.windowLevel(for: windowId)
+}
 
+@MainActor
+final class WindowLevelCache {
+    typealias Inventory = [UInt32: MacOsWindowLevel]
+    typealias LoadInventory = @Sendable () -> Inventory?
+
+    private struct InFlightLoad {
+        let generation: UInt64
+        let task: Task<Inventory?, Never>
+        let completion: AwaitableOneTimeBroadcastLatch
+    }
+
+    private let loadInventory: LoadInventory
+    private var cache: Inventory = [:]
+    private var inFlightLoad: InFlightLoad?
+    private var loadGeneration: UInt64 = 0
+
+    init(loadInventory: @escaping LoadInventory) {
+        self.loadInventory = loadInventory
+    }
+
+    func windowLevel(for windowId: UInt32) async throws -> MacOsWindowLevel? {
+        try Task.checkCancellation()
+        if let existing = cache[windowId] { return existing }
+
+        let load = inFlightLoad ?? startLoad()
+        try await load.completion.await()
+        try Task.checkCancellation()
+        return (await load.task.value)?[windowId]
+    }
+
+    private func startLoad() -> InFlightLoad {
+        loadGeneration &+= 1
+        let generation = loadGeneration
+        let loadInventory = loadInventory
+        let task = Task.detached(priority: .userInitiated) {
+            loadInventory()
+        }
+        let completion = AwaitableOneTimeBroadcastLatch()
+        let load = InFlightLoad(generation: generation, task: task, completion: completion)
+        inFlightLoad = load
+
+        Task { @MainActor [weak self] in
+            let inventory = await task.value
+            guard let self, self.inFlightLoad?.generation == generation else {
+                await completion.signalToAll()
+                return
+            }
+            self.inFlightLoad = nil
+            if let inventory {
+                self.cache = inventory
+            }
+            await completion.signalToAll()
+        }
+        return load
+    }
+}
+
+private func copyWindowLevelInventory() -> WindowLevelCache.Inventory? {
     var result: [UInt32: MacOsWindowLevel] = [:]
     let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
     guard let windowInfos = CGWindowListCopyWindowInfo(options, CGWindowID(0)) as? [[String: Any]] else { return nil }
@@ -21,8 +80,7 @@ func getWindowLevel(for windowId: UInt32) -> MacOsWindowLevel? {
 
         result[windowId] = .new(windowLevel: windowLayer)
     }
-    cache = result
-    return result[windowId]
+    return result
 }
 
 enum MacOsWindowLevel: Sendable, Equatable {

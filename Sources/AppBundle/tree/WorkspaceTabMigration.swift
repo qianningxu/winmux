@@ -3,6 +3,10 @@ import Common
 
 @MainActor
 func migrateWorkspaceTabGroupsToWorkspaceTabs() {
+    // Workspace tabs were a one-way compatibility path while window tab groups
+    // were disabled.  Running it with window tabs enabled immediately tears
+    // down a newly created stack on the next workspace reconciliation.
+    guard !config.windowTabs.enabled else { return }
     var didMigrate = false
     for workspace in orderedWorkspacesForPresentation() {
         didMigrate = migrateTabGroups(in: workspace) || didMigrate

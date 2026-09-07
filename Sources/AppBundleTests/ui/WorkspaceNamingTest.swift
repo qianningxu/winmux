@@ -202,13 +202,13 @@ final class WorkspaceNamingTest: XCTestCase {
         )
     }
 
-    func testManualTabNameReplacesComposedTabHeader() {
+    func testComposedTabHeaderAlwaysShowsIndependentTabs() {
         XCTAssertTrue(workspaceSidebarShowsComposedTabHeader(
             isRenamingWorkspace: false,
             sidebarLabel: "",
             hasComposedTabs: true,
         ))
-        XCTAssertFalse(workspaceSidebarShowsComposedTabHeader(
+        XCTAssertTrue(workspaceSidebarShowsComposedTabHeader(
             isRenamingWorkspace: false,
             sidebarLabel: "Research",
             hasComposedTabs: true,
@@ -730,10 +730,10 @@ final class WorkspaceNamingTest: XCTestCase {
         XCTAssertTrue(workspaceSidebarTabClosureRequiresConfirmation(windowCount: 2))
     }
 
-    func testCreatedFolderPersistsIdentityAndDeleteRemovesPersistedIdentity() throws {
+    func testCreatedProjectPersistsIdentityAndDeleteRemovesPersistedIdentity() throws {
         let project = createWorkspaceProject()
 
-        XCTAssertEqual(config.workspaceSidebar.projectLabels[project.id.rawValue], project.id.rawValue)
+        XCTAssertEqual(config.workspaceSidebar.projectLabels[project.id.rawValue], project.name)
         try renameWorkspaceProject(project.id, displayName: "Work")
         XCTAssertEqual(config.workspaceSidebar.projectLabels[project.id.rawValue], "Work")
         config.workspaceSidebar.projectColors[project.id.rawValue] = "#60A5FA"
@@ -742,103 +742,103 @@ final class WorkspaceNamingTest: XCTestCase {
         XCTAssertNil(config.workspaceSidebar.projectLabels[project.id.rawValue])
         XCTAssertNil(config.workspaceSidebar.projectColors[project.id.rawValue])
         XCTAssertFalse(workspaceProjects().contains { $0.id == project.id })
-        XCTAssertNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId("Work")])
+        XCTAssertNil(winMuxWorkspaceState.workspaceFoldersById[project.unfoldedFolderId])
     }
 
-    func testPersistedFolderLabelMaterializesAsSwitchableFolderWhenProjectsAreDisabled() {
-        config.workspaceSidebar.projectLabels["project-7"] = "Research"
-
-        let projects = workspaceProjects()
-
-        XCTAssertEqual(projects.map(\.id), [WorkspaceProjectId("project-7"), workspaceProjectDefaultId])
-        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId("project-7")])
-        XCTAssertEqual(config.workspaceSidebar.projectLabels["project-7"], "Research")
-        XCTAssertTrue(canDeleteWorkspaceProject("project-7"))
-    }
-
-    func testPersistedFolderLabelMaterializesWithoutCreatingWorkspaceWhenProjectsAreDisabled() {
+    func testPersistedEmptyFolderMetadataIsPrunedBeforeSidebarPresentation() async {
         let originalFocus = focus.workspace
-        let projectId = WorkspaceProjectId("project-empty")
-        config.workspaceSidebar.projectLabels[projectId.rawValue] = "Empty Folder"
+        let folderId = WorkspaceFolderId("project-7")
+        config.workspaceSidebar.folderLabels["project-7"] = "Research"
+        config.workspaceSidebar.folderColors["project-7"] = "#006BFF"
 
-        _ = workspaceProjects()
+        let state = await buildWorkspaceSidebarModelState()
 
-        let projectWorkspaces = Workspace.all.filter { $0.projectId == projectId }
-        XCTAssertEqual(projectWorkspaces.count, 0)
-        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(projectId)])
-        XCTAssertEqual(config.workspaceSidebar.projectLabels[projectId.rawValue], "Empty Folder")
+        XCTAssertFalse(state.folders.contains { $0.id == folderId })
+        XCTAssertNil(winMuxWorkspaceState.workspaceFoldersById[folderId])
+        XCTAssertNil(config.workspaceSidebar.folderLabels[folderId.rawValue])
+        XCTAssertNil(config.workspaceSidebar.folderColors[folderId.rawValue])
         XCTAssertEqual(focus.workspace, originalFocus)
     }
 
-    func testCreatedEmptySidebarFolderPersistsWhenQueriedForSidebarPresentation() {
+    func testCreatedEmptyOrdinaryFolderIsPrunedBeforeSidebarPresentation() async {
         let originalFocus = focus.workspace
+        let folder = createWorkspaceFolder()
 
+        XCTAssertTrue(folderWorkspaces(folderId: folder.id).isEmpty)
+
+        let state = await buildWorkspaceSidebarModelState()
+
+        XCTAssertFalse(state.folders.contains { $0.id == folder.id })
+        XCTAssertNil(winMuxWorkspaceState.workspaceFoldersById[folder.id])
+        XCTAssertEqual(focus.workspace, originalFocus)
+    }
+
+    func testMovingLastTabOutOfOrdinaryFolderRemovesFolderAndMetadata() throws {
+        let tab = focus.workspace
+        _ = TestWindow.new(id: 436, parent: tab.rootTilingContainer)
+        let folderId = try XCTUnwrap(createWorkspaceFolderFromWorkspace(tab.name))
+        config.workspaceSidebar.folderColors[folderId.rawValue] = "#006BFF"
+
+        XCTAssertTrue(moveWorkspaceToSidebarFolder(tab.name, folderId: workspaceFolderDefaultId))
+
+        XCTAssertEqual(tab.folderId, workspaceFolderDefaultId)
+        XCTAssertNil(winMuxWorkspaceState.workspaceFoldersById[folderId])
+        XCTAssertNil(config.workspaceSidebar.folderLabels[folderId.rawValue])
+        XCTAssertNil(config.workspaceSidebar.folderColors[folderId.rawValue])
+    }
+
+    func testEmptyUnfoldedFolderIsNeverPruned() {
         let project = createWorkspaceProject()
+        for workspace in Workspace.all where workspace.projectId == project.id {
+            removeWorkspaceFromRegistry(workspace)
+        }
 
-        XCTAssertEqual(Workspace.all.filter { $0.projectId == project.id }.count, 1)
+        pruneEmptyWorkspaceTabGroups()
 
-        _ = workspaceProjects()
-
-        let projectWorkspaces = Workspace.all.filter { $0.projectId == project.id }
-        XCTAssertEqual(projectWorkspaces.count, 1)
-        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(project.id)])
-        XCTAssertEqual(focus.workspace, originalFocus)
+        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[project.unfoldedFolderId])
     }
 
     func testLiveTabGroupCreationUsesUniqueIds() throws {
-        let first = createWorkspaceProject()
-        let second = createWorkspaceProject()
-        let firstWorkspace = try XCTUnwrap(Workspace.all.first { $0.projectId == first.id })
-        let secondWorkspace = try XCTUnwrap(Workspace.all.first { $0.projectId == second.id })
-        _ = TestWindow.new(id: 501, parent: firstWorkspace.rootTilingContainer)
-        _ = TestWindow.new(id: 502, parent: secondWorkspace.rootTilingContainer)
+        let first = createWorkspaceFolder()
+        let second = createWorkspaceFolder()
 
         XCTAssertEqual(first.id, "project-1")
         XCTAssertEqual(second.id, "project-2")
-        XCTAssertEqual(workspaceProjects().map(\.id).filter { $0.hasPrefix("project-") }.sorted(), ["project-1", "project-2"])
+        XCTAssertEqual(
+            workspaceFoldersInSidebarOrder().map(\.id).filter { $0.rawValue.hasPrefix("project-") },
+            ["project-1", "project-2"]
+        )
     }
 
     func testLiveTabGroupCreationAppendsAfterDeletedMiddleGroup() throws {
-        let first = createWorkspaceProject()
-        let second = createWorkspaceProject()
-        let third = createWorkspaceProject()
-        let firstWorkspace = try XCTUnwrap(Workspace.all.first { $0.projectId == first.id })
-        let thirdWorkspace = try XCTUnwrap(Workspace.all.first { $0.projectId == third.id })
-        _ = TestWindow.new(id: 503, parent: firstWorkspace.rootTilingContainer)
-        _ = TestWindow.new(id: 504, parent: thirdWorkspace.rootTilingContainer)
+        let first = createWorkspaceFolder()
+        let second = createWorkspaceFolder()
+        let third = createWorkspaceFolder()
 
-        try deleteWorkspaceProject(second.id)
-        let fourth = createWorkspaceProject()
-        let fourthWorkspace = try XCTUnwrap(Workspace.all.first { $0.projectId == fourth.id })
-        _ = TestWindow.new(id: 505, parent: fourthWorkspace.rootTilingContainer)
+        try deleteWorkspaceFolder(second.id)
+        let fourth = createWorkspaceFolder()
 
         XCTAssertEqual(first.id, "project-1")
         XCTAssertEqual(second.id, "project-2")
         XCTAssertEqual(third.id, "project-3")
         XCTAssertEqual(fourth.id, "project-4")
         XCTAssertEqual(
-            workspaceProjects().map(\.id).filter { $0.hasPrefix("project-") },
+            workspaceFoldersInSidebarOrder().map(\.id).filter { $0.rawValue.hasPrefix("project-") },
             ["project-1", "project-3", "project-4"],
         )
     }
 
     func testLiveTabGroupNamesFollowStableInsertionOrder() throws {
-        let first = createWorkspaceProject()
-        let second = createWorkspaceProject()
-        let third = createWorkspaceProject()
-        let firstWorkspace = try XCTUnwrap(Workspace.all.first { $0.projectId == first.id })
-        let secondWorkspace = try XCTUnwrap(Workspace.all.first { $0.projectId == second.id })
-        let thirdWorkspace = try XCTUnwrap(Workspace.all.first { $0.projectId == third.id })
-        _ = TestWindow.new(id: 506, parent: firstWorkspace.rootTilingContainer)
-        _ = TestWindow.new(id: 507, parent: secondWorkspace.rootTilingContainer)
-        _ = TestWindow.new(id: 508, parent: thirdWorkspace.rootTilingContainer)
+        let first = createWorkspaceFolder()
+        let second = createWorkspaceFolder()
+        let third = createWorkspaceFolder()
 
         XCTAssertEqual(
-            workspaceProjects().map(\.id).filter { $0.hasPrefix("project-") },
+            workspaceFoldersInSidebarOrder().map(\.id).filter { $0.rawValue.hasPrefix("project-") },
             [first.id, second.id, third.id],
         )
         XCTAssertEqual(
-            workspaceProjects().filter { $0.id.hasPrefix("project-") }.map(\.name),
+            workspaceFoldersInSidebarOrder().filter { $0.id.rawValue.hasPrefix("project-") }.map(\.name),
             ["Folder 1", "Folder 2", "Folder 3"],
         )
     }
@@ -848,7 +848,7 @@ final class WorkspaceNamingTest: XCTestCase {
         let second = createWorkspaceProject()
 
         XCTAssertEqual(workspaceProjectFallbackForDeletion(excluding: first.id), second.id)
-        XCTAssertEqual(workspaceProjectFallbackForDeletion(excluding: second.id), workspaceProjectDefaultId)
+        XCTAssertEqual(workspaceProjectFallbackForDeletion(excluding: second.id), first.id)
     }
 
     func testDeletingActiveFolderActivatesNextSidebarFolderWhenProjectsAreHardDisabled() throws {

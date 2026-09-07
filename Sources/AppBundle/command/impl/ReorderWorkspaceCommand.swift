@@ -32,7 +32,7 @@ struct ReorderWorkspaceCommand: Command {
         }
         guard reorderWorkspaceForSidebar(
             sourceWorkspaceName: source.name,
-            projectId: projectsAreEnabled() ? source.projectId : workspaceProjectDefaultId,
+            folderId: target.folderId,
             placement: placement
         ) else {
             return io.err("Tab '\(workspaceDisplayName(source.name))' is already in the requested position")

@@ -87,16 +87,19 @@ final class TreeNodeTest: XCTestCase {
         XCTAssertTrue(workspace.rootTilingContainer.children.singleOrNil() is TestWindow)
     }
 
-    func testReconcileWorkspaceStatePreservesEmptySidebarFolder() {
-        let project = createWorkspaceProject()
+    func testReconcileWorkspaceStateRemovesEmptyOrdinarySidebarFolder() {
+        let folder = createWorkspaceFolder()
+        config.workspaceSidebar.folderColors[folder.id.rawValue] = "#006BFF"
         let workspace = Workspace.get(byName: "draft")
         workspace.markAsSidebarManaged()
-        workspace.assignProject(project.id)
+        workspace.assignFolder(folder.id)
 
         Workspace.reconcileWorkspaceState()
 
-        XCTAssertTrue(Workspace.all.contains(workspace))
-        XCTAssertNotNil(winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(project.id)])
+        XCTAssertFalse(Workspace.all.contains(workspace))
+        XCTAssertNil(winMuxWorkspaceState.workspaceFoldersById[folder.id])
+        XCTAssertNil(config.workspaceSidebar.folderLabels[folder.id.rawValue])
+        XCTAssertNil(config.workspaceSidebar.folderColors[folder.id.rawValue])
     }
 
     func testReconcileWorkspaceStateKeepsPersistentEmptyWorkspace() {
@@ -273,14 +276,14 @@ final class TreeNodeTest: XCTestCase {
         XCTAssertEqual(workspaceDisplayName("__sidebar_draft_workspace_1"), "Tab 1")
     }
 
-    func testReconcileWorkspaceStateClearsCollectedWorkspaceLabel() {
+    func testReconcileWorkspaceStatePreservesCollectedWorkspaceLabelForRestart() {
         config.workspaceSidebar.workspaceLabels["ghost"] = "Ghost Name"
         _ = Workspace.get(byName: "ghost")
 
         Workspace.reconcileWorkspaceState()
 
-        XCTAssertNil(config.workspaceSidebar.workspaceLabels["ghost"])
-        XCTAssertEqual(workspaceDisplayName("ghost"), "ghost")
+        XCTAssertEqual(config.workspaceSidebar.workspaceLabels["ghost"], "Ghost Name")
+        XCTAssertEqual(workspaceDisplayName("ghost"), "Ghost Name")
     }
 
     func testReconcileWorkspaceStateClearsOrphanedDraftWorkspaceLabel() {
@@ -292,13 +295,13 @@ final class TreeNodeTest: XCTestCase {
         XCTAssertEqual(workspaceDisplayName("__sidebar_draft_workspace_7"), "Tab 7")
     }
 
-    func testReconcileWorkspaceStateClearsOrphanedWorkspaceLabel() {
+    func testReconcileWorkspaceStatePreservesOrphanedWorkspaceLabelForRestart() {
         config.workspaceSidebar.workspaceLabels["ghost"] = "Ghost Name"
 
         Workspace.reconcileWorkspaceState()
 
-        XCTAssertNil(config.workspaceSidebar.workspaceLabels["ghost"])
-        XCTAssertEqual(workspaceDisplayName("ghost"), "ghost")
+        XCTAssertEqual(config.workspaceSidebar.workspaceLabels["ghost"], "Ghost Name")
+        XCTAssertEqual(workspaceDisplayName("ghost"), "Ghost Name")
         XCTAssertNil(Workspace.existing(byName: "Ghost Name"))
     }
 

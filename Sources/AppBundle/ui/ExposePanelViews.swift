@@ -23,7 +23,7 @@ struct ExposeView: View {
                 .opacity(appeared ? 1 : 0)
                 .ignoresSafeArea()
 
-            palette.background(appeared ? (palette.isDark ? 0.35 : 0.22) : 0)
+            palette.geistBackground(.secondary)
                 .ignoresSafeArea()
                 .onTapGesture {
                     onDismiss()
@@ -163,7 +163,7 @@ struct ExposeView: View {
                 .background {
                     if let expandedGroupId {
                         GeometryReader { geometry in
-                            Color.clear.preference(
+                            WinMuxDesignTokens.transparent.preference(
                                 key: ExposeExpandedGroupFramePreferenceKey.self,
                                 value: [ExposeExpandedGroupFrame(
                                     groupId: expandedGroupId,
@@ -180,7 +180,7 @@ struct ExposeView: View {
                 ExposeStackCard(group: group, thumbnails: thumbnails, cw: cardCw, ch: ch)
                     .background {
                         GeometryReader { geometry in
-                            Color.clear.preference(
+                            WinMuxDesignTokens.transparent.preference(
                                 key: ExposeCollapsedGroupFramePreferenceKey.self,
                                 value: [ExposeCollapsedGroupFrame(
                                     groupId: group.id,
@@ -213,13 +213,47 @@ struct ExposeView: View {
 
     @MainActor
     private func loadThumbnailsIfNeeded() async {
-        try? await Task.sleep(nanoseconds: 16_000_000)
-        for id in exposeThumbnailWindowIds(from: entries) where thumbnails[id] == nil {
-            guard !Task.isCancelled else { return }
-            if let thumbnail = captureExposeThumbnail(id) {
-                thumbnails[id] = thumbnail
+        let windowIds = exposeThumbnailWindowIds(from: entries)
+        for id in windowIds where thumbnails[id] == nil {
+            guard let cached = cachedExposeThumbnail(id) else { continue }
+            thumbnails[id] = exposeThumbnailImage(cached)
+        }
+        do {
+            try await Task.sleep(nanoseconds: 16_000_000)
+        } catch {
+            return
+        }
+        await withTaskGroup(of: (UInt32, CGImage?).self) { group in
+            var nextIndex = 0
+            for id in windowIds.prefix(exposeThumbnailMaxConcurrentCaptures) {
+                group.addTask {
+                    (id, await captureRevalidatedExposeThumbnail(id))
+                }
+                nextIndex += 1
             }
-            try? await Task.sleep(nanoseconds: 4_000_000)
+
+            while let (id, cgImage) = await group.next() {
+                guard !Task.isCancelled else {
+                    group.cancelAll()
+                    return
+                }
+                if let cgImage {
+                    thumbnails[id] = exposeThumbnailImage(cgImage)
+                }
+                guard nextIndex < windowIds.count else { continue }
+                let nextId = windowIds[nextIndex]
+                nextIndex += 1
+                group.addTask {
+                    (nextId, await captureRevalidatedExposeThumbnail(nextId))
+                }
+            }
         }
     }
+}
+
+private func exposeThumbnailImage(_ cgImage: CGImage) -> NSImage {
+    NSImage(
+        cgImage: cgImage,
+        size: NSSize(width: cgImage.width, height: cgImage.height)
+    )
 }

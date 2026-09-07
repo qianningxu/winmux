@@ -13,7 +13,6 @@ extension WorkspaceSidebarPanel {
     }
 
     func stopHoverMonitoring() {
-        cancelExpansionWork()
         isHoverMonitoring = false
     }
 

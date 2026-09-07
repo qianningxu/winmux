@@ -13,7 +13,6 @@ extension WindowTabItemView {
                 .scaledToFit()
                 .frame(width: size, height: size, alignment: .center)
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                .workspaceSidebarIconStroke(palette, isActive: tab.isActive)
                 .accessibilityHidden(true)
         } else {
             fallbackIcon(size: size)
@@ -23,18 +22,15 @@ extension WindowTabItemView {
     func fallbackIcon(size: CGFloat) -> some View {
         Text(tabIconText)
             .font(.system(size: 11, weight: .bold))
-            .foregroundStyle(palette.foreground(tab.isActive ? 0.86 : 0.62))
+            .foregroundStyle(palette.content(tab.isActive ? .primary : .secondary))
             .frame(width: size, height: size, alignment: .center)
             .background {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(palette.contrastingFill(
-                        darkOpacity: tab.isActive ? 0.22 : 0.14,
-                        lightOpacity: tab.isActive ? 0.14 : 0.10
-                    ))
+                    .fill(palette.componentBackground(tab.isActive ? .active : .normal))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .strokeBorder(palette.iconStroke(active: tab.isActive), lineWidth: 0.65)
+                    .strokeBorder(palette.geistBorder(tab.isActive ? .hover : .normal), lineWidth: 0.65)
             }
             .accessibilityHidden(true)
     }

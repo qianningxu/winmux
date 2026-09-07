@@ -25,6 +25,8 @@ struct WorkspaceSidebarProjectRenameTextField: NSViewRepresentable {
     let onCancel: @MainActor @Sendable () -> Void
     let onPanelReady: @MainActor (WorkspaceSidebarPanel, NSTextField) -> Void
     var font: NSFont = .systemFont(ofSize: 12.5, weight: .medium)
+    var textColor: NSColor = WinMuxOverlayPalette.current.contentNSColor(.primary)
+    var placeholder: String? = nil
 
     func makeNSView(context: Context) -> NSTextField {
         debugWorkspaceSidebarRenameLog("makeNSView text=\(text)")
@@ -33,8 +35,9 @@ struct WorkspaceSidebarProjectRenameTextField: NSViewRepresentable {
         field.isBezeled = false
         field.drawsBackground = false
         field.focusRingType = .none
-        field.textColor = WinMuxOverlayPalette.current.foregroundNSColor(opacity: 0.92)
+        field.textColor = textColor
         field.font = font
+        field.placeholderString = placeholder
         field.lineBreakMode = .byTruncatingTail
         field.usesSingleLineMode = true
         field.cell?.wraps = false
@@ -51,8 +54,9 @@ struct WorkspaceSidebarProjectRenameTextField: NSViewRepresentable {
         if field.stringValue != text {
             field.stringValue = text
         }
-        field.textColor = WinMuxOverlayPalette.current.foregroundNSColor(opacity: 0.92)
+        field.textColor = textColor
         field.font = font
+        field.placeholderString = placeholder
         field.delegate = context.coordinator
         DispatchQueue.main.async {
             context.coordinator.focus(field)
@@ -166,8 +170,11 @@ struct WorkspaceSidebarProjectRenameField: View {
     var font: NSFont = .systemFont(ofSize: 12.5, weight: .medium)
     @State private var shouldReplaceSelection = true
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
 
-    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
 
     var body: some View {
         WorkspaceSidebarProjectRenameTextField(
@@ -178,19 +185,27 @@ struct WorkspaceSidebarProjectRenameField: View {
                 startInlineTextEditing(on: panel, editingView: field)
             },
             font: font,
+            textColor: palette.contentNSColor(.primary),
         )
             .padding(.horizontal, showsPlate ? 6 : 0)
             .frame(height: showsPlate ? workspaceSidebarDropdownHeight : 18)
             .background {
                 if showsPlate {
                     RoundedRectangle(cornerRadius: workspaceSidebarPlateCornerRadius, style: .continuous)
-                        .fill(palette.contrastingFill(darkOpacity: 0.12, lightOpacity: 0.10))
+                        .fill(palette.componentBackground(.active))
                 }
             }
             .overlay {
                 if showsPlate {
                     RoundedRectangle(cornerRadius: workspaceSidebarPlateCornerRadius, style: .continuous)
-                        .strokeBorder(workspaceSidebarProjectColor(projectId: project.id, configuredHex: project.colorHex).opacity(0.75), lineWidth: 0.8)
+                        .strokeBorder(
+                            workspaceSidebarProjectColor(
+                                projectId: project.id,
+                                configuredHex: project.colorHex,
+                                step: .color6
+                            ),
+                            lineWidth: 0.8
+                        )
                 }
             }
             .onAppear {
@@ -269,6 +284,12 @@ struct WorkspaceSidebarWorkspaceRenameField: View {
     let onCancel: @MainActor @Sendable () -> Void
     var font: NSFont = .systemFont(ofSize: 13.5, weight: .medium)
     @State private var shouldReplaceSelection = true
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
+
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
 
     var body: some View {
         WorkspaceSidebarProjectRenameTextField(
@@ -279,6 +300,7 @@ struct WorkspaceSidebarWorkspaceRenameField: View {
                 startInlineTextEditing(on: panel, editingView: field)
             },
             font: font,
+            textColor: palette.contentNSColor(.primary),
         )
         .frame(maxWidth: .infinity, minHeight: 18, maxHeight: 18, alignment: .leading)
         .onAppear {

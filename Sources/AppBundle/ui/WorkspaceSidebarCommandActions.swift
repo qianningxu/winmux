@@ -9,44 +9,17 @@ func openWorkspaceSidebarFromCommand() {
     let panel = WorkspaceSidebarPanel.panel(for: focusedScopeId)
         ?? WorkspaceSidebarPanel.visiblePanels.first
         ?? WorkspaceSidebarPanel.shared
-    if panel.viewModel.isWorkspaceSidebarExpanded || panel.inlineTextEditingActive {
-        if panel.viewModel.isWorkspaceSidebarPinnedExpanded {
-            panel.commandExpansionLocksCollapse = false
-            panel.shouldLockNextSidebarSearchExpansion = false
-            panel.bufferedCommandSidebarSearchKeys = []
-            removeWorkspaceSidebarCommandMouseUnlockMonitor(panel)
-            return
-        }
-        closeWorkspaceSidebarFromCommand(panel)
-        return
-    }
-    panel.commandExpansionLocksCollapse = true
-    panel.shouldLockNextSidebarSearchExpansion = false
-    panel.bufferedCommandSidebarSearchKeys = []
-    installWorkspaceSidebarCommandMouseUnlockMonitor(panel)
-    panel.expandSidebar(to: CGFloat(config.workspaceSidebar.width))
+    panel.viewModel.isWorkspaceSidebarExpanded = true
+    panel.viewModel.isWorkspaceSidebarPinnedExpanded = true
+    panel.orderFrontRegardless()
+    panel.updateMousePassthrough()
 }
 
 @MainActor
 func closeWorkspaceSidebarFromCommand(_ panel: WorkspaceSidebarPanel) {
-    panel.endInlineTextEditing()
-    panel.pendingExpand?.cancel()
-    panel.pendingExpand = nil
-    panel.pendingCollapse?.cancel()
-    panel.pendingCollapse = nil
-    panel.pendingCollapseFinalize?.cancel()
-    panel.pendingCollapseFinalize = nil
-    NotificationCenter.default.post(name: workspaceSidebarWillCollapseNotification, object: panel)
-    panel.commandExpansionLocksCollapse = false
-    panel.shouldLockNextSidebarSearchExpansion = false
-    panel.bufferedCommandSidebarSearchKeys = []
-    removeWorkspaceSidebarCommandMouseUnlockMonitor(panel)
-    guard !panel.viewModel.isWorkspaceSidebarPinnedExpanded else {
-        panel.expandSidebar(to: CGFloat(config.workspaceSidebar.width))
-        return
-    }
-    panel.animateVisibleSidebarWidth(CGFloat(config.workspaceSidebar.collapsedWidth), animation: .easeInOut(duration: panel.animationDuration))
-    panel.viewModel.isWorkspaceSidebarExpanded = false
+    panel.viewModel.isWorkspaceSidebarExpanded = true
+    panel.viewModel.isWorkspaceSidebarPinnedExpanded = true
+    panel.orderFrontRegardless()
     panel.updateMousePassthrough()
 }
 

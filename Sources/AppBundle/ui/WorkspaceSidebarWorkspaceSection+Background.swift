@@ -15,27 +15,27 @@ extension WorkspaceSidebarWorkspaceSection {
 
     var sectionBorderColor: Color {
         if isDropTarget {
-            return palette.tabStroke(active: true)
+            return palette.geistBorder(.active)
         }
         if isSearchSelectedWorkspace {
-            return palette.tabStroke(active: true)
+            return palette.geistBorder(.active)
         }
         if allowsWorkspaceActivation && isInUseOnOtherDisplay {
-            return palette.destructive(isPointerHoverVisible ? 0.54 : 0.36)
+            return palette.color(.red, isPointerHoverVisible ? .color5 : .color4)
         }
         if isVisuallyActiveOnTargetMonitor && showsWindowRows {
-            return Color.clear
+            return WinMuxDesignTokens.transparent
         }
         if (isVisuallyActiveOnTargetMonitor || isPinnedActiveWorkspace) && !showsWindowRows {
-            return Color.clear
+            return WinMuxDesignTokens.transparent
         }
         if isVisuallyActiveOnTargetMonitor || isPinnedActiveWorkspace {
-            return palette.tabStroke(active: isPointerHoverVisible)
+            return palette.geistBorder(isPointerHoverVisible ? .hover : .normal)
         }
         if isFromOtherDisplay {
-            return palette.otherDisplay(isPointerHoverVisible ? 0.32 : 0.22)
+            return palette.color(.pink, isPointerHoverVisible ? .color5 : .color4)
         }
-        return Color.clear
+        return WinMuxDesignTokens.transparent
     }
 
     var sectionBorderStyle: StrokeStyle {
@@ -47,32 +47,33 @@ extension WorkspaceSidebarWorkspaceSection {
 
     var sectionBackgroundFill: Color {
         if isDropTarget {
-            return palette.gray200(palette.isDark ? 0.78 : 0.66)
+            return palette.componentBackground(.active)
         }
         if isSearchSelectedWorkspace {
-            return palette.card()
+            return palette.geistBackground(.primary)
         }
         if isSearchFiltering {
-            return palette.contrastingFill(darkOpacity: isPointerHoverVisible ? 0.045 : 0.015, lightOpacity: isPointerHoverVisible ? 0.04 : 0.025)
+            return palette.componentBackground(isPointerHoverVisible ? .hover : .normal)
         }
         if allowsWorkspaceActivation && isInUseOnOtherDisplay {
-            let redOpacity: Double = workspace.isFocused ? 0.16 : 0.065
-            let hoveredRedOpacity: Double = workspace.isFocused ? 0.24 : 0.13
-            return palette.destructive(isPointerHoverVisible ? hoveredRedOpacity : redOpacity)
+            if isPointerHoverVisible {
+                return palette.color(.red, workspace.isFocused ? .color3 : .color2)
+            }
+            return palette.color(.red, workspace.isFocused ? .color2 : .color1)
         }
         if isPinnedActiveWorkspace {
-            return Color.clear
+            return WinMuxDesignTokens.transparent
         }
         if isVisuallyActiveOnTargetMonitor && showsWindowRows {
-            return Color.clear
+            return WinMuxDesignTokens.transparent
         }
         if isVisuallyActiveOnTargetMonitor && nestedContentIndent <= 0 {
-            return Color.clear
+            return WinMuxDesignTokens.transparent
         }
         if isFromOtherDisplay {
-            return palette.otherDisplay(isPointerHoverVisible ? 0.10 : 0.05)
+            return palette.color(.pink, isPointerHoverVisible ? .color2 : .color1)
         }
-        return Color.clear
+        return WinMuxDesignTokens.transparent
     }
 
     var compactFocusOpacity: Double {

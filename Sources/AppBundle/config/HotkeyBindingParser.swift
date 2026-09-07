@@ -3,6 +3,22 @@ import Common
 import HotKey
 import TOMLKit
 
+func commandsAreAllowedInHotkeyBinding(_ commands: [any Command]) -> Bool {
+    !commands.contains { $0 is ProjectCommand || $0 is MoveNodeToProjectCommand }
+}
+
+func validateHotkeyBindingCommands(
+    _ commands: [any Command],
+    backtrace: TomlBacktrace
+) -> ParsedToml<[any Command]> {
+    commandsAreAllowedInHotkeyBinding(commands)
+        ? .success(commands)
+        : .failure(.semantic(
+            backtrace,
+            "Project switch and move commands are CLI-only and cannot be registered as keyboard shortcuts"
+        ))
+}
+
 func parseBindings(
     _ raw: TOMLValueConvertible,
     _ backtrace: TomlBacktrace,
@@ -53,7 +69,9 @@ private func parseSequenceBindingIfPresent(
     let parsedPrefix = tryParseSequenceBinding(binding, backtrace, mapping)
     guard parsedPrefix.isSuccess else { return false }
     let seqBindingResult: ParsedToml<SequenceBinding> = parsedPrefix.flatMap { prefix, key in
-        parseCommandOrCommands(rawCommand).toParsedToml(backtrace).map { cmds in
+        parseCommandOrCommands(rawCommand).toParsedToml(backtrace).flatMap {
+            validateHotkeyBindingCommands($0, backtrace: backtrace)
+        }.map { cmds in
             SequenceBinding(prefix: prefix, key: key, commands: cmds, descriptionWithKeyNotation: binding)
         }
     }
@@ -74,7 +92,9 @@ private func parseChordBinding(
     result: inout [String: HotkeyBinding]
 ) {
     let parsed: ParsedToml<HotkeyBinding> = parseBinding(binding, backtrace, mapping).flatMap { modifiers, key in
-        parseCommandOrCommands(rawCommand).toParsedToml(backtrace).map {
+        parseCommandOrCommands(rawCommand).toParsedToml(backtrace).flatMap {
+            validateHotkeyBindingCommands($0, backtrace: backtrace)
+        }.map {
             HotkeyBinding(modifiers, key, $0, descriptionWithKeyNotation: binding)
         }
     }

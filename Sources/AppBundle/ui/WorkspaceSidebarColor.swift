@@ -1,10 +1,4 @@
 import AppKit
-import SwiftUI
-
-func workspaceSidebarColor(hex: String) -> Color? {
-    guard let nsColor = workspaceSidebarNSColor(hex: hex) else { return nil }
-    return Color(nsColor: nsColor)
-}
 
 func workspaceSidebarNSColor(hex: String) -> NSColor? {
     guard let normalized = normalizedWorkspaceSidebarColorHex(hex),

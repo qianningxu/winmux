@@ -18,6 +18,16 @@ final class RefreshFocusSyncTest: XCTestCase {
     }
 
     @MainActor
+    func testLaunchingRegularAppWithoutFocusedWindowKeepsActivation() {
+        XCTAssertFalse(shouldSyncFocusBackToMacOs(nativeFocused: nil, frontmostActivationPolicy: .regular))
+    }
+
+    @MainActor
+    func testMissingFrontmostAppStillAllowsFocusRecovery() {
+        XCTAssertTrue(shouldSyncFocusBackToMacOs(nativeFocused: nil, frontmostActivationPolicy: nil))
+    }
+
+    @MainActor
     func testShouldSyncFocusBackToRegularWorkspaceWindow() {
         setUpWorkspacesForTests()
 

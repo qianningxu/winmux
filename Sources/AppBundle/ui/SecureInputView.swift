@@ -46,23 +46,24 @@ struct SecureInputView: View {
     @State var isMinimized: Bool = true
 
     @Environment(\.colorScheme) var colorScheme: ColorScheme
+    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
     private var fontColor: Color {
-        colorScheme == .dark ? Color.black : Color.white
+        palette.geistBackground(.primary)
     }
 
     var body: some View {
         ZStack(alignment: .center) {
             Rectangle()
-                .fill(Color.gray.opacity(isMinimized ? 0.8 : 1.0))
+                .fill(palette.geistBorder(isMinimized ? .hover : .active))
             if isMinimized {
                 Image(systemName: "lock.shield.fill")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .padding(6)
+                    .padding(standardGap * 3)
             } else {
                 Text("WinMux cannot respond to keyboard shortcuts while **Secure Input** is active. **Secure Input** is a macOS security feature that prevents applications from reading keyboard events.")
                     .font(.title3)
-                    .padding(10)
+                    .padding(standardGap * 5)
             }
         }
         .foregroundStyle(fontColor)

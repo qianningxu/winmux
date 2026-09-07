@@ -37,6 +37,7 @@ private func workspaceSidebarFilteredWorkspace(
         return WorkspaceSidebarWorkspaceViewModel(
             name: workspace.name,
             projectId: workspace.projectId,
+            folderId: workspace.folderId,
             displayName: workspace.displayName,
             sidebarLabel: workspace.sidebarLabel,
             isGeneratedName: workspace.isGeneratedName,

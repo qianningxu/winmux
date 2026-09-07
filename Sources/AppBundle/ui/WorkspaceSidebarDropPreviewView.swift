@@ -5,8 +5,11 @@ struct WorkspaceSidebarDropPreviewView: View {
     let preview: WorkspaceSidebarDropPreviewViewModel
     let rowHeight: CGFloat
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.workspaceSidebarProjectThemeFamily) private var projectThemeFamily
 
-    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+    private var palette: WinMuxOverlayPalette {
+        WinMuxOverlayPalette(colorScheme: colorScheme, projectThemeFamily: projectThemeFamily)
+    }
 
     private var sectionShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: workspaceSidebarSectionCornerRadius, style: .continuous)
@@ -26,11 +29,11 @@ struct WorkspaceSidebarDropPreviewView: View {
     }
 
     private var newWorkspacePreview: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: standardGap * 0.5) {
             HStack(spacing: workspaceSidebarHeaderSpacing) {
-                Text("New Tab")
+                Text("New tab")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(palette.foreground(0.85))
+                    .foregroundStyle(palette.content(.primary))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
@@ -43,16 +46,15 @@ struct WorkspaceSidebarDropPreviewView: View {
             previewRows
                 .padding(.leading, workspaceSidebarWindowRowsLeadingIndent)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, standardGap * 2)
         .padding(.horizontal, workspaceSidebarSectionInnerHorizontalInset)
-        .background(sectionShape.fill(palette.gray100(palette.isDark ? 0.90 : 1)))
+        .background(sectionShape.fill(palette.geistBackground(.primary)))
         .overlay {
             sectionShape.strokeBorder(
-                palette.tabStroke(active: true),
+                palette.geistBorder(.active),
                 lineWidth: 0.9
             )
         }
-        .shadow(color: palette.shadow(0.10, lightOpacity: 0.035), radius: 4, x: 0, y: 1)
         .contentShape(Rectangle())
         .allowsHitTesting(false)
     }
@@ -60,7 +62,7 @@ struct WorkspaceSidebarDropPreviewView: View {
     @ViewBuilder
     private var previewRows: some View {
         if preview.isTabGroup {
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: standardGap * 0.5) {
                 tabGroupHeaderRow
                 ForEach(Array(preview.tabItems.enumerated()), id: \.offset) { _, tab in
                     singleWindowRow(
@@ -82,9 +84,9 @@ struct WorkspaceSidebarDropPreviewView: View {
 
     private var tabGroupHeaderRow: some View {
         let icons = preview.tabItems.map { ($0.appBundleIdentifier, $0.appBundlePath) }
-        return HStack(spacing: 6) {
+        return HStack(spacing: standardGap * 3) {
             if !icons.isEmpty {
-                HStack(spacing: -3) {
+                HStack(spacing: standardGap * -1.5) {
                     ForEach(Array(icons.prefix(4).enumerated()), id: \.offset) { _, icon in
                         if let image = appIconImage(bundleIdentifier: icon.0, bundlePath: icon.1) {
                             Image(nsImage: image)
@@ -92,25 +94,24 @@ struct WorkspaceSidebarDropPreviewView: View {
                                 .aspectRatio(contentMode: .fit)
                                 .frame(width: 14, height: 14)
                                 .cornerRadius(3)
-                                .workspaceSidebarIconStroke(palette, cornerRadius: 3, isActive: true)
                         }
                     }
                 }
             }
             Text(preview.label)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(palette.foreground(0.82))
+                .foregroundStyle(palette.content(.primary))
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
-        .padding(.vertical, 1)
+        .padding(.vertical, standardGap * 0.5)
         .frame(height: rowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowShape.fill(palette.gray200(palette.isDark ? 0.84 : 0.92)))
+        .background(rowShape.fill(palette.componentBackground(.active)))
         .overlay {
-            rowShape.strokeBorder(palette.tabStroke(active: true), lineWidth: 0.8)
+            rowShape.strokeBorder(palette.geistBorder(.active), lineWidth: 0.8)
         }
     }
 
@@ -119,29 +120,28 @@ struct WorkspaceSidebarDropPreviewView: View {
         appBundleIdentifier: String?,
         appBundlePath: String?
     ) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: standardGap * 3) {
             if let icon = appIconImage(bundleIdentifier: appBundleIdentifier, bundlePath: appBundlePath) {
                 Image(nsImage: icon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 14, height: 14)
                     .cornerRadius(3)
-                    .workspaceSidebarIconStroke(palette, cornerRadius: 3)
             }
             Text(title)
                 .font(.system(size: 12.5, weight: .regular))
-                .foregroundStyle(palette.foreground(0.78))
+                .foregroundStyle(palette.content(.secondary))
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, workspaceSidebarRowHorizontalPadding)
-        .padding(.vertical, 1)
+        .padding(.vertical, standardGap * 0.5)
         .frame(height: rowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowShape.fill(palette.gray100(palette.isDark ? 0.72 : 0.84)))
+        .background(rowShape.fill(palette.componentBackground(.normal)))
         .overlay {
-            rowShape.strokeBorder(palette.tabStroke(), lineWidth: 0.75)
+            rowShape.strokeBorder(palette.geistBorder(.normal), lineWidth: 0.75)
         }
     }
 }

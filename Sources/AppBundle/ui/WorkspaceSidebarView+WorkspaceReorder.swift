@@ -11,7 +11,7 @@ extension WorkspaceSidebarView {
         workspaceSidebarWorkspaceReorderIsEnabled(
             isCompact: expansionProgress < workspaceSidebarRowsRevealProgress,
             isSearchFiltering: isSidebarSearchFiltering,
-            isRenamingWorkspace: renamingWorkspaceName != nil || renamingProjectId != nil,
+            isRenamingWorkspace: renamingWorkspaceName != nil || renamingProjectId != nil || renamingFolderId != nil,
             isPinnedActiveWorkspace: isPinnedActiveWorkspace,
             isInteractive: isInteractive
         )
@@ -20,7 +20,7 @@ extension WorkspaceSidebarView {
     func isWorkspaceReorderSource(_ workspace: WorkspaceSidebarWorkspaceViewModel) -> Bool {
         workspaceSidebarWorkspaceSourceIsProjectedDragAnchor(
             isSource: workspaceReorderDrag?.sourceWorkspaceName == workspace.name &&
-                workspaceReorderDrag?.projectId == workspace.projectId,
+                workspaceReorderDrag?.projectId == workspace.folderId.backingProjectId,
             target: workspaceReorderDrag?.target
         )
     }
@@ -34,7 +34,7 @@ extension WorkspaceSidebarView {
             projectId: projectId,
             isCompact: expansionProgress < workspaceSidebarRowsRevealProgress,
             isSearchFiltering: isSidebarSearchFiltering,
-            isRenamingWorkspace: renamingWorkspaceName != nil || renamingProjectId != nil,
+            isRenamingWorkspace: renamingWorkspaceName != nil || renamingProjectId != nil || renamingFolderId != nil,
             isInteractive: isInteractive
         )
     }
@@ -359,10 +359,11 @@ extension WorkspaceSidebarView {
         // canvas destination. Treat every other mouse-up (including a panel
         // hit-test miss during the release frame) as a commit to the last
         // concrete sidebar slot.
-        let hasCanvasDropIntent = workspaceCanvasDropIntent(
+        let canvasDropIntent = workspaceCanvasDropIntent(
             sourceWorkspaceName: workspace.name,
             screenPoint: screenPoint
-        ) != nil
+        )
+        let hasCanvasDropIntent = canvasDropIntent != nil
         let interactionFolderFrames = workspaceSidebarFolderReorderFramesForInteraction(
             liveFrames: folderReorderFrames,
             frozenFrames: workspaceReorderHitTestFolderFrames
@@ -405,10 +406,7 @@ extension WorkspaceSidebarView {
         guard let target else {
             clearWorkspaceReorderDragImmediately()
             WindowDropIntentOverlayPanelController.shared.hide()
-            guard let dropIntent = workspaceCanvasDropIntent(
-                sourceWorkspaceName: workspace.name,
-                screenPoint: screenPoint
-            ) else {
+            guard let dropIntent = canvasDropIntent else {
                 activateWorkspaceAfterUncommittedReorderDrag(
                     workspace: workspace,
                     projectId: projectId,
@@ -416,11 +414,25 @@ extension WorkspaceSidebarView {
                 )
                 return
             }
-            mergeWorkspaceIntoActiveViewFromSidebarIfPossible(
-                sourceWorkspaceName: workspace.name,
-                pointer: screenPoint,
-                position: dropIntent.position
-            )
+            // The centre cell remains part of the canvas guide, but it is not
+            // an operation for a sidebar workspace drag. Releasing there is a
+            // deliberate no-op rather than falling through to a stale sidebar
+            // reorder target.
+            guard let action = dropIntent.action else { return }
+            switch action {
+                case .tabStack(let targetWindowId):
+                    mergeWorkspaceIntoActiveTabGroupFromSidebarIfPossible(
+                        sourceWorkspaceName: workspace.name,
+                        pointer: screenPoint,
+                        targetWindowId: targetWindowId
+                    )
+                case .split(let position):
+                    mergeWorkspaceIntoActiveViewFromSidebarIfPossible(
+                        sourceWorkspaceName: workspace.name,
+                        pointer: screenPoint,
+                        position: position
+                    )
+            }
             return
         }
         guard let action = workspaceSidebarWorkspaceDragFinishAction(
@@ -593,7 +605,7 @@ extension WorkspaceSidebarView {
         ) ?? folderReorderDrag?.target
         clearFolderReorderDragImmediately()
         guard let target else { return }
-        actions.send(.reorderFolder(section.project.id, placement: target.placement))
+        actions.send(.reorderFolder(section.folder.id, placement: target.placement))
     }
 
     func cancelFolderReorderDrag() {
@@ -615,14 +627,14 @@ extension WorkspaceSidebarView {
     }
 
     func folderReorderSection(projectId: WorkspaceProjectId) -> WorkspaceSidebarFolderSection? {
-        guard projectId != workspaceProjectDefaultId,
-              let project = snapshot.projects.first(where: { $0.id == projectId })
+        guard let folder = snapshot.folders.first(where: { $0.id.backingProjectId == projectId }),
+              !folder.isUnfolded
         else { return nil }
         let workspaces = workspaceSidebarNonEmptyFolderWorkspaces(
-            snapshot.workspaces.filter { $0.projectId == projectId }
+            snapshot.workspaces.filter { $0.folderId == folder.id }
         )
         guard !workspaces.isEmpty else { return nil }
-        return WorkspaceSidebarFolderSection(project: project, workspaces: workspaces)
+        return WorkspaceSidebarFolderSection(folder: folder, workspaces: workspaces)
     }
 
     func updateWorkspaceCanvasDropIntentOverlay(
@@ -642,26 +654,4 @@ extension WorkspaceSidebarView {
         WindowDropIntentOverlayPanelController.shared.show(dropIntent.overlay)
     }
 
-    func workspaceCanvasDropIntent(
-        sourceWorkspaceName: String,
-        screenPoint: CGPoint
-    ) -> (position: WindowStackSplitPosition, overlay: WindowDropIntentOverlayModel)? {
-        guard WorkspaceSidebarPanel.panel(containing: screenPoint) == nil,
-              let sourceWorkspace = Workspace.existing(byName: sourceWorkspaceName)
-        else { return nil }
-        let targetWorkspace = screenPoint.monitorApproximation.activeWorkspace
-        guard targetWorkspace != sourceWorkspace else { return nil }
-        let workspaceRect = targetWorkspace.workspaceMonitor.visibleRectPaddedByOuterGaps
-        guard let zone = WindowIntentZoneBuilder.zone(at: screenPoint, in: workspaceRect),
-              let position = zone.stackSplitPosition
-        else { return nil }
-        return (
-            position,
-            WindowDropIntentOverlayModel(
-                targetFrame: workspaceRect,
-                activeZone: zone,
-                cornerRadius: nil
-            )
-        )
-    }
 }

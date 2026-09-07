@@ -22,6 +22,5 @@ extension WorkspaceSidebarWorkspaceSection {
                 )
             }
         }
-        .opacity(1)
     }
 }

@@ -57,7 +57,7 @@ func unbindAndGetBindingDataForNewWindow(
     window: Window?,
     normalWindowPlacement: NewTilingWindowPlacement = defaultNewTilingWindowPlacement(),
 ) async throws -> BindingData {
-    let windowLevel = getWindowLevel(for: windowId)
+    let windowLevel = try await getWindowLevel(for: windowId)
     return switch try await macApp.getAxUiElementWindowType(windowId, windowLevel) {
         case .popup: BindingData(parent: macosPopupWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
         case .dialog: BindingData(parent: workspace, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
@@ -73,7 +73,7 @@ func unbindAndGetBindingDataForNewWindow(
 }
 
 func defaultNewTilingWindowPlacement() -> NewTilingWindowPlacement {
-    .freshTab
+    .targetWorkspace
 }
 
 @MainActor

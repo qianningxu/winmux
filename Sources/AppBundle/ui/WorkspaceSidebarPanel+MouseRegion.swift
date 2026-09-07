@@ -2,26 +2,14 @@ import AppKit
 
 extension WorkspaceSidebarPanel {
     func updateMousePassthrough() {
-        let inside = isMouseInsideInteractiveRegion()
-        let shouldIgnoreMouseEvents = !inside
-        if ignoresMouseEvents != shouldIgnoreMouseEvents {
-            debugWorkspaceSidebarHoverLog("mousePassthrough panel=\(monitorScopeId) ignores \(ignoresMouseEvents)->\(shouldIgnoreMouseEvents) insideVisible=\(inside) visibleWidth=\(viewModel.workspaceSidebarVisibleWidth) frame=\(frame) mouse=\(NSEvent.mouseLocation)")
-            ignoresMouseEvents = shouldIgnoreMouseEvents
-        }
+        // The panel now owns only the top-bar region. Keep it interactive so
+        // project/workspace buttons and their popovers receive the full click
+        // sequence without relying on the old edge-rail passthrough logic.
+        ignoresMouseEvents = false
     }
 
     func isMouseInsideHoverRegion() -> Bool {
-        guard isVisible else { return false }
-        let hoverWidth = max(
-            viewModel.workspaceSidebarVisibleWidth,
-            CGFloat(config.workspaceSidebar.collapsedWidth),
-        ) + WorkspaceSidebarSideAreaMetrics.standard.outerInset + hoverExitTolerance
-        let hoverRegion = NSRect(x: frame.minX, y: frame.minY, width: hoverWidth, height: frame.height)
-        let inside = hoverRegion.contains(NSEvent.mouseLocation)
-        if viewModel.workspaceSidebarVisibleWidth > CGFloat(config.workspaceSidebar.collapsedWidth) + 0.5 || pendingCollapse != nil {
-            debugWorkspaceSidebarHoverLog("hoverRegion panel=\(monitorScopeId) inside=\(inside) hoverWidth=\(hoverWidth) visibleWidth=\(viewModel.workspaceSidebarVisibleWidth) frame=\(frame) mouse=\(NSEvent.mouseLocation) suppressUntil=\(splitBrowseCollapseSuppressedUntil)")
-        }
-        return inside
+        isVisible && frame.contains(NSEvent.mouseLocation)
     }
 
     func isMouseInsideInteractiveRegion() -> Bool {
@@ -30,37 +18,22 @@ extension WorkspaceSidebarPanel {
     }
 
     func isPointInsideInteractiveRegion(_ point: CGPoint) -> Bool {
-        let metrics = WorkspaceSidebarSideAreaMetrics.standard
-        return metrics.edgeTriggerFrame(in: frame).contains(point) ||
-            sideAreaBackgroundFrame().contains(point)
+        isVisible && frame.contains(point)
     }
 
     func isMouseInsideVisibleRegion() -> Bool {
-        guard isVisible else { return false }
-        return sideAreaBackgroundFrame().contains(NSEvent.mouseLocation)
+        isVisible && frame.contains(NSEvent.mouseLocation)
     }
 
     func isMouseDeepEnoughToExpand(collapsedWidth: CGFloat) -> Bool {
-        guard isVisible else { return false }
-        return isWorkspaceSidebarHoverDeepEnoughToExpand(
-            mouseX: NSEvent.mouseLocation.x,
-            sidebarMinX: frame.minX,
-            collapsedWidth: collapsedWidth + WorkspaceSidebarSideAreaMetrics.standard.outerInset,
-        )
+        isVisible
     }
 
     func visualSidebarFrame() -> NSRect {
-        WorkspaceSidebarSideAreaMetrics.standard.visualSidebarFrame(
-            in: frame,
-            visibleWidth: viewModel.workspaceSidebarVisibleWidth
-        )
+        frame
     }
 
     func sideAreaBackgroundFrame() -> NSRect {
-        WorkspaceSidebarSideAreaMetrics.standard.sideAreaBackgroundFrame(
-            in: frame,
-            visibleWidth: viewModel.workspaceSidebarVisibleWidth,
-            expandedWidth: CGFloat(config.workspaceSidebar.width)
-        )
+        frame
     }
 }

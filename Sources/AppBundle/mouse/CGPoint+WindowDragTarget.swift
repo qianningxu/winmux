@@ -80,7 +80,7 @@ extension CGPoint {
 
     @MainActor
     private func logOverlappingDragTargetsIfNeeded(candidates: [TreeNode], container: TilingContainer, excludedNode: TreeNode?) {
-        guard candidates.count > 1 else { return }
+        guard isDebug, candidates.count > 1 else { return }
         let candidateSummary = candidates.map { candidate in
             if let window = candidate as? Window {
                 return "w:\(window.windowId) visible=\(debugDescribe(candidate.windowDragVisibleRect))"

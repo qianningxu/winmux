@@ -85,9 +85,11 @@ struct WorkspaceSidebarConfig: ConvenienceCopyable, Equatable, Sendable {
     var showStatusPills: Bool = true
     var showDate: Bool = true
     var widgets: [WorkspaceSidebarWidgetConfig]? = nil
-    var menuBarReserveHeight: Int = 28
+    var menuBarReserveHeight: Int = 36
     var projectDeletionAction: WorkspaceProjectDeletionAction = .closeWindows
     var workspaceLabels: [String: String] = [:]
+    var folderLabels: [String: String] = [:]
+    var folderColors: [String: String] = [:]
     var projectLabels: [String: String] = [:]
     var projectColors: [String: String] = [:]
 }

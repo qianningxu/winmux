@@ -26,7 +26,7 @@ private let winmuxNewIssueURL = "https://github.com/zimengxiong/winmux/issues/ne
         OpenShortcutSettingsButton()
         openConfigButton()
         reloadConfigButton()
-        Button("GitHub Repository") {
+        Button("GitHub repository") {
             openURLString(winmuxRepositoryURL)
         }
         Button("File an issue...") {
@@ -48,7 +48,7 @@ private let winmuxNewIssueURL = "https://github.com/zimengxiong/winmux/issues/ne
 
 @MainActor @ViewBuilder
 func openConfigButton(showShortcutGroup: Bool = false) -> some View {
-    let button = Button("Open config") {
+    let button = Button("Open configuration file") {
         switch findCustomConfigUrl() {
             case .file(let url):
                 NSWorkspace.shared.open(url)
@@ -69,7 +69,7 @@ func openConfigButton(showShortcutGroup: Bool = false) -> some View {
 @MainActor @ViewBuilder
 func reloadConfigButton(showShortcutGroup: Bool = false) -> some View {
     if let token: RunSessionGuard = .isServerEnabled {
-        let button = Button("Reload config") {
+        let button = Button("Reload configuration") {
             Task {
                 try await runLightSession(.menuBarButton, token) { _ = try await reloadConfig() }
             }
@@ -90,9 +90,9 @@ private func openURLString(_ urlString: String) {
 
 func shortcutGroup(label: some View, content: some View) -> some View {
     GroupBox {
-        VStack(alignment: .trailing, spacing: 6) {
+        VStack(alignment: .trailing, spacing: standardGap * 3) {
             label
-                .foregroundStyle(Color.secondary)
+                .foregroundStyle(winMuxOverlayContent(.secondary))
             content
         }
     }

@@ -7,33 +7,33 @@ struct WorkspaceShortcutSectionView: View {
     @ObservedObject var model: ShortcutSettingsModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack(alignment: .top, spacing: 20) {
+        VStack(alignment: .leading, spacing: standardGap * 10) {
+            HStack(alignment: .top, spacing: standardGap * 10) {
                 WorkspacePatternCard(model: model, kind: .switchTo)
                 WorkspacePatternCard(model: model, kind: .moveTo)
             }
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: standardGap * 5) {
                 Text("Overrides")
                     .font(.headline)
-                Text("Individual Tab shortcuts override the global pattern above.")
+                Text("Individual tab shortcuts override the global pattern above.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(winMuxOverlayContent(.secondary))
 
-                VStack(spacing: 0) {
+                VStack(spacing: standardGap * 0) {
                     ForEach(model.workspaceNumbers.indices, id: \.self) { index in
                         let workspaceName = model.workspaceNumbers[index]
                         WorkspaceOverrideRow(model: model, workspaceName: workspaceName)
                         if index < model.workspaceNumbers.count - 1 {
-                            Divider().padding(.leading, 12)
+                            Divider().padding(.leading, standardGap * 6)
                         }
                     }
                 }
-                .background(Color(nsColor: .controlBackgroundColor))
+                .background(winMuxOverlayGeistBackground(.primary))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color(nsColor: .separatorColor).opacity(0.5), lineWidth: 0.5)
+                        .stroke(winMuxOverlayBorder(.normal), lineWidth: 0.5)
                 )
             }
         }
@@ -52,14 +52,14 @@ struct WorkspacePatternCard: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: standardGap * 6) {
             Text(kind.title)
                 .font(.headline)
             Text(kind.subtitle)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(winMuxOverlayContent(.secondary))
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: standardGap * 3) {
                 ForEach(modifiers, id: \.0) { label, modifier in
                     Toggle(
                         label,
@@ -77,19 +77,19 @@ struct WorkspacePatternCard: View {
             HStack {
                 Text("Preview")
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(winMuxOverlayContent(.secondary))
                 Spacer()
                 Text(model.workspacePatternDisplay(for: kind))
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .padding(16)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .padding(standardGap * 8)
+        .background(winMuxOverlayGeistBackground(.primary))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(nsColor: .separatorColor).opacity(0.5), lineWidth: 0.5)
+                .stroke(winMuxOverlayBorder(.normal), lineWidth: 0.5)
         )
     }
 }
@@ -99,7 +99,7 @@ struct WorkspaceOverrideRow: View {
     let workspaceName: String
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: standardGap * 8) {
             Text("Tab \(workspaceName)")
                 .font(.system(size: 13, weight: .semibold))
                 .frame(width: 100, alignment: .leading)
@@ -107,8 +107,8 @@ struct WorkspaceOverrideRow: View {
             WorkspaceOverrideField(model: model, workspaceName: workspaceName, kind: .switchTo)
             WorkspaceOverrideField(model: model, workspaceName: workspaceName, kind: .moveTo)
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
+        .padding(.vertical, standardGap * 5)
+        .padding(.horizontal, standardGap * 6)
     }
 }
 
@@ -118,10 +118,10 @@ struct WorkspaceOverrideField: View {
     let kind: ShortcutSettingsModel.WorkspaceShortcutKind
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: standardGap * 4) {
             Text(kind == .switchTo ? "Switch:" : "Move:")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(winMuxOverlayContent(.secondary))
             
             ShortcutRecorderView(
                 shortcut: Binding(
@@ -135,7 +135,7 @@ struct WorkspaceOverrideField: View {
             if model.workspaceOverrideShortcutValue(workspaceName: workspaceName, kind: kind) == nil {
                 Text(model.workspaceEffectiveNotation(for: workspaceName, kind: kind).map(displayBindingNotation) ?? "None")
                     .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(winMuxOverlayContent(.secondary))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

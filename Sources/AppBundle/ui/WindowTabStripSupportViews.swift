@@ -9,11 +9,11 @@ struct WindowTabStripScrollFadeMask: View {
         GeometryReader { proxy in
             let leadingFade = min(leadingFadeWidth, proxy.size.width / 2)
             let trailingFade = min(trailingFadeWidth, proxy.size.width / 2)
-            HStack(spacing: 0) {
-                LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
+            HStack(spacing: standardGap * 0) {
+                LinearGradient(colors: [WinMuxDesignTokens.transparent, winMuxOverlayContent(.primary)], startPoint: .leading, endPoint: .trailing)
                     .frame(width: leadingFade)
-                Rectangle().fill(Color.black)
-                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                Rectangle().fill(winMuxOverlayContent(.primary))
+                LinearGradient(colors: [winMuxOverlayContent(.primary), WinMuxDesignTokens.transparent], startPoint: .leading, endPoint: .trailing)
                     .frame(width: trailingFade)
             }
         }
@@ -44,16 +44,17 @@ struct WindowTabGroupHandleView: View {
     private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     var body: some View {
-        VStack(spacing: 2.5) {
+        VStack(spacing: standardGap * 1.25) {
             ForEach(0..<2, id: \.self) { _ in
                 Capsule(style: .continuous)
-                    .fill(palette.foreground(0.22))
+                    .fill(palette.content(.secondary))
                     .frame(width: 9, height: 1.5)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
-        .accessibilityLabel("Focus Composed Windows")
+        .accessibilityLabel("Window stack")
+        .help("Focus or drag window stack")
         .frame(width: windowTabStripReservedGroupHandleWidth())
         .contentShape(Rectangle())
         .onTapGesture {

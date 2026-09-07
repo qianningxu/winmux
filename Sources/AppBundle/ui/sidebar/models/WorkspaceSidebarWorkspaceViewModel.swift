@@ -1,6 +1,7 @@
 struct WorkspaceSidebarWorkspaceViewModel: Hashable, Identifiable {
     let name: String
     let projectId: WorkspaceProjectId
+    let folderId: WorkspaceFolderId
     let displayName: String
     let sidebarLabel: String
     let isGeneratedName: Bool
@@ -16,6 +17,7 @@ struct WorkspaceSidebarWorkspaceViewModel: Hashable, Identifiable {
     init(
         name: String,
         projectId: WorkspaceProjectId,
+        folderId: WorkspaceFolderId? = nil,
         displayName: String,
         sidebarLabel: String,
         isGeneratedName: Bool,
@@ -28,6 +30,7 @@ struct WorkspaceSidebarWorkspaceViewModel: Hashable, Identifiable {
     ) {
         self.name = name
         self.projectId = projectId
+        self.folderId = folderId ?? WorkspaceFolderId(projectId)
         self.displayName = displayName
         self.sidebarLabel = sidebarLabel
         self.isGeneratedName = isGeneratedName
@@ -49,7 +52,7 @@ struct WorkspaceSidebarTabSummaryViewModel: Hashable {
     let isEmpty: Bool
 
     static let empty = WorkspaceSidebarTabSummaryViewModel(
-        title: "New Tab",
+        title: "New tab",
         subtitle: nil,
         appBundleId: nil,
         appBundlePath: nil,

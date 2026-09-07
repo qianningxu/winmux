@@ -3,6 +3,7 @@ import CoreGraphics
 struct WorkspaceSidebarSnapshot: Equatable {
     var workspaces: [WorkspaceSidebarWorkspaceViewModel]
     var projects: [WorkspaceSidebarProjectViewModel]
+    var folders: [WorkspaceSidebarFolderViewModel] = []
     var activeProjectId: WorkspaceProjectId
     var monitorScopes: [WorkspaceSidebarMonitorScopeViewModel]
     var selectedMonitorScopeId: String
@@ -17,6 +18,7 @@ struct WorkspaceSidebarSnapshot: Equatable {
     static let empty = WorkspaceSidebarSnapshot(
         workspaces: [],
         projects: [],
+        folders: [],
         activeProjectId: workspaceProjectDefaultId,
         monitorScopes: [],
         selectedMonitorScopeId: workspaceSidebarDefaultScopeId,
@@ -42,7 +44,7 @@ struct WorkspaceSidebarConfiguration: Equatable {
     static let empty = WorkspaceSidebarConfiguration(
         collapsedWidth: 0,
         expandedWidth: 0,
-        topPadding: 8,
+        topPadding: 0,
         showMonitorSelector: false,
         showsDate: false,
         showsStatusPills: false,
@@ -56,23 +58,30 @@ enum WorkspaceSidebarAction: Equatable {
     case selectWindow(UInt32)
     case closeWindow(UInt32)
     case selectProject(WorkspaceProjectId)
-    case createProject
+    case createProject(displayName: String? = nil)
     case createFolder
     case renameProject(WorkspaceProjectId, displayName: String)
     case setProjectColor(WorkspaceProjectId, colorHex: String?)
     case deleteProject(WorkspaceProjectId)
+    case renameFolder(WorkspaceFolderId, displayName: String)
+    case setFolderColor(WorkspaceFolderId, colorHex: String?)
+    case deleteFolder(WorkspaceFolderId)
+    case moveFolderToProject(WorkspaceFolderId, projectId: WorkspaceProjectId)
     case selectMonitorScope(String)
     case createWorkspace(projectId: WorkspaceProjectId, monitorScopeId: String)
     case renameWorkspace(String, displayName: String)
     case closeWorkspace(String)
-    case reorderWorkspace(String, projectId: WorkspaceProjectId, placement: WorkspaceReorderPlacement)
-    case moveWorkspaceToFolder(String, projectId: WorkspaceProjectId)
-    case reorderFolder(WorkspaceProjectId, placement: WorkspaceSidebarFolderReorderPlacement)
+    case reorderWorkspace(String, folderId: WorkspaceFolderId, placement: WorkspaceReorderPlacement)
+    case moveWorkspaceToFolder(String, folderId: WorkspaceFolderId)
+    case moveWorkspaceToProject(String, projectId: WorkspaceProjectId)
+    case reorderFolder(WorkspaceFolderId, placement: WorkspaceSidebarFolderReorderPlacement)
     case setPinnedExpanded(Bool)
     case moveWindow(UInt32, toWorkspace: String)
     case moveTabGroup(UInt32, toWorkspace: String)
     case moveWindowToNewWorkspace(UInt32, projectId: WorkspaceProjectId, monitorScopeId: String)
     case moveTabGroupToNewWorkspace(UInt32, projectId: WorkspaceProjectId, monitorScopeId: String)
+    case moveWindowToNewWorkspaceInFolder(UInt32, folderId: WorkspaceFolderId, monitorScopeId: String)
+    case moveTabGroupToNewWorkspaceInFolder(UInt32, folderId: WorkspaceFolderId, monitorScopeId: String)
     case previewWindowDrop(UInt32, target: WorkspaceSidebarDropTargetKind)
     case previewTabGroupDrop(UInt32, target: WorkspaceSidebarDropTargetKind)
     case clearDropPreview

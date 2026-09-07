@@ -1,9 +1,9 @@
 import Foundation
 import SwiftUI
 
-private let scheduleHeatmapFulfilledColor = Color(red: 0x7B / 255, green: 0xD8 / 255, blue: 0x8F / 255)
-private let scheduleHeatmapReflectedColor = Color(red: 0xF4 / 255, green: 0xC9 / 255, blue: 0x5D / 255)
-private let scheduleHeatmapUnfulfilledColor = Color(red: 0xE7 / 255, green: 0x6F / 255, blue: 0x6F / 255)
+private let scheduleHeatmapFulfilledColor = workspaceSidebarWidgetSemanticColor(.green, .color7)
+private let scheduleHeatmapReflectedColor = workspaceSidebarWidgetSemanticColor(.amber, .color8)
+private let scheduleHeatmapUnfulfilledColor = workspaceSidebarWidgetSemanticColor(.red, .color7)
 
 struct WorkspaceSidebarScheduleHeatmapWidget: View {
     let id: String
@@ -543,30 +543,30 @@ private struct WorkspaceSidebarCompactScheduleHeatmapCard: View {
     let days: Int
 
     var body: some View {
-        VStack(alignment: .center, spacing: 7) {
+        VStack(alignment: .center, spacing: standardGap * 3.5) {
             ScheduleHeatmapIcon()
                 .frame(width: 18, height: 18)
-                .foregroundStyle(winMuxOverlayForeground(0.78))
-                .padding(6)
+                .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
+                .padding(standardGap * 3)
                 .background {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(winMuxOverlayContrastingFill(darkOpacity: 0.16, lightOpacity: 0.10))
+                        .fill(workspaceSidebarWidgetComponentBackground(.normal))
                         .overlay {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .strokeBorder(winMuxOverlayContrastingFill(darkOpacity: 0.24, lightOpacity: 0.18), lineWidth: 1)
+                                .strokeBorder(workspaceSidebarWidgetBorder(.normal), lineWidth: 1)
                         }
                 }
             if snapshot.errorMessage == nil {
                 Text(scheduleHeatmapPercentText(snapshot.fulfilledCount, of: snapshot.totalCount))
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(compactPercentColor.opacity(0.94))
+                    .foregroundStyle(compactPercentColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             } else {
                 Text("!")
                     .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(winMuxOverlayForeground(0.90))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.primary))
                     .lineLimit(1)
             }
         }
@@ -583,7 +583,7 @@ private struct WorkspaceSidebarCompactScheduleHeatmapCard: View {
         return "Schedule, \(scheduleHeatmapPercentText(snapshot.fulfilledCount, of: snapshot.totalCount)) done, \(scheduleHeatmapPercentText(snapshot.reflectedCount, of: snapshot.totalCount)) reflected, \(scheduleHeatmapPercentText(snapshot.unfulfilledCount, of: snapshot.totalCount)) missed this week"
     }
 
-    private var compactPercentColor: Color {
+    private var compactPercentColor: WorkspaceSidebarWidgetShapeStyle {
         let ratio = snapshot.totalCount > 0
             ? Double(snapshot.fulfilledCount) / Double(snapshot.totalCount)
             : 0
@@ -603,15 +603,15 @@ private struct WorkspaceSidebarExpandedScheduleHeatmapCard: View {
     let days: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: standardGap * 5) {
+            HStack(alignment: .firstTextBaseline, spacing: standardGap * 4) {
+                HStack(spacing: standardGap * 3) {
                     ScheduleHeatmapIcon()
                         .frame(width: 13, height: 13)
                     Text("Schedule")
                 }
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(winMuxOverlayForeground(0.82))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.primary))
 
                 Spacer(minLength: 8)
 
@@ -623,26 +623,26 @@ private struct WorkspaceSidebarExpandedScheduleHeatmapCard: View {
             if let errorMessage = snapshot.errorMessage {
                 Text(errorMessage)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(winMuxOverlayMutedForeground(0.80))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if snapshot.totalCount == 0 {
                 Text("No completed sessions")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(winMuxOverlayMutedForeground(0.76))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 ScheduleHeatmapGrid(
                     days: snapshot.days,
                     showsLabels: true,
                     cellHeight: 12,
-                    columnSpacing: 5,
-                    rowSpacing: 5,
+                    columnSpacing: standardGap * 2.5,
+                    rowSpacing: standardGap * 2.5,
                 )
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 11)
+        .padding(.horizontal, standardGap * 6)
+        .padding(.vertical, standardGap * 5.5)
         .frame(width: sectionWidth, alignment: .leading)
         .background(WorkspaceSidebarStatusCardBackground())
         .accessibilityElement(children: .combine)
@@ -669,7 +669,7 @@ private struct ScheduleHeatmapGrid: View {
                     if showsLabels {
                         Text(scheduleHeatmapWeekdayText(day.date))
                             .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(winMuxOverlayMutedForeground(0.58))
+                            .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                             .lineLimit(1)
                             .frame(height: 12)
                     }
@@ -695,17 +695,17 @@ private struct ScheduleHeatmapStatusCell: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: 3, style: .continuous)
-            .fill(color.opacity(0.82))
+            .fill(color)
             .overlay {
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .strokeBorder(winMuxOverlayContrastingFill(darkOpacity: 0.10, lightOpacity: 0.12), lineWidth: 0.5)
+                    .strokeBorder(workspaceSidebarWidgetBorder(.normal), lineWidth: 0.5)
             }
             .frame(height: height)
             .help(helpText)
             .accessibilityLabel(Text(accessibilityLabel))
     }
 
-    private var color: Color {
+    private var color: WorkspaceSidebarWidgetShapeStyle {
         switch cell.status {
             case .fulfilled:
                 scheduleHeatmapFulfilledColor
@@ -740,7 +740,7 @@ private struct ScheduleHeatmapEmptyCell: View {
     let height: CGFloat
 
     var body: some View {
-        Color.clear
+        WinMuxDesignTokens.transparent
             .frame(height: height)
             .accessibilityHidden(true)
     }
@@ -750,7 +750,7 @@ private struct ScheduleHeatmapCompactRates: View {
     let snapshot: ScheduleHeatmapSnapshot
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: standardGap * 2) {
             ScheduleHeatmapCompactRateText(color: scheduleHeatmapFulfilledColor, value: snapshot.fulfilledCount, total: snapshot.totalCount)
             ScheduleHeatmapCompactRateText(color: scheduleHeatmapReflectedColor, value: snapshot.reflectedCount, total: snapshot.totalCount)
             ScheduleHeatmapCompactRateText(color: scheduleHeatmapUnfulfilledColor, value: snapshot.unfulfilledCount, total: snapshot.totalCount)
@@ -760,7 +760,7 @@ private struct ScheduleHeatmapCompactRates: View {
 }
 
 private struct ScheduleHeatmapCompactRateText: View {
-    let color: Color
+    let color: WorkspaceSidebarWidgetShapeStyle
     let value: Int
     let total: Int
 
@@ -768,7 +768,7 @@ private struct ScheduleHeatmapCompactRateText: View {
         Text(scheduleHeatmapPercentText(value, of: total))
             .font(.system(size: 9, weight: .bold, design: .rounded))
             .monospacedDigit()
-            .foregroundStyle(color.opacity(0.92))
+            .foregroundStyle(color)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
     }
@@ -778,7 +778,7 @@ private struct ScheduleHeatmapInlineRates: View {
     let snapshot: ScheduleHeatmapSnapshot
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: standardGap * 3) {
             ScheduleHeatmapInlineRateText(color: scheduleHeatmapFulfilledColor, value: snapshot.fulfilledCount, total: snapshot.totalCount)
             ScheduleHeatmapInlineRateText(color: scheduleHeatmapReflectedColor, value: snapshot.reflectedCount, total: snapshot.totalCount)
             ScheduleHeatmapInlineRateText(color: scheduleHeatmapUnfulfilledColor, value: snapshot.unfulfilledCount, total: snapshot.totalCount)
@@ -787,7 +787,7 @@ private struct ScheduleHeatmapInlineRates: View {
 }
 
 private struct ScheduleHeatmapInlineRateText: View {
-    let color: Color
+    let color: WorkspaceSidebarWidgetShapeStyle
     let value: Int
     let total: Int
 
@@ -795,7 +795,7 @@ private struct ScheduleHeatmapInlineRateText: View {
         Text(scheduleHeatmapPercentText(value, of: total))
             .font(.system(size: 11, weight: .bold, design: .rounded))
             .monospacedDigit()
-            .foregroundStyle(color.opacity(0.94))
+            .foregroundStyle(color)
             .lineLimit(1)
             .minimumScaleFactor(0.78)
     }
@@ -808,11 +808,8 @@ private struct ScheduleHeatmapIcon: View {
             let gap = min(size.width, size.height) * 0.09
             let originX = (size.width - (cellSize * 3 + gap * 2)) / 2
             let originY = (size.height - (cellSize * 3 + gap * 2)) / 2
-            let opacities: [Double] = [1.0, 0.72, 0.52, 0.88, 0.64, 0.40, 0.56, 0.36, 0.24]
-
             for row in 0 ..< 3 {
                 for column in 0 ..< 3 {
-                    let index = row * 3 + column
                     let rect = CGRect(
                         x: originX + CGFloat(column) * (cellSize + gap),
                         y: originY + CGFloat(row) * (cellSize + gap),
@@ -820,7 +817,6 @@ private struct ScheduleHeatmapIcon: View {
                         height: cellSize,
                     )
                     let path = Path(roundedRect: rect, cornerRadius: max(1, cellSize * 0.22))
-                    context.opacity = opacities[index]
                     context.fill(path, with: .foreground)
                 }
             }

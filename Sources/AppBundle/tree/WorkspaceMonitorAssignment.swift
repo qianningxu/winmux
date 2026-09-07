@@ -116,8 +116,8 @@ extension CGPoint {
 func checkWorkspaceHierarchyInvariants(requireActiveMonitorViewports: Bool = false) {
     for workspace in Workspace.all {
         check(
-            winMuxWorkspaceState.workspaceFoldersById[WorkspaceFolderId(workspace.projectId)] != nil,
-            "Tab '\(workspace.name)' references missing folder '\(workspace.projectId)'",
+            winMuxWorkspaceState.workspaceFoldersById[workspace.folderId] != nil,
+            "Tab '\(workspace.name)' references missing folder '\(workspace.folderId)'",
         )
     }
 
@@ -125,6 +125,21 @@ func checkWorkspaceHierarchyInvariants(requireActiveMonitorViewports: Bool = fal
         check(
             winMuxWorkspaceState.projectsById[folder.projectId] != nil,
             "Folder '\(folderId)' references missing project '\(folder.projectId)'",
+        )
+        check(
+            winMuxWorkspaceState.projectsById[folder.projectId]?.folderOrder.contains(folderId) == true,
+            "Project '\(folder.projectId)' does not order owned folder '\(folderId)'",
+        )
+    }
+
+    for (projectId, project) in winMuxWorkspaceState.projectsById {
+        check(
+            winMuxWorkspaceState.workspaceFoldersById[project.unfoldedFolderId]?.projectId == projectId,
+            "Project '\(projectId)' is missing its Unfolded folder",
+        )
+        check(
+            project.folderOrder.last == project.unfoldedFolderId,
+            "Project '\(projectId)' does not keep its Unfolded folder last",
         )
     }
 

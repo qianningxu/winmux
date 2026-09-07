@@ -5,6 +5,8 @@ import Foundation
 @MainActor public func initAppBundle() {
     restoreWorkspaceSidebarAppearancePreference()
     Task {
+        beginStartupLayoutRestoration()
+        defer { finishStartupLayoutRestoration() }
         initTerminationHandler()
         isCli = false
         initServerArgs()

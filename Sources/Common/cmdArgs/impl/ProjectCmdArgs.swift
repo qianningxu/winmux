@@ -40,7 +40,7 @@ public enum ProjectTarget: Equatable, Sendable {
     }
 }
 
-let projectTargetPlaceholder = "(folder-index|default|unfolded|next|prev)"
+let projectTargetPlaceholder = "(project-index|default|next|prev)"
 
 func parseProjectTarget(i: PosArgParserInput) -> ParsedCliArgs<ProjectTarget> {
     switch i.arg {
@@ -49,7 +49,7 @@ func parseProjectTarget(i: PosArgParserInput) -> ParsedCliArgs<ProjectTarget> {
         case "prev": return ParsedCliArgs<ProjectTarget>.succ(.relative(.prev), advanceBy: 1)
         default:
             guard let index = Int(i.arg), index > 0 else {
-                return .fail("Can't parse folder target '\(i.arg)'. Expected \(projectTargetPlaceholder)", advanceBy: 1)
+                return .fail("Can't parse project target '\(i.arg)'. Expected \(projectTargetPlaceholder)", advanceBy: 1)
             }
             return ParsedCliArgs<ProjectTarget>.succ(.index(index), advanceBy: 1)
     }

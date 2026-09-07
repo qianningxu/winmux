@@ -18,7 +18,7 @@ extension WorkspaceSidebarWorkspaceSection {
                         .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(WorkspaceSidebarTabRowButtonStyle())
             }
         }
         .padding(.leading, headerButtonLeadingIndent)
@@ -79,16 +79,16 @@ extension WorkspaceSidebarWorkspaceSection {
                 )
                 .layoutPriority(1)
             } else {
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: standardGap * 0.5) {
                     Text(workspace.displayName)
                         .font(.system(size: 13.5, weight: isVisuallyActiveOnTargetMonitor ? .semibold : .medium))
-                        .foregroundStyle(isVisuallyActiveOnTargetMonitor ? palette.foreground(1) : palette.foreground(0.86))
+                        .foregroundStyle(palette.content(isVisuallyActiveOnTargetMonitor ? .primary : .secondary))
                         .lineLimit(1)
                         .truncationMode(.tail)
                     if let subtitle = workspace.tabSummary.subtitle {
                         Text(subtitle)
                             .font(.system(size: 10.5, weight: .regular))
-                            .foregroundStyle(palette.foreground(0.50))
+                            .foregroundStyle(palette.content(.secondary))
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }
@@ -99,22 +99,22 @@ extension WorkspaceSidebarWorkspaceSection {
             if let projectContextLabel, let projectContextColor {
                 Text(projectContextLabel)
                     .font(.system(size: 8.5, weight: .bold))
-                    .foregroundStyle(projectContextColor.opacity(0.86))
+                    .foregroundStyle(projectContextColor)
                     .lineLimit(1)
-                    .padding(.horizontal, 5)
+                    .padding(.horizontal, standardGap * 2.5)
                     .frame(height: 15)
                     .background {
                         Capsule(style: .continuous)
-                            .fill(projectContextColor.opacity(0.13))
+                            .fill(palette.componentBackground(.normal))
                     }
                     .overlay {
                         Capsule(style: .continuous)
-                            .strokeBorder(projectContextColor.opacity(0.24), lineWidth: 0.5)
+                            .strokeBorder(palette.geistBorder(.normal), lineWidth: 0.75)
                     }
             }
             Spacer(minLength: 0)
             if workspace.tabSummary.windowCount > 0 {
-                Color.clear
+                WinMuxDesignTokens.transparent
                     .frame(width: isHeaderCloseButtonVisible ? workspaceSidebarWindowCloseButtonReservedWidth : 4)
             }
         }
@@ -122,29 +122,16 @@ extension WorkspaceSidebarWorkspaceSection {
         .padding(.trailing, workspaceSidebarRowHorizontalPadding)
         .frame(height: workspaceSidebarTabRowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            headerRowShape
-                .fill(headerRowBackgroundFill)
-        }
-        .overlay {
-            if isHeaderRowHighlighted || isPointerHoverVisible {
-                headerRowShape
-                    .strokeBorder(
-                        palette.tabStroke(active: isHeaderRowHighlighted),
-                        lineWidth: isHeaderRowHighlighted ? 1.0 : 0.5
-                    )
-            }
-        }
-        .shadow(
-            color: .clear,
-            radius: 0,
-            x: 0,
-            y: 0
+        .workspaceSidebarTabRowChrome(
+            palette,
+            isSelected: isHeaderRowSelected,
+            isHovered: isPointerHoverVisible,
+            isActiveInteraction: isHeaderRowActiveInteraction
         )
     }
 
     var composedExpandedHeader: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: workspaceSidebarStandardGap) {
             ForEach(composedHeaderTabs) { tab in
                 composedHeaderTab(tab, showsTitle: composedHeaderShowsTitles)
             }
@@ -170,40 +157,68 @@ extension WorkspaceSidebarWorkspaceSection {
     }
 
     func composedHeaderTab(_ tab: WorkspaceSidebarWindowViewModel, showsTitle: Bool) -> some View {
-        Button {
-            handleComposedHeaderTabClick(tab)
-        } label: {
-            HStack(spacing: showsTitle ? 5 : 0) {
-                composedHeaderTabIcon(tab)
-                if showsTitle {
-                    Text(composedHeaderTabTitle(tab))
-                        .font(.system(size: 13.5, weight: tab.isFocused ? .semibold : .medium))
-                        .foregroundStyle(tab.isFocused ? palette.foreground(1) : palette.foreground(0.86))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .minimumScaleFactor(0.72)
+        let isPointerHovered = hoveredWindowId == tab.windowId
+        return ZStack(alignment: .trailing) {
+            Button {
+                handleComposedHeaderTabClick(tab)
+            } label: {
+                HStack(spacing: showsTitle ? 5 : 0) {
+                    composedHeaderTabIcon(tab)
+                    if showsTitle {
+                        Text(composedHeaderTabTitle(tab))
+                            .font(.system(size: 13.5, weight: tab.isFocused ? .semibold : .medium))
+                            .foregroundStyle(palette.content(tab.isFocused ? .primary : .secondary))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .minimumScaleFactor(0.72)
+                    }
+                    Spacer(minLength: 0)
+                    WinMuxDesignTokens.transparent
+                        .frame(width: workspaceSidebarWindowCloseButtonReservedWidth)
                 }
+                .padding(.leading, workspaceSidebarRowHorizontalPadding)
+                .padding(.trailing, workspaceSidebarWindowCloseButtonTrailingInset)
+                .frame(height: workspaceSidebarTabRowHeight)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .workspaceSidebarTabRowChrome(
+                    palette,
+                    isSelected: tab.isFocused,
+                    isHovered: isPointerHovered,
+                    isActiveInteraction: activeSidebarDragSourceWindowId == tab.windowId
+                )
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, showsTitle ? workspaceSidebarRowHorizontalPadding : 0)
-            .frame(height: workspaceSidebarTabRowHeight)
-            .frame(maxWidth: .infinity, alignment: showsTitle ? .leading : .center)
-            .background {
-                headerRowShape
-                    .fill(composedHeaderTabFill(tab))
+            .buttonStyle(WorkspaceSidebarTabRowButtonStyle())
+
+            if isPointerHovered {
+                workspaceWindowCloseButton(tab)
+                    .padding(.trailing, workspaceSidebarWindowCloseButtonTrailingInset)
+                    .transition(.opacity)
+                    .zIndex(2)
             }
-            .overlay {
-                if isPointerHoverVisible || tab.isFocused {
-                    headerRowShape
-                        .strokeBorder(composedHeaderTabStroke(tab), lineWidth: tab.isFocused ? 1.0 : 0.5)
-                }
-            }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .simultaneousGesture(
             TapGesture(count: 2)
                 .onEnded { _ in handleSectionDoubleClick() }
         )
+        .workspaceSidebarDrag(enabled: true) {
+            WorkspaceSidebarDragPayload.window(tab.windowId).itemProvider
+        }
+        .modifier(WorkspaceSidebarOptionalDragModifier(
+            isEnabled: true,
+            onChanged: { actions.windowDragChanged(tab.windowId, $0) },
+            onEnded: { actions.windowDragEnded(tab.windowId, $0) },
+        ))
+        .onHover { hover in
+            hoveredWindowId = nextWorkspaceSidebarHoveredWindowId(
+                currentHoveredWindowId: hoveredWindowId,
+                windowId: tab.windowId,
+                isHovering: hover,
+            )
+        }
+        .animation(workspaceSidebarHoverAnimation, value: isPointerHovered)
         .accessibilityLabel(composedHeaderTabTitle(tab))
     }
 
@@ -218,11 +233,10 @@ extension WorkspaceSidebarWorkspaceSection {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
                 .cornerRadius(4)
-                .workspaceSidebarIconStroke(palette, cornerRadius: 4, isActive: tab.isFocused)
         } else {
             Image(systemName: "macwindow")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(palette.foreground(0.70))
+                .foregroundStyle(palette.content(.secondary))
                 .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
         }
     }
@@ -232,26 +246,6 @@ extension WorkspaceSidebarWorkspaceSection {
             return tab.appName
         }
         return tab.title?.takeIf { !$0.isEmpty } ?? "Window"
-    }
-
-    func composedHeaderTabFill(_ tab: WorkspaceSidebarWindowViewModel) -> Color {
-        if tab.isFocused {
-            return palette.selectedSurface()
-        }
-        if isPointerHoverVisible {
-            return palette.tabHoverSurface()
-        }
-        if isPinnedActiveWorkspace {
-            return palette.gray100(palette.isDark ? 0.54 : 0.78)
-        }
-        return Color.clear
-    }
-
-    func composedHeaderTabStroke(_ tab: WorkspaceSidebarWindowViewModel) -> Color {
-        if tab.isFocused || isHeaderRowHighlighted {
-            return palette.tabStroke(active: true)
-        }
-        return palette.tabStroke(active: false).opacity(0.72)
     }
 
     @ViewBuilder
@@ -265,8 +259,6 @@ extension WorkspaceSidebarWorkspaceSection {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
                 .cornerRadius(4)
-                .opacity(isVisuallyActiveOnTargetMonitor ? 1 : 0.88)
-                .workspaceSidebarIconStroke(palette, isActive: isVisuallyActiveOnTargetMonitor)
         }
     }
 
@@ -274,29 +266,17 @@ extension WorkspaceSidebarWorkspaceSection {
         !showsWindowRows && !isSearchFiltering && (isVisuallyActiveOnTargetMonitor || isPinnedActiveWorkspace)
     }
 
-    var isHeaderRowHighlighted: Bool {
-        workspaceSidebarHeaderRowIsHighlighted(
-            isSelected: isHeaderRowSelected,
-            isReorderSource: isWorkspaceReorderSource
-        )
-    }
-
-    var headerRowShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: workspaceSidebarRowCornerRadius, style: .continuous)
-    }
-
-    var headerRowBackgroundFill: Color {
-        if isHeaderRowHighlighted {
-            return palette.selectedSurface()
-        }
-        if isPointerHoverVisible {
-            return palette.tabHoverSurface()
-        }
-        return Color.clear
+    var isHeaderRowActiveInteraction: Bool {
+        isWorkspaceReorderSource ||
+            isDropTarget ||
+            isDropTargeted ||
+            isDropSettling ||
+            isSearchSelectedWorkspace ||
+            isPendingActivationOnTargetMonitor
     }
 
     var isHeaderCloseButtonVisible: Bool {
-        workspaceSidebarTabCloseButtonIsVisible(
+        !shouldShowComposedExpandedHeader && workspaceSidebarTabCloseButtonIsVisible(
             isCompact: isCompact,
             isRenamingWorkspace: isRenamingWorkspace,
             isPointerHoverVisible: isPointerHoverVisible,
@@ -325,26 +305,24 @@ extension WorkspaceSidebarWorkspaceSection {
             Image(nsImage: icon)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
+                .frame(width: workspaceSidebarCompactAppIconSize, height: workspaceSidebarCompactAppIconSize)
                 .cornerRadius(4)
-                .opacity(isVisuallyActiveOnTargetMonitor ? 1 : 0.88)
-                .workspaceSidebarIconStroke(palette, isActive: isVisuallyActiveOnTargetMonitor)
+                .scaleEffect(workspaceSidebarCompactAppIconOpticalScale)
         } else {
             workspaceBadge
                 .font(.system(size: 12, weight: isVisuallyActiveOnTargetMonitor ? .bold : .semibold))
-                .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
+                .frame(width: workspaceSidebarCompactAppIconSize, height: workspaceSidebarCompactAppIconSize)
         }
     }
 }
 
 func workspaceSidebarShowsComposedTabHeader(
     isRenamingWorkspace: Bool,
-    sidebarLabel: String,
+    sidebarLabel _: String,
     hasComposedTabs: Bool,
 ) -> Bool {
     !isRenamingWorkspace &&
-        hasComposedTabs &&
-        sidebarLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        hasComposedTabs
 }
 
 func workspaceSidebarTabCloseButtonIsVisible(

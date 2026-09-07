@@ -2,11 +2,16 @@ import AppKit
 
 @MainActor
 func updateWindowTabModel() async {
+    let tabChromeController = WindowTabStripPanelController.shared
     let didClearMouseInteractionChromeSuppression =
-        WindowTabStripPanelController.shared.clearMouseInteractionChromeSuppressionIfInactive()
+        tabChromeController.clearMouseInteractionChromeSuppressionIfInactive()
+    // A transient strip follows an in-progress native resize. Once the mouse
+    // session has ended, it must yield to the freshly observed window frame.
+    let didClearTransientResizeChrome = currentlyManipulatedWithMouseWindowId == nil &&
+        tabChromeController.clearTransientResizeChrome()
     guard TrayMenuModel.shared.isEnabled, legacyWindowTabBehaviorIsEnabled() else {
         TrayMenuModel.shared.windowTabStrips = []
-        WindowTabStripPanelController.shared.refresh()
+        tabChromeController.refresh()
         debugFocusLog("updateWindowTabModel disabled -> cleared")
         return
     }
@@ -17,10 +22,10 @@ func updateWindowTabModel() async {
     if TrayMenuModel.shared.windowTabStrips != strips {
         debugFocusLog("updateWindowTabModel apply strips old=\(TrayMenuModel.shared.windowTabStrips.map(\.frame)) new=\(strips.map(\.frame))")
         TrayMenuModel.shared.windowTabStrips = strips
-        WindowTabStripPanelController.shared.refresh()
+        tabChromeController.refresh()
     } else {
-        if didClearMouseInteractionChromeSuppression {
-            WindowTabStripPanelController.shared.refresh()
+        if didClearMouseInteractionChromeSuppression || didClearTransientResizeChrome {
+            tabChromeController.refresh()
         }
         debugFocusLog("updateWindowTabModel unchanged strips=\(strips.map(\.frame))")
     }

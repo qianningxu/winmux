@@ -2,15 +2,15 @@ import AppKit
 import SwiftUI
 
 enum WindowIntentPreviewPalette {
-    static let gridBaseFill = Color.accentColor.opacity(0.07)
-    static let gridLineStroke = Color.accentColor.opacity(0.48)
-    static let gridOuterStroke = Color.accentColor.opacity(0.48)
+    static let gridBaseFill = winMuxOverlayColor(.blue, .color1)
+    static let gridLineStroke = winMuxOverlayColor(.blue, .color5)
+    static let gridOuterStroke = winMuxOverlayColor(.blue, .color5)
 
     static func gridZoneFill(isActive: Bool) -> Color {
-        Color.accentColor.opacity(isActive ? 0.23 : 0.045)
+        winMuxOverlayColor(.blue, isActive ? .color3 : .color1)
     }
 
     static func gridSymbol(isActive: Bool) -> Color {
-        winMuxOverlayForeground(isActive ? 1.0 : 0.7)
+        winMuxOverlayContent(isActive ? .primary : .secondary)
     }
 }

@@ -1,7 +1,8 @@
 import Foundation
 import SwiftUI
 
-private let spendingThemeColor = Color(red: 0x68 / 255, green: 0xD1 / 255, blue: 0xC4 / 255)
+private let spendingThemeTextColor = workspaceSidebarWidgetColor(.color9)
+private let spendingThemeFillColor = workspaceSidebarWidgetColor(.color7)
 private let spendingWeekCount = 4
 private let spendingDaysPerWeek = 7
 private let spendingWeeklyWindowDays = spendingWeekCount * spendingDaysPerWeek
@@ -321,21 +322,21 @@ private struct WorkspaceSidebarCompactSpendingWeeksCard: View {
     let sectionWidth: CGFloat
 
     var body: some View {
-        VStack(alignment: .center, spacing: 5) {
+        VStack(alignment: .center, spacing: standardGap * 2.5) {
             Image(systemName: "creditcard")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(spendingThemeColor.opacity(0.86))
+                .foregroundStyle(spendingThemeTextColor)
 
             Text(spendingCurrencyText(snapshot.totalAmount, compact: true))
                 .font(.system(size: 17, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(Color.white.opacity(0.90))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.primary))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
             Text("\(spendingWeekCount)w")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.42))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                 .lineLimit(1)
         }
         .frame(width: sectionWidth, height: 76, alignment: .center)
@@ -365,18 +366,18 @@ private struct WorkspaceSidebarExpandedSpendingWeeksCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+        VStack(alignment: .leading, spacing: standardGap * 5) {
+            HStack(alignment: .firstTextBaseline, spacing: standardGap * 4) {
                 Label("Spending", systemImage: "creditcard")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(spendingThemeColor.opacity(0.88))
+                    .foregroundStyle(spendingThemeTextColor)
 
                 Spacer(minLength: 8)
 
                 Text(spendingCurrencyText(snapshot.totalAmount))
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Color.white.opacity(0.82))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.primary))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
@@ -384,11 +385,11 @@ private struct WorkspaceSidebarExpandedSpendingWeeksCard: View {
             if let errorMessage = snapshot.errorMessage {
                 Text(errorMessage)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.58))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: standardGap * 4) {
                     ForEach(visibleWeeks) { week in
                         SpendingWeekRow(
                             week: week,
@@ -399,8 +400,8 @@ private struct WorkspaceSidebarExpandedSpendingWeeksCard: View {
 
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 11)
+        .padding(.horizontal, standardGap * 6)
+        .padding(.vertical, standardGap * 5.5)
         .frame(width: sectionWidth, alignment: .leading)
         .background(WorkspaceSidebarStatusCardBackground())
         .accessibilityElement(children: .combine)
@@ -416,11 +417,11 @@ private struct SpendingWeekRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+        VStack(alignment: .leading, spacing: standardGap * 2) {
+            HStack(alignment: .firstTextBaseline, spacing: standardGap * 4) {
                 Text(spendingWeekStartText(week.startDate))
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(0.76))
+                    .foregroundStyle(workspaceSidebarWidgetContent(.primary))
                     .lineLimit(1)
                     .truncationMode(.tail)
 
@@ -429,18 +430,18 @@ private struct SpendingWeekRow: View {
                 Text(spendingCurrencyText(week.amount))
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Color.white.opacity(week.transactionCount > 0 ? 0.64 : 0.36))
+                    .foregroundStyle(workspaceSidebarWidgetContent(week.transactionCount > 0 ? .primary : .secondary))
                     .lineLimit(1)
             }
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(workspaceSidebarWidgetComponentBackground(.normal))
 
                     if week.transactionCount > 0 {
                         Capsule()
-                            .fill(spendingThemeColor.opacity(0.58))
+                            .fill(spendingThemeFillColor)
                             .frame(width: max(3, geometry.size.width * ratio))
                     }
                 }

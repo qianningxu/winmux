@@ -13,9 +13,9 @@ enum WindowDragIntentKind: Equatable {
 @MainActor
 func isWindowDragIntentKindEnabled(_ kind: WindowDragIntentKind) -> Bool {
     switch kind {
-        case .tabStack, .reorderTab, .detachTab, .swap:
-            return false
-        case .stackSplit, .moveToWorkspace, .moveToWorkspaceZone, .createWorkspace, .sidebarHover:
+        case .tabStack, .reorderTab:
+            return config.windowTabs.enabled
+        case .detachTab, .stackSplit, .swap, .moveToWorkspace, .moveToWorkspaceZone, .createWorkspace, .sidebarHover:
             return true
     }
 }

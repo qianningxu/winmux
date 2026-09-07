@@ -1,5 +1,13 @@
 import AppKit
 
+// Swift identifiers cannot contain hyphens; this is the `standard-gap` token.
+let workspaceSidebarStandardGap = WinMuxSpacing.compact
+let workspaceSidebarCompactGridHorizontalPadding = 2 * workspaceSidebarStandardGap
+let workspaceSidebarCompactGridCellSize = workspaceSidebarCompactAppIconSize
+// The panel adds one shared gap on either side of this content width.
+let workspaceSidebarCompactContentWidth = workspaceSidebarCompactGridCellSize +
+    2 * workspaceSidebarCompactGridHorizontalPadding - 2 * workspaceSidebarStandardGap
+
 struct WorkspaceSidebarSideAreaMetrics: Equatable, Sendable {
     static let standard = WorkspaceSidebarSideAreaMetrics()
 
@@ -10,9 +18,9 @@ struct WorkspaceSidebarSideAreaMetrics: Equatable, Sendable {
     let plateCornerRadius: CGFloat
 
     init(
-        outerInset: CGFloat = 4,
-        mainContentGap: CGFloat = 4,
-        minimumWindowCanvasOuterGap: CGFloat = 4,
+        outerInset: CGFloat = WinMuxSpacing.regular,
+        mainContentGap: CGFloat = WinMuxSpacing.regular,
+        minimumWindowCanvasOuterGap: CGFloat = workspaceSidebarStandardGap,
         edgeTriggerWidth: CGFloat = 4,
         plateCornerRadius: CGFloat = 18
     ) {
@@ -27,13 +35,13 @@ struct WorkspaceSidebarSideAreaMetrics: Equatable, Sendable {
         max(expandedWidth, 1) + outerInset + mainContentGap
     }
 
-    func windowCanvasLeftInset(visibleWidth: CGFloat, userOuterLeftGap: CGFloat) -> CGFloat {
-        max(visibleWidth, 1) + outerInset + max(userOuterLeftGap, minimumWindowCanvasOuterGap)
+    func windowCanvasLeftInset(visibleWidth: CGFloat) -> CGFloat {
+        max(visibleWidth, 1) + outerInset + mainContentGap
     }
 
     func visualSidebarFrame(in hostFrame: NSRect, visibleWidth: CGFloat) -> NSRect {
-        let clampedWidth = min(max(visibleWidth, 1), max(hostFrame.width - outerInset, 1))
-        let availableHeight = max(hostFrame.height - (outerInset * 2), 1)
+        let clampedWidth = min(max(visibleWidth, 1), max(hostFrame.width - (2 * outerInset), 1))
+        let availableHeight = max(hostFrame.height - (2 * outerInset), 1)
         return NSRect(
             x: hostFrame.minX + outerInset,
             y: hostFrame.minY + outerInset,
