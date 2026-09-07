@@ -18,7 +18,7 @@ struct WinMuxBarDivider: View {
 
     var body: some View {
         Rectangle()
-            .fill(palette.color(.gray, .color7))
+            .fill(palette.color(.gray, .color5))
             .frame(width: WinMuxBarStyle.strokeWidth, height: height)
             .allowsHitTesting(false)
     }
