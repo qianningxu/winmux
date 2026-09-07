@@ -43,7 +43,15 @@ extension WindowTabStripView {
                 HStack(spacing: windowTabStripTabSpacing) {
                     ForEach(strip.tabs) { tab in
                         tabItem(tab, context: context, itemHeight: itemHeight)
-
+                            .overlay(alignment: .trailing) {
+                                if !tab.isActive,
+                                   let index = strip.tabs.firstIndex(where: { $0.windowId == tab.windowId }),
+                                   index + 1 < strip.tabs.count,
+                                   !strip.tabs[index + 1].isActive {
+                                    WinMuxBarDivider(height: itemHeight * 0.5, palette: WinMuxOverlayPalette(colorScheme: barColorScheme))
+                                        .offset(x: windowTabStripTabSpacing / 2)
+                                }
+                            }
                     }
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
