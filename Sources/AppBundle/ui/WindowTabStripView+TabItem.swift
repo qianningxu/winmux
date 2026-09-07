@@ -9,6 +9,7 @@ extension WindowTabStripView {
     ) -> some View {
         let isHovered = hoveredTabId == tab.windowId
         let isEditing = editingTabId == tab.windowId
+        let projectDestinations = projectDestinations(for: tab)
         return ZStack(alignment: .trailing) {
             if isEditing {
                 tabRenameEditor(tab, context: context, itemHeight: itemHeight)
@@ -41,11 +42,14 @@ extension WindowTabStripView {
             Button("Rename tab") {
                 beginRenamingTab(tab)
             }
-            Button("Close tab") {
-                closeWindowFromTabStrip(tab.windowId, fallbackWorkspace: tab.workspaceName)
-            }
-            Button("Move window out of stack") {
-                removeWindowFromTabStrip(tab.windowId, fallbackWorkspace: tab.workspaceName)
+            if !projectDestinations.isEmpty {
+                Menu("Move to") {
+                    ForEach(projectDestinations) { project in
+                        Button(project.displayName) {
+                            moveWindowToProjectFromTabStrip(tab.windowId, projectId: project.id)
+                        }
+                    }
+                }
             }
         }
     }
@@ -119,6 +123,19 @@ extension WindowTabStripView {
     func cancelRenamingTab() {
         editingTabId = nil
         editingTabTitle = ""
+    }
+
+    private func projectDestinations(
+        for tab: WindowTabItemViewModel
+    ) -> [WorkspaceSidebarProjectViewModel] {
+        guard let currentProjectId = trayModel.workspaceSidebarWorkspaces
+            .first(where: { $0.name == tab.workspaceName })?
+            .projectId
+        else { return [] }
+        return workspaceSidebarProjectDestinations(
+            projects: trayModel.workspaceSidebarProjects,
+            currentProjectId: currentProjectId,
+        )
     }
 
     private func tabCloseButton(_ tab: WindowTabItemViewModel) -> some View {

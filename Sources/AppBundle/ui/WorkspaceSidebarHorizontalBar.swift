@@ -343,6 +343,10 @@ struct WorkspaceSidebarHorizontalBar: View {
             activeInUseOverrideWorkspaceName: $activeInUseOverrideWorkspaceName,
             hoveredWorkspaceName: $hoveredWorkspaceName,
             actions: actions,
+            projectDestinations: workspaceSidebarProjectDestinations(
+                projects: snapshot.projects,
+                currentProjectId: workspace.projectId,
+            ),
             onSelect: {
                 selectWorkspace(workspace)
             },
@@ -357,6 +361,9 @@ struct WorkspaceSidebarHorizontalBar: View {
             },
             onClose: {
                 actions.send(.closeWorkspace(workspace.name))
+            },
+            onMoveToProject: { projectId in
+                actions.send(.moveWorkspaceToProject(workspace.name, projectId: projectId))
             },
             onReorderChanged: { pointer in
                 updateWorkspaceReorder(workspace, pointer: pointer)
@@ -529,11 +536,13 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
     @Binding var activeInUseOverrideWorkspaceName: String?
     @Binding var hoveredWorkspaceName: String?
     let actions: WorkspaceSidebarActions
+    let projectDestinations: [WorkspaceSidebarProjectViewModel]
     let onSelect: () -> Void
     let onBeginRename: () -> Void
     let onCommitRename: () -> Void
     let onCancelRename: () -> Void
     let onClose: () -> Void
+    let onMoveToProject: (WorkspaceProjectId) -> Void
     let onReorderChanged: (CGPoint) -> Void
     let onReorderEnded: (CGPoint) -> Void
 
@@ -618,9 +627,14 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
         }
         .contextMenu {
             Button("Rename tab", action: onBeginRename)
-            Divider()
-            Button(role: .destructive, action: onClose) {
-                Text("Close tab")
+            if !projectDestinations.isEmpty {
+                Menu("Move to") {
+                    ForEach(projectDestinations) { project in
+                        Button(project.displayName) {
+                            onMoveToProject(project.id)
+                        }
+                    }
+                }
             }
         }
         .modifier(WorkspaceSidebarWorkspaceReorderGestureModifier(

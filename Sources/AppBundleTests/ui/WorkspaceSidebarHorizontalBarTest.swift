@@ -214,6 +214,27 @@ final class WorkspaceSidebarHorizontalBarTest: XCTestCase {
         XCTAssertEqual(menuBarProjectProgressRotationInterval, 5 * 60)
     }
 
+    func testTopBarProjectDestinationsExcludeCurrentProject() {
+        let current = WorkspaceSidebarProjectViewModel(
+            id: "current",
+            displayName: "Current",
+            colorHex: nil,
+        )
+        let destination = WorkspaceSidebarProjectViewModel(
+            id: "destination",
+            displayName: "Destination",
+            colorHex: nil,
+        )
+
+        XCTAssertEqual(
+            workspaceSidebarProjectDestinations(
+                projects: [current, destination],
+                currentProjectId: current.id,
+            ).map(\.id),
+            [destination.id],
+        )
+    }
+
     private func makeWorkspace(
         name: String,
         projectId: WorkspaceProjectId,

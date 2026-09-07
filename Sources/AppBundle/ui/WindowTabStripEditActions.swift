@@ -68,3 +68,17 @@ func renameWindowTabFromTabStrip(_ windowId: UInt32, displayName: String, fallba
         }
     }
 }
+
+@MainActor
+func moveWindowToProjectFromTabStrip(_ windowId: UInt32, projectId: WorkspaceProjectId) {
+    guard let window = Window.get(byId: windowId),
+          let workspace = window.nodeWorkspace
+    else { return }
+    let monitorScopeId = window.nodeMonitor.map(workspaceSidebarMonitorScopeId(for:))
+        ?? workspaceSidebarMonitorScopeId(for: workspace.workspaceMonitor)
+    moveWindowToNewWorkspaceFromSidebar(
+        windowId,
+        projectId: projectId,
+        monitorScopeId: monitorScopeId,
+    )
+}

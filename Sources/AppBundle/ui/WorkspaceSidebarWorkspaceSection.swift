@@ -162,19 +162,13 @@ struct WorkspaceSidebarWorkspaceSection: View {
             Text("Rename tab")
         }
         if !projectDestinations.isEmpty {
-            Menu("Move to project") {
+            Menu("Move to") {
                 ForEach(projectDestinations) { project in
                     Button(project.displayName) {
                         actions.send(.moveWorkspaceToProject(workspace.name, projectId: project.id))
                     }
                 }
             }
-        }
-        Divider()
-        Button(role: .destructive) {
-            actions.send(.closeWorkspace(workspace.name))
-        } label: {
-            Text("Close tab")
         }
     }
 }
