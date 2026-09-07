@@ -278,7 +278,7 @@ private struct MenuBarStatusWidgetGroup: View {
                     height: widgetHeight
                 )
                 .padding(WinMuxBarStyle.topBarContentInset)
-                .background(palette.color(.gray, .color4))
+                .background(palette.color(.gray, .color5))
                 .winMuxBarSurface(palette, cornerStyle: .circular, cornerRadius: WinMuxBarStyle.topBarCornerRadius)
                 .padding(.top, menuBarContentTopInset)
 

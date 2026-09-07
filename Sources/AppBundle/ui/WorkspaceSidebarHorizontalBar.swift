@@ -197,7 +197,7 @@ struct WorkspaceSidebarHorizontalBar: View {
     }
 
     private var barSurface: some View {
-        Rectangle().fill(palette.color(.gray, .color4))
+        Rectangle().fill(palette.color(.gray, .color5))
     }
 
     @ViewBuilder
