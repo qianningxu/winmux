@@ -133,6 +133,9 @@ struct WorkspaceSidebarHorizontalBar: View {
             let innerPadding = WinMuxBarStyle.topBarContentInset
             let contentHeight = max(surfaceHeight - innerPadding * 2, 1)
             let surfaceWidth = max(geometry.size.width - menuBarSurfaceHorizontalInset * 2, 1)
+            let firstTabIsActive = projectWorkspaces.first.map {
+                $0.isVisible && $0.monitorScopeId == snapshot.targetMonitorScopeId
+            } ?? false
 
             ZStack(alignment: .topLeading) {
                 barSurface
@@ -142,6 +145,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                     projectControl(contentHeight: contentHeight)
 
                     WinMuxBarDivider(height: contentHeight * 0.5, palette: palette)
+                        .opacity(firstTabIsActive ? 0 : 1)
 
                     workspaceTabStrip(contentHeight: contentHeight)
                 }
