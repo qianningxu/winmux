@@ -9,6 +9,7 @@ final class WindowTabStripPanel: NSPanelHud {
     var currentPanelFrame: CGRect?
     var externallyIgnoresMouseEvents = false
     var tabStripIsOccludedByFloatingWindow = false
+    private var isRenamingTab = false
 
     init(id: ObjectIdentifier) {
         super.init()
@@ -24,8 +25,21 @@ final class WindowTabStripPanel: NSPanelHud {
         hostingView.autoresizingMask = [.width, .height]
     }
 
-    override var canBecomeKey: Bool { false }
+    override var canBecomeKey: Bool { isRenamingTab }
     override var canBecomeMain: Bool { false }
+
+    func beginTabRename() {
+        isRenamingTab = true
+        ignoresMouseEvents = false
+        orderFrontRegardless()
+        makeKeyAndOrderFront(nil)
+        makeKey()
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func endTabRename() {
+        isRenamingTab = false
+    }
 
     func update(with strip: WindowTabStripViewModel) {
         let displayStrip = strip.alignedForWindowTabChrome()

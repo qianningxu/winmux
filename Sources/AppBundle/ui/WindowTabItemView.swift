@@ -99,6 +99,7 @@ struct WindowTabRenameTextField: NSViewRepresentable {
         let onCancel: @MainActor @Sendable () -> Void
         var didFocus = false
         var didFinish = false
+        weak var editingWindow: NSWindow?
 
         init(
             text: Binding<String>,
@@ -113,6 +114,8 @@ struct WindowTabRenameTextField: NSViewRepresentable {
         @MainActor
         func focus(_ field: NSTextField) {
             guard !didFocus, let window = field.window else { return }
+            (window as? WindowTabStripPanel)?.beginTabRename()
+            editingWindow = window
             window.makeKeyAndOrderFront(nil)
             didFocus = window.makeFirstResponder(field)
             field.selectText(nil)
@@ -147,6 +150,7 @@ struct WindowTabRenameTextField: NSViewRepresentable {
         private func finish(commit: Bool) {
             guard !didFinish else { return }
             didFinish = true
+            (editingWindow as? WindowTabStripPanel)?.endTabRename()
             if commit {
                 onCommit()
             } else {

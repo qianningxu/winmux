@@ -11,6 +11,16 @@ private final class WindowTabRenameTestState {
 }
 
 @MainActor extension WindowTabsTest {
+    func testWindowTabStripOnlyAcceptsKeyInputWhileRenaming() {
+        let panel = WindowTabStripPanel(id: ObjectIdentifier(WindowTabsTest.self))
+
+        XCTAssertFalse(panel.canBecomeKey)
+        panel.beginTabRename()
+        XCTAssertTrue(panel.canBecomeKey)
+        panel.endTabRename()
+        XCTAssertFalse(panel.canBecomeKey)
+    }
+
     func testWindowTabRenameCommitsWhenEditingEndsAndDoesNotCommitAfterEscape() {
         let committed = WindowTabRenameTestState()
         let committedCoordinator = WindowTabRenameTextField.Coordinator(
