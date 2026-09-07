@@ -9,7 +9,7 @@ struct WindowTabGroupFrameView: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: windowTabStripCornerRadius + windowTabGroupShellHorizontalInset(), style: .continuous)
-            .fill(palette.color(.gray, .color8))
+            .fill(palette.color(.gray, .color3))
             .overlay {
                 RoundedRectangle(cornerRadius: windowTabStripCornerRadius + windowTabGroupShellHorizontalInset(), style: .continuous)
                     .strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)

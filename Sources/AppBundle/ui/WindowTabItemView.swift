@@ -14,51 +14,43 @@ struct WindowTabItemView: View {
     var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     var body: some View {
-        HStack(spacing: showsTitle ? 6 : 0) {
+        HStack(spacing: showsTitle ? WinMuxBarStyle.iconSpacing : WinMuxSpacing.none) {
             appIcon(size: iconSize)
 
             if showsTitle {
                 Text(tab.title)
-                    .font(.system(size: 12, weight: tab.isActive ? .semibold : .medium))
+                    .font(.system(size: WinMuxBarStyle.fontSize, weight: tab.isActive ? .semibold : .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
                 if reservesCloseButtonSpace {
-                    Color.clear
+                    WinMuxDesignTokens.transparent
                         .frame(width: windowTabStripCloseButtonReservedWidth)
                 }
             }
         }
         .foregroundStyle(tabForegroundStyle)
-        .padding(.horizontal, showsTitle ? 10 : 0)
+        .padding(.horizontal, showsTitle ? WinMuxBarStyle.contentInset : WinMuxSpacing.none)
         .frame(width: width, height: height, alignment: showsTitle ? .leading : .center)
-        .background {
-            RoundedRectangle(cornerRadius: windowTabStripInnerCornerRadius, style: .continuous)
-                .fill(tab.isActive
-                    ? palette.contrastingFill(darkOpacity: 0.14, lightOpacity: 0.10)
-                    : palette.contrastingFill(darkOpacity: 0.04, lightOpacity: 0.045)
-                )
-        }
+        .winMuxBarSegment(palette, isSelected: tab.isActive || isDragSource, isHovered: isHovered)
+        .background(palette.color(.gray, .color2))
+        .clipShape(RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: windowTabStripInnerCornerRadius, style: .continuous)
-                .stroke(tabStrokeStyle, lineWidth: 0.75)
+            RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous)
+                .strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
+                .allowsHitTesting(false)
         }
         .opacity(isDragSource ? 0.55 : 1.0)
         .contentShape(Rectangle())
     }
 
     private var tabForegroundStyle: Color {
-        if tab.isActive { return palette.foreground(0.92) }
-        if isDragSource { return palette.foreground(0.72) }
-        return palette.foreground(isHovered ? 0.74 : 0.58)
-    }
-
-    private var tabStrokeStyle: Color {
-        palette.tabStroke(active: tab.isActive || isHovered)
+        if tab.isActive || isHovered { return palette.content(.primary) }
+        return palette.content(.secondary)
     }
 
     private var iconSize: CGFloat {
-        showsTitle ? 14 : min(16, max(10, width - 14))
+        showsTitle ? workspaceSidebarAppIconSize + 2 : min(16, max(10, width - 14))
     }
 }
 
@@ -73,7 +65,7 @@ struct WindowTabRenameTextField: NSViewRepresentable {
         field.isBezeled = false
         field.drawsBackground = false
         field.focusRingType = .none
-        field.textColor = WinMuxOverlayPalette.current.foregroundNSColor(opacity: 0.92)
+        field.textColor = WinMuxOverlayPalette.current.contentNSColor(.primary)
         field.font = .systemFont(ofSize: 12, weight: .semibold)
         field.lineBreakMode = .byTruncatingTail
         field.usesSingleLineMode = true

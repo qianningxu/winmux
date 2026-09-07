@@ -4,44 +4,28 @@ import SwiftUI
 extension WindowTabStripView {
     func tabStripBody(stripWidth: CGFloat, stripHeight: CGFloat) -> some View {
         let context = WindowTabStripLayoutContext(strip: strip, width: stripWidth)
-        let itemHeight = min(max(stripHeight - 10, 18), 26)
+        let itemHeight = max(stripHeight, 18)
         let activeWindowId = strip.tabs.first(where: \.isActive)?.windowId
         let groupDragWindowId = activeWindowId ?? strip.tabs.first?.windowId
 
-        return HStack(spacing: 6) {
+        return HStack(spacing: 0) {
             tabScrollView(
                 context: context,
                 itemHeight: itemHeight,
                 groupDragWindowId: groupDragWindowId,
             )
                 .frame(maxWidth: .infinity)
+                .frame(height: itemHeight, alignment: .top)
 
-            Color.clear
-                .frame(width: windowTabStripTrailingGroupDragGutterWidth)
-                .frame(maxHeight: .infinity)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    guard let groupDragWindowId, !isWindowTabStripDragInProgress() else { return }
-                    focusWindowFromTabStripClick(groupDragWindowId, fallbackWorkspace: strip.workspaceName)
-                }
-                .gesture(groupDragGesture(for: groupDragWindowId))
 
-            WindowTabGroupHandleView(
-                windowId: groupDragWindowId,
-                workspaceName: strip.workspaceName
-            )
         }
-        .padding(.leading, 2)
-        .padding(.trailing, 8)
-        .padding(.vertical, 2)
-        .frame(width: stripWidth, height: stripHeight)
-        .clipShape(UnevenRoundedRectangle(
-            topLeadingRadius: windowTabStripCornerRadius,
-            bottomLeadingRadius: 0,
-            bottomTrailingRadius: 0,
-            topTrailingRadius: windowTabStripCornerRadius,
-            style: .continuous,
-        ))
+        // Keep the interactive row within the tab height.
+        .frame(height: itemHeight, alignment: .top)
+        .padding(.top, WinMuxSpacing.none)
+        .padding(.bottom, WinMuxSpacing.none)
+        .frame(width: stripWidth, height: stripHeight, alignment: .top)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Stack tabs")
         .animation(reduceMotion ? windowTabReducedMotionAnimation : windowTabPillAnimation, value: hoveredTabId)
         .animation(reduceMotion ? windowTabReducedMotionAnimation : windowTabPillAnimation, value: activeWindowId)
         .onChange(of: context.tabOrder) { newOrder in
@@ -59,12 +43,14 @@ extension WindowTabStripView {
                 HStack(spacing: windowTabStripTabSpacing) {
                     ForEach(strip.tabs) { tab in
                         tabItem(tab, context: context, itemHeight: itemHeight)
+
                     }
                 }
+                .frame(maxHeight: .infinity, alignment: .top)
                 .padding(.horizontal, windowTabStripContentHorizontalPadding)
                 .background {
                     GeometryReader { proxy in
-                        Color.clear.preference(
+                        WinMuxDesignTokens.transparent.preference(
                             key: WindowTabStripScrollContentFramePreferenceKey.self,
                             value: proxy.frame(in: .named(context.scrollCoordinateSpaceName)),
                         )
