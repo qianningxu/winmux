@@ -138,13 +138,13 @@ struct WorkspaceSidebarHorizontalBar: View {
                 HStack(spacing: 0) {
                     projectControl(contentHeight: contentHeight)
 
-                    WinMuxBarDivider(height: contentHeight, palette: palette)
+                    WinMuxBarDivider(height: contentHeight * 0.5, palette: palette)
 
                     workspaceTabStrip(contentHeight: contentHeight)
                 }
                 .frame(width: surfaceWidth, height: surfaceHeight, alignment: .center)
             }
-            .winMuxBarSurface(palette, cornerStyle: .circular)
+            .winMuxBarSurface(palette, cornerStyle: .circular, cornerRadius: WinMuxBarStyle.topBarCornerRadius)
             .padding(.horizontal, menuBarSurfaceHorizontalInset)
             .padding(.top, menuBarContentTopInset)
             .coordinateSpace(name: "workspaceSidebarContent")
@@ -189,7 +189,7 @@ struct WorkspaceSidebarHorizontalBar: View {
     }
 
     private var barSurface: some View {
-        Rectangle().fill(palette.color(.gray, .color3).opacity(0.9))
+        Rectangle().fill(palette.color(.gray, .color5))
     }
 
     @ViewBuilder
@@ -283,17 +283,21 @@ struct WorkspaceSidebarHorizontalBar: View {
     private func workspaceTabStrip(contentHeight: CGFloat) -> some View {
         GeometryReader { geometry in
             let count = projectWorkspaces.count
-            let spacing = min(WinMuxBarStyle.strokeWidth, geometry.size.width / CGFloat(max(count, 1)))
+            let spacing = min(standardGap, geometry.size.width / CGFloat(max(count, 1)))
             let tabWidth = max(0, (geometry.size.width - spacing * CGFloat(max(count - 1, 0))) / CGFloat(max(count, 1)))
-            HStack(spacing: 0) {
+            HStack(spacing: spacing) {
                 ForEach(Array(projectWorkspaces.enumerated()), id: \.element.id) { index, workspace in
-                    if index > 0 {
-                        WinMuxBarDivider(height: contentHeight, palette: palette)
-                            .frame(width: spacing)
-                    }
                     workspaceTab(workspace, contentHeight: contentHeight)
                         .frame(width: tabWidth, height: contentHeight)
                         .clipped()
+                        .overlay(alignment: .trailing) {
+                            if index + 1 < count,
+                               !(workspace.isVisible && workspace.monitorScopeId == snapshot.targetMonitorScopeId),
+                               !(projectWorkspaces[index + 1].isVisible && projectWorkspaces[index + 1].monitorScopeId == snapshot.targetMonitorScopeId) {
+                                WinMuxBarDivider(height: contentHeight * 0.5, palette: palette)
+                                    .offset(x: spacing / 2)
+                            }
+                        }
                 }
             }
             .frame(width: geometry.size.width, height: contentHeight)
@@ -570,6 +574,14 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                         isSelected: isActive || isDropTarget || isReorderTarget || isReorderSource,
                         isHovered: isHovered
                     )
+                    .clipShape(RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous))
+                    .overlay {
+                        if isActive {
+                            RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous)
+                                .strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
+                                .allowsHitTesting(false)
+                        }
+                    }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
