@@ -34,3 +34,12 @@ Never finish a WinMux implementation task without completing this installed-app 
 
 - After every completed code, configuration, or documentation change, commit the scoped changes and push the current branch to `origin` before handing off.
 - Do not include unrelated pre-existing worktree changes in a commit. If a push fails, report it immediately and resolve it before continuing with additional changes.
+
+## UI Terminology
+
+- **Tab bar**: top left; switches workspaces.
+- **Widget bar**: top right; displays widgets.
+- **Window stack**: a group of windows stacked together.
+- **Stack tabs**: tabs for switching windows within a stack.
+
+Use these names in UI copy, documentation, and discussions. Existing internal `WorkspaceSidebar` and configuration identifiers remain compatible.
