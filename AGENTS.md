@@ -43,3 +43,5 @@ Never finish a WinMux implementation task without completing this installed-app 
 - **Stack tabs**: tabs for switching windows within a stack.
 
 Use these names in UI copy, documentation, and discussions. Existing internal `WorkspaceSidebar` and configuration identifiers remain compatible.
+
+The tab bar is horizontal and is not expandable. Do not restore a vertical sidebar or an expansion control. Keep both bars within the system menu-bar area, including any visual top inset.
