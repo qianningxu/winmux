@@ -216,8 +216,8 @@ struct WorkspaceSidebarHorizontalBar: View {
             Menu {
                 ForEach(snapshot.projects) { project in
                     Menu {
-                        Button("Switch to Project") {
-                            actions.send(.selectProject(project.id))
+                        Button("Switch Theme") {
+                            toggleWorkspaceSidebarAppearance()
                         }
                         if projectsAreEnabled() {
                             Divider()
@@ -574,10 +574,10 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                         isSelected: isActive || isDropTarget || isReorderTarget || isReorderSource,
                         isHovered: isHovered
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarCornerRadius, style: .circular))
                     .overlay {
                         if isActive {
-                            RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous)
+                            RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarCornerRadius, style: .circular)
                                 .strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
                                 .allowsHitTesting(false)
                         }
