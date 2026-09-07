@@ -128,7 +128,8 @@ struct WorkspaceSidebarHorizontalBar: View {
     var body: some View {
         GeometryReader { geometry in
             let surfaceHeight = max(geometry.size.height - menuBarContentTopInset, 1)
-            let contentHeight = surfaceHeight
+            let innerPadding = standardGap * 0.5
+            let contentHeight = max(surfaceHeight - innerPadding * 2, 1)
             let surfaceWidth = max(geometry.size.width - menuBarSurfaceHorizontalInset * 2, 1)
 
             ZStack(alignment: .topLeading) {
@@ -142,7 +143,8 @@ struct WorkspaceSidebarHorizontalBar: View {
 
                     workspaceTabStrip(contentHeight: contentHeight)
                 }
-                .frame(width: surfaceWidth, height: surfaceHeight, alignment: .center)
+                .frame(width: max(surfaceWidth - innerPadding * 2, 1), height: contentHeight, alignment: .center)
+                .padding(innerPadding)
             }
             .winMuxBarSurface(palette, cornerStyle: .circular, cornerRadius: WinMuxBarStyle.topBarCornerRadius)
             .padding(.horizontal, menuBarSurfaceHorizontalInset)
