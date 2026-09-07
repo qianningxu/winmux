@@ -31,7 +31,7 @@ extension View {
             style: cornerStyle
         )
         return self
-            .background(palette.color(.gray, .color2))
+            .background(palette.color(.gray, .color3))
             .clipShape(shape)
             .overlay {
                 shape.strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
