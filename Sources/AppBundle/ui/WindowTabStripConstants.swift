@@ -5,18 +5,18 @@ import SwiftUI
 // MARK: - Constants
 
 let windowTabPreviewCornerRadius: CGFloat = 14
-let windowTabStripContentHorizontalPadding: CGFloat = 5
+let windowTabStripContentHorizontalPadding: CGFloat = WinMuxSpacing.none
 let windowTabStripGroupHandleWidth: CGFloat = 26
-let windowTabStripReservedHandleWidth: CGFloat = 24
-let windowTabStripTrailingGroupDragGutterWidth: CGFloat = 28
-let windowTabStripCornerRadius: CGFloat = 14
+let windowTabStripReservedHandleWidth: CGFloat = WinMuxSpacing.none
+let windowTabStripTrailingGroupDragGutterWidth: CGFloat = 0
+let windowTabStripCornerRadius: CGFloat = WinMuxBarStyle.cornerRadius
 let windowTabStripInnerCornerRadius: CGFloat = 9
-let windowTabStripTabSpacing: CGFloat = 6
+let windowTabStripTabSpacing: CGFloat = standardGap
 let windowTabStripPreferredTabWidth: CGFloat = 240
 let windowTabStripMinimumTabWidth: CGFloat = 128
 let windowTabStripCloseButtonSize: CGFloat = 18
 let windowTabStripCloseButtonReservedWidth: CGFloat = 22
-let windowTabStripCloseButtonTrailingInset: CGFloat = 5
+let windowTabStripCloseButtonTrailingInset: CGFloat = standardGap * 2.5
 let windowTabStripScrollFadeWidth: CGFloat = 22
 let windowTabStripAutoScrollEdgeWidth: CGFloat = 28
 let windowTabStripAutoScrollDuration: TimeInterval = 0.12
@@ -42,10 +42,7 @@ func windowTabStripScrollViewportWidth(stripWidth: CGFloat) -> CGFloat {
     max(
         0,
         stripWidth
-            - 16
-            - windowTabStripReservedGroupHandleWidth()
-            - windowTabStripTrailingGroupDragGutterWidth
-            - 18,
+            - windowTabStripTrailingGroupDragGutterWidth,
     )
 }
 
@@ -54,10 +51,7 @@ func windowTabStripTabWidth(stripWidth: CGFloat, count: Int) -> CGFloat {
     let availableWidth = windowTabStripScrollViewportWidth(stripWidth: stripWidth)
         - (windowTabStripContentHorizontalPadding * 2)
         - CGFloat(max(count - 1, 0)) * windowTabStripTabSpacing
-    return min(
-        max(availableWidth / CGFloat(count), windowTabStripMinimumTabWidth),
-        windowTabStripPreferredTabWidth
-    )
+    return max(availableWidth / CGFloat(count), 0)
 }
 
 func windowTabStripAvailableTabsWidth(stripWidth: CGFloat) -> CGFloat {

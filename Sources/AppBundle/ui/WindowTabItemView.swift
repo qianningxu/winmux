@@ -36,9 +36,11 @@ struct WindowTabItemView: View {
         .background(palette.color(.gray, .color2))
         .clipShape(RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous)
-                .strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
-                .allowsHitTesting(false)
+            if tab.isActive {
+                RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous)
+                    .strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
+                    .allowsHitTesting(false)
+            }
         }
         .opacity(isDragSource ? 0.55 : 1.0)
         .contentShape(Rectangle())
