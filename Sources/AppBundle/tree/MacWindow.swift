@@ -206,7 +206,9 @@ final class MacWindow: Window {
 
     @MainActor
     func requestCloseAndWait(timeout: TimeInterval = 1.5) async -> Bool {
-        guard (try? await macApp.pressCloseButton(windowId)) == true else { return false }
+        guard (try? await macApp.pressCloseButton(windowId)) == true else {
+            return await garbageCollectIfNoLongerAccessible()
+        }
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if (try? await macApp.containsAxWindow(windowId)) == false {
@@ -216,6 +218,19 @@ final class MacWindow: Window {
             try? await Task.sleep(nanoseconds: 100_000_000)
         }
         return false
+    }
+
+    /// Some apps leave an AX window identifier behind after their last real
+    /// window has gone away. A missing close button must not keep that ghost
+    /// entry alive in a tab, but an unavailable AX query remains inconclusive.
+    @MainActor
+    private func garbageCollectIfNoLongerAccessible() async -> Bool {
+        let isStillExposed = try? await macApp.containsAxWindow(windowId)
+        guard shouldGarbageCollectAfterFailedClose(isWindowStillExposed: isStillExposed) else {
+            return false
+        }
+        garbageCollect(skipClosedWindowsCache: true)
+        return true
     }
 
     override func closeAxWindow() {
@@ -329,4 +344,8 @@ final class MacWindow: Window {
         }
         return rect
     }
+}
+
+func shouldGarbageCollectAfterFailedClose(isWindowStillExposed: Bool?) -> Bool {
+    isWindowStillExposed == false
 }

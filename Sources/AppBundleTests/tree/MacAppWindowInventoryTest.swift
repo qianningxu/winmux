@@ -29,4 +29,10 @@ final class MacAppWindowInventoryTest: XCTestCase {
             lastObservedWindowIds: [10, 20]
         ))
     }
+
+    func testMissingAccessibilityWindowDoesNotBlockCloseAfterTheCloseButtonIsUnavailable() {
+        XCTAssertTrue(shouldGarbageCollectAfterFailedClose(isWindowStillExposed: false))
+        XCTAssertFalse(shouldGarbageCollectAfterFailedClose(isWindowStillExposed: true))
+        XCTAssertFalse(shouldGarbageCollectAfterFailedClose(isWindowStillExposed: nil))
+    }
 }
