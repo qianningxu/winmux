@@ -94,15 +94,16 @@ extension WindowTabStripView {
                 isDragSource: false,
                 isHovered: true,
                 showsTitle: true,
-                reservesCloseButtonSpace: false
+                reservesCloseButtonSpace: false,
+                hidesTitle: true
             )
             WindowTabRenameTextField(
                 text: $editingTabTitle,
                 onCommit: { commitRenamingTab(tab) },
                 onCancel: cancelRenamingTab,
             )
-            .padding(.leading, standardGap * 15)
-            .padding(.trailing, standardGap * 5)
+            .padding(.leading, WinMuxBarStyle.contentInset + workspaceSidebarAppIconSize + 2 + WinMuxBarStyle.iconSpacing)
+            .padding(.trailing, WinMuxBarStyle.contentInset)
             .frame(width: context.tabWidth, height: itemHeight, alignment: .leading)
         }
     }

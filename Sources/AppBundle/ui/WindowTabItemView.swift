@@ -9,6 +9,7 @@ struct WindowTabItemView: View {
     let isHovered: Bool
     let showsTitle: Bool
     let reservesCloseButtonSpace: Bool
+    var hidesTitle = false
     @Environment(\.colorScheme) var colorScheme
 
     var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
@@ -18,7 +19,7 @@ struct WindowTabItemView: View {
             appIcon(size: iconSize)
 
             if showsTitle {
-                Text(tab.title)
+                Text(hidesTitle ? "" : tab.title)
                     .font(.system(size: WinMuxBarStyle.fontSize, weight: tab.isActive ? .semibold : .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -89,6 +90,11 @@ struct WindowTabRenameTextField: NSViewRepresentable {
         }
     }
 
+    static func dismantleNSView(_ field: NSTextField, coordinator: Coordinator) {
+        field.delegate = nil
+        coordinator.tearDown()
+    }
+
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text, onCommit: onCommit, onCancel: onCancel)
     }
@@ -99,6 +105,7 @@ struct WindowTabRenameTextField: NSViewRepresentable {
         let onCancel: @MainActor @Sendable () -> Void
         var didFocus = false
         var didFinish = false
+        var focusAttempts = 0
         weak var editingWindow: NSWindow?
 
         init(
@@ -113,26 +120,52 @@ struct WindowTabRenameTextField: NSViewRepresentable {
 
         @MainActor
         func focus(_ field: NSTextField) {
-            guard !didFocus, let window = field.window else { return }
+            guard !didFocus, !didFinish else { return }
+            guard let window = field.window else {
+                scheduleFocusRetry(field)
+                return
+            }
             (window as? WindowTabStripPanel)?.beginTabRename()
             editingWindow = window
             window.makeKeyAndOrderFront(nil)
-            didFocus = window.makeFirstResponder(field)
+            let accepted = window.makeFirstResponder(field)
             field.selectText(nil)
+            didFocus = accepted && window.isKeyWindow && field.currentEditor() != nil &&
+                window.firstResponder === field.currentEditor()
+            if !didFocus { scheduleFocusRetry(field) }
+        }
+
+        @MainActor
+        private func scheduleFocusRetry(_ field: NSTextField) {
+            guard focusAttempts < 8, !didFinish else { return }
+            focusAttempts += 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [weak self, weak field] in
+                guard let self, let field else { return }
+                self.focus(field)
+            }
+        }
+
+        @MainActor
+        func tearDown() {
+            didFinish = true
+            (editingWindow as? WindowTabStripPanel)?.endTabRename()
+            editingWindow = nil
         }
 
         func controlTextDidChange(_ notification: Notification) {
-            guard let field = notification.object as? NSTextField else { return }
+            guard !didFinish, let field = notification.object as? NSTextField else { return }
             text = field.stringValue
         }
 
         func controlTextDidEndEditing(_ notification: Notification) {
-            guard let field = notification.object as? NSTextField else { return }
+            guard !didFinish, let field = notification.object as? NSTextField else { return }
             text = field.stringValue
-            finish(commit: true)
+            // Activation can end editing before the field actually acquires keyboard focus.
+            if didFocus { finish(commit: true) }
         }
 
         func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            guard !didFinish else { return true }
             switch commandSelector {
                 case #selector(NSResponder.insertNewline(_:)):
                     text = textView.string
