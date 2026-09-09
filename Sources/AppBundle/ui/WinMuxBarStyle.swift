@@ -4,6 +4,7 @@ import SwiftUI
 enum WinMuxBarStyle {
     static let cornerRadius = standardGap * 4
     static let topBarCornerRadius = standardGap * 4
+    static let topBarSurfaceCornerRadius = standardGap * 4
     static let containerInset = standardGap * 0.5
     static let topBarContentInset = standardGap * 0.125
     static let contentInset = standardGap * 2
