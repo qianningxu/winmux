@@ -187,20 +187,18 @@ extension TilingContainer {
         guard let delta = ((orientation == .h ? width : height) - CGFloat(children.sumOfDouble { $0.getWeight(orientation) }))
             .div(children.count) else { return }
 
-        let rawGap = context.resolvedGaps.inner.get(orientation).toDouble()
         let lastIndex = children.indices.last
-        let childWeights = resolvedTilingWeights(
-            children.map { $0.getWeight(orientation) + delta },
-            minimums: children.enumerated().map { index, child in
-                child.minimumTiledDimension(orientation, innerGap: rawGap) + tileGap(index: index, lastIndex: lastIndex, rawGap: rawGap)
-            },
-            available: orientation == .h ? width : height,
-        )
         for (i, child) in children.enumerated() {
             guard nodeWorkspace === context.workspace, child.parent === self else { return }
-            let childWeight = childWeights[i]
+            let childWeight = child.getWeight(orientation) + delta
             child.setWeight(orientation, childWeight)
-            let gap = tileGap(index: i, lastIndex: lastIndex, rawGap: rawGap)
+            let rawGap = context.resolvedGaps.inner.get(orientation).toDouble()
+            // Gaps. Consider 4 cases:
+            // 1. Multiple children. Layout first child
+            // 2. Multiple children. Layout last child
+            // 3. Multiple children. Layout child in the middle
+            // 4. Single child   let rawGap = gaps.inner.get(orientation).toDouble()
+            let gap = rawGap - (i == 0 ? rawGap / 2 : 0) - (i == lastIndex ? rawGap / 2 : 0)
             try await child.layoutRecursive(
                 i == 0 ? point : point.addingOffset(orientation, rawGap / 2),
                 width: orientation == .h ? childWeight - gap : width,
@@ -279,48 +277,6 @@ extension TilingContainer {
                         context,
                     )
             }
-        }
-    }
-}
-
-@MainActor
-func resolvedTilingWeights(_ weights: [CGFloat], minimums: [CGFloat], available: CGFloat) -> [CGFloat] {
-    precondition(weights.count == minimums.count)
-    var resolved = zip(weights, minimums).map { max($0, $1) }
-    let overflow = resolved.reduce(0, +) - available
-    guard overflow > 0 else { return resolved }
-
-    let slack = zip(resolved, minimums).map { max($0 - $1, 0) }
-    let totalSlack = slack.reduce(0, +)
-    guard totalSlack > 0 else { return resolved }
-
-    for index in resolved.indices {
-        resolved[index] -= overflow * slack[index] / totalSlack
-    }
-    return resolved
-}
-
-@MainActor
-func tileGap(index: Int, lastIndex: Int?, rawGap: CGFloat) -> CGFloat {
-    rawGap - (index == 0 ? rawGap / 2 : 0) - (index == lastIndex ? rawGap / 2 : 0)
-}
-
-extension TreeNode {
-    @MainActor
-    func minimumTiledDimension(_ orientation: Orientation, innerGap: CGFloat) -> CGFloat {
-        switch nodeCases {
-            case .window(let window):
-                return orientation == .h ? window.minimumTiledSize.width : window.minimumTiledSize.height
-            case .tilingContainer(let container):
-                let minimums = container.children.map { $0.minimumTiledDimension(orientation, innerGap: innerGap) }
-                guard !minimums.isEmpty else { return 0 }
-                if container.layout == .tiles, container.orientation == orientation {
-                    return minimums.reduce(0, +) + innerGap * CGFloat(minimums.count - 1)
-                }
-                return minimums.max() ?? 0
-            case .workspace, .macosMinimizedWindowsContainer, .macosFullscreenWindowsContainer,
-                 .macosPopupWindowsContainer, .macosHiddenAppsWindowsContainer:
-                return 0
         }
     }
 }

@@ -117,13 +117,6 @@ final class MouseDragSubjectTest: XCTestCase {
         XCTAssertEqual(gesture.predictedRect(mouse: CGPoint(x: 900, y: 300)).width, 900)
     }
 
-    func testTilingWeightsReserveTheLearnedMinimumBeforeLayingOutSiblings() {
-        XCTAssertEqual(
-            resolvedTilingWeights([600, 1_200], minimums: [900, 0], available: 1_800),
-            [900, 900]
-        )
-    }
-
     func testMouseInteractionHiddenIdsStayHiddenUntilSessionRestore() {
         XCTAssertEqual(
             nextMouseInteractionHiddenWindowIds(activeWindowId: 1, currentlyHidden: [2, 3], discovered: []),

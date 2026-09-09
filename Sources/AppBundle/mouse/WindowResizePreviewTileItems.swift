@@ -25,16 +25,9 @@ func windowResizePreviewTileItems(
 
     let rawGap = CGFloat(context.resolvedGaps.inner.get(orientation))
     let lastIndex = container.children.indices.last
-    let adjustedWeights = resolvedTilingWeights(
-        container.children.map { context.weight(for: $0, orientation: orientation) + delta },
-        minimums: container.children.enumerated().map { index, child in
-            child.minimumTiledDimension(orientation, innerGap: rawGap) + tileGap(index: index, lastIndex: lastIndex, rawGap: rawGap)
-        },
-        available: availableDimension,
-    )
     for (index, child) in container.children.enumerated() {
-        let adjustedWeight = adjustedWeights[index]
-        let gap = tileGap(index: index, lastIndex: lastIndex, rawGap: rawGap)
+        let adjustedWeight = context.weight(for: child, orientation: orientation) + delta
+        let gap = rawGap - (index == 0 ? rawGap / 2 : 0) - (index == lastIndex ? rawGap / 2 : 0)
         let childPoint = index == 0 ? point : point.addingOffset(orientation, rawGap / 2)
         let childWidth = orientation == .h ? max(adjustedWeight - gap, 0) : max(width, 0)
         let childHeight = orientation == .v ? max(adjustedWeight - gap, 0) : max(height, 0)
