@@ -25,55 +25,28 @@ struct ResizeGestureMouseOffset: Equatable {
 struct ResizeGestureSessionState {
     let windowId: UInt32
     let baseRect: Rect
-    /// Retained separately from the continuously calibrated offset so we can
-    /// detect when macOS has clamped a resize at the app's own minimum size.
-    let initialMouseOffset: ResizeGestureMouseOffset
     var edges: ResizeGestureEdges
     var mouseOffset: ResizeGestureMouseOffset
-    var minimumSize = CGSize(width: resizeGestureMinimumWidth, height: resizeGestureMinimumHeight)
     var latestRect: Rect
     var lastCalibrationTimestamp: TimeInterval
 
     func predictedRect(mouse: CGPoint) -> Rect {
-        let unconstrainedRect = self.unconstrainedRect(mouse: mouse, mouseOffset: mouseOffset)
-        var minX = unconstrainedRect.minX
-        var maxX = unconstrainedRect.maxX
-        var minY = unconstrainedRect.minY
-        var maxY = unconstrainedRect.maxY
-
-        if edges.left {
-            minX = min(minX, maxX - minimumSize.width)
-        }
-        if edges.right {
-            maxX = max(maxX, minX + minimumSize.width)
-        }
-        if edges.up {
-            minY = min(minY, maxY - minimumSize.height)
-        }
-        if edges.down {
-            maxY = max(maxY, minY + minimumSize.height)
-        }
-
-        return Rect(topLeftX: minX, topLeftY: minY, width: maxX - minX, height: maxY - minY)
-    }
-
-    private func unconstrainedRect(mouse: CGPoint, mouseOffset: ResizeGestureMouseOffset) -> Rect {
         var minX = baseRect.minX
         var maxX = baseRect.maxX
         var minY = baseRect.minY
         var maxY = baseRect.maxY
 
         if edges.left {
-            minX = mouse.x - mouseOffset.left
+            minX = min(mouse.x - mouseOffset.left, maxX - resizeGestureMinimumWidth)
         }
         if edges.right {
-            maxX = mouse.x - mouseOffset.right
+            maxX = max(mouse.x - mouseOffset.right, minX + resizeGestureMinimumWidth)
         }
         if edges.up {
-            minY = mouse.y - mouseOffset.up
+            minY = min(mouse.y - mouseOffset.up, maxY - resizeGestureMinimumHeight)
         }
         if edges.down {
-            maxY = mouse.y - mouseOffset.down
+            maxY = max(mouse.y - mouseOffset.down, minY + resizeGestureMinimumHeight)
         }
 
         return Rect(topLeftX: minX, topLeftY: minY, width: maxX - minX, height: maxY - minY)
@@ -84,32 +57,17 @@ struct ResizeGestureSessionState {
         if observedEdges.hasAny {
             edges = observedEdges
         }
-        let unconstrainedRect = unconstrainedRect(mouse: mouse, mouseOffset: initialMouseOffset)
-        if observedRect.width > unconstrainedRect.width + resizeGestureChangedEdgeThreshold {
-            minimumSize.width = max(minimumSize.width, observedRect.width)
-        }
-        if observedRect.height > unconstrainedRect.height + resizeGestureChangedEdgeThreshold {
-            minimumSize.height = max(minimumSize.height, observedRect.height)
-        }
         if edges.left {
-            mouseOffset.left = minimumSize.width > resizeGestureMinimumWidth
-                ? initialMouseOffset.left
-                : mouse.x - observedRect.minX
+            mouseOffset.left = mouse.x - observedRect.minX
         }
         if edges.right {
-            mouseOffset.right = minimumSize.width > resizeGestureMinimumWidth
-                ? initialMouseOffset.right
-                : mouse.x - observedRect.maxX
+            mouseOffset.right = mouse.x - observedRect.maxX
         }
         if edges.up {
-            mouseOffset.up = minimumSize.height > resizeGestureMinimumHeight
-                ? initialMouseOffset.up
-                : mouse.y - observedRect.minY
+            mouseOffset.up = mouse.y - observedRect.minY
         }
         if edges.down {
-            mouseOffset.down = minimumSize.height > resizeGestureMinimumHeight
-                ? initialMouseOffset.down
-                : mouse.y - observedRect.maxY
+            mouseOffset.down = mouse.y - observedRect.maxY
         }
         latestRect = observedRect
         lastCalibrationTimestamp = timestamp
@@ -125,18 +83,16 @@ func makeResizeGestureSession(
     timestamp: TimeInterval,
 ) -> ResizeGestureSessionState? {
     guard edges.hasAny else { return nil }
-    let mouseOffset = ResizeGestureMouseOffset(
-        left: mouse.x - observedRect.minX,
-        right: mouse.x - observedRect.maxX,
-        up: mouse.y - observedRect.minY,
-        down: mouse.y - observedRect.maxY,
-    )
     return ResizeGestureSessionState(
         windowId: windowId,
         baseRect: baseRect,
-        initialMouseOffset: mouseOffset,
         edges: edges,
-        mouseOffset: mouseOffset,
+        mouseOffset: ResizeGestureMouseOffset(
+            left: mouse.x - observedRect.minX,
+            right: mouse.x - observedRect.maxX,
+            up: mouse.y - observedRect.minY,
+            down: mouse.y - observedRect.maxY,
+        ),
         latestRect: observedRect,
         lastCalibrationTimestamp: timestamp,
     )

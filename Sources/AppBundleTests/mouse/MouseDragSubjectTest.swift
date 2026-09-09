@@ -95,28 +95,6 @@ final class MouseDragSubjectTest: XCTestCase {
         XCTAssertEqual(predicted.height, 300)
     }
 
-    func testResizeGestureUsesAppMinimumSizeAfterNativeResizeClamp() {
-        let baseRect = Rect(topLeftX: 0, topLeftY: 0, width: 1_000, height: 600)
-        var gesture = makeResizeGestureSession(
-            windowId: 1,
-            baseRect: baseRect,
-            observedRect: baseRect,
-            mouse: CGPoint(x: 1_000, y: 300),
-            edges: ResizeGestureEdges(left: false, right: true, up: false, down: false),
-            timestamp: 10,
-        ).orDie()
-
-        // The app refused the requested 600-point width and held at 800.
-        gesture.calibrate(
-            observedRect: Rect(topLeftX: 0, topLeftY: 0, width: 800, height: 600),
-            mouse: CGPoint(x: 600, y: 300),
-            timestamp: 10.1,
-        )
-
-        XCTAssertEqual(gesture.predictedRect(mouse: CGPoint(x: 500, y: 300)).width, 800)
-        XCTAssertEqual(gesture.predictedRect(mouse: CGPoint(x: 900, y: 300)).width, 900)
-    }
-
     func testMouseInteractionHiddenIdsStayHiddenUntilSessionRestore() {
         XCTAssertEqual(
             nextMouseInteractionHiddenWindowIds(activeWindowId: 1, currentlyHidden: [2, 3], discovered: []),
