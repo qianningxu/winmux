@@ -19,6 +19,12 @@ extension WindowMouseInteractionDriver {
         guard let window = Window.get(byId: resizeSession.windowId) else { return }
         guard let rect = await finalResizeRect(for: resizeSession, window: window) else { return }
         guard self.resizeSession == resizeSession else { return }
+        if var gesture = resizeGesture, gesture.windowId == resizeSession.windowId {
+            let sample = MousePointerTracker.shared.currentSample
+            gesture.calibrate(observedRect: rect, mouse: sample.point, timestamp: sample.timestamp)
+            resizeGesture = gesture
+            window.recordMinimumTiledSize(gesture.minimumSize)
+        }
         updateResizePreviewIfNeeded(window: window, rect: rect, force: true)
         applyResizeWithMouse(window, rect: rect)
     }

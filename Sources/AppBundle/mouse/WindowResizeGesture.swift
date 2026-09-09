@@ -1,8 +1,8 @@
 import CoreGraphics
 import Foundation
 
-private let resizeGestureMinimumWidth = CGFloat(80)
-private let resizeGestureMinimumHeight = CGFloat(80)
+let resizeGestureMinimumWidth = CGFloat(80)
+let resizeGestureMinimumHeight = CGFloat(80)
 private let resizeGestureChangedEdgeThreshold = CGFloat(2)
 private let resizeGestureCandidateEdgeThreshold = CGFloat(32)
 

@@ -9,6 +9,7 @@ open class Window: TreeNode, Hashable {
     var noOuterGapsInFullscreen: Bool = false
     var layoutReason: LayoutReason = .standard
     @MainActor var lastKnownActualRect: Rect? = nil
+    @MainActor private(set) var minimumTiledSize = CGSize.zero
 
     @MainActor
     init(id: UInt32, _ app: any AbstractApp, lastFloatingSize: CGSize?, parent: NonLeafTreeNodeObject, adaptiveWeight: CGFloat, index: Int) {
@@ -42,6 +43,16 @@ open class Window: TreeNode, Hashable {
     func getCenter() async throws -> CGPoint? { try await getAxRect()?.center }
 
     func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?) { die("Not implemented") }
+
+    @MainActor
+    func recordMinimumTiledSize(_ size: CGSize) {
+        if size.width > resizeGestureMinimumWidth {
+            minimumTiledSize.width = max(minimumTiledSize.width, size.width)
+        }
+        if size.height > resizeGestureMinimumHeight {
+            minimumTiledSize.height = max(minimumTiledSize.height, size.height)
+        }
+    }
 }
 
 enum LayoutReason: Codable, Equatable, Sendable {
