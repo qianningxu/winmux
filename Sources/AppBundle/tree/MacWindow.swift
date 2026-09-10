@@ -339,7 +339,7 @@ final class MacWindow: Window {
     func setLiveResizeFrame(
         from current: Rect?,
         to requested: Rect,
-        completion: @MainActor @Sendable @escaping (CGSize) -> Void
+        completion: @MainActor @Sendable @escaping (Rect?) -> Void
     ) {
         macApp.setLiveResizeFrame(windowId, from: current, to: requested, completion: completion)
     }
