@@ -1,5 +1,17 @@
 import AppKit
 
+enum NativeLiveResizeFrameWriteOrder: Equatable {
+    case positionThenSize
+    case sizeThenPosition
+}
+
+func nativeLiveResizeFrameWriteOrder(from current: Rect?, to requested: Rect) -> NativeLiveResizeFrameWriteOrder {
+    guard let current else { return .positionThenSize }
+    return requested.topLeftX < current.topLeftX || requested.topLeftY < current.topLeftY
+        ? .positionThenSize
+        : .sizeThenPosition
+}
+
 func nativeWindowSizeChangedForResize(from before: Rect, to after: Rect) -> Bool {
     abs(before.width - after.width) >= 1 || abs(before.height - after.height) >= 1
 }

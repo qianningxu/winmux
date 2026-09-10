@@ -4,6 +4,21 @@ import XCTest
 
 @MainActor
 final class NativeLiveResizeGeometryTest: XCTestCase {
+    func testLiveResizeMovesLeadingEdgeBeforeChangingSize() {
+        let current = Rect(topLeftX: 500, topLeftY: 100, width: 700, height: 600)
+
+        XCTAssertEqual(
+            nativeLiveResizeFrameWriteOrder(
+                from: current,
+                to: Rect(topLeftX: 400, topLeftY: 100, width: 800, height: 600)),
+            .positionThenSize)
+        XCTAssertEqual(
+            nativeLiveResizeFrameWriteOrder(
+                from: current,
+                to: Rect(topLeftX: 600, topLeftY: 100, width: 600, height: 600)),
+            .sizeThenPosition)
+    }
+
     func testNativeEdgeResizeCannotBecomeAMove() {
         XCTAssertTrue(shouldIgnoreMovedObsForManagedWindowDragSession(
             observedWindowId: 1, currentWindowId: 1, kind: .resize,

@@ -15,6 +15,20 @@ func setFrame(_ window: AXUIElement, _ topLeft: CGPoint?, _ size: CGSize?, _ job
     if let size { window.set(Ax.sizeAttr, size) }
 }
 
+/// Live resizing favors continuous coverage at the moving leading edge and
+/// completes both AX writes once started. A newer frame may replace a queued
+/// job, but it must not cancel an already half-applied position/size pair.
+func setLiveResizeFrame(_ window: AXUIElement, from current: Rect?, to requested: Rect) {
+    switch nativeLiveResizeFrameWriteOrder(from: current, to: requested) {
+        case .positionThenSize:
+            window.set(Ax.topLeftCornerAttr, requested.topLeftCorner)
+            window.set(Ax.sizeAttr, requested.size)
+        case .sizeThenPosition:
+            window.set(Ax.sizeAttr, requested.size)
+            window.set(Ax.topLeftCornerAttr, requested.topLeftCorner)
+    }
+}
+
 func disableAnimations<T>(app: AXUIElement, _ job: RunLoopJob, _ body: () throws -> T) throws -> T {
     let wasEnabled = app.get(Ax.enhancedUserInterfaceAttr) == true
     if wasEnabled {

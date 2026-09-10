@@ -45,6 +45,7 @@ final class WindowMouseInteractionDriver {
     var pendingLiveResizeFrames: [UInt32: Rect] = [:]
     var liveResizeFramesInFlight: [UInt32: Rect] = [:]
     var liveResizeFrameWriteTasks: [UInt32: Task<Void, Never>] = [:]
+    var liveResizeInitialFrames: [UInt32: Rect] = [:]
     var liveResizeFrameWriteGeneration: UInt64 = 0
 
     private init() {}
