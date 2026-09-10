@@ -147,7 +147,7 @@ struct WorkspaceSidebarHorizontalBar: View {
             let outerInset = WinMuxBarStyle.projectTabsBarOuterInset
             let barHeight = max(surfaceHeight - outerInset, 1)
             let innerPadding = WinMuxBarStyle.innerSpacing
-            let contentHeight = max(barHeight - innerPadding * 2, 1)
+            let contentHeight = barHeight
             let surfaceWidth = max(geometry.size.width, 1)
             let barWidth = max(surfaceWidth - outerInset * 2, 1)
 
@@ -164,7 +164,6 @@ struct WorkspaceSidebarHorizontalBar: View {
                     alignment: .center
                 )
                 .padding(.horizontal, innerPadding)
-                .padding(.vertical, innerPadding)
                 .offset(x: outerInset, y: outerInset)
             }
             // Offsets do not expand layout bounds; include the outer inset

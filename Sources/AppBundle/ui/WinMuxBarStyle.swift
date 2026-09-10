@@ -18,7 +18,7 @@ enum WinMuxBarStyle {
     static let maximumTabWidth = standardGap * 50
     static let projectTabsBarOuterInset = WinMuxSpacing.comfortable
     static let projectTabsBarSurfaceHeight = standardGap * 8 + innerSpacing * 2
-    static let projectBarHeight = projectTabsBarSurfaceHeight + projectTabsBarOuterInset
+    static let projectBarHeight = projectTabsBarSurfaceHeight - innerSpacing * 2 + projectTabsBarOuterInset
     static let workspaceBarHeight = projectTabsBarSurfaceHeight
 }
 

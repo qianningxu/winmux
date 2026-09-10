@@ -4,7 +4,7 @@ import SwiftUI
 extension WindowTabStripView {
     func tabStripBody(stripWidth: CGFloat, stripHeight: CGFloat) -> some View {
         let context = WindowTabStripLayoutContext(strip: strip, width: stripWidth)
-        let itemHeight = max(stripHeight, 18)
+        let itemHeight = max(stripHeight - windowTabStripContentPaddingValue * 2, 18)
         let activeWindowId = strip.tabs.first(where: \.isActive)?.windowId
         let groupDragWindowId = activeWindowId ?? strip.tabs.first?.windowId
 
@@ -21,6 +21,7 @@ extension WindowTabStripView {
         }
         // Keep the interactive row within the tab height.
         .frame(height: itemHeight, alignment: .top)
+        .padding(.vertical, windowTabStripContentPaddingValue)
         .frame(width: stripWidth, height: stripHeight, alignment: .top)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Workspace tab bar")
