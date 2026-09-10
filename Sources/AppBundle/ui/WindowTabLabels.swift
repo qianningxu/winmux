@@ -35,6 +35,14 @@ func windowTabLabelKey(app: any AbstractApp, rawTitle: String) -> String {
     return "\(appIdentity)|\(rawTitle)"
 }
 
+/// A tab rename belongs to one native window, independent of its changing title.
+/// Include the owning process so a later instance of the same app cannot inherit it.
+@MainActor
+func windowTabLabelKey(for window: Window) -> String {
+    let appKey = windowTabLabelKey(app: window.app, rawTitle: "")
+    return "window:\(window.app.pid):\(window.windowId)|\(appKey)"
+}
+
 @MainActor
 func tabDisplayTitle(for window: Window) async -> String {
     let appName = window.app.name ?? window.app.rawAppBundleId ?? "Window"
@@ -44,11 +52,19 @@ func tabDisplayTitle(for window: Window) async -> String {
         return sessionLabel
     }
     let rawTitle = await getCachedWindowTitle(window) ?? appName
-    let key = sessionWindowTabLabelKeys[window.windowId] ?? windowTabLabelKey(app: window.app, rawTitle: rawTitle)
+    let key = windowTabLabelKey(for: window)
     if let label = config.windowTabs.tabLabels[key]?.trimmingCharacters(in: .whitespacesAndNewlines),
        !label.isEmpty
     {
         sessionWindowTabLabelKeys[window.windowId] = key
+        return label
+    }
+    // Older configs keyed aliases by app + title. Only use those when the
+    // title identifies one window; never apply an ambiguous alias to siblings.
+    if let legacyKey = await unambiguousLegacyWindowTabLabelKey(for: window, rawTitle: rawTitle),
+       let label = config.windowTabs.tabLabels[legacyKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
+       !label.isEmpty
+    {
         return label
     }
     return rawTitle
@@ -62,7 +78,7 @@ func renameWindowTab(windowId: UInt32, displayName: String) async throws {
         try await resetWindowTabLabel(windowId: windowId)
         return
     }
-    let key = await resolvedWindowTabLabelKey(for: window)
+    let key = windowTabLabelKey(for: window)
     config.windowTabs.tabLabels[key] = trimmedName
     sessionWindowTabLabelKeys[windowId] = key
     sessionWindowTabLabels[windowId] = trimmedName
@@ -78,7 +94,11 @@ func resetWindowTabLabel(windowId: UInt32) async throws {
     if let sessionKey = sessionWindowTabLabelKeys[windowId] {
         key = sessionKey
     } else {
-        key = await resolvedWindowTabLabelKey(for: window)
+        key = windowTabLabelKey(for: window)
+    }
+    if let legacyKey = await unambiguousLegacyWindowTabLabelKey(for: window) {
+        config.windowTabs.tabLabels.removeValue(forKey: legacyKey)
+        if !isUnitTest { try persistWindowTabLabel(key: legacyKey, label: nil) }
     }
     config.windowTabs.tabLabels.removeValue(forKey: key)
     sessionWindowTabLabelKeys.removeValue(forKey: windowId)
@@ -89,8 +109,19 @@ func resetWindowTabLabel(windowId: UInt32) async throws {
 }
 
 @MainActor
-private func resolvedWindowTabLabelKey(for window: Window) async -> String {
+private func unambiguousLegacyWindowTabLabelKey(for window: Window, rawTitle: String? = nil) async -> String? {
     let appName = window.app.name ?? window.app.rawAppBundleId ?? "Window"
-    let rawTitle = await getCachedWindowTitle(window) ?? appName
-    return windowTabLabelKey(app: window.app, rawTitle: rawTitle)
+    let title: String
+    if let rawTitle { title = rawTitle } else { title = await getCachedWindowTitle(window) ?? appName }
+    let key = windowTabLabelKey(app: window.app, rawTitle: title)
+    guard config.windowTabs.tabLabels[key] != nil else { return nil }
+    let windows = isUnitTest
+        ? Workspace.all.flatMap { $0.allLeafWindowsRecursive }
+        : Array(MacWindow.allWindowsMap.values)
+    for other in windows where other.windowId != window.windowId {
+        let otherAppName = other.app.name ?? other.app.rawAppBundleId ?? "Window"
+        let otherTitle = await getCachedWindowTitle(other) ?? otherAppName
+        if windowTabLabelKey(app: other.app, rawTitle: otherTitle) == key { return nil }
+    }
+    return key
 }

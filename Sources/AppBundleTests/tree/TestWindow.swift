@@ -7,6 +7,7 @@ final class TestWindow: Window, CustomStringConvertible {
     var nativeIsMacosFullscreen: Bool = false
     var nativeIsMacosMinimized: Bool = false
     var refusesClose: Bool = false
+    var windowTitle: String?
     var onSetAxFrame: (() -> Void)?
 
     @MainActor
@@ -41,7 +42,7 @@ final class TestWindow: Window, CustomStringConvertible {
 
     override var title: String {
         get async { // redundant async. todo create bug report to Swift
-            description
+            windowTitle ?? description
         }
     }
 

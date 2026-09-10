@@ -375,7 +375,7 @@ private final class WindowTabRenameTestState {
         setUpWorkspacesForTests()
         let workspace = Workspace.get(byName: "tabs")
         let window = TestWindow.new(id: 41, parent: workspace.rootTilingContainer)
-        let key = windowTabLabelKey(app: window.app, rawTitle: window.description)
+        let key = windowTabLabelKey(for: window)
 
         let fallbackTitle = await tabDisplayTitle(for: window)
         XCTAssertEqual(fallbackTitle, window.description)
