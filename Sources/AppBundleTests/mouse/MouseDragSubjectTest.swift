@@ -95,6 +95,26 @@ final class MouseDragSubjectTest: XCTestCase {
         XCTAssertEqual(predicted.height, 300)
     }
 
+    func testResizeGestureCalibrationPreservesInitialPointerOffsetAfterFrameCorrection() {
+        let baseRect = Rect(topLeftX: 0, topLeftY: 0, width: 400, height: 300)
+        var gesture = makeResizeGestureSession(
+            windowId: 1,
+            baseRect: baseRect,
+            observedRect: baseRect,
+            mouse: CGPoint(x: 400, y: 150),
+            edges: ResizeGestureEdges(left: false, right: true, up: false, down: false),
+            timestamp: 10,
+        ).orDie()
+
+        gesture.calibrate(
+            observedRect: baseRect,
+            mouse: CGPoint(x: 520, y: 150),
+            timestamp: 10.1,
+        )
+
+        XCTAssertEqual(gesture.predictedRect(mouse: CGPoint(x: 410, y: 150)).width, 410)
+    }
+
     func testMouseInteractionHiddenIdsStayHiddenUntilSessionRestore() {
         XCTAssertEqual(
             nextMouseInteractionHiddenWindowIds(activeWindowId: 1, currentlyHidden: [2, 3], discovered: []),

@@ -72,18 +72,9 @@ struct ResizeGestureSessionState {
         if observedEdges.hasAny {
             edges = observedEdges
         }
-        if edges.left {
-            mouseOffset.left = mouse.x - observedRect.minX
-        }
-        if edges.right {
-            mouseOffset.right = mouse.x - observedRect.maxX
-        }
-        if edges.up {
-            mouseOffset.up = mouse.y - observedRect.minY
-        }
-        if edges.down {
-            mouseOffset.down = mouse.y - observedRect.maxY
-        }
+        // The initial pointer-to-edge offset belongs to the physical gesture.
+        // Recomputing it from a frame that WinMux just corrected makes the
+        // split limit drift toward an already out-of-bounds pointer.
         latestRect = observedRect
         lastCalibrationTimestamp = timestamp
     }
