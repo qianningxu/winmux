@@ -102,37 +102,37 @@ struct WindowDropIntentOverlayView: View {
     }
 
     private var gridBaseFill: Color {
-        // A Gray 700 surface stays visible over light content while the
-        // opacity preserves the window underneath it.
-        palette.color(palette.activeGeistFamily, .color7).opacity(0.75)
+        // Use the low-intensity background scale across large areas;
+        // high-contrast accents overwhelm the content beneath a drag preview.
+        palette.color(palette.activeGeistFamily, .color1).opacity(0.65)
     }
 
     private var gridOuterStroke: Color {
-        palette.color(palette.activeGeistFamily, .color9).opacity(0.85)
+        palette.geistBorder(.normal)
     }
 
     private var gridZoneFill: Color {
-        palette.color(palette.activeGeistFamily, .color9).opacity(0.45)
+        palette.componentBackground(.active).opacity(0.85)
     }
 
     private var inactiveZoneFill: Color {
-        palette.color(palette.activeGeistFamily, .color8).opacity(0.18)
+        palette.componentBackground(.hover).opacity(0.30)
     }
 
     private var inactiveZoneStroke: Color {
-        palette.color(palette.activeGeistFamily, .color8).opacity(0.75)
+        palette.geistBorder(.normal).opacity(0.75)
     }
 
     private var activeZoneStroke: Color {
-        palette.color(palette.activeGeistFamily, .color10).opacity(0.90)
+        palette.geistBorder(.active)
     }
 
     private var gridSymbol: Color {
-        palette.content(.primary).opacity(0.72)
+        palette.content(.secondary)
     }
 
     private var activeGridSymbol: Color {
-        palette.content(.primary).opacity(0.92)
+        palette.content(.primary)
     }
 
     private func zoneCornerRadius(for frame: Rect) -> CGFloat {
