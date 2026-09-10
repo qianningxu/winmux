@@ -5,7 +5,7 @@ func windowTabBarFrame(fromGroupFrame groupFrame: CGRect) -> CGRect {
     let height = min(resolvedWindowTabBarHeight(), groupFrame.height)
     return CGRect(
         x: groupFrame.minX + windowTabGroupShellHorizontalInset(),
-        y: groupFrame.maxY - height - windowTabGroupShellHorizontalInset(),
+        y: groupFrame.maxY - height - windowTabBarOuterInset(),
         width: max(groupFrame.width - windowTabGroupShellHorizontalInset() * 2, 0),
         height: height,
     ).alignedToBackingPixels()

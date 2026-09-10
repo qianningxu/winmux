@@ -12,9 +12,10 @@ struct WindowTabGroupVisualView: View {
                 )
                 .fill(WinMuxOverlayPalette.current.color(.gray, .color5))
                 .frame(
-                    width: geometry.size.width,
+                    width: max(geometry.size.width - windowTabGroupShellHorizontalInset() * 2, 0),
                     height: min(WinMuxBarStyle.workspaceBarHeight, geometry.size.height)
                 )
+                .padding(.top, windowTabBarOuterInset())
 
                 Spacer(minLength: WinMuxSpacing.none)
             }

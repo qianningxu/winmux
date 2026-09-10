@@ -20,6 +20,6 @@ The names describe UI surfaces. Internal workspace/project identifiers, configur
 
 WinMux-controlled tabs and frames use a 16-point continuous radius. The workspace tab bar uses an 18-point outer radius because it sits two points beyond the tabs, keeping the nested curves concentric. The Project menu is part of the shared first-row outline.
 
-Each stacked window has a gray-500 rounded workspace tab surface and a six-point gap before its native window. Native window borders remain visible.
+Each stacked window has a gray-500 rounded workspace tab surface with four points of outer space on every side. Native window borders remain visible.
 
 Project and workspace tab titles use 14-point text. Widget text remains 12 points.
