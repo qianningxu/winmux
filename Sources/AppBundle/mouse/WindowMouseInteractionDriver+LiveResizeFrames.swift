@@ -147,6 +147,7 @@ extension WindowMouseInteractionDriver {
               let source = Window.get(byId: sourceId),
               let actualSourceRect = resizeGesture?.latestRect ?? source.lastKnownActualRect
         else { return }
+        refreshResizePointerConstraints(window: source)
         updateResizePreviewIfNeeded(window: source, rect: actualSourceRect, force: true)
     }
 }

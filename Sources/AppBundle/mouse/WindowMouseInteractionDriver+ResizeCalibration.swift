@@ -30,9 +30,11 @@ extension WindowMouseInteractionDriver {
         if var gesture = resizeGesture, gesture.windowId == sessionWindowId {
             gesture.calibrate(observedRect: rect, mouse: freshSample.point, timestamp: freshSample.timestamp)
             resizeGesture = gesture
+            refreshResizePointerConstraints(window: window)
             updateResizePreviewIfNeeded(window: window, rect: rect)
         } else if let gesture = makeResizeGesture(window: window, observedRect: rect, sample: initialSample) {
             resizeGesture = gesture
+            refreshResizePointerConstraints(window: window)
             updateResizePreviewIfNeeded(window: window, rect: rect, force: true)
         } else {
             updateResizePreviewIfNeeded(window: window, rect: rect, force: true)

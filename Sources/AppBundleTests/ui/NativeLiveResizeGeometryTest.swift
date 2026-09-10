@@ -4,6 +4,14 @@ import XCTest
 
 @MainActor
 final class NativeLiveResizeGeometryTest: XCTestCase {
+    func testResizePointerIsClampedToTheSharedSplitLimits() {
+        let bounds = ResizePointerBounds(minX: 100, maxX: 500, minY: 200, maxY: 700)
+
+        XCTAssertEqual(constrainResizePointer(CGPoint(x: 50, y: 900), to: bounds), CGPoint(x: 100, y: 700))
+        XCTAssertEqual(constrainResizePointer(CGPoint(x: 300, y: 400), to: bounds), CGPoint(x: 300, y: 400))
+        XCTAssertEqual(constrainResizePointer(CGPoint(x: 800, y: 100), to: bounds), CGPoint(x: 500, y: 200))
+    }
+
     func testLiveResizeMovesLeadingEdgeBeforeChangingSize() {
         let current = Rect(topLeftX: 500, topLeftY: 100, width: 700, height: 600)
 

@@ -33,6 +33,7 @@ extension WindowMouseInteractionDriver {
         dragSourcePreviewState = nil
         pendingResizeCandidate = nil
         cancelLiveResizeFrameWrites()
+        clearResizePointerConstraints()
         resetResizeTrackingState()
         WindowResizePreviewPanel.shared.endStableFrame()
         WindowResizePreviewPanel.shared.hide(reason: "driver.stop")
@@ -46,6 +47,7 @@ extension WindowMouseInteractionDriver {
         }
         pendingResizeCandidate = nil
         cancelLiveResizeFrameWrites()
+        clearResizePointerConstraints()
         resetResizeTrackingState()
         WindowResizePreviewPanel.shared.endStableFrame()
         WindowResizePreviewPanel.shared.hide(reason: "driver.finishResizeFlush")

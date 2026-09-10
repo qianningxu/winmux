@@ -271,6 +271,7 @@ enum GlobalObserver {
         )
         windowInventoryPollController = pollController
         startWindowInventoryPollingIfReady()
+        ResizePointerEventTapController.shared.install()
 
         retainEventMonitor(NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { event in
             // todo reduce number of refreshSession in the callback

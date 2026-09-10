@@ -15,6 +15,7 @@ extension WindowMouseInteractionDriver {
         }
         if isNewSession {
             cancelLiveResizeFrameWrites()
+            clearResizePointerConstraints()
         }
         setCurrentMouseManipulationKind(.resize)
         WindowTabStripPanelController.shared.setIgnoresMouseEvents(true)
@@ -44,6 +45,7 @@ extension WindowMouseInteractionDriver {
             let sample = MousePointerTracker.shared.currentSample
             resizeGesture = makeResizeGesture(window: window, observedRect: window.lastKnownActualRect, sample: sample)
         }
+        refreshResizePointerConstraints(window: window)
         guard let rect = window.lastKnownActualRect ??
             window.lastAppliedLayoutPhysicalRect
         else { return }
