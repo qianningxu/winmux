@@ -12,7 +12,7 @@ enum WinMuxBarStyle {
     static let strokeWidth = standardGap * 0.25
     static let fontSize: CGFloat = 14
     static let maximumTabWidth = standardGap * 50
-    static let projectBarHeight = standardGap * 9
+    static let projectBarHeight = standardGap * 10
     static let workspaceBarHeight = standardGap * 10
 }
 

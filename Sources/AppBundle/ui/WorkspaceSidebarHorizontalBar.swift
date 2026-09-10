@@ -99,6 +99,10 @@ struct WorkspaceSidebarHorizontalBar: View {
     @StateObject private var workspaceDragDriver = WorkspaceSidebarWorkspaceReorderDriver()
     @State private var workspaceReorderSourceName: String?
     @State private var workspaceReorderTarget: WorkspaceSidebarHorizontalReorderTarget?
+    @State private var workspaceDragStartX: CGFloat?
+    @State private var workspaceDragOffset: CGFloat = 0
+    @State private var pendingWorkspaceReorder: WorkspaceSidebarPendingHorizontalReorder?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.displayScale) private var displayScale
@@ -138,7 +142,7 @@ struct WorkspaceSidebarHorizontalBar: View {
         GeometryReader { geometry in
             let surfaceHeight = max(geometry.size.height, 1)
             let innerPadding = WinMuxBarStyle.topBarContentInset
-            let contentHeight = max(surfaceHeight - innerPadding, 1)
+            let contentHeight = max(surfaceHeight - innerPadding * 2, 1)
             let surfaceWidth = max(geometry.size.width, 1)
 
 
@@ -154,7 +158,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                 }
                 .frame(width: max(surfaceWidth - innerPadding * 2, 1), height: contentHeight, alignment: .center)
                 .padding(.horizontal, innerPadding)
-                .padding(.top, innerPadding)
+                .padding(.vertical, innerPadding)
             }
             .clipShape(UnevenRoundedRectangle(
                 topLeadingRadius: projectCornerRadius,
@@ -193,6 +197,14 @@ struct WorkspaceSidebarHorizontalBar: View {
             }
         }
         .onChange(of: snapshot.workspaces) { _ in
+            if let pendingWorkspaceReorder,
+               pendingWorkspaceReorder.order != projectWorkspaces.map(\.name) {
+                self.pendingWorkspaceReorder = nil
+            }
+            if let source = workspaceReorderSourceName,
+               !projectWorkspaces.contains(where: { $0.name == source }) {
+                clearWorkspaceReorderState()
+            }
             if let renamingWorkspaceName,
                !snapshot.workspaces.contains(where: { $0.name == renamingWorkspaceName })
             {
@@ -372,6 +384,11 @@ struct WorkspaceSidebarHorizontalBar: View {
                 finishWorkspaceReorder(workspace)
             },
         )
+        .offset(x: workspaceVisualOffset(for: workspace.name))
+        .zIndex(isReorderSource ? 1 : 0)
+        .animation(isReorderSource || reduceMotion ? nil : windowTabPillAnimation, value: workspaceReorderTarget)
+        // Measure the stationary slot, outside the visual offset, so moving
+        // neighbours cannot move their own reorder thresholds.
         .background {
             GeometryReader { geometry in
                 WinMuxDesignTokens.transparent.preference(
@@ -450,6 +467,8 @@ struct WorkspaceSidebarHorizontalBar: View {
     ) {
         guard renamingWorkspaceName == nil, renamingProjectId == nil else { return }
         if workspaceReorderSourceName == nil {
+            pendingWorkspaceReorder = nil
+            workspaceDragStartX = pointer.x
             workspaceReorderSourceName = workspace.name
             beginWorkspaceSidebarItemDrag()
             workspaceDragDriver.start(
@@ -463,6 +482,7 @@ struct WorkspaceSidebarHorizontalBar: View {
         let screenPoint = normalizeAppKitScreenPoint(NSEvent.mouseLocation)
         guard currentPanel?.frame.contains(NSEvent.mouseLocation) == true else {
             workspaceReorderTarget = nil
+            workspaceDragOffset = 0
             if let intent = workspaceCanvasDropIntent(sourceWorkspaceName: workspace.name, screenPoint: screenPoint) {
                 WindowDropIntentOverlayPanelController.shared.show(intent.overlay)
             } else {
@@ -471,6 +491,7 @@ struct WorkspaceSidebarHorizontalBar: View {
             return
         }
         WindowDropIntentOverlayPanelController.shared.hide()
+        workspaceDragOffset = pointer.x - (workspaceDragStartX ?? pointer.x)
         workspaceReorderTarget = workspaceSidebarHorizontalReorderTarget(
             sourceWorkspaceName: workspace.name,
             pointer: pointer,
@@ -487,7 +508,7 @@ struct WorkspaceSidebarHorizontalBar: View {
 
     private func finishWorkspaceReorder(_ workspace: WorkspaceSidebarWorkspaceViewModel) {
         guard workspaceReorderSourceName == workspace.name else { return }
-        defer { clearWorkspaceReorderState() }
+        defer { clearWorkspaceReorderState(keepPendingDrop: true) }
         let screenPoint = normalizeAppKitScreenPoint(NSEvent.mouseLocation)
         if currentPanel?.frame.contains(NSEvent.mouseLocation) != true {
             guard let intent = workspaceCanvasDropIntent(sourceWorkspaceName: workspace.name, screenPoint: screenPoint),
@@ -507,6 +528,14 @@ struct WorkspaceSidebarHorizontalBar: View {
         guard let target = workspaceReorderTarget,
               target.workspaceName != workspace.name
         else { return }
+        let pending = WorkspaceSidebarPendingHorizontalReorder(
+            order: projectWorkspaces.map(\.name),
+            offsets: workspaceReorderOffsets(source: workspace.name, target: target))
+        pendingWorkspaceReorder = pending
+        // Hold the final preview until the model publishes its reordered snapshot.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            if pendingWorkspaceReorder?.id == pending.id { pendingWorkspaceReorder = nil }
+        }
         actions.send(.reorderWorkspace(
             workspace.name,
             folderId: target.folderId,
@@ -514,12 +543,36 @@ struct WorkspaceSidebarHorizontalBar: View {
         ))
     }
 
-    private func clearWorkspaceReorderState() {
+    private func workspaceReorderOffsets(
+        source: String, target: WorkspaceSidebarHorizontalReorderTarget
+    ) -> [String: CGFloat] {
+        let pitch = (workspaceReorderFrames.first { $0.workspaceName == source }?.frame.width ?? 0)
+            + WinMuxSpacing.compact
+        return workspaceSidebarHorizontalReorderSteps(
+            order: projectWorkspaces.map(\.name), source: source, placement: target.placement
+        ).mapValues { CGFloat($0) * pitch }
+    }
+
+    private func workspaceVisualOffset(for name: String) -> CGFloat {
+        if let pendingWorkspaceReorder,
+           pendingWorkspaceReorder.order == projectWorkspaces.map(\.name) {
+            return pendingWorkspaceReorder.offsets[name] ?? 0
+        }
+        guard let source = workspaceReorderSourceName else { return 0 }
+        if source == name { return workspaceDragOffset }
+        guard let target = workspaceReorderTarget else { return 0 }
+        return workspaceReorderOffsets(source: source, target: target)[name] ?? 0
+    }
+
+    private func clearWorkspaceReorderState(keepPendingDrop: Bool = false) {
         workspaceDragDriver.stop()
         WindowDropIntentOverlayPanelController.shared.hide()
         if workspaceReorderSourceName != nil { endWorkspaceSidebarItemDrag() }
         workspaceReorderSourceName = nil
         workspaceReorderTarget = nil
+        workspaceDragStartX = nil
+        workspaceDragOffset = 0
+        if !keepPendingDrop { pendingWorkspaceReorder = nil }
     }
 }
 
