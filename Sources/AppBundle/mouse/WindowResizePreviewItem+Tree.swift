@@ -18,7 +18,7 @@ extension WindowResizePreviewItem {
     @MainActor
     init(tabGroup container: TilingContainer, rect: Rect, drawsFrameOnly: Bool = false) {
         let windows = container.childrenByMostRecentUse.compactMap(\.tabRepresentativeWindow)
-        let representative = windows.first ?? container.tabRepresentativeWindow
+        let representative = container.tabActiveWindow ?? windows.first ?? container.tabRepresentativeWindow
         let icons = windows.map(WindowResizePreviewIcon.init(window:))
         let headerHeight = drawsFrameOnly ? windowTabBarRect(forGroupFrameRect: rect).height : 0
         self.init(

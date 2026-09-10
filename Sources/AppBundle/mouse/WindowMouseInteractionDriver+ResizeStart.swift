@@ -2,7 +2,8 @@ import AppKit
 
 extension WindowMouseInteractionDriver {
     func startResize(windowId: UInt32) {
-        let session = ResizeSession(windowId: windowId)
+        guard isLeftMouseButtonDown, flushingResizeSession == nil else { return }
+        let session = resizeSession.flatMap { $0.windowId == windowId ? $0 : nil } ?? ResizeSession(windowId: windowId)
         let isNewSession = resizeSession != session
         logWindowDragLive("resize.start window=\(windowId) isNewSession=\(isNewSession) existingSession=\(String(describing: resizeSession)) mouseDown=\(isLeftMouseButtonDown) kind=\(getCurrentMouseManipulationKind())")
         if isNewSession, let window = Window.get(byId: windowId), window.lastAppliedLayoutPhysicalRect == nil {
@@ -24,11 +25,10 @@ extension WindowMouseInteractionDriver {
         if isNewSession {
             resetResizeTrackingState()
             clearPendingWindowDragIntent()
-            WindowResizePreviewPanel.shared.hide(reason: "native-live-resize")
-            WindowMouseInteractionOpacityController.shared.restore()
         }
         resizeSession = session
         currentlyManipulatedWithMouseWindowId = windowId
+        WindowMouseInteractionOpacityController.shared.beginResize(activeWindowId: windowId)
         configureResizeChrome(windowId: windowId)
         startDisplayLoop()
         sampleResizeFrame(force: true)
@@ -40,7 +40,7 @@ extension WindowMouseInteractionDriver {
             WindowTabStripPanelController.shared.hideChromeDuringMouseInteraction()
             return
         }
-        WindowTabStripPanelController.shared.showChromeDuringMouseInteraction()
+        WindowTabStripPanelController.shared.hideChromeDuringMouseInteraction(showFrameOnly: false)
         if resizeGesture == nil {
             let sample = MousePointerTracker.shared.currentSample
             resizeGesture = makeResizeGesture(window: window, observedRect: window.lastKnownActualRect, sample: sample)

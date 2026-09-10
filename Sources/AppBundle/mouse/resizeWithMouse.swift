@@ -12,7 +12,7 @@ func resizedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutabl
             return
         }
         guard RunSessionGuard.isServerEnabled != nil else { return }
-        guard let windowId, let window = Window.get(byId: windowId), try await isManipulatedWithMouse(window) else {
+        guard let windowId, let window = Window.get(byId: windowId), try await isResizeManipulatedWithMouse(window) else {
             scheduleRefreshSession(.ax(notif))
             return
         }
@@ -25,7 +25,19 @@ func resizedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutabl
 }
 
 @MainActor
+private func isResizeManipulatedWithMouse(_ window: Window) async throws -> Bool {
+    let driver = WindowMouseInteractionDriver.shared
+    if isLeftMouseButtonDown, !window.isHiddenInCorner,
+       getCurrentMouseManipulationKind() != .move,
+       driver.pendingResizeCandidate?.windowId == window.windowId || driver.resizeSession?.windowId == window.windowId {
+        return true
+    }
+    return try await isManipulatedWithMouse(window)
+}
+
+@MainActor
 func resetManipulatedWithMouseIfPossible() async throws {
+    guard WindowMouseInteractionDriver.shared.flushingResizeSession == nil else { return }
     await WindowMouseInteractionDriver.shared.flushBeforeMouseUp()
     let didApplyPendingDragIntent = applyPendingWindowDragIntentIfPossible()
     clearPendingWindowDragIntent()
@@ -58,8 +70,7 @@ func resizeWithMouse(_ window: Window) async throws { // todo cover with tests
 func updateCompositedResizePreview(_ window: Window, rect: Rect) {
     syncClosedWindowsCacheToCurrentWorld()
     let boundedRect = resizeProposal(window, rect: rect)?.rect ?? rect
-    WindowTabStripPanelController.shared.showChromeDuringMouseInteraction()
-    WindowTabStripPanelController.shared.updateResizingTabGroupChrome(window: window, activeWindowRect: rect)
+    WindowTabStripPanelController.shared.hideChromeDuringMouseInteraction(showFrameOnly: false)
     if resizePreviewHasVisibleChange(from: rect, to: boundedRect) {
         WindowMouseInteractionDriver.shared.constrainResizePointerIfNeeded(from: rect, to: boundedRect)
         WindowMouseInteractionDriver.shared.enqueueLiveResizeFrame(window: window, frame: boundedRect)
@@ -75,15 +86,16 @@ func updateCompositedResizePreview(_ window: Window, rect: Rect) {
         return
     }
     let items = windowResizePreviewItems(
-        in: workspace, weightMap: weightMap, excludingActiveWindowId: window.windowId)
-    for item in items {
-        guard let neighbour = Window.get(byId: item.id), !neighbour.isFloating else { continue }
-        let frame = liveResizeWindowContentRect(
-            groupRect: item.frame.monitorFrameNormalized(), isTabGroup: item.isTabGroup)
-        guard resizePreviewHasVisibleChange(from: neighbour.lastKnownActualRect, to: frame) else { continue }
-        WindowMouseInteractionDriver.shared.enqueueLiveResizeFrame(window: neighbour, frame: frame)
-    }
-    WindowResizePreviewPanel.shared.hide(reason: "native-live-resize")
+        in: workspace, weightMap: weightMap, excludingActiveWindowId: nil)
+        .filter { Window.get(byId: $0.id)?.isFloating != true }
+    let canvas = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps.toAppKitScreenRect
+    let visible = workspace.workspaceMonitor.visibleRect.toAppKitScreenRect
+    // Cover the native window shadows and outer gutters too, using the exact
+    // workspace canvas color. Keep the project tabs above this backing.
+    let backing = CGRect(x: visible.minX, y: visible.minY, width: visible.width,
+        height: min(visible.maxY, canvas.maxY + WinMuxSpacing.comfortable) - visible.minY)
+    WindowResizePreviewPanel.shared.beginStableFrame(backing)
+    WindowResizePreviewPanel.shared.show(items, shadeOnly: true)
 }
 
 @MainActor

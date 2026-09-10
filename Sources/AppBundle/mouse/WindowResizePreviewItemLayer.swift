@@ -36,7 +36,13 @@ final class WindowResizePreviewItemLayer: CALayer {
         super.init(layer: layer)
     }
 
+    @MainActor
     func animateAppear() {
+        if getCurrentMouseManipulationKind() == .resize {
+            removeAnimation(forKey: "resizePreviewAppear")
+            opacity = 1
+            return
+        }
         removeAnimation(forKey: "resizePreviewAppear")
         let fade = CABasicAnimation(keyPath: "opacity")
         fade.fromValue = 0
@@ -50,11 +56,27 @@ final class WindowResizePreviewItemLayer: CALayer {
     func update(
         _ item: WindowResizePreviewLocalItem,
         scale: CGFloat,
+        shadeOnly: Bool = false,
         iconResolver: (WindowResizePreviewIcon) -> CGImage?,
     ) {
         contentsScale = scale
         frame = item.frame
         let localBounds = CGRect(origin: .zero, size: item.frame.size)
+        if shadeOnly {
+            hideIconLayers()
+            topBarLayer.isHidden = true
+            mockTabStrokeLayer.isHidden = true
+            strokeLayer.isHidden = true
+            surfaceLayer.fillRule = .nonZero
+            surfaceLayer.fillColor = ResizePreviewPalette.fill
+            surfaceLayer.frame = localBounds
+            surfaceLayer.contentsScale = scale
+            let radius = windowResizePreviewCornerRadius(for: localBounds)
+            surfaceLayer.path = CGPath(roundedRect: localBounds, cornerWidth: radius,
+                cornerHeight: radius, transform: nil)
+            return
+        }
+        strokeLayer.isHidden = false
         if item.isTabGroup, item.drawsFrameOnly {
             updateFrameOnlyShell(item: item, bounds: localBounds, scale: scale)
             return

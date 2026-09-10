@@ -30,6 +30,21 @@ final class WindowMouseInteractionOpacityController {
         visibleWindowInventory.refreshIfNeeded()
     }
 
+    /// Use upstream's off-screen parking as well as opacity: foreign-window
+    /// alpha alone does not reliably hide content at a moving preview's edges.
+    func beginResize(activeWindowId: UInt32) {
+        guard !isUnitTest, let source = Window.get(byId: activeWindowId),
+              let workspace = source.nodeWorkspace else { return }
+        visibleWindowInventory.invalidate()
+        self.activeWindowId = nil
+        let neighbors = workspace.rootTilingContainer.allLeafWindowsRecursive.filter {
+            $0.windowId != activeWindowId && !$0.isHiddenInCorner
+        }
+        moveWindowsOutOfView(windowsToHide: neighbors, activeWindowId: activeWindowId,
+            hidesPassiveTabGroupChrome: true)
+        applyHiddenWindowIds(Set(neighbors.map(\.windowId)), activeWindowId: activeWindowId)
+    }
+
     func update(activeWindowId: UInt32, hidesPassiveTabGroupChrome: Bool) {
         guard !isUnitTest else { return }
         self.activeWindowId = activeWindowId
@@ -69,6 +84,12 @@ final class WindowMouseInteractionOpacityController {
         hiddenWindowIds = nextHiddenIds
     }
 
+    func commitResizePositions(windowIds: [UInt32]) {
+        // These windows have already accepted their final positions under the
+        // preview. Do not restore their pre-drag rectangles on reveal.
+        for id in windowIds { temporarilyMovedWindows.removeValue(forKey: id) }
+    }
+
     func restore() {
         activeWindowId = nil
         visibleWindowInventory.invalidate()
@@ -88,7 +109,7 @@ final class WindowMouseInteractionOpacityController {
 
     func shouldSuppressObserverEvent(windowId: UInt32?) -> Bool {
         guard let windowId else { return false }
-        return temporarilyMovedWindows.keys.contains(windowId)
+        return hiddenWindowIds.contains(windowId) || temporarilyMovedWindows.keys.contains(windowId)
     }
 
     private func moveWindowsOutOfView(

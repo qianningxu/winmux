@@ -14,7 +14,7 @@ func windowResizePreviewItems(
         node: workspace.rootTilingContainer,
         point: rect.topLeftCorner,
         width: rect.width,
-        height: rect.height - 1,
+        height: rect.height - (config.workspaceSidebar.enabled ? 0 : 1),
         virtual: rect,
         context: context,
         activeWindowId: activeWindowId,

@@ -9,7 +9,8 @@ struct WindowResizePreviewLayoutContext {
     @MainActor
     init(workspace: Workspace, weightMap: WindowResizePreviewWeightMap) {
         self.workspace = workspace
-        self.resolvedGaps = ResolvedGaps(gaps: config.gaps, monitor: workspace.workspaceMonitor)
+        self.resolvedGaps = ResolvedGaps(gaps: config.gaps, monitor: workspace.workspaceMonitor,
+            canvasGap: config.workspaceSidebar.enabled ? Int(WinMuxSpacing.comfortable) : nil)
         self.weightMap = weightMap
     }
 

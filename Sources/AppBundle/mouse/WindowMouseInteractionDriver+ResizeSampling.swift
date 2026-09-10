@@ -16,6 +16,7 @@ extension WindowMouseInteractionDriver {
             return
         }
 
+        traceResizeFrame(window: window)
         let sample = MousePointerTracker.shared.currentSample
         if var gesture = resizeGesture, gesture.windowId == session.windowId {
             let rect = gesture.predictedRect(mouse: sample.point)

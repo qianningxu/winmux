@@ -4,6 +4,23 @@ import XCTest
 
 @MainActor
 final class NativeLiveResizeGeometryTest: XCTestCase {
+    func testExpiredResizeGateLeavesLaterPointerEventsUnchanged() {
+        var state = ResizePointerGateState(session: 7, windowId: 42, expiresAt: 10,
+            bounds: ResizePointerBounds(minX: 100, maxX: 500))
+        XCTAssertEqual(state.constrain(CGPoint(x: 800, y: 30), now: 9), CGPoint(x: 500, y: 30))
+        XCTAssertEqual(state.constrain(CGPoint(x: 800, y: 30), now: 10), CGPoint(x: 800, y: 30))
+        XCTAssertNil(state.session)
+        XCTAssertNil(state.windowId)
+        XCTAssertEqual(state.constrain(CGPoint(x: 20, y: 30), now: 11), CGPoint(x: 20, y: 30))
+    }
+
+    func testSameWindowStartsANewResizeSessionIdentity() {
+        let first = WindowMouseInteractionDriver.ResizeSession(windowId: 42)
+        let next = WindowMouseInteractionDriver.ResizeSession(windowId: 42)
+        XCTAssertNotEqual(first, next)
+        XCTAssertEqual(first, first)
+    }
+
     func testResizePointerIsClampedToTheSharedSplitLimits() {
         let bounds = ResizePointerBounds(minX: 100, maxX: 500, minY: 200, maxY: 700)
 

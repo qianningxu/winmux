@@ -33,7 +33,7 @@ final class WindowResizePreviewPanel: NSPanelHud {
         stableFrame = nil
     }
 
-    func show(_ screenItems: [WindowResizePreviewItem]) {
+    func show(_ screenItems: [WindowResizePreviewItem], shadeOnly: Bool = false) {
         pendingHide?.cancel()
         pendingHide = nil
         guard let panelFrame = stableFrame ?? windowResizePreviewPanelFrame(for: screenItems) else {
@@ -42,6 +42,7 @@ final class WindowResizePreviewPanel: NSPanelHud {
             return
         }
 
+        backgroundColor = shadeOnly ? WinMuxOverlayPalette(colorScheme: .light).colorNSColor(.gray, .color1) : .clear
         let wasVisible = isVisible
         let alignedPanelFrame = panelFrame.alignedToBackingPixels()
         let localItems = screenItems.map { $0.localItem(in: alignedPanelFrame) }
@@ -50,7 +51,7 @@ final class WindowResizePreviewPanel: NSPanelHud {
         } else {
             setFrame(alignedPanelFrame, display: false, animate: false)
         }
-        compositorView.update(localItems)
+        compositorView.update(localItems, shadeOnly: shadeOnly)
         if !isVisible {
             orderFrontRegardless()
         }

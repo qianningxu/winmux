@@ -7,10 +7,10 @@ extension WindowMouseInteractionDriver {
         let sessionWindowId = session.windowId
         let sample = MousePointerTracker.shared.currentSample
         Task { @MainActor in
-            defer { isResizeSampleInFlight = false }
-            guard resizeSession?.windowId == sessionWindowId, isLeftMouseButtonDown else { return }
+            defer { if resizeSession == session { isResizeSampleInFlight = false } }
+            guard resizeSession == session, flushingResizeSession != session, isLeftMouseButtonDown else { return }
             guard let rect = try? await window.getAxRect() else { return }
-            guard resizeSession?.windowId == sessionWindowId, isLeftMouseButtonDown else { return }
+            guard resizeSession == session, flushingResizeSession != session, isLeftMouseButtonDown else { return }
             updateCalibratedResizeGesture(
                 window: window,
                 rect: rect,

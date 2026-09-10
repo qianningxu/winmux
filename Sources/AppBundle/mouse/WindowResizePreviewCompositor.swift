@@ -33,7 +33,7 @@ final class WindowResizePreviewCompositorView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func update(_ items: [WindowResizePreviewLocalItem]) {
+    func update(_ items: [WindowResizePreviewLocalItem], shadeOnly: Bool = false) {
         let visibleIds = Set(items.map(\.id))
         var appearingLayers: [WindowResizePreviewItemLayer] = []
         CATransaction.begin()
@@ -52,7 +52,7 @@ final class WindowResizePreviewCompositorView: NSView {
                 layer?.addSublayer(itemLayer)
                 appearingLayers.append(itemLayer)
             }
-            itemLayer.update(item, scale: scale, iconResolver: resolvedIconImage)
+            itemLayer.update(item, scale: scale, shadeOnly: shadeOnly, iconResolver: resolvedIconImage)
         }
         CATransaction.commit()
         appearingLayers.forEach { $0.animateAppear() }

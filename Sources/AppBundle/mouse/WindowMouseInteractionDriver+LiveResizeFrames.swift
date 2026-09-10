@@ -26,13 +26,18 @@ extension WindowMouseInteractionDriver {
     }
 
     func cancelLiveResizeFrameWrites() {
+        for id in liveResizeFramesInFlight.keys {
+            (Window.get(byId: id) as? MacWindow)?.macApp.cancelLiveResizeFrame(id)
+        }
         liveResizeFrameWriteGeneration &+= 1
         pendingLiveResizeFrames.removeAll()
         liveResizeFramesInFlight.removeAll()
     }
 
     func drainLiveResizeFrameWrites() async {
+        let drainingGeneration = liveResizeFrameWriteGeneration
         for _ in 0 ..< liveResizeDrainPollLimit {
+            guard drainingGeneration == liveResizeFrameWriteGeneration else { return }
             if pendingLiveResizeFrames.isEmpty, liveResizeFramesInFlight.isEmpty {
                 return
             }
@@ -120,13 +125,7 @@ extension WindowMouseInteractionDriver {
 
     private func publishLiveResizeFrame(window: Window, frame: Rect) {
         window.lastKnownActualRect = frame
-        if resizeSession?.windowId == window.windowId {
-            WindowTabStripPanelController.shared.updateResizingTabGroupChrome(
-                window: window, activeWindowRect: frame)
-        } else {
-            WindowTabStripPanelController.shared.updateRelatedResizeChrome(
-                window: window, activeWindowRect: frame)
-        }
+
     }
 
     private func learnLiveResizeMinimumIfClamped(

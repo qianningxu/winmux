@@ -19,39 +19,65 @@ func constrainResizePointer(_ point: CGPoint, to bounds: ResizePointerBounds) ->
     return point
 }
 
-private final class ResizePointerConstraintGate: @unchecked Sendable {
+struct ResizePointerGateState {
+    var session: UInt64?
+    var windowId: UInt32?
+    var expiresAt: TimeInterval = 0
+    var bounds = ResizePointerBounds.unconstrained
+
+    mutating func constrain(_ point: CGPoint, now: TimeInterval) -> CGPoint {
+        guard session != nil, windowId != nil, now < expiresAt else {
+            self = ResizePointerGateState()
+            return point
+        }
+        return constrainResizePointer(point, to: bounds)
+    }
+}
+
+final class ResizePointerConstraintGate: @unchecked Sendable {
     static let shared = ResizePointerConstraintGate()
-
     private let lock = NSLock()
-    private var bounds = ResizePointerBounds.unconstrained
+    private var state = ResizePointerGateState()
+    private var points: (raw: CGPoint?, constrained: CGPoint?) = (nil, nil)
 
-    func replace(with bounds: ResizePointerBounds) {
+    var sample: (raw: CGPoint?, constrained: CGPoint?) {
         lock.lock()
-        self.bounds = bounds
+        defer { lock.unlock() }
+        return points
+    }
+
+    func replace(with bounds: ResizePointerBounds, session: UInt64, windowId: UInt32) {
+        lock.lock()
+        state = ResizePointerGateState(session: session, windowId: windowId,
+            expiresAt: ProcessInfo.processInfo.systemUptime + 0.5, bounds: bounds)
         lock.unlock()
     }
 
     func clear() {
-        replace(with: .unconstrained)
+        lock.lock()
+        state = ResizePointerGateState()
+        lock.unlock()
     }
 
     func constrain(_ point: CGPoint) -> CGPoint {
         lock.lock()
-        let bounds = bounds
-        lock.unlock()
-        return constrainResizePointer(point, to: bounds)
+        defer { lock.unlock() }
+        let result = state.constrain(point, now: ProcessInfo.processInfo.systemUptime)
+        points = (point, result)
+        return result
     }
 }
 
 private let resizePointerEventTapCallback: CGEventTapCallBack = { _, type, event, _ in
     switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
+            ResizePointerConstraintGate.shared.clear()
             DispatchQueue.main.async {
                 ResizePointerEventTapController.shared.enable()
             }
         case .leftMouseDragged:
             event.location = ResizePointerConstraintGate.shared.constrain(event.location)
-        case .leftMouseUp:
+        case .leftMouseDown, .leftMouseUp:
             ResizePointerConstraintGate.shared.clear()
         default:
             break
@@ -70,7 +96,8 @@ final class ResizePointerEventTapController {
 
     func install() {
         guard tap == nil else { return }
-        let mask = CGEventMask(1 << CGEventType.leftMouseDragged.rawValue) |
+        let mask = CGEventMask(1 << CGEventType.leftMouseDown.rawValue) |
+            CGEventMask(1 << CGEventType.leftMouseDragged.rawValue) |
             CGEventMask(1 << CGEventType.leftMouseUp.rawValue)
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -164,7 +191,7 @@ extension WindowMouseInteractionDriver {
             bounds.minY = midpoint
             bounds.maxY = midpoint
         }
-        ResizePointerConstraintGate.shared.replace(with: bounds)
+        ResizePointerConstraintGate.shared.replace(with: bounds, session: liveResizeFrameWriteGeneration, windowId: session.windowId)
     }
 
     func clearResizePointerConstraints() {

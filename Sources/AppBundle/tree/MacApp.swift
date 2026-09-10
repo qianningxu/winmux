@@ -132,8 +132,18 @@ final class MacApp: AbstractApp {
                 guard window.set(Ax.sizeAttr, CGSize(width: 1, height: 1)),
                       let observed = window.get(Ax.sizeAttr)
                 else { return nil }
-                return confirmedMinimumSizeAfterNativeProbe(
-                    original: originalSize, observed: observed)
+                let first = confirmedMinimumSizeAfterNativeProbe(original: originalSize, observed: observed)
+                if first?.width ?? 0 > 0, first?.height ?? 0 > 0 { return first }
+                // A window may already be at its minimum. Confirm that a larger
+                // size is accepted before treating an unchanged dimension as a clamp.
+                guard window.set(Ax.sizeAttr, CGSize(width: originalSize.width + 64, height: originalSize.height + 64)),
+                      let expanded = window.get(Ax.sizeAttr),
+                      window.set(Ax.sizeAttr, CGSize(width: 1, height: 1)),
+                      let repeated = window.get(Ax.sizeAttr) else { return first }
+                let second = confirmedMinimumSizeAfterNativeProbe(original: expanded, observed: repeated)
+                guard first != nil || second != nil else { return nil }
+                return CGSize(width: max(first?.width ?? 0, second?.width ?? 0),
+                              height: max(first?.height ?? 0, second?.height ?? 0))
             }
         }
     }
@@ -205,6 +215,10 @@ final class MacApp: AbstractApp {
                 try setFrame(window, topLeft, size, job)
             }
         }
+    }
+
+    func cancelLiveResizeFrame(_ windowId: UInt32) {
+        setFrameJobs.removeValue(forKey: windowId)?.cancel()
     }
 
     func setLiveResizeFrame(

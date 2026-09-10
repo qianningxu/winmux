@@ -17,6 +17,7 @@ final class WindowMouseInteractionDriver {
 
     struct ResizeSession: Equatable {
         let windowId: UInt32
+        let token = UUID()
     }
 
     struct PendingResizeCandidate {
@@ -39,6 +40,7 @@ final class WindowMouseInteractionDriver {
     var dragSourcePreviewState: DragSourcePreviewState?
     var pendingResizeCandidate: PendingResizeCandidate?
     var resizeGesture: ResizeGestureSessionState?
+    var flushingResizeSession: ResizeSession?
     var isResizeSampleInFlight = false
     var isMouseUpResetScheduled = false
     var lastRenderedResizePreviewRect: Rect?

@@ -228,6 +228,7 @@ enum GlobalObserver {
 
     private static func onSystemSleep(_: Notification) {
         Task { @MainActor in
+            cancelManipulatedWithMouseState()
             isWindowInventoryPollingSuspendedForSleep = true
             isWindowInventoryPollingStarted = false
             windowInventoryPollController?.stop()
