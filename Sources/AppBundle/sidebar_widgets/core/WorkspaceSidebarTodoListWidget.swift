@@ -399,7 +399,7 @@ struct WorkspaceSidebarTodoListWidget: View {
                 VStack(alignment: .leading, spacing: standardGap * 0.5) {
                     HStack(spacing: standardGap * 3) {
                         Text(document.locationTitle)
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(workspaceSidebarWidgetContent(.primary))
                             .lineLimit(1)
                             .layoutPriority(1)
@@ -419,7 +419,7 @@ struct WorkspaceSidebarTodoListWidget: View {
                     }
 
                     Text(document.hoursSummary)
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(workspaceSidebarWidgetContent(.secondary))
                         .lineLimit(1)

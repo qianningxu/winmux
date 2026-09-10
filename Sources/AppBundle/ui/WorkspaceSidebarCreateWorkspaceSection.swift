@@ -92,7 +92,7 @@ struct WorkspaceSidebarCreateWorkspaceSection: View {
             HStack(spacing: workspaceSidebarHeaderSpacing) {
                 if isCompact {
                     Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(palette.content(.secondary))
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 } else {
