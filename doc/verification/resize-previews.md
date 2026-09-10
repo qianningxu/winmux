@@ -20,7 +20,7 @@ Installed signed app, Built-in Retina Display, 1728 × 1117 logical points:
 - Slow Safari resize with Figma inactive.
 - Fast limit attempt with Safari active and Figma inactive.
 - Fast 80-point resize of unfocused Safari; native width reached 980 then returned to 900.
-- Every completed scripted round trip returned to the same native 900/810 widths and 6-point gap.
+- Every completed initial scripted round trip returned to the same native 900/810 widths and 6-point gap.
 - 737 final two-pane preview trace samples: gap minimum/maximum **6/6**, Figma/Safari stack minimum **900**.
 - Inspected screenshots during drag and after release: both shaded panes; no preview bars; workspace-colored gaps; no native corner slivers; native windows and normal chrome restored.
 
@@ -30,10 +30,16 @@ Pure-source checks passed for event-gate expiry, negative-origin bounds, immutab
 
 Only one physical monitor was available, so cross-monitor live testing remains unverified. The final automated suite did not separately exercise tab reordering or native move gestures; their existing presentation paths retain the default detailed preview.
 
-## Installed handoff
+## Initial shared-shade handoff
 
 `make install` built and signed the combined source snapshot, passed the Accessibility code-requirement preflight, and replaced PID 97298 with PID 99972 at `/Applications/WinMux.app/Contents/MacOS/WinMux`. Independently verified the old PID exited, the installed signature, and identical installed/candidate SHA-256:
 
 `e29852e8ed2ba56cfa817d05868da6e6d908b13c8f95b12f9b39dd563dcdb5a2`
 
 Local evidence: `/tmp/winmux-final-*.json`, `/tmp/winmux-final-shade-drag.png`, `/tmp/winmux-final-shade-release.png`, `/tmp/winmux-resize-trace.log`, and `/tmp/winmux-gap-match-install.log`.
+
+## Final icons and pointer-update verification
+
+With detailed tracing disabled, the final installed build passed the calibration regression check and completed fast/limit round trips at the user's updated starting widths (1172/538 and 1178/532), preserving each starting layout and the 6-point released gap. An initial fast attempt was aborted on pointer interference and rerun after detecting an idle pointer. Inspected `/tmp/winmux-upstream-icons-drag.png`: app icons on both shades, no bars, workspace-colored divider and outer gutters, and no corner slivers.
+
+Final signed installation: old PID 7121 exited; PID 9795 ran from `/Applications/WinMux.app/Contents/MacOS/WinMux`. Installed and candidate signatures/hashes verified. SHA-256: `4cb8dee9c0a3cca50ea96508b32a4c51c5c22db391b1c449eb5011a4645e44f4`. Installation log: `/tmp/winmux-upstream-latency-install.log`. This verifies behavior and the removal of stale-frame redraws; it is not a measured end-to-end latency benchmark.
