@@ -57,6 +57,11 @@ func resizeWithMouse(_ window: Window) async throws { // todo cover with tests
 @MainActor
 func updateCompositedResizePreview(_ window: Window, rect: Rect) {
     syncClosedWindowsCacheToCurrentWorld()
+    let boundedRect = resizeProposal(window, rect: rect)?.rect ?? rect
+    if resizePreviewHasVisibleChange(from: rect, to: boundedRect) {
+        window.setAxFrame(boundedRect.topLeftCorner, CGSize(width: boundedRect.width, height: boundedRect.height))
+    }
+    let rect = boundedRect
     let usesActiveTabGroupChrome = windowResizeUsesActiveTabGroupChrome(window: window)
     if usesActiveTabGroupChrome {
         WindowTabStripPanelController.shared.showChromeDuringMouseInteraction()
@@ -155,6 +160,11 @@ private struct WindowResizeWeightKey: Hashable {
 
 @MainActor
 func proposedResizeWeightMap(_ window: Window, rect: Rect) -> WindowResizePreviewWeightMap? {
+    resizeProposal(window, rect: rect)?.weights
+}
+
+@MainActor
+func resizeProposal(_ window: Window, rect: Rect) -> (weights: WindowResizePreviewWeightMap, rect: Rect)? {
     guard window.parent is TilingContainer else { return nil }
     guard let lastAppliedLayoutRect = window.lastAppliedLayoutPhysicalRect else { return nil }
     var weightMap = WindowResizePreviewWeightMap()
@@ -168,24 +178,42 @@ func proposedResizeWeightMap(_ window: Window, rect: Rect) -> WindowResizePrevie
         (lastAppliedLayoutRect.minY - rect.minY, uParent, 0,                        uOwnIndex),               // Vertical, to the up of the window
         (rect.maxX - lastAppliedLayoutRect.maxX, rParent, rOwnIndex.map { $0 + 1 }, rParent?.children.count), // Horizontal, to the right of the window
     ]
-    for (diff, parent, startIndex, pastTheEndIndex) in table {
+    var minX = rect.minX
+    var maxX = rect.maxX
+    var minY = rect.minY
+    var maxY = rect.maxY
+    for (edge, entry) in table.enumerated() {
+        let (diff, parent, startIndex, pastTheEndIndex) = entry
         if let parent, let startIndex, let pastTheEndIndex, pastTheEndIndex - startIndex > 0 && abs(diff) > 5 { // 5 pixels should be enough to fight with accumulated floating precision error
-            let siblingDiff = diff.div(pastTheEndIndex - startIndex).orDie()
             let orientation = parent.orientation
-
-            window.parentsWithSelf.lazy
+            let growingNodes = window.parentsWithSelf
                 .prefix(while: { $0 != parent })
                 .filter {
                     let parent = $0.parent as? TilingContainer
                     return parent?.orientation == orientation && parent?.layout == .tiles
                 }
-                .forEach { weightMap.set($0.getWeightBeforeResize(orientation) + diff, for: $0, orientation: orientation) }
+            let siblings = parent.children[startIndex ..< pastTheEndIndex]
+            let minimumDiff = growingNodes.map { $0.resizeMinimumWeight - $0.getWeightBeforeResize(orientation) }.max() ?? 0
+            let maximumDiff = siblings.map {
+                ($0.getWeightBeforeResize(orientation) - $0.resizeMinimumWeight) * CGFloat(siblings.count)
+            }.min() ?? 0
+            let boundedDiff = min(max(diff, min(0, minimumDiff)), max(0, maximumDiff))
+            switch edge {
+                case 0: minX = lastAppliedLayoutRect.minX - boundedDiff
+                case 1: maxY = lastAppliedLayoutRect.maxY + boundedDiff
+                case 2: minY = lastAppliedLayoutRect.minY - boundedDiff
+                default: maxX = lastAppliedLayoutRect.maxX + boundedDiff
+            }
+            let siblingDiff = boundedDiff / CGFloat(siblings.count)
+            growingNodes.forEach {
+                weightMap.set($0.getWeightBeforeResize(orientation) + boundedDiff, for: $0, orientation: orientation)
+            }
             for sibling in parent.children[startIndex ..< pastTheEndIndex] {
                 weightMap.set(sibling.getWeightBeforeResize(orientation) - siblingDiff, for: sibling, orientation: orientation)
             }
         }
     }
-    return weightMap
+    return (weightMap, Rect(topLeftX: minX, topLeftY: minY, width: maxX - minX, height: maxY - minY))
 }
 
 extension TreeNode {

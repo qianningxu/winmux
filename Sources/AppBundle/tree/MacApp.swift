@@ -113,6 +113,31 @@ final class MacApp: AbstractApp {
         }
     }
 
+    /// AX has no universal minimum-size attribute. Ask the app to clamp a
+    /// small size, then restore it in the same AX job (even on cancellation).
+    func measureMinimumSize(_ windowId: UInt32) async throws -> CGSize? {
+        guard !serverArgs.isReadOnly else { return nil }
+        setFrameJobs.removeValue(forKey: windowId)?.cancel()
+        return try await withWindow(windowId) { [axApp] window, job in
+            guard let originalSize = window.get(Ax.sizeAttr),
+                  let originalPosition = window.get(Ax.topLeftCornerAttr),
+                  window.get(Ax.isFullscreenAttr) != true,
+                  window.get(Ax.minimizedAttr) != true else { return nil }
+            return try disableAnimations(app: axApp.threadGuarded, job) {
+                defer {
+                    window.set(Ax.sizeAttr, originalSize)
+                    window.set(Ax.topLeftCornerAttr, originalPosition)
+                    window.set(Ax.sizeAttr, originalSize)
+                }
+                guard window.set(Ax.sizeAttr, CGSize(width: 1, height: 1)),
+                      let minimum = window.get(Ax.sizeAttr),
+                      minimum.width.isFinite, minimum.height.isFinite,
+                      minimum.width > 0, minimum.height > 0 else { return nil }
+                return minimum
+            }
+        }
+    }
+
     private func focusedWindowId() async throws -> UInt32? {
         try await thread?.runInLoop { [nsApp, axApp, windows] job in
             try axApp.threadGuarded.get(Ax.focusedWindowAttr)
@@ -196,7 +221,8 @@ final class MacApp: AbstractApp {
 
     @MainActor
     static func hasWindowInventoryChanged() async -> Bool {
-        for app in allAppsMap.values where !app.nsApp.isTerminated {
+        for app in allAppsMap.values {
+            if app.nsApp.isTerminated { return true }
             let actualWindowIds = try? await app.getAxWindowIds()
             if windowInventoryIdentityChanged(
                 actualWindowIds: actualWindowIds,

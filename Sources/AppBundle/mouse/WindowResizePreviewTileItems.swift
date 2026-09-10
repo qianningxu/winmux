@@ -18,15 +18,16 @@ func windowResizePreviewTileItems(
     var virtualPoint = virtual.topLeftCorner
     let orientation = container.orientation
     let availableDimension = orientation == .h ? width : height
-    let totalWeight = container.children.reduce(CGFloat(0)) { partial, child in
-        partial + context.weight(for: child, orientation: orientation)
-    }
-    guard let delta = (availableDimension - totalWeight).div(container.children.count) else { return [] }
+    let weights = constrainedTileWeights(
+        proposed: container.children.map { context.weight(for: $0, orientation: orientation) },
+        minimums: container.minimumTileWeights(gaps: context.resolvedGaps),
+        available: availableDimension
+    )
 
     let rawGap = CGFloat(context.resolvedGaps.inner.get(orientation))
     let lastIndex = container.children.indices.last
     for (index, child) in container.children.enumerated() {
-        let adjustedWeight = context.weight(for: child, orientation: orientation) + delta
+        let adjustedWeight = weights[index]
         let gap = rawGap - (index == 0 ? rawGap / 2 : 0) - (index == lastIndex ? rawGap / 2 : 0)
         let childPoint = index == 0 ? point : point.addingOffset(orientation, rawGap / 2)
         let childWidth = orientation == .h ? max(adjustedWeight - gap, 0) : max(width, 0)

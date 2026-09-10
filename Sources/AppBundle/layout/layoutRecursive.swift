@@ -7,6 +7,12 @@ extension Workspace {
         if isEffectivelyEmpty { return }
         let rect = workspaceMonitor.visibleRectPaddedByOuterGaps
         let context = LayoutContext(self)
+        for window in rootTilingContainer.allLeafWindowsRecursive {
+            if let macWindow = window as? MacWindow, window.minimumSize == nil {
+                window.minimumSize = try await macWindow.macApp.measureMinimumSize(window.windowId)
+                try checkCancellation()
+            }
+        }
         if let tabGroup = rootTilingContainer.allTabbedContainersRecursive.first(where: \.hasFullscreenTab) {
             lastAppliedLayoutPhysicalRect = rect
             lastAppliedLayoutVirtualRect = rect
@@ -184,13 +190,15 @@ extension TilingContainer {
         var point = point
         var virtualPoint = virtual.topLeftCorner
 
-        guard let delta = ((orientation == .h ? width : height) - CGFloat(children.sumOfDouble { $0.getWeight(orientation) }))
-            .div(children.count) else { return }
-
+        let weights = constrainedTileWeights(
+            proposed: children.map { $0.getWeight(orientation) },
+            minimums: minimumTileWeights(gaps: context.resolvedGaps),
+            available: orientation == .h ? width : height
+        )
         let lastIndex = children.indices.last
         for (i, child) in children.enumerated() {
             guard nodeWorkspace === context.workspace, child.parent === self else { return }
-            let childWeight = child.getWeight(orientation) + delta
+            let childWeight = weights[i]
             child.setWeight(orientation, childWeight)
             let rawGap = context.resolvedGaps.inner.get(orientation).toDouble()
             // Gaps. Consider 4 cases:

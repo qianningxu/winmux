@@ -417,7 +417,10 @@ private func reconcileRefreshedWindows(
     let aliveWindowIds = mapping.values.flatMap { $0 }.toSet()
 
     for window in MacWindow.allWindows {
-        guard refreshedApps.contains(ObjectIdentifier(window.macApp)) else { continue }
+        guard shouldReconcileWindowInventory(
+            isFullInventory: isFullInventory,
+            appWasRefreshed: refreshedApps.contains(ObjectIdentifier(window.macApp))
+        ) else { continue }
         if !aliveWindowIds.contains(window.windowId) {
             window.garbageCollect(skipClosedWindowsCache: false)
         }
@@ -547,4 +550,8 @@ private func normalizeContainers() {
     for workspace in Workspace.all {
         workspace.normalizeContainers()
     }
+}
+
+func shouldReconcileWindowInventory(isFullInventory: Bool, appWasRefreshed: Bool) -> Bool {
+    isFullInventory || appWasRefreshed
 }
