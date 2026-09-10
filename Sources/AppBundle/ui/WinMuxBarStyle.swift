@@ -5,7 +5,9 @@ enum WinMuxBarStyle {
     static let cornerRadius = standardGap * 4
     static let topBarCornerRadius = standardGap * 4
     static let topBarSurfaceCornerRadius = standardGap * 4
-    static let workspaceTabBarCornerRadius = standardGap * 4
+    // The outer bar sits 2pt beyond its 16pt tabs, so add that inset to keep
+    // the nested continuous curves concentric.
+    static let workspaceTabBarCornerRadius = cornerRadius + WinMuxSpacing.hairline
     static let containerInset = standardGap
     static let topBarContentInset = standardGap
     static let contentInset = standardGap * 3.5

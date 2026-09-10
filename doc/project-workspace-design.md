@@ -18,7 +18,7 @@ The names describe UI surfaces. Internal workspace/project identifiers, configur
 
 ## Native frame corrections
 
-All WinMux-controlled frames, bars, and tabs use a 16-point continuous radius. The Project menu is an outlined pill. Project selections use typography rather than a filled plate.
+WinMux-controlled tabs and frames use a 16-point continuous radius. The workspace tab bar uses an 18-point outer radius because it sits two points beyond the tabs, keeping the nested curves concentric. The Project menu is part of the shared first-row outline.
 
 Each stacked window has a gray-500 rounded workspace tab surface and a six-point gap before its native window. Native window borders remain visible.
 
