@@ -640,7 +640,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                     HStack(spacing: WinMuxBarStyle.iconSpacing) {
                         workspaceIcon
                         Text(workspace.displayName)
-                            .font(.system(size: WinMuxBarStyle.fontSize, weight: isActive ? .semibold : .medium))
+                            .font(.system(size: WinMuxBarStyle.fontSize, weight: isActive ? .semibold : .regular))
                             .foregroundStyle(palette.content(isActive ? .primary : .secondary))
                             .lineLimit(1)
                             .truncationMode(.tail)
