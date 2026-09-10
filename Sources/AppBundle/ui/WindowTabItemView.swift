@@ -20,7 +20,7 @@ struct WindowTabItemView: View {
 
             if showsTitle {
                 Text(hidesTitle ? "" : tab.title)
-                    .font(.system(size: WinMuxBarStyle.fontSize, weight: tab.isActive ? .semibold : .regular))
+                    .font(.system(size: WinMuxBarStyle.fontSize, weight: tab.isActive ? .semibold : .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
