@@ -50,12 +50,13 @@ func nativeLiveResizeClampIsConfirmed(
     tolerance: CGFloat
 ) -> Bool {
     guard let initial, let previous else { return false }
-    let requestedOriginReached = abs(requested.topLeftX - observed.topLeftX) < tolerance &&
-        abs(requested.topLeftY - observed.topLeftY) < tolerance
-    let rejectedDimension = observed.width > requested.width + tolerance ||
-        observed.height > requested.height + tolerance
-    return requestedOriginReached &&
-        rejectedDimension &&
+    let widthClamp = observed.width > requested.width + tolerance &&
+        (abs(requested.minX - observed.minX) < tolerance ||
+            abs(requested.maxX - observed.maxX) < tolerance)
+    let heightClamp = observed.height > requested.height + tolerance &&
+        (abs(requested.minY - observed.minY) < tolerance ||
+            abs(requested.maxY - observed.maxY) < tolerance)
+    return (widthClamp || heightClamp) &&
         nativeLiveResizeFramesMatch(previous, observed, tolerance: tolerance) &&
         !nativeLiveResizeFramesMatch(initial, observed, tolerance: tolerance)
 }

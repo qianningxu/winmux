@@ -72,7 +72,7 @@ final class NativeLiveResizeGeometryTest: XCTestCase {
         ))
     }
 
-    func testNativeClampRequiresAChangedStableFrameAtTheRequestedOrigin() {
+    func testNativeClampRequiresAChangedStableFrameAtARequestedEdge() {
         let initial = Rect(topLeftX: 700, topLeftY: 100, width: 1000, height: 800)
         let requested = Rect(topLeftX: 900, topLeftY: 100, width: 800, height: 800)
         let clamped = Rect(topLeftX: 900, topLeftY: 100, width: 850, height: 800)
@@ -89,5 +89,10 @@ final class NativeLiveResizeGeometryTest: XCTestCase {
         XCTAssertTrue(nativeLiveResizeClampIsConfirmed(
             initial: initial, requested: requested, previous: clamped,
             observed: clamped, tolerance: 0.5))
+
+        let trailingEdgeClamp = Rect(topLeftX: 800, topLeftY: 100, width: 900, height: 800)
+        XCTAssertTrue(nativeLiveResizeClampIsConfirmed(
+            initial: initial, requested: requested, previous: trailingEdgeClamp,
+            observed: trailingEdgeClamp, tolerance: 0.5))
     }
 }

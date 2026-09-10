@@ -336,8 +336,12 @@ final class MacWindow: Window {
         try await macApp.setAxFrameBlocking(windowId, topLeft, size)
     }
 
-    func setLiveResizeFrame(from current: Rect?, to requested: Rect) {
-        macApp.setLiveResizeFrame(windowId, from: current, to: requested)
+    func setLiveResizeFrame(
+        from current: Rect?,
+        to requested: Rect,
+        completion: @MainActor @Sendable @escaping (CGSize) -> Void
+    ) {
+        macApp.setLiveResizeFrame(windowId, from: current, to: requested, completion: completion)
     }
 
     override func getAxRect() async throws -> Rect? {

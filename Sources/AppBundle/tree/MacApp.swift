@@ -207,13 +207,21 @@ final class MacApp: AbstractApp {
         }
     }
 
-    func setLiveResizeFrame(_ windowId: UInt32, from current: Rect?, to requested: Rect) {
+    func setLiveResizeFrame(
+        _ windowId: UInt32,
+        from current: Rect?,
+        to requested: Rect,
+        completion: @MainActor @Sendable @escaping (CGSize) -> Void
+    ) {
         if serverArgs.isReadOnly { return }
         setFrameJobs.removeValue(forKey: windowId)?.cancel()
         setFrameJobs[windowId] = withWindowAsync(windowId) { [axApp] window, job in
-            try disableAnimations(app: axApp.threadGuarded, job) {
+            let appliedSize = try disableAnimations(app: axApp.threadGuarded, job) {
                 try job.checkCancellation()
-                AppBundle.setLiveResizeFrame(window, from: current, to: requested)
+                return AppBundle.setLiveResizeFrame(window, from: current, to: requested)
+            }
+            if let appliedSize {
+                Task { @MainActor in completion(appliedSize) }
             }
         }
     }

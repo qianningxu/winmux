@@ -31,7 +31,14 @@ extension WindowMouseInteractionDriver {
         }
 
         if let macWindow = window as? MacWindow {
-            macWindow.setLiveResizeFrame(from: current, to: frame)
+            let generation = liveResizeFrameWriteGeneration
+            macWindow.setLiveResizeFrame(from: current, to: frame) { [weak self] appliedSize in
+                self?.nativeLiveResizeFrameDidApply(
+                    windowId: windowId,
+                    requested: frame,
+                    appliedSize: appliedSize,
+                    generation: generation)
+            }
         } else {
             window.setAxFrame(frame.topLeftCorner, frame.size)
         }
@@ -86,7 +93,8 @@ extension WindowMouseInteractionDriver {
                 if let observed = result.observed {
                     publishLiveResizeFrame(window: window, frame: observed)
                     if result.confirmedClamp {
-                        learnLiveResizeMinimumIfClamped(window: window, requested: requested, observed: observed)
+                        learnLiveResizeMinimumIfClamped(
+                            window: window, requested: requested, observedSize: observed.size)
                     }
                 }
                 clearLiveResizeState(windowId: windowId, requested: requested)
@@ -125,7 +133,8 @@ extension WindowMouseInteractionDriver {
             if let observed = result.observed {
                 publishLiveResizeFrame(window: window, frame: observed)
                 if result.confirmedClamp {
-                    learnLiveResizeMinimumIfClamped(window: window, requested: requested, observed: observed)
+                    learnLiveResizeMinimumIfClamped(
+                        window: window, requested: requested, observedSize: observed.size)
                 }
             }
             clearLiveResizeState(windowId: windowId, requested: requested)
@@ -198,12 +207,30 @@ extension WindowMouseInteractionDriver {
         }
     }
 
-    private func learnLiveResizeMinimumIfClamped(window: Window, requested: Rect, observed: Rect) {
+    private func nativeLiveResizeFrameDidApply(
+        windowId: UInt32,
+        requested: Rect,
+        appliedSize: CGSize,
+        generation: UInt64
+    ) {
+        guard generation == liveResizeFrameWriteGeneration,
+              resizeSession != nil,
+              let window = Window.get(byId: windowId)
+        else { return }
+        learnLiveResizeMinimumIfClamped(
+            window: window, requested: requested, observedSize: appliedSize)
+    }
+
+    private func learnLiveResizeMinimumIfClamped(
+        window: Window,
+        requested: Rect,
+        observedSize: CGSize
+    ) {
         guard resizeSession?.windowId != window.windowId else { return }
         guard let minimum = learnedMinimumSizeAfterNativeClamp(
             current: window.minimumSize,
             requested: requested.size,
-            observed: observed.size,
+            observed: observedSize,
             tolerance: resizePreviewVisibleChangeThreshold
         ) else { return }
         window.minimumSize = minimum
