@@ -1,10 +1,12 @@
 import AppKit
 
+@MainActor
 func workspaceSidebarProjectColorSwatchImage(hex: String, isSelected: Bool) -> NSImage {
+    let theme = AppearanceTheme.current
     let color = WorkspaceSidebarProjectThemeFamily.resolve(configuredHex: hex)?
-        .nsColor(step: 700, theme: .light)
-        ?? GeistColorSystem.color(.gray, .color7, theme: .light)
-    let selectionColor = WinMuxOverlayPalette(theme: .light).geistBackgroundNSColor(.primary)
+        .nsColor(step: 700, theme: theme)
+        ?? GeistColorSystem.color(.gray, .color7, theme: theme)
+    let selectionColor = WinMuxOverlayPalette(theme: theme).geistBackgroundNSColor(.primary)
     return workspaceSidebarSwatchImage {
         drawWorkspaceSidebarSwatchCircle(
             fill: color,

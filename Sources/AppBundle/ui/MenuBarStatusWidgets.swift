@@ -246,7 +246,7 @@ private struct MenuBarStatusWidgetGroup: View {
 
     var body: some View {
         let palette = WinMuxOverlayPalette(
-            theme: .dark,
+            colorScheme: colorScheme,
             projectThemeFamily: projectThemeFamily
         )
         GeometryReader { geometry in
@@ -284,7 +284,6 @@ private struct MenuBarStatusWidgetGroup: View {
             .background(palette.geistBackground(.secondary))
         }
         .environment(\.workspaceSidebarProjectThemeFamily, projectThemeFamily)
-        .environment(\.colorScheme, .dark)
     }
 }
 
