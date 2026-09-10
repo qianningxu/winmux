@@ -5,20 +5,21 @@ enum WinMuxBarStyle {
     static let cornerRadius = standardGap * 4
     static let topBarCornerRadius = standardGap * 4
     static let topBarSurfaceCornerRadius = standardGap * 4
-    // The outer bar sits 2pt beyond its 16pt tabs, so add that inset to keep
+    static let innerSpacing = standardGap * 0.75
+    // The outer bar sits 3pt beyond its 16pt tabs, so add that inset to keep
     // the nested continuous curves concentric.
-    static let workspaceTabBarCornerRadius = cornerRadius + WinMuxSpacing.hairline
+    static let workspaceTabBarCornerRadius = cornerRadius + innerSpacing
     static let containerInset = WinMuxSpacing.comfortable
     static let topBarContentInset = WinMuxSpacing.comfortable
-    static let contentInset = standardGap * 3.5
-    static let iconSpacing = standardGap * 2
+    static let contentInset = innerSpacing
+    static let iconSpacing = innerSpacing
     static let strokeWidth = standardGap * 0.25
     static let fontSize: CGFloat = 14
     static let maximumTabWidth = standardGap * 50
     static let projectTabsBarOuterInset = WinMuxSpacing.comfortable
-    static let projectTabsBarSurfaceHeight = standardGap * 9
+    static let projectTabsBarSurfaceHeight = standardGap * 8 + innerSpacing * 2
     static let projectBarHeight = projectTabsBarSurfaceHeight + projectTabsBarOuterInset
-    static let workspaceBarHeight = standardGap * 9
+    static let workspaceBarHeight = projectTabsBarSurfaceHeight
 }
 
 struct WinMuxBarDivider: View {

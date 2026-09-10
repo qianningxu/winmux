@@ -144,7 +144,7 @@ struct WorkspaceSidebarHorizontalBar: View {
             let surfaceHeight = max(geometry.size.height, 1)
             let outerInset = WinMuxBarStyle.projectTabsBarOuterInset
             let barHeight = max(surfaceHeight - outerInset, 1)
-            let innerPadding = WinMuxSpacing.hairline
+            let innerPadding = WinMuxBarStyle.innerSpacing
             let contentHeight = max(barHeight - innerPadding * 2, 1)
             let surfaceWidth = max(geometry.size.width, 1)
             let barWidth = max(surfaceWidth - outerInset * 2, 1)
@@ -159,7 +159,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                     ))
                     .offset(x: outerInset, y: outerInset)
 
-                HStack(spacing: WinMuxSpacing.comfortable) {
+                HStack(spacing: WinMuxBarStyle.innerSpacing) {
                     projectControl(contentHeight: contentHeight)
 
 
@@ -337,8 +337,8 @@ struct WorkspaceSidebarHorizontalBar: View {
     private func workspaceTabStrip(contentHeight: CGFloat) -> some View {
         GeometryReader { geometry in
             let count = projectWorkspaces.count
-            let spacing = WinMuxSpacing.comfortable
-            let contentPadding = WinMuxSpacing.hairline
+            let spacing = WinMuxBarStyle.innerSpacing
+            let contentPadding = WinMuxSpacing.none
             let tabWidth = winMuxBarTabWidth(
                 availableWidth: max(geometry.size.width - contentPadding * 2, 0),
                 count: count, spacing: spacing,
@@ -602,7 +602,7 @@ struct WorkspaceSidebarHorizontalBar: View {
         source: String, target: WorkspaceSidebarHorizontalReorderTarget
     ) -> [String: CGFloat] {
         let pitch = (workspaceReorderFrames.first { $0.workspaceName == source }?.frame.width ?? 0)
-            + WinMuxSpacing.compact
+            + WinMuxBarStyle.innerSpacing
         return workspaceSidebarHorizontalReorderSteps(
             order: projectWorkspaces.map(\.name), source: source, placement: target.placement
         ).mapValues { CGFloat($0) * pitch }

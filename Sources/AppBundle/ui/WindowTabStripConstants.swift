@@ -5,13 +5,13 @@ import SwiftUI
 // MARK: - Constants
 
 let windowTabPreviewCornerRadius: CGFloat = 14
-let windowTabStripContentHorizontalPadding: CGFloat = WinMuxSpacing.hairline
+let windowTabStripContentHorizontalPadding: CGFloat = WinMuxBarStyle.innerSpacing
 let windowTabStripGroupHandleWidth: CGFloat = 26
 let windowTabStripReservedHandleWidth: CGFloat = WinMuxSpacing.none
 let windowTabStripTrailingGroupDragGutterWidth: CGFloat = 0
 let windowTabStripCornerRadius: CGFloat = WinMuxBarStyle.cornerRadius
 let windowTabStripInnerCornerRadius: CGFloat = 9
-let windowTabStripTabSpacing: CGFloat = WinMuxSpacing.hairline
+let windowTabStripTabSpacing: CGFloat = WinMuxBarStyle.innerSpacing
 let windowTabStripPreferredTabWidth: CGFloat = WinMuxBarStyle.maximumTabWidth
 let windowTabStripCloseButtonSize: CGFloat = 18
 let windowTabStripCloseButtonReservedWidth: CGFloat = 22
