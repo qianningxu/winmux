@@ -390,9 +390,9 @@ struct WorkspaceSidebarFolder<Content: View>: View {
             return palette.componentBackground(.active)
         }
         if usesFolderHoverTreatment {
-            return palette.color(.gray, .color5)
+            return palette.color(palette.activeGeistFamily, .color5)
         }
-        return palette.color(.gray, .color1)
+        return palette.color(palette.activeGeistFamily, .color1)
     }
 
     private var folderBlockBorder: Color {
@@ -400,14 +400,14 @@ struct WorkspaceSidebarFolder<Content: View>: View {
             return palette.geistBorder(.active)
         }
         if usesFolderHoverTreatment {
-            return palette.color(.gray, .color7)
+            return palette.color(palette.activeGeistFamily, .color7)
         }
-        return palette.color(.gray, .color5)
+        return palette.color(palette.activeGeistFamily, .color5)
     }
 
     private var folderBlockShadow: Color {
         guard usesFolderHoverTreatment else { return WinMuxDesignTokens.transparent }
-        return palette.color(.gray, .color8).opacity(0.18)
+        return palette.color(palette.activeGeistFamily, .color8).opacity(0.18)
     }
 
 }

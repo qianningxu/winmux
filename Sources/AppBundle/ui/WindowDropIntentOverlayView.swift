@@ -6,7 +6,8 @@ struct WindowDropIntentOverlayView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private let borderLineWidth: CGFloat = 1
-    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+    @ObservedObject private var trayModel = TrayMenuModel.shared
+    private var palette: WinMuxOverlayPalette { trayModel.projectPalette(colorScheme: colorScheme) }
 
     var body: some View {
         ZStack {
@@ -103,27 +104,27 @@ struct WindowDropIntentOverlayView: View {
     private var gridBaseFill: Color {
         // A Gray 700 surface stays visible over light content while the
         // opacity preserves the window underneath it.
-        palette.color(.gray, .color7).opacity(0.75)
+        palette.color(palette.activeGeistFamily, .color7).opacity(0.75)
     }
 
     private var gridOuterStroke: Color {
-        palette.color(.gray, .color9).opacity(0.85)
+        palette.color(palette.activeGeistFamily, .color9).opacity(0.85)
     }
 
     private var gridZoneFill: Color {
-        palette.color(.gray, .color9).opacity(0.45)
+        palette.color(palette.activeGeistFamily, .color9).opacity(0.45)
     }
 
     private var inactiveZoneFill: Color {
-        palette.color(.gray, .color8).opacity(0.18)
+        palette.color(palette.activeGeistFamily, .color8).opacity(0.18)
     }
 
     private var inactiveZoneStroke: Color {
-        palette.color(.gray, .color8).opacity(0.75)
+        palette.color(palette.activeGeistFamily, .color8).opacity(0.75)
     }
 
     private var activeZoneStroke: Color {
-        palette.color(.gray, .color10).opacity(0.90)
+        palette.color(palette.activeGeistFamily, .color10).opacity(0.90)
     }
 
     private var gridSymbol: Color {

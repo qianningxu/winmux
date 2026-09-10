@@ -4,6 +4,20 @@ import SwiftUI
 import XCTest
 
 final class WinMuxOverlayPaletteTest: XCTestCase {
+    func testProjectFrameBackgroundUsesSelectedProjectColor() {
+        for preset in workspaceSidebarProjectColorPresets {
+            let family = workspaceCanvasProjectThemeFamily(
+                activeProjectId: "client",
+                projectColors: ["client": preset.hex]
+            )
+            let palette = WinMuxOverlayPalette(theme: .light, projectThemeFamily: family)
+            assertSameColor(
+                NSColor(workspaceCanvasBackground(for: palette)),
+                GeistColorSystem.color(family!, .color1, theme: .light)
+            )
+        }
+    }
+
     func testPaletteCanBeBuiltFromSwiftUIColorScheme() {
         XCTAssertEqual(WinMuxOverlayPalette(colorScheme: .light).theme, .light)
         XCTAssertEqual(WinMuxOverlayPalette(colorScheme: .dark).theme, .dark)

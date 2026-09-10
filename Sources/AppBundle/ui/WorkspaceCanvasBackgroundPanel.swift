@@ -134,11 +134,11 @@ struct WorkspaceCanvasBackgroundView: View {
             projectThemeFamily: projectThemeFamily
         )
         frameShape
-            .fill(WinMuxOverlayPalette(colorScheme: .light).color(.gray, .color1))
+            .fill(workspaceCanvasBackground(for: palette))
         .clipShape(frameShape)
         .overlay {
             frameShape
-                .strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
+                .strokeBorder(palette.color(palette.activeGeistFamily, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
         }
         .accessibilityLabel("Project frame")
         .allowsHitTesting(false)
@@ -158,7 +158,7 @@ func workspaceCanvasProjectThemeFamily(
 }
 
 func workspaceCanvasBackground(for palette: WinMuxOverlayPalette) -> Color {
-    WinMuxOverlayPalette(colorScheme: .light).color(.gray, .color1)
+    WinMuxOverlayPalette(colorScheme: .light).color(palette.activeGeistFamily, .color1)
 }
 
 /// Use one enclosing radius for all four corners, accommodating native windows.

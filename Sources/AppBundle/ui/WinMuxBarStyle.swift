@@ -28,7 +28,7 @@ struct WinMuxBarDivider: View {
 
     var body: some View {
         Rectangle()
-            .fill(palette.color(.gray, .color6).opacity(0.5))
+            .fill(palette.color(palette.activeGeistFamily, .color6).opacity(0.5))
             .frame(width: WinMuxBarStyle.strokeWidth, height: height)
             .allowsHitTesting(false)
     }
@@ -51,10 +51,10 @@ extension View {
             style: cornerStyle
         )
         return self
-            .background(palette.color(.gray, .color3))
+            .background(palette.color(palette.activeGeistFamily, .color3))
             .clipShape(shape)
             .overlay {
-                shape.strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
+                shape.strokeBorder(palette.color(palette.activeGeistFamily, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
                     .allowsHitTesting(false)
             }
     }
@@ -64,7 +64,7 @@ extension View {
             if isSelected {
                 Rectangle().fill(palette.geistBackground(.primary))
             } else if isHovered {
-                Rectangle().fill(palette.color(.gray, .color2))
+                Rectangle().fill(palette.color(palette.activeGeistFamily, .color2))
             }
         }
     }

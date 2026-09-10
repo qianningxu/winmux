@@ -735,7 +735,7 @@ private struct MenuBarWidgetItemModifier: ViewModifier {
             .overlay {
                 if isSelected {
                     RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarCornerRadius, style: .continuous)
-                        .strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
+                        .strokeBorder(palette.color(palette.activeGeistFamily, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
                         .allowsHitTesting(false)
                 }
             }

@@ -12,7 +12,8 @@ struct WindowTabItemView: View {
     var hidesTitle = false
     @Environment(\.colorScheme) var colorScheme
 
-    var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: .light) }
+    @ObservedObject private var trayModel = TrayMenuModel.shared
+    var palette: WinMuxOverlayPalette { trayModel.projectPalette(workspaceName: tab.workspaceName) }
 
     var body: some View {
         HStack(spacing: showsTitle ? WinMuxBarStyle.iconSpacing : WinMuxSpacing.none) {

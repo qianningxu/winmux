@@ -121,7 +121,13 @@ struct WorkspaceSidebarHorizontalBar: View {
     }
 
     private var palette: WinMuxOverlayPalette {
-        WinMuxOverlayPalette(colorScheme: .light)
+        WinMuxOverlayPalette(
+            colorScheme: .light,
+            projectThemeFamily: workspaceSidebarProjectThemeFamily(
+                projects: snapshot.projects,
+                activeProjectId: snapshot.activeProjectId
+            )
+        )
     }
 
     private var currentPanel: WorkspaceSidebarPanel? {
@@ -179,7 +185,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                 actions.setDropTargets([])
             }
         }
-        .background(WinMuxOverlayPalette(colorScheme: .light).color(.gray, .color1))
+        .background(workspaceCanvasBackground(for: palette))
         .environment(\.colorScheme, .light)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Project tabs bar")
@@ -219,7 +225,7 @@ struct WorkspaceSidebarHorizontalBar: View {
     }
 
     private var barSurface: some View {
-        Rectangle().fill(palette.color(.gray, .color3))
+        Rectangle().fill(palette.color(palette.activeGeistFamily, .color3))
     }
 
     @ViewBuilder
@@ -296,9 +302,25 @@ struct WorkspaceSidebarHorizontalBar: View {
             beginProjectRename(project)
         }
         Menu("Project color") {
-            Button("Automatic") { actions.send(.setProjectColor(project.id, colorHex: nil)) }
+            Button {
+                actions.send(.setProjectColor(project.id, colorHex: nil))
+            } label: {
+                if project.colorHex == nil {
+                    Label("Automatic", systemImage: "checkmark")
+                } else {
+                    Text("Automatic")
+                }
+            }
             ForEach(workspaceSidebarProjectColorPresets) { preset in
-                Button(preset.name) { actions.send(.setProjectColor(project.id, colorHex: preset.hex)) }
+                Button {
+                    actions.send(.setProjectColor(project.id, colorHex: preset.hex))
+                } label: {
+                    if project.colorHex.flatMap(normalizedWorkspaceSidebarColorHex) == preset.hex {
+                        Label(preset.name, systemImage: "checkmark")
+                    } else {
+                        Text(preset.name)
+                    }
+                }
             }
         }
         Button("Delete project", role: .destructive) {
@@ -655,13 +677,13 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                     HStack(spacing: WinMuxBarStyle.iconSpacing) {
                         Text(workspace.displayName)
                             .font(.system(size: projectTabsBarFontSize, weight: isActive || isHovered ? .semibold : .medium))
-                            .foregroundStyle(WinMuxOverlayPalette(colorScheme: .light).color(.gray, isActive ? .color10 : .color9))
+                            .foregroundStyle(palette.color(palette.activeGeistFamily, isActive ? .color10 : .color9))
                             .lineLimit(1)
                             .truncationMode(.tail)
                             .overlay(alignment: .bottom) {
                                 if isActive {
                                     Rectangle()
-                                        .fill(WinMuxOverlayPalette(colorScheme: .light).color(.gray, .color10))
+                                        .fill(palette.color(palette.activeGeistFamily, .color10))
                                         .frame(height: WinMuxBarStyle.innerSpacing / 2)
                                 }
                             }
@@ -677,7 +699,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                     .background {
                         if isDropTarget || isReorderTarget || isReorderSource {
                             RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius)
-                                .fill(palette.color(.gray, .color4))
+                                .fill(palette.color(palette.activeGeistFamily, .color4))
                         }
                     }
                     .contentShape(Rectangle())

@@ -41,7 +41,8 @@ struct WindowTabGroupHandleView: View {
     let workspaceName: String
     @Environment(\.colorScheme) private var colorScheme
 
-    private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+    @ObservedObject private var trayModel = TrayMenuModel.shared
+    private var palette: WinMuxOverlayPalette { trayModel.projectPalette(workspaceName: workspaceName, colorScheme: colorScheme) }
 
     var body: some View {
         VStack(spacing: standardGap * 1.25) {

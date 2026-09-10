@@ -51,7 +51,7 @@ extension WindowTabStripView {
                                    !strip.tabs[index - 1].isActive
                                 {
                                     Rectangle()
-                                        .fill(WinMuxOverlayPalette.current.color(.gray, .color6))
+                                        .fill(palette.color(palette.activeGeistFamily, .color6))
                                         .frame(
                                             width: WinMuxBarStyle.strokeWidth,
                                             height: WinMuxSpacing.panel
