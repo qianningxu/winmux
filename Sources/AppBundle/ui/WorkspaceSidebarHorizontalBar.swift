@@ -122,7 +122,7 @@ struct WorkspaceSidebarHorizontalBar: View {
 
     private var palette: WinMuxOverlayPalette {
         WinMuxOverlayPalette(
-            colorScheme: .light,
+            colorScheme: colorScheme,
             projectThemeFamily: workspaceSidebarProjectThemeFamily(
                 projects: snapshot.projects,
                 activeProjectId: snapshot.activeProjectId
@@ -187,7 +187,6 @@ struct WorkspaceSidebarHorizontalBar: View {
         }
         // The canvas panel supplies the project frame surface and rounded border.
         // Keep this higher panel transparent so it cannot cover the top edge.
-        .environment(\.colorScheme, .light)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Project tabs bar")
         .onDisappear { clearWorkspaceReorderState() }

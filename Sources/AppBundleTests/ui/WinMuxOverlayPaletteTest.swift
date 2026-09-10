@@ -10,11 +10,13 @@ final class WinMuxOverlayPaletteTest: XCTestCase {
                 activeProjectId: "client",
                 projectColors: ["client": preset.hex]
             )
-            let palette = WinMuxOverlayPalette(theme: .light, projectThemeFamily: family)
-            assertSameColor(
-                NSColor(workspaceCanvasBackground(for: palette)),
-                GeistColorSystem.color(family!, .color1, theme: .light)
-            )
+            for theme in [AppearanceTheme.light, .dark] {
+                let palette = WinMuxOverlayPalette(theme: theme, projectThemeFamily: family)
+                assertSameColor(
+                    NSColor(workspaceCanvasBackground(for: palette)),
+                    GeistColorSystem.color(family!, .color1, theme: theme)
+                )
+            }
         }
     }
 

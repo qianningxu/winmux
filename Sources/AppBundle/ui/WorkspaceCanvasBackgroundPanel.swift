@@ -158,7 +158,7 @@ func workspaceCanvasProjectThemeFamily(
 }
 
 func workspaceCanvasBackground(for palette: WinMuxOverlayPalette) -> Color {
-    WinMuxOverlayPalette(colorScheme: .light).color(palette.activeGeistFamily, .color1)
+    palette.color(palette.activeGeistFamily, .color1)
 }
 
 /// Use one enclosing radius for all four corners, accommodating native windows.
