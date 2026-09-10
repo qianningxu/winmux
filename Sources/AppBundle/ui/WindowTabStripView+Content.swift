@@ -126,7 +126,7 @@ extension WindowTabStripView {
 
 }
 
-private extension View {
+extension View {
     @ViewBuilder
     func winMuxZeroHorizontalScrollContentMargins() -> some View {
         if #available(macOS 14.0, *) {

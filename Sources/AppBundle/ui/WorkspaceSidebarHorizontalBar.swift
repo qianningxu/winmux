@@ -142,14 +142,22 @@ struct WorkspaceSidebarHorizontalBar: View {
     var body: some View {
         GeometryReader { geometry in
             let surfaceHeight = max(geometry.size.height, 1)
+            let outerInset = WinMuxBarStyle.projectTabsBarOuterInset
+            let barHeight = max(surfaceHeight - outerInset, 1)
             let innerPadding = WinMuxSpacing.hairline
-            let contentHeight = max(surfaceHeight - innerPadding * 2, 1)
+            let contentHeight = max(barHeight - innerPadding * 2, 1)
             let surfaceWidth = max(geometry.size.width, 1)
+            let barWidth = max(surfaceWidth - outerInset * 2, 1)
 
 
             ZStack(alignment: .topLeading) {
                 barSurface
-                    .frame(height: surfaceHeight, alignment: .top)
+                    .frame(width: barWidth, height: barHeight, alignment: .top)
+                    .clipShape(RoundedRectangle(
+                        cornerRadius: WinMuxBarStyle.workspaceTabBarCornerRadius,
+                        style: .continuous
+                    ))
+                    .offset(x: outerInset, y: outerInset)
 
                 HStack(spacing: WinMuxSpacing.comfortable) {
                     projectControl(contentHeight: contentHeight)
@@ -158,15 +166,15 @@ struct WorkspaceSidebarHorizontalBar: View {
                     workspaceTabStrip(contentHeight: contentHeight)
                 }
                 .frame(
-                    width: max(surfaceWidth - WinMuxSpacing.comfortable * 2, 1),
+                    width: max(barWidth - innerPadding * 2, 1),
                     height: contentHeight,
                     alignment: .center
                 )
-                .padding(.horizontal, WinMuxSpacing.comfortable)
+                .padding(.horizontal, innerPadding)
                 .padding(.vertical, innerPadding)
                 .overlay {
                     RoundedRectangle(
-                        cornerRadius: WinMuxBarStyle.cornerRadius,
+                        cornerRadius: WinMuxBarStyle.workspaceTabBarCornerRadius,
                         style: .continuous
                     )
                     .strokeBorder(
@@ -175,6 +183,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                     )
                     .allowsHitTesting(false)
                 }
+                .offset(x: outerInset, y: outerInset)
             }
             .clipShape(UnevenRoundedRectangle(
                 topLeadingRadius: projectCornerRadius,
@@ -326,8 +335,10 @@ struct WorkspaceSidebarHorizontalBar: View {
         GeometryReader { geometry in
             let count = projectWorkspaces.count
             let spacing = WinMuxSpacing.comfortable
+            let contentPadding = WinMuxSpacing.hairline
             let tabWidth = winMuxBarTabWidth(
-                availableWidth: geometry.size.width, count: count, spacing: spacing,
+                availableWidth: max(geometry.size.width - contentPadding * 2, 0),
+                count: count, spacing: spacing,
                 maximumWidth: WinMuxBarStyle.maximumTabWidth)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing) {
@@ -348,10 +359,12 @@ struct WorkspaceSidebarHorizontalBar: View {
                                         )
                                         .offset(x: -spacing / 2)
                                 }
-                            }
+                        }
                     }
                 }
+                .padding(.horizontal, contentPadding)
             }
+            .winMuxZeroHorizontalScrollContentMargins()
             .frame(width: geometry.size.width, height: contentHeight, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity)

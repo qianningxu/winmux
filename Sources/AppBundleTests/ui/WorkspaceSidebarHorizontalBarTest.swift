@@ -27,7 +27,7 @@ final class WorkspaceSidebarHorizontalBarTest: XCTestCase {
             extraWidth: 400,
         )
 
-        XCTAssertEqual(left, NSRect(x: 0, y: 1049, width: 1728, height: 36))
+        XCTAssertEqual(left, NSRect(x: 0, y: 1045, width: 1728, height: 40))
         XCTAssertEqual(right, NSRect(x: 0, y: 1085, width: 1728, height: 32))
         XCTAssertEqual(panel.minX, left.minX)
         XCTAssertEqual(panel.maxY, right.minY)
