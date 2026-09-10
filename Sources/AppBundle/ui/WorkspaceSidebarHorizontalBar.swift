@@ -1,6 +1,8 @@
 import AppKit
 import SwiftUI
 
+private let projectTabsBarFontSize: CGFloat = 14
+
 struct WorkspaceSidebarHorizontalTabFrame: Equatable {
     let workspaceName: String
     let folderId: WorkspaceFolderId
@@ -225,7 +227,7 @@ struct WorkspaceSidebarHorizontalBar: View {
         let project = activeProject
         let name = project?.displayName ?? "Main"
         let textWidth = (name.uppercased() as NSString).size(withAttributes: [
-            .font: NSFont.systemFont(ofSize: workspaceSidebarProjectLabelFontSize, weight: .regular)
+            .font: NSFont.systemFont(ofSize: projectTabsBarFontSize, weight: .regular)
         ]).width
         let controlWidth = min(max(ceil(textWidth) + standardGap * 11.5, standardGap * 23), standardGap * 34)
 
@@ -237,7 +239,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                 onCommit: { finishProjectRename() },
                 onCancel: { finishProjectRename(cancelled: true) },
                 showsPlate: false,
-                font: .systemFont(ofSize: workspaceSidebarProjectLabelFontSize, weight: .regular)
+                font: .systemFont(ofSize: projectTabsBarFontSize, weight: .regular)
             )
             .frame(width: controlWidth, height: contentHeight)
         } else {
@@ -271,7 +273,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                     }
                 } label: {
                     Image(systemName: "square.stack.3d.up")
-                        .font(.system(size: workspaceSidebarProjectLabelFontSize, weight: .regular))
+                        .font(.system(size: projectTabsBarFontSize, weight: .medium))
                         .foregroundStyle(palette.content(.secondary))
                         .frame(width: contentHeight, height: contentHeight)
                     .contentShape(Rectangle())
@@ -321,7 +323,7 @@ struct WorkspaceSidebarHorizontalBar: View {
 
     private func workspaceTabWidth(_ workspace: WorkspaceSidebarWorkspaceViewModel) -> CGFloat {
         let textWidth = (workspace.displayName as NSString).size(withAttributes: [
-            .font: NSFont.systemFont(ofSize: WinMuxBarStyle.fontSize, weight: .semibold)
+            .font: NSFont.systemFont(ofSize: projectTabsBarFontSize, weight: .semibold)
         ]).width
         return min(ceil(textWidth) + WinMuxBarStyle.contentInset * 2, WinMuxBarStyle.maximumTabWidth)
     }
@@ -652,7 +654,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                 Button(action: onSelect) {
                     HStack(spacing: WinMuxBarStyle.iconSpacing) {
                         Text(workspace.displayName)
-                            .font(.system(size: WinMuxBarStyle.fontSize, weight: isActive || isHovered ? .semibold : .regular))
+                            .font(.system(size: projectTabsBarFontSize, weight: isActive || isHovered ? .semibold : .medium))
                             .foregroundStyle(WinMuxOverlayPalette(colorScheme: .light).color(.gray, isActive ? .color10 : .color9))
                             .lineLimit(1)
                             .truncationMode(.tail)
