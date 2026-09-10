@@ -3,7 +3,7 @@ import AppKit
 import XCTest
 
 final class WorkspaceSidebarHorizontalBarTest: XCTestCase {
-    func testNotchedDisplayPlacesFullWidthTabsBelowSafeWidgetLane() {
+    func testNotchedDisplayUsesFullWidthWidgetAndProjectRows() {
         let screenFrame = NSRect(x: 0, y: 0, width: 1728, height: 1117)
         let leftSafeArea = NSRect(x: 0, y: 1085, width: 771, height: 32)
         let rightSafeArea = NSRect(x: 957, y: 1085, width: 771, height: 32)
@@ -28,7 +28,7 @@ final class WorkspaceSidebarHorizontalBarTest: XCTestCase {
         )
 
         XCTAssertEqual(left, NSRect(x: 0, y: 1045, width: 1728, height: 40))
-        XCTAssertEqual(right, NSRect(x: 957, y: 1085, width: 771, height: 32))
+        XCTAssertEqual(right, NSRect(x: 0, y: 1085, width: 1728, height: 32))
         XCTAssertEqual(panel.minX, left.minX)
         XCTAssertEqual(panel.maxY, right.minY)
         XCTAssertEqual(panel.maxX, screenFrame.maxX)

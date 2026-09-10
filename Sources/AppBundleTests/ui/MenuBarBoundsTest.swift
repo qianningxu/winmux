@@ -21,6 +21,8 @@ final class MenuBarBoundsTest: XCTestCase {
             XCTAssertEqual(left.height, WinMuxBarStyle.projectBarHeight)
             XCTAssertEqual(left.maxY, right.minY)
             XCTAssertEqual(right.maxY, screen.maxY)
+            XCTAssertEqual(right.minX, screen.minX)
+            XCTAssertEqual(right.width, screen.width)
             XCTAssertEqual(left.maxX, right.maxX)
             XCTAssertEqual(left.width, screen.width)
         }

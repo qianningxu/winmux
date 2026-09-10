@@ -116,22 +116,12 @@ func workspaceSidebarTopBarRegionFrame(
 
 func menuBarStatusWidgetRegionFrame(
     screenFrame: NSRect,
-    auxiliaryTopRightArea: NSRect?,
+    auxiliaryTopRightArea _: NSRect?,
     barHeight: CGFloat,
 ) -> NSRect {
     let resolvedBarHeight = max(barHeight, 1)
-    if let auxiliaryTopRightArea,
-       auxiliaryTopRightArea.width > 0,
-       auxiliaryTopRightArea.height > 0
-    {
-        return NSRect(
-            x: auxiliaryTopRightArea.minX,
-            y: screenFrame.maxY - resolvedBarHeight,
-            width: auxiliaryTopRightArea.width,
-            height: resolvedBarHeight,
-        )
-    }
-
+    // The balanced Widget bar owns the full horizontal strip. Its leading and
+    // trailing groups naturally leave the camera/notch area clear.
     return NSRect(
         x: screenFrame.minX,
         y: screenFrame.maxY - resolvedBarHeight,
