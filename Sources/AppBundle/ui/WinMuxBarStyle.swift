@@ -19,7 +19,7 @@ enum WinMuxBarStyle {
     static let projectTabsBarOuterInset = WinMuxSpacing.comfortable
     static let projectTabsBarSurfaceHeight = standardGap * 8 + innerSpacing * 2
     static let projectBarHeight = projectTabsBarSurfaceHeight - innerSpacing * 2 + projectTabsBarOuterInset
-    static let workspaceBarHeight = projectTabsBarSurfaceHeight
+    static let workspaceBarHeight = standardGap * 8 + windowTabStripContentPaddingValue * 2
 }
 
 struct WinMuxBarDivider: View {
