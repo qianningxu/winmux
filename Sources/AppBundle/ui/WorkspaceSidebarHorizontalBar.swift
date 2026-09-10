@@ -660,7 +660,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                                 if isActive {
                                     Rectangle()
                                         .fill(WinMuxOverlayPalette(colorScheme: .light).color(.gray, .color10))
-                                        .frame(height: 1 / max(NSScreen.main?.backingScaleFactor ?? 1, 1))
+                                        .frame(height: WinMuxBarStyle.innerSpacing / 2)
                                 }
                             }
                     }
