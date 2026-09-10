@@ -51,9 +51,17 @@ import XCTest
         let tabBarHeight = resolvedWindowTabBarHeight()
 
         XCTAssertEqual(activeFrame.topLeftX, groupFrame.topLeftX + windowTabGroupShellHorizontalInset())
-        XCTAssertEqual(activeFrame.topLeftY, groupFrame.topLeftY + tabBarHeight)
+        XCTAssertEqual(
+            activeFrame.topLeftY,
+            groupFrame.topLeftY + tabBarHeight + windowTabGroupShellTopInset()
+        )
         XCTAssertEqual(activeFrame.width, groupFrame.width - windowTabGroupShellHorizontalInset() * 2)
-        XCTAssertEqual(activeFrame.height, groupFrame.height - tabBarHeight - windowTabGroupShellBottomInset())
+        XCTAssertEqual(
+            activeFrame.height,
+            groupFrame.height - tabBarHeight
+                - windowTabGroupShellTopInset()
+                - windowTabGroupShellBottomInset()
+        )
     }
 
     @MainActor
@@ -64,11 +72,20 @@ import XCTest
         let tabBarFrame = windowTabBarRect(forGroupFrameRect: groupFrame)
 
         XCTAssertEqual(groupFrame.topLeftX, 44)
-        XCTAssertEqual(groupFrame.topLeftY, 96 - resolvedWindowTabBarHeight())
+        XCTAssertEqual(
+            groupFrame.topLeftY,
+            96 - resolvedWindowTabBarHeight() - windowTabGroupShellTopInset()
+        )
         XCTAssertEqual(groupFrame.width, 492)
-        XCTAssertEqual(groupFrame.height, 260 + resolvedWindowTabBarHeight())
+        XCTAssertEqual(
+            groupFrame.height,
+            260 + resolvedWindowTabBarHeight() + windowTabGroupShellTopInset()
+        )
         XCTAssertEqual(tabBarFrame.topLeftX, 44)
-        XCTAssertEqual(tabBarFrame.topLeftY, 96 - resolvedWindowTabBarHeight())
+        XCTAssertEqual(
+            tabBarFrame.topLeftY,
+            96 - resolvedWindowTabBarHeight() - windowTabGroupShellTopInset()
+        )
         XCTAssertEqual(tabBarFrame.width, 492)
         XCTAssertEqual(tabBarFrame.height, resolvedWindowTabBarHeight())
     }

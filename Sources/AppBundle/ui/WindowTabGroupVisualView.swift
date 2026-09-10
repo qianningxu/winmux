@@ -4,8 +4,21 @@ struct WindowTabGroupVisualView: View {
     let strip: WindowTabStripViewModel
 
     var body: some View {
-        // Native windows and the shared workspace surface provide the framing.
-        WinMuxDesignTokens.transparent
+        GeometryReader { geometry in
+            VStack(spacing: WinMuxSpacing.none) {
+                RoundedRectangle(
+                    cornerRadius: WinMuxBarStyle.workspaceTabBarCornerRadius,
+                    style: .continuous
+                )
+                .fill(WinMuxOverlayPalette.current.color(.gray, .color5))
+                .frame(
+                    width: geometry.size.width,
+                    height: min(WinMuxBarStyle.workspaceBarHeight, geometry.size.height)
+                )
+
+                Spacer(minLength: WinMuxSpacing.none)
+            }
+        }
             .allowsHitTesting(false)
     }
 }

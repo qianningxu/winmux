@@ -23,6 +23,31 @@ func learnedMinimumSizeAfterNativeClamp(
     return changed ? minimum : nil
 }
 
+func nativeLiveResizeFramesMatch(_ lhs: Rect, _ rhs: Rect, tolerance: CGFloat) -> Bool {
+    abs(lhs.topLeftX - rhs.topLeftX) < tolerance &&
+        abs(lhs.topLeftY - rhs.topLeftY) < tolerance &&
+        abs(lhs.width - rhs.width) < tolerance &&
+        abs(lhs.height - rhs.height) < tolerance
+}
+
+func nativeLiveResizeClampIsConfirmed(
+    initial: Rect?,
+    requested: Rect,
+    previous: Rect?,
+    observed: Rect,
+    tolerance: CGFloat
+) -> Bool {
+    guard let initial, let previous else { return false }
+    let requestedOriginReached = abs(requested.topLeftX - observed.topLeftX) < tolerance &&
+        abs(requested.topLeftY - observed.topLeftY) < tolerance
+    let rejectedDimension = observed.width > requested.width + tolerance ||
+        observed.height > requested.height + tolerance
+    return requestedOriginReached &&
+        rejectedDimension &&
+        nativeLiveResizeFramesMatch(previous, observed, tolerance: tolerance) &&
+        !nativeLiveResizeFramesMatch(initial, observed, tolerance: tolerance)
+}
+
 @MainActor
 func liveResizeWindowContentRect(groupRect: Rect, isTabGroup: Bool) -> Rect {
     guard isTabGroup else { return groupRect }

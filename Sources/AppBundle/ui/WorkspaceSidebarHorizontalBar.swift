@@ -151,14 +151,18 @@ struct WorkspaceSidebarHorizontalBar: View {
                 barSurface
                     .frame(height: surfaceHeight, alignment: .top)
 
-                HStack(spacing: 0) {
+                HStack(spacing: WinMuxSpacing.comfortable) {
                     projectControl(contentHeight: contentHeight)
 
 
                     workspaceTabStrip(contentHeight: contentHeight)
                 }
-                .frame(width: max(surfaceWidth - innerPadding * 2, 1), height: contentHeight, alignment: .center)
-                .padding(.horizontal, innerPadding)
+                .frame(
+                    width: max(surfaceWidth - WinMuxSpacing.comfortable * 2, 1),
+                    height: contentHeight,
+                    alignment: .center
+                )
+                .padding(.horizontal, WinMuxSpacing.comfortable)
                 .padding(.vertical, innerPadding)
             }
             .clipShape(UnevenRoundedRectangle(
@@ -215,7 +219,7 @@ struct WorkspaceSidebarHorizontalBar: View {
     }
 
     private var barSurface: some View {
-        Rectangle().fill(palette.color(.gray, .color6))
+        Rectangle().fill(palette.color(.gray, .color3))
     }
 
     @ViewBuilder
@@ -267,17 +271,22 @@ struct WorkspaceSidebarHorizontalBar: View {
                         }
                     }
                 } label: {
-                    HStack(spacing: standardGap * 1.5) {
+                    HStack(spacing: WinMuxSpacing.none) {
                         Text(name)
                             .font(.system(size: workspaceSidebarProjectLabelFontSize, weight: .semibold))
                             .lineLimit(1)
                             .truncationMode(.tail)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 8.5, weight: .bold))
                     }
                     .foregroundStyle(palette.content(.primary))
                     .frame(width: max(controlWidth - WinMuxBarStyle.contentInset * 2, 0), height: contentHeight)
                     .padding(.horizontal, WinMuxBarStyle.contentInset)
+                    .background {
+                        RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous)
+                            .strokeBorder(
+                                palette.color(.gray, .color5),
+                                lineWidth: WinMuxBarStyle.strokeWidth
+                            )
+                    }
                     .contentShape(Rectangle())
                 }
                 .menuStyle(.button)
@@ -312,23 +321,34 @@ struct WorkspaceSidebarHorizontalBar: View {
     private func workspaceTabStrip(contentHeight: CGFloat) -> some View {
         GeometryReader { geometry in
             let count = projectWorkspaces.count
-            let spacing = WinMuxSpacing.compact
+            let spacing = WinMuxSpacing.comfortable
             let tabWidth = winMuxBarTabWidth(
                 availableWidth: geometry.size.width, count: count, spacing: spacing,
                 maximumWidth: WinMuxBarStyle.maximumTabWidth)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing) {
-                    ForEach(projectWorkspaces, id: \.id) { workspace in
+                    ForEach(Array(projectWorkspaces.enumerated()), id: \.element.id) { index, workspace in
                         workspaceTab(workspace, contentHeight: contentHeight)
                             .frame(width: tabWidth, height: contentHeight)
+                            .overlay(alignment: .leading) {
+                                if projectWorkspaces.count >= 3,
+                                   index > 0,
+                                   !workspaceIsActive(workspace),
+                                   !workspaceIsActive(projectWorkspaces[index - 1])
+                                {
+                                    Rectangle()
+                                        .fill(palette.color(.gray, .color5))
+                                        .frame(
+                                            width: WinMuxBarStyle.strokeWidth,
+                                            height: WinMuxSpacing.panel
+                                        )
+                                        .offset(x: -spacing / 2)
+                                }
+                            }
                     }
                 }
-                .padding(.bottom, WinMuxBarStyle.topBarContentInset)
             }
-            // Keep the connecting selection inside the scroll viewport.
-            .frame(width: geometry.size.width,
-                   height: contentHeight + WinMuxBarStyle.topBarContentInset,
-                   alignment: .topLeading)
+            .frame(width: geometry.size.width, height: contentHeight, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity)
         .frame(height: contentHeight)
@@ -338,7 +358,7 @@ struct WorkspaceSidebarHorizontalBar: View {
         _ workspace: WorkspaceSidebarWorkspaceViewModel,
         contentHeight: CGFloat,
     ) -> some View {
-        let isActive = workspace.isVisible && workspace.monitorScopeId == snapshot.targetMonitorScopeId
+        let isActive = workspaceIsActive(workspace)
         let isInUseOnOtherDisplay = workspaceSidebarWorkspaceIsInUseOnOtherDisplay(
             workspace,
             selectedScopeId: snapshot.targetMonitorScopeId,
@@ -414,6 +434,10 @@ struct WorkspaceSidebarHorizontalBar: View {
             }
         }
         .frame(height: contentHeight)
+    }
+
+    private func workspaceIsActive(_ workspace: WorkspaceSidebarWorkspaceViewModel) -> Bool {
+        workspace.isVisible && workspace.monitorScopeId == snapshot.targetMonitorScopeId
     }
 
     private func selectWorkspace(_ workspace: WorkspaceSidebarWorkspaceViewModel) {
@@ -655,11 +679,9 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                         alignment: .leading,
                     )
                     .background {
-                        if isActive || isDropTarget || isReorderTarget || isReorderSource {
-                            ProjectTabShape().fill(palette.color(.gray, .color3))
-                        } else if isHovered {
+                        if isDropTarget || isReorderTarget || isReorderSource || isHovered {
                             RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius)
-                                .fill(palette.color(.gray, .color2))
+                                .fill(palette.color(.gray, .color4))
                         }
                     }
                     .contentShape(Rectangle())

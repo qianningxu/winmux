@@ -4,7 +4,7 @@ import SwiftUI
 extension WindowTabStripView {
     func tabStripBody(stripWidth: CGFloat, stripHeight: CGFloat) -> some View {
         let context = WindowTabStripLayoutContext(strip: strip, width: stripWidth)
-        let itemHeight = max(stripHeight - WinMuxSpacing.compact * 2, 18)
+        let itemHeight = max(stripHeight - WinMuxSpacing.hairline * 2, 18)
         let activeWindowId = strip.tabs.first(where: \.isActive)?.windowId
         let groupDragWindowId = activeWindowId ?? strip.tabs.first?.windowId
 
@@ -21,8 +21,7 @@ extension WindowTabStripView {
         }
         // Keep the interactive row within the tab height.
         .frame(height: itemHeight, alignment: .top)
-        .padding(.top, WinMuxSpacing.compact)
-        .padding(.bottom, WinMuxSpacing.compact)
+        .padding(.vertical, WinMuxSpacing.hairline)
         .frame(width: stripWidth, height: stripHeight, alignment: .top)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Workspace tab bar")
@@ -43,9 +42,23 @@ extension WindowTabStripView {
         ScrollViewReader { scrollProxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: windowTabStripTabSpacing) {
-                    ForEach(strip.tabs) { tab in
+                    ForEach(Array(strip.tabs.enumerated()), id: \.element.id) { index, tab in
                         tabItem(tab, context: context, itemHeight: itemHeight)
-
+                            .overlay(alignment: .leading) {
+                                if strip.tabs.count >= 3,
+                                   index > 0,
+                                   !tab.isActive,
+                                   !strip.tabs[index - 1].isActive
+                                {
+                                    Rectangle()
+                                        .fill(WinMuxOverlayPalette.current.color(.gray, .color6))
+                                        .frame(
+                                            width: WinMuxBarStyle.strokeWidth,
+                                            height: WinMuxSpacing.panel
+                                        )
+                                        .offset(x: -windowTabStripTabSpacing / 2)
+                                }
+                            }
                     }
                 }
                 .frame(maxHeight: .infinity, alignment: .top)

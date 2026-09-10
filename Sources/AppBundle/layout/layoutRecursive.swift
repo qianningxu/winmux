@@ -143,7 +143,11 @@ private struct LayoutContext {
     @MainActor
     init(_ workspace: Workspace) {
         self.workspace = workspace
-        self.resolvedGaps = ResolvedGaps(gaps: config.gaps, monitor: workspace.workspaceMonitor, canvasGap: config.workspaceSidebar.enabled ? Int(workspaceSidebarStandardGap) : nil)
+        self.resolvedGaps = ResolvedGaps(
+            gaps: config.gaps,
+            monitor: workspace.workspaceMonitor,
+            canvasGap: config.workspaceSidebar.enabled ? Int(WinMuxSpacing.comfortable) : nil
+        )
     }
 }
 

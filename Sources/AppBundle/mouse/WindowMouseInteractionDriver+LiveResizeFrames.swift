@@ -1,5 +1,13 @@
 import AppKit
 
+private let liveResizeObservationPollNanoseconds: UInt64 = 8_000_000
+private let liveResizeObservationPollLimit = 12
+
+private struct LiveResizeFrameWriteResult {
+    let observed: Rect?
+    let confirmedClamp: Bool
+}
+
 extension WindowMouseInteractionDriver {
     /// Coalesce AX frame writes per window. Cancelling an in-progress AX write
     /// can leave an app with its size changed but its position unchanged.
@@ -60,30 +68,91 @@ extension WindowMouseInteractionDriver {
                 liveResizeFramesInFlight.removeValue(forKey: windowId)
                 return
             }
-            let observed: Rect?
+            let result: LiveResizeFrameWriteResult
             if let macWindow = window as? MacWindow {
+                let initial = window.lastKnownActualRect
                 try? await macWindow.setAxFrameBlocking(frame.topLeftCorner, frame.size)
-                observed = try? await macWindow.getAxRect()
+                if resizeSession?.windowId == windowId {
+                    let observed = try? await macWindow.getAxRect()
+                    result = LiveResizeFrameWriteResult(observed: observed, confirmedClamp: false)
+                } else {
+                    result = await observeRelatedLiveResizeFrame(
+                        window: macWindow,
+                        initial: initial,
+                        requested: frame,
+                        generation: generation)
+                }
             } else {
                 window.setAxFrame(frame.topLeftCorner, frame.size)
-                observed = window.lastKnownActualRect
+                result = LiveResizeFrameWriteResult(
+                    observed: window.lastKnownActualRect,
+                    confirmedClamp: false)
             }
             guard generation == liveResizeFrameWriteGeneration else { return }
 
-            if let observed {
-                window.lastKnownActualRect = observed
-                if resizeSession?.windowId == windowId {
-                    WindowTabStripPanelController.shared.updateResizingTabGroupChrome(
-                        window: window, activeWindowRect: observed)
-                } else {
-                    WindowTabStripPanelController.shared.updateRelatedResizeChrome(
-                        window: window, activeWindowRect: observed)
+            if let observed = result.observed {
+                publishObservedLiveResizeFrame(window: window, observed: observed)
+                if result.confirmedClamp {
+                    learnLiveResizeMinimumIfClamped(window: window, requested: frame, observed: observed)
                 }
-                learnLiveResizeMinimumIfClamped(window: window, requested: frame, observed: observed)
             }
             liveResizeFrameWriteTasks.removeValue(forKey: windowId)
             liveResizeFramesInFlight.removeValue(forKey: windowId)
             beginNextLiveResizeFrameWrite(windowId: windowId)
+        }
+    }
+
+    private func observeRelatedLiveResizeFrame(
+        window: MacWindow,
+        initial: Rect?,
+        requested: Rect,
+        generation: UInt64
+    ) async -> LiveResizeFrameWriteResult {
+        var previous: Rect?
+        var latest: Rect?
+        for attempt in 0 ..< liveResizeObservationPollLimit {
+            guard generation == liveResizeFrameWriteGeneration, !Task.isCancelled else {
+                return LiveResizeFrameWriteResult(observed: latest, confirmedClamp: false)
+            }
+            if attempt > 0 {
+                try? await Task.sleep(nanoseconds: liveResizeObservationPollNanoseconds)
+            }
+            guard let observed = try? await window.getAxRect() else { continue }
+            guard generation == liveResizeFrameWriteGeneration, !Task.isCancelled else {
+                return LiveResizeFrameWriteResult(observed: latest, confirmedClamp: false)
+            }
+            latest = observed
+            publishObservedLiveResizeFrame(window: window, observed: observed)
+            if nativeLiveResizeFramesMatch(
+                requested, observed, tolerance: resizePreviewVisibleChangeThreshold)
+            {
+                return LiveResizeFrameWriteResult(observed: observed, confirmedClamp: false)
+            }
+            if nativeLiveResizeClampIsConfirmed(
+                initial: initial,
+                requested: requested,
+                previous: previous,
+                observed: observed,
+                tolerance: resizePreviewVisibleChangeThreshold)
+            {
+                return LiveResizeFrameWriteResult(observed: observed, confirmedClamp: true)
+            }
+            previous = observed
+            if pendingLiveResizeFrames[window.windowId] != nil {
+                return LiveResizeFrameWriteResult(observed: observed, confirmedClamp: false)
+            }
+        }
+        return LiveResizeFrameWriteResult(observed: latest, confirmedClamp: false)
+    }
+
+    private func publishObservedLiveResizeFrame(window: Window, observed: Rect) {
+        window.lastKnownActualRect = observed
+        if resizeSession?.windowId == window.windowId {
+            WindowTabStripPanelController.shared.updateResizingTabGroupChrome(
+                window: window, activeWindowRect: observed)
+        } else {
+            WindowTabStripPanelController.shared.updateRelatedResizeChrome(
+                window: window, activeWindowRect: observed)
         }
     }
 

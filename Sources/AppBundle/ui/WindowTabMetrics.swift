@@ -1,7 +1,7 @@
 import AppKit
 
 private let windowTabGroupShellHorizontalInsetValue = WinMuxSpacing.none
-private let windowTabGroupShellTopInsetValue = WinMuxSpacing.none
+private let windowTabGroupShellTopInsetValue = WinMuxSpacing.comfortable
 private let windowTabGroupShellBottomInsetValue = WinMuxSpacing.none
 // Match the visible height of the menu-bar surfaces.
 private let windowTabBarMinimumHeightValue = workspaceSidebarTabRowHeight - standardGap * 0.5

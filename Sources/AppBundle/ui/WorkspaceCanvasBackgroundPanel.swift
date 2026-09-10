@@ -133,13 +133,8 @@ struct WorkspaceCanvasBackgroundView: View {
             theme: theme,
             projectThemeFamily: projectThemeFamily
         )
-        ZStack(alignment: .topLeading) {
-            frameShape
-                .fill(palette.color(.gray, .color6))
-            Rectangle()
-                .fill(palette.color(.gray, .color3))
-                .padding(.top, WinMuxBarStyle.projectBarHeight)
-        }
+        frameShape
+            .fill(palette.color(.gray, .color3))
         .clipShape(frameShape)
         .overlay {
             frameShape
@@ -163,7 +158,7 @@ func workspaceCanvasProjectThemeFamily(
 }
 
 func workspaceCanvasBackground(for palette: WinMuxOverlayPalette) -> Color {
-    palette.color(.gray, .color6)
+    palette.color(.gray, .color3)
 }
 
 /// Use one enclosing radius for all four corners, accommodating native windows.

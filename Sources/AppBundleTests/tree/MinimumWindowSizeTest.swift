@@ -86,7 +86,7 @@ final class MinimumWindowSizeTest: XCTestCase {
         let gap = ResolvedGaps(
             gaps: config.gaps,
             monitor: workspace.workspaceMonitor,
-            canvasGap: config.workspaceSidebar.enabled ? Int(workspaceSidebarStandardGap) : nil
+            canvasGap: config.workspaceSidebar.enabled ? Int(WinMuxSpacing.comfortable) : nil
         ).inner.horizontal.toDouble()
         let leftStackFrame = windowTabGroupFrameRect(forActiveWindowContentRect: proposal.rect)
 

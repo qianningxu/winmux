@@ -55,7 +55,7 @@ extension TreeNode {
         guard let parent = parent as? TilingContainer, parent.layout == .tiles,
               let workspace = nodeWorkspace, let ownIndex else { return 0 }
         let gaps = ResolvedGaps(gaps: config.gaps, monitor: workspace.workspaceMonitor,
-                                canvasGap: config.workspaceSidebar.enabled ? Int(workspaceSidebarStandardGap) : nil)
+                                canvasGap: config.workspaceSidebar.enabled ? Int(WinMuxSpacing.comfortable) : nil)
         return parent.minimumTileWeights(gaps: gaps)[ownIndex]
     }
 }
