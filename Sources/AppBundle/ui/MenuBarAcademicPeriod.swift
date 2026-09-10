@@ -22,7 +22,7 @@ struct MenuBarAcademicPeriod {
     }
 
     var title: String {
-        let progress = "Y4S1 - \(currentWeek)/\(totalWeeks)"
+        let progress = "Y4S1 - \(currentWeek)/\(totalWeeks) Week"
         return specialWeek.map { "\(progress) - \($0)" } ?? progress
     }
 

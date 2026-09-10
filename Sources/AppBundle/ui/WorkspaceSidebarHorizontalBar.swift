@@ -185,7 +185,8 @@ struct WorkspaceSidebarHorizontalBar: View {
                 actions.setDropTargets([])
             }
         }
-        .background(workspaceCanvasBackground(for: palette))
+        // The canvas panel supplies the project frame surface and rounded border.
+        // Keep this higher panel transparent so it cannot cover the top edge.
         .environment(\.colorScheme, .light)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Project tabs bar")
