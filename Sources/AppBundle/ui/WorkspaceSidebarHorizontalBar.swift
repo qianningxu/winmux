@@ -163,6 +163,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                     projectControl(contentHeight: contentHeight)
 
                     WinMuxBarDivider(height: WinMuxSpacing.panel, palette: palette)
+                        .opacity(projectWorkspaces.first.map { workspaceIsActive($0) } == true ? 0 : 1)
 
                     workspaceTabStrip(contentHeight: contentHeight)
                 }
