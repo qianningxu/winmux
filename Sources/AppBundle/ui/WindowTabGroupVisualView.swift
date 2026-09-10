@@ -10,7 +10,7 @@ struct WindowTabGroupVisualView: View {
                     cornerRadius: WinMuxBarStyle.workspaceTabBarCornerRadius,
                     style: .continuous
                 )
-                .fill(WinMuxOverlayPalette.current.color(.gray, .color5))
+                .fill(WinMuxOverlayPalette(colorScheme: .light).color(.gray, .color5))
                 .frame(
                     width: max(geometry.size.width - windowTabGroupShellHorizontalInset() * 2, 0),
                     height: min(WinMuxBarStyle.workspaceBarHeight, geometry.size.height)

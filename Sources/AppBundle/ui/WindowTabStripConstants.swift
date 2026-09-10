@@ -47,13 +47,9 @@ func windowTabStripScrollViewportWidth(stripWidth: CGFloat) -> CGFloat {
 }
 
 func windowTabStripTabWidth(stripWidth: CGFloat, count: Int) -> CGFloat {
-    winMuxBarTabWidth(
-        availableWidth: windowTabStripScrollViewportWidth(stripWidth: stripWidth)
-            - windowTabStripContentHorizontalPadding * 2,
-        count: count,
-        spacing: windowTabStripTabSpacing,
-        maximumWidth: windowTabStripPreferredTabWidth
-    )
+    guard count > 0 else { return 0 }
+    return max(0, windowTabStripAvailableTabsWidth(stripWidth: stripWidth)
+        - CGFloat(count - 1) * windowTabStripTabSpacing) / CGFloat(count)
 }
 
 func windowTabStripAvailableTabsWidth(stripWidth: CGFloat) -> CGFloat {

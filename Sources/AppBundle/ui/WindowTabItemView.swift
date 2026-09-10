@@ -12,7 +12,7 @@ struct WindowTabItemView: View {
     var hidesTitle = false
     @Environment(\.colorScheme) var colorScheme
 
-    var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
+    var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: .light) }
 
     var body: some View {
         HStack(spacing: showsTitle ? WinMuxBarStyle.iconSpacing : WinMuxSpacing.none) {
@@ -23,16 +23,11 @@ struct WindowTabItemView: View {
                     .font(.system(size: WinMuxBarStyle.fontSize, weight: tab.isActive ? .semibold : .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                Spacer(minLength: 0)
-                if reservesCloseButtonSpace {
-                    WinMuxDesignTokens.transparent
-                        .frame(width: windowTabStripCloseButtonReservedWidth)
-                }
             }
         }
         .foregroundStyle(tabForegroundStyle)
-        .padding(.horizontal, showsTitle ? WinMuxBarStyle.contentInset : WinMuxSpacing.none)
-        .frame(width: width, height: height, alignment: showsTitle ? .leading : .center)
+        .padding(.horizontal, showsTitle ? max(WinMuxBarStyle.contentInset, reservesCloseButtonSpace ? windowTabStripCloseButtonReservedWidth : 0) : WinMuxSpacing.none)
+        .frame(width: width, height: height, alignment: .center)
         .winMuxBarSegment(palette, isSelected: tab.isActive || isDragSource, isHovered: isHovered)
         .clipShape(RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous))
         .opacity(isDragSource ? 0.55 : 1.0)

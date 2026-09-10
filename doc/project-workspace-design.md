@@ -5,20 +5,20 @@ The approved prototype lives in `../temp/winmux`. The native implementation uses
 | Name | Meaning | Appearance |
 | --- | --- | --- |
 | Widget bar | Status widgets in the native menu area | Dark secondary background; safe around the camera notch |
-| Project frame | Outermost container beneath the widget bar | gray-300, gray-500 outline, rounded corners |
-| Project tabs bar | One bordered row containing the Project menu and winmux, interview Q, etc. | Active workspace tab uses gray-100 and semibold text; inactive neighbours use separators when crowded |
-| Workspace frame | Surface belonging to one stacked window | gray-500 rounded tab surface, separated from its native window |
-| Workspace tab bar | Row switching apply, Inspiration, etc. | White selected pill; inactive neighbours use separators when crowded |
+| Project frame | Outermost container beneath the Widget bar | gray-100-light canvas, gray-500 outline, rounded corners |
+| Project tabs bar | Top row containing the Project menu and workspace tabs | Centered content-sized group, no track or outline; text-only workspace tabs with a text-width underline for selection |
+| Workspace frame | Inner surface enclosing window bars and windows | Same light canvas as the Project frame |
+| Workspace tab bar / window bar | Second row switching apply, Inspiration, etc. | gray-500-light track, white active tab, equal-width tabs with centered content |
 | Stacked window | Windows sharing one workspace tab bar | Existing grouping behavior |
 | Workspace window | Native app window and title bar | Native controls, borders, and corner geometry retained |
 
-Tab widths retain the existing native calculation and 200-point upper limit. Content is left aligned. The Project menu and workspace tabs share one first-row border. The Project tabs bar has six points of outer space above and at both ends; its 38-point surface contains 32-point tabs with three points of inner padding. Both bars use three-point gaps between tabs and between icons and labels, with twelve-point horizontal tab content padding. Workspace tab bars use the same three-point inner padding. The canvas supplies six-point outer gaps for stacked and standalone windows; a stacked window also has six points between its tab bar and native window.
+Project tabs size to their text with a 200pt cap, centered labels, and dividers only between workspaces. The Project icon and label remain; there is no divider after Project. Active workspace text is semibold with a one-pixel underline directly beneath the text. Inactive workspace text is regular gray-900-light. Window tabs divide their available bar width evenly, with centered icons and text; active text is semibold and inactive text medium. Both rows preserve 38pt bar height, 32pt tabs, 6pt outer spacing, and 3pt inner spacing. Tab content retains 12pt horizontal padding. The canvas supplies the gap for stacked and standalone windows exactly once.
 
 The names describe UI surfaces. Internal workspace/project identifiers, configuration keys, CLI commands, and stored user state keep their existing meanings for compatibility. Native window corners remain owned by their applications; the HTML mockup's simulated 20-point corners do not forcibly reshape third-party windows.
 
 ## Native frame corrections
 
-WinMux-controlled tabs and frames use a 16-point continuous radius. The workspace tab bar uses an 18-point outer radius because it sits two points beyond the tabs, keeping the nested curves concentric. The Project menu is part of the shared first-row outline.
+WinMux-controlled tabs use a 16-point continuous radius. The Workspace tab bar uses a 19-point outer radius around its three-point inset. The Project tabs bar has no separate filled or outlined track. The canvas and navigation retain the light theme.
 
 Each stacked window has a gray-500 rounded workspace tab surface aligned with the native window below. Adjacent groups share one six-point gap. Native window borders remain visible.
 

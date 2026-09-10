@@ -134,7 +134,7 @@ struct WorkspaceCanvasBackgroundView: View {
             projectThemeFamily: projectThemeFamily
         )
         frameShape
-            .fill(palette.color(.gray, .color3))
+            .fill(WinMuxOverlayPalette(colorScheme: .light).color(.gray, .color1))
         .clipShape(frameShape)
         .overlay {
             frameShape
@@ -158,7 +158,7 @@ func workspaceCanvasProjectThemeFamily(
 }
 
 func workspaceCanvasBackground(for palette: WinMuxOverlayPalette) -> Color {
-    palette.color(.gray, .color3)
+    WinMuxOverlayPalette(colorScheme: .light).color(.gray, .color1)
 }
 
 /// Use one enclosing radius for all four corners, accommodating native windows.
