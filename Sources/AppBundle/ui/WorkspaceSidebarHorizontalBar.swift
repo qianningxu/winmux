@@ -95,6 +95,7 @@ struct WorkspaceSidebarHorizontalBar: View {
     @State private var renamingWorkspaceText = ""
     @State private var activeInUseOverrideWorkspaceName: String?
     @State private var hoveredWorkspaceName: String?
+    @State private var closeHoveredWorkspaceName: String?
     @State private var workspaceReorderFrames: [WorkspaceSidebarHorizontalTabFrame] = []
     @StateObject private var workspaceDragDriver = WorkspaceSidebarWorkspaceReorderDriver()
     @State private var workspaceReorderSourceName: String?
@@ -316,7 +317,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                     ForEach(Array(projectWorkspaces.enumerated()), id: \.element.id) { index, workspace in
                         if index > 0 {
                             WinMuxBarDivider(height: WinMuxSpacing.panel, palette: palette)
-                                .padding(.horizontal, WinMuxBarStyle.innerSpacing)
+                                .padding(.horizontal, WinMuxSpacing.hairline)
                         }
                         workspaceTab(workspace, contentHeight: contentHeight)
                             .frame(width: workspaceTabWidth(workspace), height: contentHeight)
@@ -329,8 +330,8 @@ struct WorkspaceSidebarHorizontalBar: View {
         let textWidth = (workspace.displayName as NSString).size(withAttributes: [
             .font: NSFont.systemFont(ofSize: WinMuxBarStyle.fontSize, weight: .semibold)
         ]).width
-        let closeWidth = hoveredWorkspaceName == workspace.name && workspace.tabSummary.windowCount > 0
-            ? workspaceSidebarWindowCloseButtonSize + WinMuxBarStyle.innerSpacing : 0
+        let closeWidth = closeHoveredWorkspaceName == workspace.name && workspace.tabSummary.windowCount > 0
+            ? workspaceSidebarWindowCloseButtonSize + WinMuxSpacing.hairline : 0
         return min(ceil(textWidth) + WinMuxBarStyle.contentInset * 2 + closeWidth, WinMuxBarStyle.maximumTabWidth)
     }
 
@@ -359,6 +360,7 @@ struct WorkspaceSidebarHorizontalBar: View {
             renamingText: $renamingWorkspaceText,
             activeInUseOverrideWorkspaceName: $activeInUseOverrideWorkspaceName,
             hoveredWorkspaceName: $hoveredWorkspaceName,
+            closeHoveredWorkspaceName: $closeHoveredWorkspaceName,
             actions: actions,
             projectDestinations: workspaceSidebarProjectDestinations(
                 projects: snapshot.projects,
@@ -569,7 +571,7 @@ struct WorkspaceSidebarHorizontalBar: View {
             $0.offset + (steps[$0.element] ?? 0) < $1.offset + (steps[$1.element] ?? 0)
         }.map(\.element)
         let widths = Dictionary(uniqueKeysWithValues: projectWorkspaces.map { ($0.name, workspaceTabWidth($0)) })
-        let separatorWidth = WinMuxBarStyle.strokeWidth + WinMuxBarStyle.innerSpacing * 2
+        let separatorWidth = WinMuxBarStyle.strokeWidth + WinMuxSpacing.hairline * 2
         func origins(_ names: [String]) -> [String: CGFloat] {
             var x: CGFloat = 0
             var result: [String: CGFloat] = [:]
@@ -621,6 +623,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
     @Binding var renamingText: String
     @Binding var activeInUseOverrideWorkspaceName: String?
     @Binding var hoveredWorkspaceName: String?
+    @Binding var closeHoveredWorkspaceName: String?
     let actions: WorkspaceSidebarActions
     let projectDestinations: [WorkspaceSidebarProjectViewModel]
     let onSelect: () -> Void
@@ -645,8 +648,12 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
         hoveredWorkspaceName == workspace.name
     }
 
+    private var showsClose: Bool {
+        closeHoveredWorkspaceName == workspace.name && !isRenaming && workspace.tabSummary.windowCount > 0
+    }
+
     var body: some View {
-        HStack(spacing: WinMuxBarStyle.innerSpacing) {
+        HStack(spacing: WinMuxSpacing.hairline) {
             if isRenaming {
                 WorkspaceSidebarWorkspaceRenameField(
                     text: $renamingText,
@@ -667,7 +674,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
 
                     }
                     .padding(.leading, WinMuxBarStyle.contentInset)
-                    .padding(.trailing, isHovered && workspace.tabSummary.windowCount > 0 ? WinMuxSpacing.none : WinMuxBarStyle.contentInset)
+                    .padding(.trailing, showsClose ? WinMuxSpacing.none : WinMuxBarStyle.contentInset)
                     .frame(
                         minWidth: 0,
                         maxWidth: .infinity,
@@ -686,7 +693,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                 .buttonStyle(.plain)
             }
 
-            if isHovered && !isRenaming && workspace.tabSummary.windowCount > 0 {
+            if showsClose {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
                         .font(.system(size: 8, weight: .bold))
@@ -714,6 +721,27 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
         .onHover { hovering in
             hoveredWorkspaceName = hovering ? workspace.name : nil
             actions.hoverWorkspace(workspace.name, hovering)
+            if !hovering && closeHoveredWorkspaceName == workspace.name {
+                closeHoveredWorkspaceName = nil
+            }
+        }
+        .background {
+            GeometryReader { geometry in
+                Color.clear.onContinuousHover { phase in
+                    switch phase {
+                    case .active(let location):
+                        let expansion = showsClose ? workspaceSidebarWindowCloseButtonSize + WinMuxSpacing.hairline : 0
+                        let isNearEnd = location.x >= geometry.size.width - WinMuxBarStyle.contentInset - expansion
+                        if isNearEnd && !isRenaming {
+                            closeHoveredWorkspaceName = workspace.name
+                        } else if closeHoveredWorkspaceName == workspace.name {
+                            closeHoveredWorkspaceName = nil
+                        }
+                    case .ended:
+                        if closeHoveredWorkspaceName == workspace.name { closeHoveredWorkspaceName = nil }
+                    }
+                }
+            }
         }
         .contextMenu {
             Button("Rename tab", action: onBeginRename)
