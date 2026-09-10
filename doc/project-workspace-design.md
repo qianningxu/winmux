@@ -6,13 +6,13 @@ The approved prototype lives in `../temp/winmux`. The native implementation uses
 | --- | --- | --- |
 | Widget bar | Status widgets in the native menu area | Dark secondary background; safe around the camera notch |
 | Project frame | Outermost container beneath the widget bar | gray-300, gray-500 outline, rounded corners |
-| Project tabs bar | Row switching winmux, interview Q, etc. | Transparent tabs; active title is semibold; inactive neighbours use separators when crowded |
+| Project tabs bar | One bordered row containing the Project menu and winmux, interview Q, etc. | Active workspace tab uses gray-100 and semibold text; inactive neighbours use separators when crowded |
 | Workspace frame | Surface belonging to one stacked window | gray-500 rounded tab surface, separated from its native window |
 | Workspace tab bar | Row switching apply, Inspiration, etc. | White selected pill; inactive neighbours use separators when crowded |
 | Stacked window | Windows sharing one workspace tab bar | Existing grouping behavior |
 | Workspace window | Native app window and title bar | Native controls, borders, and corner geometry retained |
 
-Tab widths retain the existing native calculation and 200-point upper limit. Content is left aligned. Project and workspace tabs occupy 40-point rows with 32-point content and four points above and below. Workspace windows use six-point structural gaps.
+Tab widths retain the existing native calculation and 200-point upper limit. Content is left aligned. The Project menu and workspace tabs share one first-row border. Both navigation rows are 36 points tall with 32-point tabs and two points above and below. Workspace windows use six-point structural gaps.
 
 The names describe UI surfaces. Internal workspace/project identifiers, configuration keys, CLI commands, and stored user state keep their existing meanings for compatibility. Native window corners remain owned by their applications; the HTML mockup's simulated 20-point corners do not forcibly reshape third-party windows.
 

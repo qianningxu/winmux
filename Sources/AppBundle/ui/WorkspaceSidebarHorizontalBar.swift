@@ -142,7 +142,7 @@ struct WorkspaceSidebarHorizontalBar: View {
     var body: some View {
         GeometryReader { geometry in
             let surfaceHeight = max(geometry.size.height, 1)
-            let innerPadding = WinMuxBarStyle.topBarContentInset
+            let innerPadding = WinMuxSpacing.hairline
             let contentHeight = max(surfaceHeight - innerPadding * 2, 1)
             let surfaceWidth = max(geometry.size.width, 1)
 
@@ -162,6 +162,17 @@ struct WorkspaceSidebarHorizontalBar: View {
                     height: contentHeight,
                     alignment: .center
                 )
+                .overlay {
+                    RoundedRectangle(
+                        cornerRadius: WinMuxBarStyle.cornerRadius,
+                        style: .continuous
+                    )
+                    .strokeBorder(
+                        palette.color(.gray, .color5),
+                        lineWidth: WinMuxBarStyle.strokeWidth
+                    )
+                    .allowsHitTesting(false)
+                }
                 .padding(.horizontal, WinMuxSpacing.comfortable)
                 .padding(.vertical, innerPadding)
             }
@@ -280,13 +291,6 @@ struct WorkspaceSidebarHorizontalBar: View {
                     .foregroundStyle(palette.content(.primary))
                     .frame(width: max(controlWidth - WinMuxBarStyle.contentInset * 2, 0), height: contentHeight)
                     .padding(.horizontal, WinMuxBarStyle.contentInset)
-                    .background {
-                        RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous)
-                            .strokeBorder(
-                                palette.color(.gray, .color5),
-                                lineWidth: WinMuxBarStyle.strokeWidth
-                            )
-                    }
                     .contentShape(Rectangle())
                 }
                 .menuStyle(.button)
@@ -679,7 +683,13 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                         alignment: .leading,
                     )
                     .background {
-                        if isDropTarget || isReorderTarget || isReorderSource || isHovered {
+                        if isActive {
+                            RoundedRectangle(
+                                cornerRadius: WinMuxBarStyle.cornerRadius,
+                                style: .continuous
+                            )
+                            .fill(palette.color(.gray, .color1))
+                        } else if isDropTarget || isReorderTarget || isReorderSource || isHovered {
                             RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius)
                                 .fill(palette.color(.gray, .color4))
                         }
