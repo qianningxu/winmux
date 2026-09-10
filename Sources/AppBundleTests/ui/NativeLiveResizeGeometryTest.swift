@@ -41,4 +41,19 @@ final class NativeLiveResizeGeometryTest: XCTestCase {
             }
         }
     }
+
+    func testNativeClampRaisesOnlyTheRejectedMinimumDimension() {
+        XCTAssertEqual(learnedMinimumSizeAfterNativeClamp(
+            current: CGSize(width: 200, height: 150),
+            requested: CGSize(width: 300, height: 300),
+            observed: CGSize(width: 420, height: 300),
+            tolerance: 0.5
+        ), CGSize(width: 420, height: 150))
+        XCTAssertNil(learnedMinimumSizeAfterNativeClamp(
+            current: CGSize(width: 420, height: 150),
+            requested: CGSize(width: 420, height: 300),
+            observed: CGSize(width: 420.4, height: 300),
+            tolerance: 0.5
+        ))
+    }
 }

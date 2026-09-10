@@ -20,7 +20,9 @@ extension WindowMouseInteractionDriver {
         guard let rect = await finalResizeRect(for: resizeSession, window: window) else { return }
         guard self.resizeSession == resizeSession else { return }
         updateResizePreviewIfNeeded(window: window, rect: rect, force: true)
-        applyResizeWithMouse(window, rect: rect)
+        await drainLiveResizeFrameWrites()
+        guard self.resizeSession == resizeSession else { return }
+        applyResizeWithMouse(window, rect: window.lastKnownActualRect ?? rect)
     }
 
     func stop() {
@@ -30,6 +32,7 @@ extension WindowMouseInteractionDriver {
         resizeSession = nil
         dragSourcePreviewState = nil
         pendingResizeCandidate = nil
+        cancelLiveResizeFrameWrites()
         resetResizeTrackingState()
         WindowResizePreviewPanel.shared.endStableFrame()
         WindowResizePreviewPanel.shared.hide(reason: "driver.stop")
@@ -42,6 +45,7 @@ extension WindowMouseInteractionDriver {
             resizeSession = nil
         }
         pendingResizeCandidate = nil
+        cancelLiveResizeFrameWrites()
         resetResizeTrackingState()
         WindowResizePreviewPanel.shared.endStableFrame()
         WindowResizePreviewPanel.shared.hide(reason: "driver.finishResizeFlush")

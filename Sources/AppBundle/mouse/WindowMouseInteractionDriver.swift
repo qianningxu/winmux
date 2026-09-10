@@ -1,7 +1,7 @@
 import AppKit
 import Common
 
-let resizeGestureCalibrationInterval: TimeInterval = 1.0 / 30.0
+let resizeGestureCalibrationInterval: TimeInterval = 1.0 / 60.0
 let resizePreviewVisibleChangeThreshold = CGFloat(0.5)
 
 @MainActor
@@ -42,6 +42,10 @@ final class WindowMouseInteractionDriver {
     var isResizeSampleInFlight = false
     var isMouseUpResetScheduled = false
     var lastRenderedResizePreviewRect: Rect?
+    var pendingLiveResizeFrames: [UInt32: Rect] = [:]
+    var liveResizeFramesInFlight: [UInt32: Rect] = [:]
+    var liveResizeFrameWriteTasks: [UInt32: Task<Void, Never>] = [:]
+    var liveResizeFrameWriteGeneration: UInt64 = 0
 
     private init() {}
 }

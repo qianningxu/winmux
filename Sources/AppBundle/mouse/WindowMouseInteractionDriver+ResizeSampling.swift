@@ -17,14 +17,9 @@ extension WindowMouseInteractionDriver {
         }
 
         let sample = MousePointerTracker.shared.currentSample
-        if var gesture = resizeGesture, gesture.windowId == session.windowId {
-            let rect = gesture.predictedRect(mouse: sample.point)
-            logWindowDragLive("resize.sample predicted session=\(session.windowId) force=\(force) mouse=\(debugDescribe(sample.point)) rect=\(debugDescribe(rect))")
-            gesture.latestRect = rect
-            resizeGesture = gesture
-            updateResizePreviewIfNeeded(window: window, rect: rect, force: force)
+        if let gesture = resizeGesture, gesture.windowId == session.windowId {
             if force || sample.timestamp - gesture.lastCalibrationTimestamp >= resizeGestureCalibrationInterval {
-                calibrateResizeGesture(window: window, session: session, force: false)
+                calibrateResizeGesture(window: window, session: session, force: force)
             }
             return
         }

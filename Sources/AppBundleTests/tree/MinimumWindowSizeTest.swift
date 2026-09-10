@@ -48,6 +48,53 @@ final class MinimumWindowSizeTest: XCTestCase {
         XCTAssertLessThan(proposal.rect.width, base.width + 1000)
     }
 
+    func testStackResizeUsesOneConstrainedDividerForBothSides() async throws {
+        config.windowTabs.enabled = true
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        root.changeOrientation(.h)
+        root.layout = .tiles
+
+        let leftStack = TilingContainer(
+            parent: root, adaptiveWeight: 500, .h, .tabGroup, index: INDEX_BIND_LAST)
+        let left = TestWindow.new(id: 1, parent: leftStack)
+        _ = TestWindow.new(id: 2, parent: leftStack)
+        let rightStack = TilingContainer(
+            parent: root, adaptiveWeight: 500, .h, .tabGroup, index: INDEX_BIND_LAST)
+        let right = TestWindow.new(id: 3, parent: rightStack)
+        let constrainedInactiveTab = TestWindow.new(id: 4, parent: rightStack)
+        left.minimumSize = CGSize(width: 100, height: 100)
+        right.minimumSize = CGSize(width: 100, height: 100)
+        constrainedInactiveTab.minimumSize = CGSize(width: 650, height: 100)
+        _ = left.focusWindow()
+        _ = workspace.workspaceMonitor.setActiveWorkspace(workspace)
+        try await workspace.layoutWorkspace()
+
+        let base = try XCTUnwrap(left.lastAppliedLayoutPhysicalRect)
+        let proposal = try XCTUnwrap(resizeProposal(
+            left,
+            rect: Rect(
+                topLeftX: base.minX,
+                topLeftY: base.minY,
+                width: base.width + 1000,
+                height: base.height)))
+        let items = windowResizePreviewItems(
+            in: workspace,
+            weightMap: proposal.weights,
+            excludingActiveWindowId: left.windowId)
+        let rightFrame = try XCTUnwrap(items.first(where: { $0.isTabGroup })?.frame.monitorFrameNormalized())
+        let gap = ResolvedGaps(
+            gaps: config.gaps,
+            monitor: workspace.workspaceMonitor,
+            canvasGap: config.workspaceSidebar.enabled ? Int(workspaceSidebarStandardGap) : nil
+        ).inner.horizontal.toDouble()
+        let leftStackFrame = windowTabGroupFrameRect(forActiveWindowContentRect: proposal.rect)
+
+        XCTAssertGreaterThanOrEqual(rightFrame.width, rightStack.minimumLayoutSize(
+            gaps: ResolvedGaps(gaps: config.gaps, monitor: workspace.workspaceMonitor)).width)
+        XCTAssertEqual(rightFrame.minX - leftStackFrame.maxX, gap, accuracy: 0.5)
+    }
+
     func testFullInventoryCollectsWindowsWhoseAppWasRemoved() {
         XCTAssertTrue(shouldReconcileWindowInventory(isFullInventory: true, appWasRefreshed: false))
         XCTAssertFalse(shouldReconcileWindowInventory(isFullInventory: false, appWasRefreshed: false))

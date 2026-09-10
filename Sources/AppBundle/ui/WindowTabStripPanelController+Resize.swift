@@ -29,10 +29,9 @@ extension WindowTabStripPanelController {
         return true
     }
 
-    func updateRelatedResizeChrome(_ frames: [(Window, Rect)]) {
-        transientRelatedResizeStrips = Dictionary(uniqueKeysWithValues: frames.compactMap { window, rect in
-            resizingTabGroupStrip(window: window, activeWindowRect: rect).map { ($0.id, $0) }
-        })
+    func updateRelatedResizeChrome(window: Window, activeWindowRect: Rect) {
+        guard let strip = resizingTabGroupStrip(window: window, activeWindowRect: activeWindowRect) else { return }
+        transientRelatedResizeStrips[strip.id] = strip
         refresh()
     }
 

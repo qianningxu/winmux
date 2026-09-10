@@ -13,6 +13,9 @@ extension WindowMouseInteractionDriver {
                     groupRect: anchor, isTabGroup: getCurrentMouseDragSubject() == .group)
             }
         }
+        if isNewSession {
+            cancelLiveResizeFrameWrites()
+        }
         setCurrentMouseManipulationKind(.resize)
         WindowTabStripPanelController.shared.setIgnoresMouseEvents(true)
         moveSession = nil
@@ -41,9 +44,8 @@ extension WindowMouseInteractionDriver {
             let sample = MousePointerTracker.shared.currentSample
             resizeGesture = makeResizeGesture(window: window, observedRect: window.lastKnownActualRect, sample: sample)
         }
-        guard let rect = resizeGesture?.predictedRect(mouse: MousePointerTracker.shared.currentSample.point) ??
-            window.lastAppliedLayoutPhysicalRect ??
-            window.lastKnownActualRect
+        guard let rect = window.lastKnownActualRect ??
+            window.lastAppliedLayoutPhysicalRect
         else { return }
         beginStableResizePreviewFrame(for: window)
         updateResizePreviewIfNeeded(window: window, rect: rect, force: true)

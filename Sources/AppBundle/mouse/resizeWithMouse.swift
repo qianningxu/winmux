@@ -58,12 +58,12 @@ func resizeWithMouse(_ window: Window) async throws { // todo cover with tests
 func updateCompositedResizePreview(_ window: Window, rect: Rect) {
     syncClosedWindowsCacheToCurrentWorld()
     let boundedRect = resizeProposal(window, rect: rect)?.rect ?? rect
-    if resizePreviewHasVisibleChange(from: rect, to: boundedRect) {
-        window.setAxFrame(boundedRect.topLeftCorner, CGSize(width: boundedRect.width, height: boundedRect.height))
-    }
-    let rect = boundedRect
     WindowTabStripPanelController.shared.showChromeDuringMouseInteraction()
     WindowTabStripPanelController.shared.updateResizingTabGroupChrome(window: window, activeWindowRect: rect)
+    if resizePreviewHasVisibleChange(from: rect, to: boundedRect) {
+        WindowMouseInteractionDriver.shared.enqueueLiveResizeFrame(window: window, frame: boundedRect)
+    }
+    let rect = boundedRect
     guard let workspace = window.nodeWorkspace,
           workspace.isVisible,
           let weightMap = proposedResizeWeightMap(window, rect: rect)
@@ -75,19 +75,13 @@ func updateCompositedResizePreview(_ window: Window, rect: Rect) {
     }
     let items = windowResizePreviewItems(
         in: workspace, weightMap: weightMap, excludingActiveWindowId: window.windowId)
-    var relatedFrames: [(Window, Rect)] = []
     for item in items {
         guard let neighbour = Window.get(byId: item.id), !neighbour.isFloating else { continue }
         let frame = liveResizeWindowContentRect(
             groupRect: item.frame.monitorFrameNormalized(), isTabGroup: item.isTabGroup)
-        relatedFrames.append((neighbour, frame))
         guard resizePreviewHasVisibleChange(from: neighbour.lastKnownActualRect, to: frame) else { continue }
-        // AX events from these programmatic neighbour changes are not gestures.
-        suppressPostDragAxObserverEvents(for: [neighbour.windowId])
-        neighbour.lastKnownActualRect = frame
-        neighbour.setAxFrame(frame.topLeftCorner, frame.size)
+        WindowMouseInteractionDriver.shared.enqueueLiveResizeFrame(window: neighbour, frame: frame)
     }
-    WindowTabStripPanelController.shared.updateRelatedResizeChrome(relatedFrames)
     WindowResizePreviewPanel.shared.hide(reason: "native-live-resize")
 }
 
