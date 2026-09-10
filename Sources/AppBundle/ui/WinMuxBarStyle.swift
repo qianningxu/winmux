@@ -11,7 +11,7 @@ enum WinMuxBarStyle {
     static let workspaceTabBarCornerRadius = cornerRadius + innerSpacing
     static let containerInset = WinMuxSpacing.comfortable
     static let topBarContentInset = WinMuxSpacing.comfortable
-    static let contentInset = innerSpacing * 3
+    static let contentInset = innerSpacing * 4
     static let iconSpacing = innerSpacing
     static let strokeWidth = standardGap * 0.25
     static let fontSize: CGFloat = 14
