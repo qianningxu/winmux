@@ -6,6 +6,36 @@ import XCTest
 final class WorkspaceLifecycleTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
 
+    func testSystemOverlayDoesNotKeepWorkspaceAliveAfterLastRealWindowCloses() {
+        let fallback = Workspace.get(byName: "fallback")
+        TestWindow.new(id: 8101, parent: fallback.rootTilingContainer)
+        let workspace = Workspace.get(byName: "closing")
+        let realWindow = TestWindow.new(id: 8102, parent: workspace.rootTilingContainer)
+        let overlay = TestWindow.new(id: 8103, parent: workspace)
+        _ = workspace.focusWorkspace()
+
+        XCTAssertTrue(normalizeSystemOverlayWindow(overlay, level: .unknown(windowLevel: 1001)))
+        XCTAssertTrue(overlay.parent === macosPopupWindowsContainer)
+        XCTAssertTrue(Workspace.existing(byName: workspace.name) === workspace)
+        realWindow.closeAxWindow()
+        XCTAssertNil(Workspace.existing(byName: workspace.name))
+        XCTAssertTrue(focus.workspace === fallback)
+    }
+
+    func testRemovingRestoredOverlayClosesOtherwiseEmptyWorkspace() {
+        let fallback = Workspace.get(byName: "fallback")
+        TestWindow.new(id: 8111, parent: fallback.rootTilingContainer)
+        let workspace = Workspace.get(byName: "overlay-only")
+        let overlay = TestWindow.new(id: 8112, parent: workspace)
+        _ = workspace.focusWorkspace()
+
+        XCTAssertFalse(normalizeSystemOverlayWindow(overlay, level: nil))
+        XCTAssertFalse(normalizeSystemOverlayWindow(overlay, level: .alwaysOnTopWindow))
+        XCTAssertTrue(overlay.parent === workspace)
+        XCTAssertTrue(normalizeSystemOverlayWindow(overlay, level: .unknown(windowLevel: 1001)))
+        XCTAssertNil(Workspace.existing(byName: workspace.name))
+    }
+
     func testNewDialogIsRaisedWhenItsAppIsAlreadyActive() {
         XCTAssertTrue(shouldRaiseNewlyDetectedDialog(
             isStartup: false,

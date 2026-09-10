@@ -88,6 +88,13 @@ enum MacOsWindowLevel: Sendable, Equatable {
     case alwaysOnTopWindow
     case unknown(windowLevel: Int)
 
+    var isSystemOverlay: Bool {
+        if case .unknown(let level) = self {
+            return level >= Int(CGWindowLevelForKey(.screenSaverWindow))
+        }
+        return false
+    }
+
     static func new(windowLevel: Int) -> MacOsWindowLevel {
         switch windowLevel {
             case 0: .normalWindow

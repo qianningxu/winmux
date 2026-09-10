@@ -39,6 +39,9 @@ private func validateStillPopups(windowIds: Set<UInt32>? = nil) async throws {
 @MainActor
 private func _normalizeLayoutReason(workspace: Workspace, windows: [Window]) async throws {
     for window in windows {
+        if normalizeSystemOverlayWindow(window, level: try await getWindowLevel(for: window.windowId)) {
+            continue
+        }
         let isMacosFullscreen = try await window.isMacosFullscreen
         let isMacosMinimized = try await (!isMacosFullscreen).andAsync { @MainActor @Sendable in try await window.isMacosMinimized }
         let isMacosWindowOfHiddenApp = !isMacosFullscreen && !isMacosMinimized &&
