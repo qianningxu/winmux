@@ -3,14 +3,14 @@ import Charts
 import Foundation
 import SwiftUI
 
-let menuBarWidgetIcon = workspaceSidebarWidgetContent(.secondary)
-let menuBarWidgetText = workspaceSidebarWidgetContent(.secondary)
+let menuBarWidgetIcon = workspaceSidebarWidgetContent(.primary)
+let menuBarWidgetText = workspaceSidebarWidgetContent(.primary)
 private let menuBarWidgetDataPath = defaultWorkspaceSidebarDataPath
 let menuBarWidgetSpacing: CGFloat = WinMuxBarStyle.iconSpacing
-let menuBarWidgetFontSize: CGFloat = 12
-let menuBarWidgetFontWeight: Font.Weight = .medium
-let menuBarWidgetIconSize: CGFloat = 12
-let menuBarWidgetIconFrame: CGFloat = 14
+let menuBarWidgetFontSize = NSFont.menuBarFont(ofSize: 0).pointSize
+let menuBarWidgetFontWeight: Font.Weight = .regular
+let menuBarWidgetIconSize = menuBarWidgetFontSize
+let menuBarWidgetIconFrame = menuBarWidgetIconSize + standardGap * 0.5
 private let menuBarWidgetGroupSpacing: CGFloat = standardGap * 2.25
 let menuBarContentTopInset: CGFloat = standardGap * 0.5
 private let menuBarFloatingSurfaceVerticalInset: CGFloat = 0
@@ -254,7 +254,7 @@ private struct MenuBarStatusWidgetGroup: View {
             let surfaceHeight = max(1, geometry.size.height - menuBarContentTopInset)
             let widgetHeight = max(1, surfaceHeight - WinMuxBarStyle.topBarContentInset * 2)
             VStack(spacing: standardGap * 0) {
-                MenuBarProportionalWidgetLayout {
+                MenuBarBalancedWidgetLayout(separation: menuBarWidgetGroupSpacing) {
                     MenuBarPeriodCapsule(height: widgetHeight)
 
                     MenuBarDailyFocusCapsule(height: widgetHeight)
