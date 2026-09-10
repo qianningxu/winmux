@@ -40,7 +40,7 @@ extension WorkspaceSidebarPanel {
             collapsedWidth: frame.width,
             metrics: .standard,
             topBarRegion: topBarRegion,
-            barHeight: barHeight,
+            barHeight: WinMuxBarStyle.projectBarHeight,
         )
     }
 
@@ -94,7 +94,7 @@ func workspaceSidebarTopBarVisibleOverlap(for monitor: Monitor) -> CGFloat {
     let barHeight = workspaceSidebarTopBarHeight(for: screen)
     guard TrayMenuModel.shared.isEnabled, config.workspaceSidebar.enabled,
           !shouldSuppressWorkspaceSidebarForFullscreenContent() else { return 0 }
-    let visualSurfaceBottom = screen.frame.maxY - barHeight * 2
+    let visualSurfaceBottom = screen.frame.maxY - barHeight - WinMuxBarStyle.projectBarHeight
     return max(screen.visibleFrame.maxY - visualSurfaceBottom, 0)
 }
 
@@ -108,9 +108,9 @@ func workspaceSidebarTopBarRegionFrame(
     // where the camera notch no longer constrains their width.
     return NSRect(
         x: screenFrame.minX,
-        y: screenFrame.maxY - resolvedBarHeight * 2,
+        y: screenFrame.maxY - resolvedBarHeight - WinMuxBarStyle.projectBarHeight,
         width: screenFrame.width,
-        height: resolvedBarHeight,
+        height: WinMuxBarStyle.projectBarHeight,
     )
 }
 

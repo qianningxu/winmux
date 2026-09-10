@@ -4,7 +4,7 @@ import SwiftUI
 extension WindowTabStripView {
     func tabStripBody(stripWidth: CGFloat, stripHeight: CGFloat) -> some View {
         let context = WindowTabStripLayoutContext(strip: strip, width: stripWidth)
-        let itemHeight = max(stripHeight, 18)
+        let itemHeight = max(stripHeight - WinMuxSpacing.compact * 2, 18)
         let activeWindowId = strip.tabs.first(where: \.isActive)?.windowId
         let groupDragWindowId = activeWindowId ?? strip.tabs.first?.windowId
 
@@ -21,11 +21,11 @@ extension WindowTabStripView {
         }
         // Keep the interactive row within the tab height.
         .frame(height: itemHeight, alignment: .top)
-        .padding(.top, WinMuxSpacing.none)
-        .padding(.bottom, WinMuxSpacing.none)
+        .padding(.top, WinMuxSpacing.compact)
+        .padding(.bottom, WinMuxSpacing.compact)
         .frame(width: stripWidth, height: stripHeight, alignment: .top)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Stack tabs")
+        .accessibilityLabel("Workspace tab bar")
         .animation(reduceMotion ? windowTabReducedMotionAnimation : windowTabPillAnimation, value: hoveredTabId)
         .animation(reduceMotion ? windowTabReducedMotionAnimation : windowTabPillAnimation, value: activeWindowId)
         .onChange(of: context.tabOrder) { newOrder in
@@ -43,15 +43,7 @@ extension WindowTabStripView {
                 HStack(spacing: windowTabStripTabSpacing) {
                     ForEach(strip.tabs) { tab in
                         tabItem(tab, context: context, itemHeight: itemHeight)
-                            .overlay(alignment: .trailing) {
-                                if !tab.isActive,
-                                   let index = strip.tabs.firstIndex(where: { $0.windowId == tab.windowId }),
-                                   index + 1 < strip.tabs.count,
-                                   !strip.tabs[index + 1].isActive {
-                                    WinMuxBarDivider(height: itemHeight * 0.5, palette: WinMuxOverlayPalette(colorScheme: barColorScheme))
-                                        .offset(x: windowTabStripTabSpacing / 2)
-                                }
-                            }
+
                     }
                 }
                 .frame(maxHeight: .infinity, alignment: .top)

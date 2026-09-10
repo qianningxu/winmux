@@ -11,7 +11,7 @@ extension Monitor {
     @MainActor
     var visibleRectPaddedByOuterGaps: Rect {
         let topLeft = visibleRect.topLeftCorner
-        let gaps = ResolvedGaps(gaps: config.gaps, monitor: self)
+        let gaps = ResolvedGaps(gaps: config.gaps, monitor: self, canvasGap: config.workspaceSidebar.enabled ? Int(WinMuxSpacing.compact) : nil)
         let topBarOverlap = workspaceSidebarTopBarVisibleOverlap(for: self)
         let leftInset = max(gaps.outer.left.toDouble(), 0)
         // Reserve the tabs below the native menu-bar boundary before laying

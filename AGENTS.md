@@ -37,11 +37,14 @@ Never finish a WinMux implementation task without completing this installed-app 
 
 ## UI Terminology
 
-- **Tab bar**: full-width row below the widget bar; switches workspaces.
-- **Widget bar**: top row in the system menu-bar area; displays widgets.
-- **Window stack**: a group of windows stacked together.
-- **Stack tabs**: tabs for switching windows within a stack.
+- **Widget bar**: status widgets in the system menu-bar area.
+- **Project frame**: outer container enclosing the project tabs bar and all workspace content.
+- **Project tabs bar**: horizontal row switching winmux, interview Q, and other entries.
+- **Workspace frame**: inner surface enclosing workspace tab bars and windows.
+- **Workspace tab bar**: switches apply, Inspiration, and other windows.
+- **Stacked window**: a group of windows switched through a workspace tab bar.
+- **Workspace window**: actual native application window, including its original title bar and controls.
 
-Use these names in UI copy, documentation, and discussions. Existing internal `WorkspaceSidebar` and configuration identifiers remain compatible.
+Use these names in UI copy, documentation, and discussion. Internal WorkspaceSidebar, Workspace, tab-group, configuration, and command identifiers remain compatible; naming changes do not migrate user data.
 
-The tab bar is horizontal and is not expandable. Do not restore a vertical sidebar or an expansion control. Keep the widget bar within the system menu-bar area, including any visual top inset. Place the full-width tab bar immediately below it and reserve that row above app windows.
+Keep the widget bar within the native menu-bar area. The project tabs bar is horizontal, non-expandable, immediately below it. Reserve room for it above workspace windows. Frames use solid token colors, not glass.

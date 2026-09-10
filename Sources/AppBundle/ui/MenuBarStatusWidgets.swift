@@ -247,7 +247,7 @@ private struct MenuBarStatusWidgetGroup: View {
 
     var body: some View {
         let palette = WinMuxOverlayPalette(
-            colorScheme: colorScheme,
+            theme: .dark,
             projectThemeFamily: projectThemeFamily
         )
         GeometryReader { geometry in
@@ -256,38 +256,36 @@ private struct MenuBarStatusWidgetGroup: View {
             VStack(spacing: standardGap * 0) {
                 MenuBarProportionalWidgetLayout {
                     MenuBarPeriodCapsule(height: widgetHeight)
-                        .overlay(alignment: .trailing) {
-                            WinMuxBarDivider(height: widgetHeight * 0.5, palette: palette)
-                        }
+
                     MenuBarDailyFocusCapsule(height: widgetHeight)
-                        .overlay(alignment: .trailing) {
-                            WinMuxBarDivider(height: widgetHeight * 0.5, palette: palette)
-                        }
+
                     MenuBarProjectsProgressWidget(height: widgetHeight)
-                        .overlay(alignment: .trailing) {
-                            WinMuxBarDivider(height: widgetHeight * 0.5, palette: palette)
-                        }
+
                     MenuBarBreakPotWidget(height: widgetHeight)
-                        .overlay(alignment: .trailing) {
-                            WinMuxBarDivider(height: widgetHeight * 0.5, palette: palette)
-                        }
+
                     MenuBarSleepSpendingCapsule(height: widgetHeight)
                 }
                 .frame(
-                    width: max(1, geometry.size.width - (menuBarSurfaceHorizontalInset * 2) - WinMuxBarStyle.topBarContentInset * 2),
+                    width: max(
+                        1,
+                        geometry.size.width
+                            - menuBarSurfaceHorizontalInset * 2
+                            - WinMuxBarStyle.topBarContentInset * 2
+                    ),
                     height: widgetHeight
                 )
                 .padding(WinMuxBarStyle.topBarContentInset)
-                .background(palette.color(.gray, .color5))
-                .winMuxBarSurface(palette, cornerStyle: .circular, cornerRadius: WinMuxBarStyle.topBarCornerRadius)
+                .background(palette.geistBackground(.secondary))
                 .padding(.horizontal, menuBarSurfaceHorizontalInset)
                 .padding(.top, menuBarContentTopInset)
 
             Spacer(minLength: standardGap * 0)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
+            .background(palette.geistBackground(.secondary))
         }
         .environment(\.workspaceSidebarProjectThemeFamily, projectThemeFamily)
+        .environment(\.colorScheme, .dark)
     }
 }
 

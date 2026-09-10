@@ -29,11 +29,8 @@ final class WorkspaceCanvasBackgroundPanel: NSPanelHud {
         super.init()
         identifier = NSUserInterfaceItemIdentifier("\(workspaceCanvasBackgroundPanelId).\(monitorScopeId)")
         hasShadow = false
-        isOpaque = true
-        backgroundColor = WinMuxOverlayPalette(
-            theme: theme,
-            projectThemeFamily: projectThemeFamily
-        ).colorNSColor(.gray, .color8)
+        isOpaque = false
+        backgroundColor = WinMuxDesignTokens.transparentNSColor
         ignoresMouseEvents = true
         isFloatingPanel = false
         isExcludedFromWindowsMenu = true
@@ -45,9 +42,18 @@ final class WorkspaceCanvasBackgroundPanel: NSPanelHud {
         hostingView.autoresizingMask = [.width, .height]
     }
 
-    static func refreshAll(themeOverride _: AppearanceTheme? = nil) {
-        // Keep the desktop visible behind the bars and window stacks.
-        removeAll()
+    static func refreshAll(themeOverride: AppearanceTheme? = nil) {
+        var active = Set<String>()
+        for monitor in sortedMonitors {
+            let id = workspaceSidebarMonitorScopeId(for: monitor)
+            active.insert(id)
+            let panel = panelsByMonitorScopeId[id] ?? WorkspaceCanvasBackgroundPanel(monitor: monitor)
+            panelsByMonitorScopeId[id] = panel
+            panel.refresh(on: monitor, themeOverride: themeOverride)
+        }
+        for id in Array(panelsByMonitorScopeId.keys) where !active.contains(id) {
+            panelsByMonitorScopeId.removeValue(forKey: id)?.close()
+        }
     }
 
     static func hideAll() {
@@ -85,16 +91,18 @@ final class WorkspaceCanvasBackgroundPanel: NSPanelHud {
                 theme: theme,
                 projectThemeFamily: projectThemeFamily
             )
-            backgroundColor = palette.colorNSColor(.gray, .color8)
+            backgroundColor = WinMuxDesignTokens.transparentNSColor
             hostingView.rootView = WorkspaceCanvasBackgroundView(
                 projectThemeFamily: projectThemeFamily,
                 reserveHeight: CGFloat(config.workspaceSidebar.menuBarReserveHeight),
                 theme: theme
             )
         }
-        let frame = workspaceCanvasBackgroundFrame(
-            sidebarFrame: .zero,
-            screenFrame: screen.frame
+        let frame = NSRect(
+            x: screen.frame.minX,
+            y: screen.visibleFrame.minY,
+            width: screen.frame.width,
+            height: max(screen.frame.maxY - workspaceSidebarTopBarHeight(for: screen) - screen.visibleFrame.minY, 1)
         )
         if self.frame != frame {
             setFrame(frame, display: true, animate: false)
@@ -122,9 +130,21 @@ struct WorkspaceCanvasBackgroundView: View {
             projectThemeFamily: projectThemeFamily
         )
         ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarSurfaceCornerRadius, style: .circular)
+                .fill(palette.color(.gray, .color6))
             Rectangle()
-                .fill(workspaceCanvasBackground(for: palette))
-                .ignoresSafeArea()
+                .fill(palette.color(.gray, .color3))
+                .padding(.top, WinMuxBarStyle.projectBarHeight)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarSurfaceCornerRadius, style: .circular))
+        .overlay {
+            RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarSurfaceCornerRadius, style: .circular)
+                .strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
+        }
+        .accessibilityLabel("Project frame")
+        .allowsHitTesting(false)
+        .background {
+            WinMuxDesignTokens.transparent
         }
     }
 }
@@ -139,5 +159,5 @@ func workspaceCanvasProjectThemeFamily(
 }
 
 func workspaceCanvasBackground(for palette: WinMuxOverlayPalette) -> Color {
-    palette.color(.gray, .color8)
+    palette.color(.gray, .color6)
 }

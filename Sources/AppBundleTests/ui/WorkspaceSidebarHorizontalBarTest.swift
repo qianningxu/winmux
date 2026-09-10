@@ -70,7 +70,7 @@ final class WorkspaceSidebarHorizontalBarTest: XCTestCase {
         )
 
         XCTAssertEqual(panel.minX, -1440)
-        XCTAssertEqual(panel.maxY, screenFrame.maxY - panel.height)
+        XCTAssertEqual(panel.maxY, screenFrame.maxY - 30)
         XCTAssertEqual(panel.maxX, screenFrame.maxX)
     }
 

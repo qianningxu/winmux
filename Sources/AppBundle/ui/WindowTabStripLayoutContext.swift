@@ -17,9 +17,7 @@ struct WindowTabStripLayoutContext {
     }
 
     var showsTabTitles: Bool {
-        // Keep every tab fully identifiable. The horizontal scroll view is
-        // responsible for overflow, so adding tabs must not collapse them to
-        // icon-only pills.
+        // Keep titles visible and truncate them as tabs shrink to fit.
         true
     }
 

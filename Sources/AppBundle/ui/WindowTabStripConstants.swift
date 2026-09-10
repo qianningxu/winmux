@@ -12,8 +12,7 @@ let windowTabStripTrailingGroupDragGutterWidth: CGFloat = 0
 let windowTabStripCornerRadius: CGFloat = WinMuxBarStyle.cornerRadius
 let windowTabStripInnerCornerRadius: CGFloat = 9
 let windowTabStripTabSpacing: CGFloat = standardGap
-let windowTabStripPreferredTabWidth: CGFloat = 240
-let windowTabStripMinimumTabWidth: CGFloat = 128
+let windowTabStripPreferredTabWidth: CGFloat = WinMuxBarStyle.maximumTabWidth
 let windowTabStripCloseButtonSize: CGFloat = 18
 let windowTabStripCloseButtonReservedWidth: CGFloat = 22
 let windowTabStripCloseButtonTrailingInset: CGFloat = standardGap * 2.5
@@ -47,11 +46,13 @@ func windowTabStripScrollViewportWidth(stripWidth: CGFloat) -> CGFloat {
 }
 
 func windowTabStripTabWidth(stripWidth: CGFloat, count: Int) -> CGFloat {
-    let count = max(count, 1)
-    let availableWidth = windowTabStripScrollViewportWidth(stripWidth: stripWidth)
-        - (windowTabStripContentHorizontalPadding * 2)
-        - CGFloat(max(count - 1, 0)) * windowTabStripTabSpacing
-    return max(availableWidth / CGFloat(count), 0)
+    winMuxBarTabWidth(
+        availableWidth: windowTabStripScrollViewportWidth(stripWidth: stripWidth)
+            - windowTabStripContentHorizontalPadding * 2,
+        count: count,
+        spacing: windowTabStripTabSpacing,
+        maximumWidth: windowTabStripPreferredTabWidth
+    )
 }
 
 func windowTabStripAvailableTabsWidth(stripWidth: CGFloat) -> CGFloat {

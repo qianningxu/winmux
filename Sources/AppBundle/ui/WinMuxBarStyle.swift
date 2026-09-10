@@ -1,16 +1,19 @@
 import SwiftUI
 
-/// Shared visual rules for the tab bar, widget bar, and stack tabs.
+/// Shared visual rules for project tabs, workspace tabs, and the widget bar.
 enum WinMuxBarStyle {
-    static let cornerRadius = standardGap * 4
-    static let topBarCornerRadius = standardGap * 4
-    static let topBarSurfaceCornerRadius = standardGap * 4
-    static let containerInset = standardGap * 0.5
-    static let topBarContentInset = standardGap * 0.125
-    static let contentInset = standardGap * 2
-    static let iconSpacing = standardGap * 1.5
+    static let cornerRadius = standardGap * 2
+    static let topBarCornerRadius = standardGap * 2
+    static let topBarSurfaceCornerRadius = standardGap * 6.25
+    static let containerInset = standardGap
+    static let topBarContentInset = standardGap
+    static let contentInset = standardGap * 3.5
+    static let iconSpacing = standardGap * 2
     static let strokeWidth = standardGap * 0.25
-    static let fontSize: CGFloat = 14
+    static let fontSize: CGFloat = 12
+    static let maximumTabWidth = standardGap * 50
+    static let projectBarHeight = standardGap * 8
+    static let workspaceBarHeight = standardGap * 9
 }
 
 struct WinMuxBarDivider: View {
@@ -26,12 +29,19 @@ struct WinMuxBarDivider: View {
 }
 
 extension View {
-    func winMuxBarSurface(_ palette: WinMuxOverlayPalette, joinedToWindow: Bool = false, cornerStyle: RoundedCornerStyle = .continuous, cornerRadius: CGFloat = WinMuxBarStyle.cornerRadius) -> some View {
+    func winMuxBarSurface(
+        _ palette: WinMuxOverlayPalette,
+        joinedToWindow: Bool = false,
+        joinsLeadingBar: Bool = false,
+        joinsTrailingBar: Bool = false,
+        cornerStyle: RoundedCornerStyle = .continuous,
+        cornerRadius: CGFloat = WinMuxBarStyle.cornerRadius
+    ) -> some View {
         let shape = UnevenRoundedRectangle(
-            topLeadingRadius: cornerRadius,
-            bottomLeadingRadius: joinedToWindow ? 0 : cornerRadius,
-            bottomTrailingRadius: joinedToWindow ? 0 : cornerRadius,
-            topTrailingRadius: cornerRadius,
+            topLeadingRadius: joinsLeadingBar ? 0 : cornerRadius,
+            bottomLeadingRadius: joinedToWindow || joinsLeadingBar ? 0 : cornerRadius,
+            bottomTrailingRadius: joinedToWindow || joinsTrailingBar ? 0 : cornerRadius,
+            topTrailingRadius: joinsTrailingBar ? 0 : cornerRadius,
             style: cornerStyle
         )
         return self

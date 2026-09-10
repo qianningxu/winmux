@@ -129,13 +129,11 @@ struct WorkspaceSidebarHorizontalBar: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let surfaceHeight = max(geometry.size.height - menuBarContentTopInset, 1)
+            let surfaceHeight = max(geometry.size.height, 1)
             let innerPadding = WinMuxBarStyle.topBarContentInset
-            let contentHeight = max(surfaceHeight - innerPadding * 2, 1)
-            let surfaceWidth = max(geometry.size.width - menuBarSurfaceHorizontalInset * 2, 1)
-            let firstTabIsActive = projectWorkspaces.first.map {
-                $0.isVisible && $0.monitorScopeId == snapshot.targetMonitorScopeId
-            } ?? false
+            let contentHeight = max(surfaceHeight - innerPadding, 1)
+            let surfaceWidth = max(geometry.size.width, 1)
+
 
             ZStack(alignment: .topLeading) {
                 barSurface
@@ -144,17 +142,17 @@ struct WorkspaceSidebarHorizontalBar: View {
                 HStack(spacing: 0) {
                     projectControl(contentHeight: contentHeight)
 
-                    WinMuxBarDivider(height: contentHeight * 0.5, palette: palette)
-                        .opacity(firstTabIsActive ? 0 : 1)
 
                     workspaceTabStrip(contentHeight: contentHeight)
                 }
                 .frame(width: max(surfaceWidth - innerPadding * 2, 1), height: contentHeight, alignment: .center)
-                .padding(innerPadding)
+                .padding(.horizontal, innerPadding)
+                .padding(.top, innerPadding)
             }
-            .winMuxBarSurface(palette, cornerStyle: .circular, cornerRadius: WinMuxBarStyle.topBarCornerRadius)
-            .padding(.horizontal, menuBarSurfaceHorizontalInset)
-            .padding(.top, menuBarContentTopInset)
+            .clipShape(UnevenRoundedRectangle(
+                topLeadingRadius: WinMuxBarStyle.topBarSurfaceCornerRadius,
+                bottomLeadingRadius: 0, bottomTrailingRadius: 0,
+                topTrailingRadius: WinMuxBarStyle.topBarSurfaceCornerRadius))
             .coordinateSpace(name: "workspaceSidebarContent")
             .onPreferenceChange(WorkspaceSidebarHorizontalTabFramePreferenceKey.self) { frames in
                 workspaceReorderFrames = frames
@@ -168,7 +166,7 @@ struct WorkspaceSidebarHorizontalBar: View {
         }
         .background(WinMuxDesignTokens.transparent)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Tab bar")
+        .accessibilityLabel("Project tabs bar")
         .onDisappear { clearWorkspaceReorderState() }
         .environment(\.workspaceSidebarProjectThemeFamily, workspaceSidebarProjectThemeFamily(
             projects: snapshot.projects,
@@ -197,7 +195,7 @@ struct WorkspaceSidebarHorizontalBar: View {
     }
 
     private var barSurface: some View {
-        Rectangle().fill(palette.color(.gray, .color5))
+        Rectangle().fill(palette.color(.gray, .color6))
     }
 
     @ViewBuilder
@@ -294,24 +292,19 @@ struct WorkspaceSidebarHorizontalBar: View {
     private func workspaceTabStrip(contentHeight: CGFloat) -> some View {
         GeometryReader { geometry in
             let count = projectWorkspaces.count
-            let spacing = min(standardGap * 0.25 / max(displayScale, 1), geometry.size.width / CGFloat(max(count, 1)))
-            let tabWidth = max(0, (geometry.size.width - spacing * CGFloat(max(count - 1, 0))) / CGFloat(max(count, 1)))
-            HStack(spacing: spacing) {
-                ForEach(Array(projectWorkspaces.enumerated()), id: \.element.id) { index, workspace in
-                    workspaceTab(workspace, contentHeight: contentHeight)
-                        .frame(width: tabWidth, height: contentHeight)
-                        .clipped()
-                        .overlay(alignment: .trailing) {
-                            if index + 1 < count,
-                               !(workspace.isVisible && workspace.monitorScopeId == snapshot.targetMonitorScopeId),
-                               !(projectWorkspaces[index + 1].isVisible && projectWorkspaces[index + 1].monitorScopeId == snapshot.targetMonitorScopeId) {
-                                WinMuxBarDivider(height: contentHeight * 0.5, palette: palette)
-                                    .offset(x: spacing / 2)
-                            }
-                        }
+            let spacing = WinMuxSpacing.compact
+            let tabWidth = winMuxBarTabWidth(
+                availableWidth: geometry.size.width, count: count, spacing: spacing,
+                maximumWidth: WinMuxBarStyle.maximumTabWidth)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: spacing) {
+                    ForEach(projectWorkspaces, id: \.id) { workspace in
+                        workspaceTab(workspace, contentHeight: contentHeight)
+                            .frame(width: tabWidth, height: contentHeight)
+                    }
                 }
             }
-            .frame(width: geometry.size.width, height: contentHeight)
+            .frame(width: geometry.size.width, height: contentHeight, alignment: .leading)
         }
         .frame(maxWidth: .infinity)
         .frame(height: contentHeight)
@@ -589,17 +582,12 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                         maxHeight: contentHeight,
                         alignment: .leading,
                     )
-                    .winMuxBarSegment(
-                        palette,
-                        isSelected: isActive || isDropTarget || isReorderTarget || isReorderSource,
-                        isHovered: isHovered
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarCornerRadius, style: .circular))
-                    .overlay {
-                        if isActive {
-                            RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarCornerRadius, style: .circular)
-                                .strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
-                                .allowsHitTesting(false)
+                    .background {
+                        if isActive || isDropTarget || isReorderTarget || isReorderSource {
+                            ProjectTabShape().fill(palette.color(.gray, .color3))
+                        } else if isHovered {
+                            RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius)
+                                .fill(palette.color(.gray, .color2))
                         }
                     }
                     .contentShape(Rectangle())

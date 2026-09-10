@@ -14,7 +14,7 @@ struct StackWithCommand: Command {
 
         if let parent = currentWindow.parent as? TilingContainer, parent.layout == .tabGroup {
             guard removeWindowFromTabStack(currentWindow) else {
-                return io.err("Failed to remove window from window stack")
+                return io.err("Failed to remove workspace window from stacked window")
             }
             let moveArgs = MoveCmdArgs(rawArgs: [], direction)
             return MoveCommand(args: moveArgs).run(env, io)

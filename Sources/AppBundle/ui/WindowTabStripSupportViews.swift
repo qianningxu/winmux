@@ -53,8 +53,8 @@ struct WindowTabGroupHandleView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
-        .accessibilityLabel("Window stack")
-        .help("Focus or drag window stack")
+        .accessibilityLabel("Stacked window")
+        .help("Focus or drag stacked window")
         .frame(width: windowTabStripReservedGroupHandleWidth())
         .contentShape(Rectangle())
         .onTapGesture {
