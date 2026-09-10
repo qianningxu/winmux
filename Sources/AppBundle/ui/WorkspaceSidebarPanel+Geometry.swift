@@ -59,8 +59,6 @@ func workspaceSidebarScreen(for monitor: Monitor) -> NSScreen? {
     ) ?? NSScreen.screens.first
 }
 
-let workspaceSidebarTopBarFallbackStatusLaneWidth: CGFloat = 520
-
 @MainActor
 func workspaceSidebarTopBarHeight(for screen: NSScreen) -> CGFloat {
     let nativeMenuBarHeight = max(
@@ -94,36 +92,24 @@ func menuBarStatusWidgetRegion(for screen: NSScreen, barHeight: CGFloat? = nil) 
 func workspaceSidebarTopBarVisibleOverlap(for monitor: Monitor) -> CGFloat {
     guard let screen = workspaceSidebarScreen(for: monitor) else { return 0 }
     let barHeight = workspaceSidebarTopBarHeight(for: screen)
-    let visualSurfaceBottom = screen.frame.maxY - barHeight
+    guard TrayMenuModel.shared.isEnabled, config.workspaceSidebar.enabled,
+          !shouldSuppressWorkspaceSidebarForFullscreenContent() else { return 0 }
+    let visualSurfaceBottom = screen.frame.maxY - barHeight * 2
     return max(screen.visibleFrame.maxY - visualSurfaceBottom, 0)
 }
 
 func workspaceSidebarTopBarRegionFrame(
     screenFrame: NSRect,
-    auxiliaryTopLeftArea: NSRect?,
+    auxiliaryTopLeftArea _: NSRect?,
     barHeight: CGFloat,
 ) -> NSRect {
     let resolvedBarHeight = max(barHeight, 1)
-    if let auxiliaryTopLeftArea,
-       auxiliaryTopLeftArea.width > 0,
-       auxiliaryTopLeftArea.height > 0
-    {
-        return NSRect(
-            x: auxiliaryTopLeftArea.minX,
-            y: screenFrame.maxY - resolvedBarHeight,
-            width: auxiliaryTopLeftArea.width,
-            height: resolvedBarHeight,
-        )
-    }
-
-    let statusLaneWidth = min(
-        workspaceSidebarTopBarFallbackStatusLaneWidth,
-        max(screenFrame.width * 0.45, 1),
-    )
+    // The workspace tabs span the screen immediately below the widget row,
+    // where the camera notch no longer constrains their width.
     return NSRect(
         x: screenFrame.minX,
-        y: screenFrame.maxY - resolvedBarHeight,
-        width: max(screenFrame.width - statusLaneWidth, 1),
+        y: screenFrame.maxY - resolvedBarHeight * 2,
+        width: screenFrame.width,
         height: resolvedBarHeight,
     )
 }
@@ -146,14 +132,10 @@ func menuBarStatusWidgetRegionFrame(
         )
     }
 
-    let statusLaneWidth = min(
-        workspaceSidebarTopBarFallbackStatusLaneWidth,
-        max(screenFrame.width * 0.45, 1),
-    )
     return NSRect(
-        x: screenFrame.maxX - statusLaneWidth,
+        x: screenFrame.minX,
         y: screenFrame.maxY - resolvedBarHeight,
-        width: statusLaneWidth,
+        width: screenFrame.width,
         height: resolvedBarHeight,
     )
 }
@@ -177,12 +159,7 @@ func workspaceSidebarTopBarPanelFrame(
     let top = min(max(baseRegion.maxY, screenFrame.minY + 1), screenFrame.maxY)
     let barBottom = min(max(baseRegion.minY, screenFrame.minY), top - 1)
     let bottom = max(screenFrame.minY, barBottom - max(extraHeight, 0))
-    let statusRegion = menuBarStatusWidgetRegionFrame(
-        screenFrame: screenFrame,
-        auxiliaryTopRightArea: auxiliaryTopRightArea,
-        barHeight: resolvedBarHeight,
-    )
-    let maxWidth = max(statusRegion.minX - baseRegion.minX, 1)
+    let maxWidth = max(screenFrame.maxX - baseRegion.minX, 1)
     let width = min(max(baseRegion.width + max(extraWidth, 0), 1), maxWidth)
     return NSRect(
         x: baseRegion.minX,

@@ -37,11 +37,11 @@ Never finish a WinMux implementation task without completing this installed-app 
 
 ## UI Terminology
 
-- **Tab bar**: top left; switches workspaces.
-- **Widget bar**: top right; displays widgets.
+- **Tab bar**: full-width row below the widget bar; switches workspaces.
+- **Widget bar**: top row in the system menu-bar area; displays widgets.
 - **Window stack**: a group of windows stacked together.
 - **Stack tabs**: tabs for switching windows within a stack.
 
 Use these names in UI copy, documentation, and discussions. Existing internal `WorkspaceSidebar` and configuration identifiers remain compatible.
 
-The tab bar is horizontal and is not expandable. Do not restore a vertical sidebar or an expansion control. Keep both bars within the system menu-bar area, including any visual top inset.
+The tab bar is horizontal and is not expandable. Do not restore a vertical sidebar or an expansion control. Keep the widget bar within the system menu-bar area, including any visual top inset. Place the full-width tab bar immediately below it and reserve that row above app windows.

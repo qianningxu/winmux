@@ -280,6 +280,7 @@ private struct MenuBarStatusWidgetGroup: View {
                 .padding(WinMuxBarStyle.topBarContentInset)
                 .background(palette.color(.gray, .color5))
                 .winMuxBarSurface(palette, cornerStyle: .circular, cornerRadius: WinMuxBarStyle.topBarCornerRadius)
+                .padding(.horizontal, menuBarSurfaceHorizontalInset)
                 .padding(.top, menuBarContentTopInset)
 
             Spacer(minLength: standardGap * 0)

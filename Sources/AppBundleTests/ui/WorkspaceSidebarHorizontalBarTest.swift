@@ -3,7 +3,7 @@ import AppKit
 import XCTest
 
 final class WorkspaceSidebarHorizontalBarTest: XCTestCase {
-    func testNotchedDisplaySplitsLeftBarAndTrailingStatusLane() {
+    func testNotchedDisplayPlacesFullWidthTabsBelowSafeWidgetLane() {
         let screenFrame = NSRect(x: 0, y: 0, width: 1728, height: 1117)
         let leftSafeArea = NSRect(x: 0, y: 1085, width: 771, height: 32)
         let rightSafeArea = NSRect(x: 957, y: 1085, width: 771, height: 32)
@@ -27,14 +27,14 @@ final class WorkspaceSidebarHorizontalBarTest: XCTestCase {
             extraWidth: 400,
         )
 
-        XCTAssertEqual(left, NSRect(x: 0, y: 1085, width: 771, height: 32))
+        XCTAssertEqual(left, NSRect(x: 0, y: 1053, width: 1728, height: 32))
         XCTAssertEqual(right, NSRect(x: 957, y: 1085, width: 771, height: 32))
         XCTAssertEqual(panel.minX, left.minX)
-        XCTAssertEqual(panel.maxY, screenFrame.maxY)
-        XCTAssertLessThanOrEqual(panel.maxX, right.minX)
+        XCTAssertEqual(panel.maxY, screenFrame.maxY - panel.height)
+        XCTAssertEqual(panel.maxX, screenFrame.maxX)
     }
 
-    func testNonNotchedDisplayUsesDisjointFallbackLanes() {
+    func testNonNotchedDisplayUsesTwoFullWidthRows() {
         let screenFrame = NSRect(x: 0, y: 0, width: 1920, height: 1080)
 
         let left = workspaceSidebarTopBarRegionFrame(
@@ -50,7 +50,8 @@ final class WorkspaceSidebarHorizontalBarTest: XCTestCase {
 
         XCTAssertEqual(left.minX, screenFrame.minX)
         XCTAssertEqual(right.maxX, screenFrame.maxX)
-        XCTAssertEqual(left.maxX, right.minX)
+        XCTAssertEqual(left.maxX, right.maxX)
+        XCTAssertEqual(left.maxY, right.minY)
         XCTAssertGreaterThan(left.width, 0)
         XCTAssertGreaterThan(right.width, 0)
     }
@@ -68,9 +69,9 @@ final class WorkspaceSidebarHorizontalBarTest: XCTestCase {
             barHeight: 30,
         )
 
-        XCTAssertEqual(panel.minX, -1432)
-        XCTAssertEqual(panel.maxY, screenFrame.maxY)
-        XCTAssertLessThanOrEqual(panel.maxX, rightSafeArea.minX)
+        XCTAssertEqual(panel.minX, -1440)
+        XCTAssertEqual(panel.maxY, screenFrame.maxY - panel.height)
+        XCTAssertEqual(panel.maxX, screenFrame.maxX)
     }
 
     func testHorizontalReorderUsesTabMidpointsAndKeepsFolderDestination() {
