@@ -30,6 +30,13 @@ Never finish a WinMux implementation task without completing this installed-app 
 - Use `GeistColorTokens` and the `WinMuxOverlayPalette`/`winMuxOverlay*` helpers for every rendered UI colour. Do not introduce literal `Color` or `NSColor` values outside the token definitions, dynamic user-configured colours, or explicit transparency/mask tokens in `DesignTokens.swift`.
 - Prefer the named `WinMuxSpacing` roles for UI spacing, padding, insets, and fixed visual offsets. If no role fits, use a clear `standardGap` multiple (including half-step multiples); do not introduce raw numeric layout spacing values.
 
+## Concurrent Agent Work
+
+- Always assume other agents are working on WinMux at the same time, including in the same checkout.
+- Re-read the current files and inspect the latest worktree changes and commits before editing, committing, or installing. Always merge your changes with concurrent work, preserving both agents' intended changes; never overwrite, revert, or discard another agent's work to make your task pass.
+- Resolve overlapping edits against the latest state and validate the combined result. Keep commits scoped to your task without sweeping unrelated uncommitted work into them.
+- Serialize builds and installations that share build artifacts or `/Applications/WinMux.app`. Wait for an active build/install to finish, then re-check the combined source before building. Never install a stale candidate over a newer combined build; verify the installed executable matches the final candidate.
+
 ## Version Control
 
 - After every completed code, configuration, or documentation change, commit the scoped changes and push the current branch to `origin` before handing off.
