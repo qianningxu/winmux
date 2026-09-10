@@ -12,7 +12,7 @@ The approved prototype lives in `../temp/winmux`. The native implementation uses
 | Stacked window | Windows sharing one workspace tab bar | Existing grouping behavior |
 | Workspace window | Native app window and title bar | Native controls, borders, and corner geometry retained |
 
-Tab widths retain the existing native calculation and 200-point upper limit. Content is left aligned. The Project menu and workspace tabs share one first-row border. The Project tabs bar has four points of outer space above and at both ends; its 36-point surface contains 32-point tabs with two points of inner padding. Workspace tab bars use the same two-point inner padding and four-point outer spacing. Workspace windows use six-point structural gaps.
+Tab widths retain the existing native calculation and 200-point upper limit. Content is left aligned. The Project menu and workspace tabs share one first-row border. The Project tabs bar has six points of outer space above and at both ends; its 36-point surface contains 32-point tabs with two points of inner padding. Workspace tab bars use the same two-point inner padding. The canvas supplies six-point outer gaps for stacked and standalone windows; a stacked window also has six points between its tab bar and native window.
 
 The names describe UI surfaces. Internal workspace/project identifiers, configuration keys, CLI commands, and stored user state keep their existing meanings for compatibility. Native window corners remain owned by their applications; the HTML mockup's simulated 20-point corners do not forcibly reshape third-party windows.
 
@@ -20,6 +20,6 @@ The names describe UI surfaces. Internal workspace/project identifiers, configur
 
 WinMux-controlled tabs and frames use a 16-point continuous radius. The workspace tab bar uses an 18-point outer radius because it sits two points beyond the tabs, keeping the nested curves concentric. The Project menu is part of the shared first-row outline.
 
-Each stacked window has a gray-500 rounded workspace tab surface with four points of outer space on every side. Native window borders remain visible.
+Each stacked window has a gray-500 rounded workspace tab surface aligned with the native window below. Adjacent groups share one six-point gap. Native window borders remain visible.
 
 Project and workspace tab titles use 14-point text. Widget text remains 12 points.
