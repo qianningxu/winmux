@@ -162,19 +162,19 @@ struct WorkspaceSidebarHorizontalBar: View {
                     height: contentHeight,
                     alignment: .center
                 )
+                .padding(.horizontal, WinMuxSpacing.comfortable)
+                .padding(.vertical, innerPadding)
                 .overlay {
                     RoundedRectangle(
                         cornerRadius: WinMuxBarStyle.cornerRadius,
                         style: .continuous
                     )
                     .strokeBorder(
-                        palette.color(.gray, .color5),
+                        palette.color(.gray, .color6),
                         lineWidth: WinMuxBarStyle.strokeWidth
                     )
                     .allowsHitTesting(false)
                 }
-                .padding(.horizontal, WinMuxSpacing.comfortable)
-                .padding(.vertical, innerPadding)
             }
             .clipShape(UnevenRoundedRectangle(
                 topLeadingRadius: projectCornerRadius,
