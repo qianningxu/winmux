@@ -664,14 +664,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                             .foregroundStyle(WinMuxOverlayPalette(colorScheme: .light).color(.gray, isActive ? .color10 : .color9))
                             .lineLimit(1)
                             .truncationMode(.tail)
-                            .overlay(alignment: .bottom) {
-                                if isActive {
-                                    Rectangle()
-                                        .fill(WinMuxOverlayPalette(colorScheme: .light).color(.gray, .color10))
-                                        .frame(height: 1 / max(NSScreen.main?.backingScaleFactor ?? 1, 1))
-                                        .offset(y: WinMuxBarStyle.innerSpacing)
-                                }
-                            }
+
                     }
                     .padding(.leading, WinMuxBarStyle.contentInset)
                     .padding(.trailing, isHovered && workspace.tabSummary.windowCount > 0 ? WinMuxSpacing.none : WinMuxBarStyle.contentInset)
@@ -707,6 +700,16 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
             }
         }
         .frame(minWidth: 0, maxWidth: .infinity, alignment: .center)
+        .overlay {
+            if isActive {
+                RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius)
+                    .strokeBorder(
+                        WinMuxOverlayPalette(colorScheme: .light).color(.gray, .color4),
+                        lineWidth: 1 / max(NSScreen.main?.backingScaleFactor ?? 1, 1)
+                    )
+                    .allowsHitTesting(false)
+            }
+        }
         .contentShape(Rectangle())
         .onHover { hovering in
             hoveredWorkspaceName = hovering ? workspace.name : nil
