@@ -4,7 +4,7 @@
 
 Based on upstream WinMux `e0ad328e109cb6d2f86b1bdbc3aea9bf7bc5935e`, specifically `mouse/resize/resizeWithMouse.swift` and `mouse/driver/WindowMouseInteractionOpacity.swift`: park neighboring native windows off screen while presenting their proposed layout, then restore native windows after release. Opacity alone does not reliably hide foreign-window edges.
 
-The user requested plain shading on **both** sides, without bars or icons. Both previews are committed in the same compositor transaction. The opaque backing uses the existing workspace canvas color, covers the divider and outer margins, and stops below the project tabs. Final native writes finish beneath the preview before reveal; parked windows are not restored to obsolete pre-drag frames.
+The user requested shading on **both** sides with app icons and without preview bars. Both previews are committed in the same compositor transaction. The opaque backing uses the existing workspace canvas color, covers the divider and outer margins, and stops below the project tabs. Final native writes finish beneath the preview before reveal; parked windows are not restored to obsolete pre-drag frames.
 
 The existing minimum-layout calculation still includes inactive tabs. The initial pointer offset is preserved. Resize sessions have unique identities; stale calibration callbacks are rejected, queued AX writes are canceled on stop, and the event constraint expires and clears on mouse-up or a disabled event tap.
 
@@ -20,7 +20,7 @@ Installed signed app, Built-in Retina Display, 1728 × 1117 logical points:
 - Fast 80-point resize of unfocused Safari; native width reached 980 then returned to 900.
 - Every completed scripted round trip returned to the same native 900/810 widths and 6-point gap.
 - 737 final two-pane preview trace samples: gap minimum/maximum **6/6**, Figma/Safari stack minimum **900**.
-- Inspected screenshots during drag and after release: both plain shades; no preview bars/icons; workspace-colored gaps; no native corner slivers; native windows and normal chrome restored.
+- Inspected screenshots during drag and after release: both shaded panes; no preview bars; workspace-colored gaps; no native corner slivers; native windows and normal chrome restored.
 
 During a drag, native-neighbor coordinates intentionally describe parked windows. Gap measurements above use the shared preview geometry, not those hidden native frames.
 
