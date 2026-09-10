@@ -17,9 +17,9 @@ extension WindowTabStripPanelController {
     }
 
     func windowTabStripsWithTransientResizeApplied(_ strips: [WindowTabStripViewModel]) -> [WindowTabStripViewModel] {
-        guard let transientResizeTabGroupStrip else { return strips }
-        return strips.map { strip in
-            strip.id == transientResizeTabGroupStrip.id ? transientResizeTabGroupStrip : strip
+        strips.map { strip in
+            if let active = transientResizeTabGroupStrip, strip.id == active.id { return active }
+            return transientRelatedResizeStrips[strip.id] ?? strip
         }
     }
 

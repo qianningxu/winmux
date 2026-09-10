@@ -8,6 +8,7 @@ extension WindowTabStripPanelController {
         mouseInteractionChromeMode = nextMode
         transientResizeTabGroupId = nil
         transientResizeTabGroupStrip = nil
+        transientRelatedResizeStrips.removeAll()
         refresh()
     }
 

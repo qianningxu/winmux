@@ -322,10 +322,10 @@ func shouldIgnoreMovedObsForManagedWindowDragSession(
     detachOrigin: TabDetachOrigin,
     startedInSidebar: Bool,
 ) -> Bool {
-    guard kind == .move,
-          observedWindowId != nil,
-          observedWindowId == currentWindowId
-    else { return false }
+    guard observedWindowId != nil, observedWindowId == currentWindowId else { return false }
+    // Resizing a left/top edge also emits AXMoved; never turn it into a move.
+    if kind == .resize { return true }
+    guard kind == .move else { return false }
     return startedInSidebar || detachOrigin == .tabStrip || subject == .group
 }
 

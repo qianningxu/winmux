@@ -62,12 +62,7 @@ func updateCompositedResizePreview(_ window: Window, rect: Rect) {
         window.setAxFrame(boundedRect.topLeftCorner, CGSize(width: boundedRect.width, height: boundedRect.height))
     }
     let rect = boundedRect
-    let usesActiveTabGroupChrome = windowResizeUsesActiveTabGroupChrome(window: window)
-    if usesActiveTabGroupChrome {
-        WindowTabStripPanelController.shared.showChromeDuringMouseInteraction()
-    } else {
-        WindowTabStripPanelController.shared.hideChromeDuringMouseInteraction(showFrameOnly: true)
-    }
+    WindowTabStripPanelController.shared.showChromeDuringMouseInteraction()
     WindowTabStripPanelController.shared.updateResizingTabGroupChrome(window: window, activeWindowRect: rect)
     guard let workspace = window.nodeWorkspace,
           workspace.isVisible,
@@ -78,36 +73,22 @@ func updateCompositedResizePreview(_ window: Window, rect: Rect) {
         WindowResizePreviewPanel.shared.hide(reason: "resizePreview.no-workspace-or-weightMap")
         return
     }
-    WindowResizePreviewPanel.shared.beginStableFrame(workspace.workspaceMonitor.rect.toAppKitScreenRect)
     let items = windowResizePreviewItems(
-        in: workspace,
-        weightMap: weightMap,
-        excludingActiveWindowId: window.windowId,
-    )
-    guard !items.isEmpty else {
-        logWindowDragLive("resizePreview hide requested reason=resizePreview.no-items window=\(window.windowId)")
-        WindowTabStripPanelController.shared.clearHiddenPassiveTabGroupChrome()
-        WindowResizePreviewPanel.shared.endStableFrame()
-        WindowResizePreviewPanel.shared.hide(reason: "resizePreview.no-items")
-        return
+        in: workspace, weightMap: weightMap, excludingActiveWindowId: window.windowId)
+    var relatedFrames: [(Window, Rect)] = []
+    for item in items {
+        guard let neighbour = Window.get(byId: item.id), !neighbour.isFloating else { continue }
+        let frame = liveResizeWindowContentRect(
+            groupRect: item.frame.monitorFrameNormalized(), isTabGroup: item.isTabGroup)
+        relatedFrames.append((neighbour, frame))
+        guard resizePreviewHasVisibleChange(from: neighbour.lastKnownActualRect, to: frame) else { continue }
+        // AX events from these programmatic neighbour changes are not gestures.
+        suppressPostDragAxObserverEvents(for: [neighbour.windowId])
+        neighbour.lastKnownActualRect = frame
+        neighbour.setAxFrame(frame.topLeftCorner, frame.size)
     }
-    currentlyManipulatedWithMouseWindowId = window.windowId
-    setCurrentMouseManipulationKind(.resize)
-    WindowTabStripPanelController.shared.setHiddenPassiveTabGroupChrome(
-        resizePreviewTabGroupChromeIdsToHide(items)
-    )
-    WindowResizePreviewPanel.shared.show(items)
-}
-
-@MainActor
-private func resizePreviewTabGroupChromeIdsToHide(_ items: [WindowResizePreviewItem]) -> Set<ObjectIdentifier> {
-    Set(items.compactMap { item in
-        guard item.isTabGroup,
-              let tabGroup = Window.get(byId: item.id)?.nearestWindowTabGroup,
-              tabGroup.usesWindowTabBehavior
-        else { return nil }
-        return ObjectIdentifier(tabGroup)
-    })
+    WindowTabStripPanelController.shared.updateRelatedResizeChrome(relatedFrames)
+    WindowResizePreviewPanel.shared.hide(reason: "native-live-resize")
 }
 
 @MainActor

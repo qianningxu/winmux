@@ -27,6 +27,17 @@ func movedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutableR
 
 @MainActor
 private func moveWithMouse(_ window: Window) async throws { // todo cover with tests
+    guard getCurrentMouseManipulationKind() != .resize else { return }
+    let baseRect = WindowMouseInteractionDriver.shared.pendingResizeCandidate.flatMap {
+        $0.windowId == window.windowId ? $0.observedRect : nil
+    } ?? window.lastAppliedLayoutPhysicalRect
+    if window.parent is TilingContainer,
+       let baseRect, let observedRect = try await window.getAxRect(),
+       nativeWindowSizeChangedForResize(from: baseRect, to: observedRect) {
+        WindowMouseInteractionDriver.shared.startResize(windowId: window.windowId)
+        return
+    }
+    guard getCurrentMouseManipulationKind() != .resize else { return }
     syncClosedWindowsCacheToCurrentWorld()
     guard let parent = window.parent else { return }
     switch parent.cases {

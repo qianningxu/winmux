@@ -22,10 +22,18 @@ extension WindowTabStripPanelController {
 
     @discardableResult
     func clearTransientResizeChrome() -> Bool {
-        guard transientResizeTabGroupId != nil || transientResizeTabGroupStrip != nil else { return false }
+        guard transientResizeTabGroupId != nil || transientResizeTabGroupStrip != nil || !transientRelatedResizeStrips.isEmpty else { return false }
         transientResizeTabGroupId = nil
         transientResizeTabGroupStrip = nil
+        transientRelatedResizeStrips.removeAll()
         return true
+    }
+
+    func updateRelatedResizeChrome(_ frames: [(Window, Rect)]) {
+        transientRelatedResizeStrips = Dictionary(uniqueKeysWithValues: frames.compactMap { window, rect in
+            resizingTabGroupStrip(window: window, activeWindowRect: rect).map { ($0.id, $0) }
+        })
+        refresh()
     }
 
     func updateInteractivePanelForResizingStrip(_ strip: WindowTabStripViewModel) {

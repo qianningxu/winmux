@@ -5,17 +5,26 @@ extension WindowMouseInteractionDriver {
         let session = ResizeSession(windowId: windowId)
         let isNewSession = resizeSession != session
         logWindowDragLive("resize.start window=\(windowId) isNewSession=\(isNewSession) existingSession=\(String(describing: resizeSession)) mouseDown=\(isLeftMouseButtonDown) kind=\(getCurrentMouseManipulationKind())")
+        if isNewSession, let window = Window.get(byId: windowId), window.lastAppliedLayoutPhysicalRect == nil {
+            if let candidate = pendingResizeCandidate, candidate.windowId == windowId {
+                window.lastAppliedLayoutPhysicalRect = candidate.baseRect
+            } else if let anchor = draggedWindowAnchorRect(for: windowId) {
+                window.lastAppliedLayoutPhysicalRect = liveResizeWindowContentRect(
+                    groupRect: anchor, isTabGroup: getCurrentMouseDragSubject() == .group)
+            }
+        }
+        setCurrentMouseManipulationKind(.resize)
+        WindowTabStripPanelController.shared.setIgnoresMouseEvents(true)
+        moveSession = nil
+        dragSourcePreviewState = nil
         if isNewSession {
             resetResizeTrackingState()
             clearPendingWindowDragIntent()
+            WindowResizePreviewPanel.shared.hide(reason: "native-live-resize")
+            WindowMouseInteractionOpacityController.shared.restore()
         }
         resizeSession = session
         currentlyManipulatedWithMouseWindowId = windowId
-        WindowMouseInteractionOpacityController.shared.update(
-            activeWindowId: windowId,
-            hidesPassiveTabGroupChrome: true,
-        )
-        setCurrentMouseManipulationKind(.resize)
         configureResizeChrome(windowId: windowId)
         startDisplayLoop()
         sampleResizeFrame(force: true)
@@ -27,13 +36,7 @@ extension WindowMouseInteractionDriver {
             WindowTabStripPanelController.shared.hideChromeDuringMouseInteraction()
             return
         }
-        let resizesTabGroup = windowResizeUsesActiveTabGroupChrome(window: window)
-        logWindowDragLive("resize.configureChrome window=\(windowId) resizesTabGroup=\(resizesTabGroup) lastKnown=\(debugDescribe(window.lastKnownActualRect)) lastApplied=\(debugDescribe(window.lastAppliedLayoutPhysicalRect))")
-        if resizesTabGroup {
-            WindowTabStripPanelController.shared.showChromeDuringMouseInteraction()
-        } else {
-            WindowTabStripPanelController.shared.hideChromeDuringMouseInteraction(showFrameOnly: true)
-        }
+        WindowTabStripPanelController.shared.showChromeDuringMouseInteraction()
         if resizeGesture == nil {
             let sample = MousePointerTracker.shared.currentSample
             resizeGesture = makeResizeGesture(window: window, observedRect: window.lastKnownActualRect, sample: sample)

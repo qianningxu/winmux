@@ -11,6 +11,7 @@ final class WindowTabStripPanelController {
     var stripPanels: [ObjectIdentifier: WindowTabStripPanel] = [:]
     var transientResizeTabGroupId: ObjectIdentifier? = nil
     var transientResizeTabGroupStrip: WindowTabStripViewModel? = nil
+    var transientRelatedResizeStrips: [ObjectIdentifier: WindowTabStripViewModel] = [:]
     var mouseInteractionChromeMode: MouseInteractionChromeMode? = nil
     var hiddenPassiveTabGroupChromeIds: Set<ObjectIdentifier> = []
 

@@ -74,6 +74,10 @@ func setPendingWindowDragIntent(
     detachOrigin: TabDetachOrigin,
     destination: WindowDragIntentDestination,
 ) -> Bool {
+    guard getCurrentMouseManipulationKind() != .resize else {
+        clearPendingWindowDragIntent()
+        return false
+    }
     guard isWindowDragIntentKindEnabled(destination.kind) else {
         logWindowDragIntentIfNeeded(
             signature: "intent-disabled:source=\(sourceWindowId):kind=\(debugDescribe(destination.kind))",
