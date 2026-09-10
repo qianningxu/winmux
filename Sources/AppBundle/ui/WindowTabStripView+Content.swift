@@ -28,8 +28,10 @@ extension WindowTabStripView {
         .accessibilityLabel("Workspace tab bar")
         .animation(reduceMotion ? windowTabReducedMotionAnimation : windowTabPillAnimation, value: hoveredTabId)
         .animation(reduceMotion ? windowTabReducedMotionAnimation : windowTabPillAnimation, value: activeWindowId)
+        .onDisappear { clearTabDragState() }
         .onChange(of: context.tabOrder) { newOrder in
             clearPendingReorderDropIfModelApplied(currentOrder: newOrder)
+            if draggingTabId != nil, dragOriginalOrder != newOrder { clearTabDragState() }
         }
     }
 

@@ -24,6 +24,8 @@ extension WindowTabStripView {
             }
         }
         .frame(width: context.tabWidth, height: itemHeight, alignment: .leading)
+        .offset(x: tabVisualOffset(for: tab, context: context))
+        // Keep hit thresholds on stationary slots while their contents move.
         .background {
             GeometryReader { proxy in
                 WinMuxDesignTokens.transparent.preference(

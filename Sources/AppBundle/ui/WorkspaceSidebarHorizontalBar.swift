@@ -100,6 +100,7 @@ struct WorkspaceSidebarHorizontalBar: View {
     @State private var workspaceReorderSourceName: String?
     @State private var workspaceReorderTarget: WorkspaceSidebarHorizontalReorderTarget?
     @State private var workspaceDragStartX: CGFloat?
+    @State private var workspaceDragOrder: [String]?
     @State private var workspaceDragOffset: CGFloat = 0
     @State private var pendingWorkspaceReorder: WorkspaceSidebarPendingHorizontalReorder?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -201,8 +202,8 @@ struct WorkspaceSidebarHorizontalBar: View {
                pendingWorkspaceReorder.order != projectWorkspaces.map(\.name) {
                 self.pendingWorkspaceReorder = nil
             }
-            if let source = workspaceReorderSourceName,
-               !projectWorkspaces.contains(where: { $0.name == source }) {
+            if workspaceReorderSourceName != nil,
+               workspaceDragOrder != projectWorkspaces.map(\.name) {
                 clearWorkspaceReorderState()
             }
             if let renamingWorkspaceName,
@@ -469,6 +470,7 @@ struct WorkspaceSidebarHorizontalBar: View {
         if workspaceReorderSourceName == nil {
             pendingWorkspaceReorder = nil
             workspaceDragStartX = pointer.x
+            workspaceDragOrder = projectWorkspaces.map(\.name)
             workspaceReorderSourceName = workspace.name
             beginWorkspaceSidebarItemDrag()
             workspaceDragDriver.start(
@@ -479,6 +481,8 @@ struct WorkspaceSidebarHorizontalBar: View {
                 onFinish: { finishWorkspaceReorder(workspace) }
             )
         }
+        guard workspaceReorderSourceName == workspace.name,
+              workspaceDragOrder == projectWorkspaces.map(\.name) else { return }
         let screenPoint = normalizeAppKitScreenPoint(NSEvent.mouseLocation)
         guard currentPanel?.frame.contains(NSEvent.mouseLocation) == true else {
             workspaceReorderTarget = nil
@@ -525,7 +529,10 @@ struct WorkspaceSidebarHorizontalBar: View {
             }
             return
         }
-        guard let target = workspaceReorderTarget,
+        guard workspaceDragOrder == projectWorkspaces.map(\.name),
+              let pointer = currentPanel?.convertScreenPointToSidebarContentPoint(NSEvent.mouseLocation),
+              let target = workspaceSidebarHorizontalReorderTarget(
+                  sourceWorkspaceName: workspace.name, pointer: pointer, frames: workspaceReorderFrames),
               target.workspaceName != workspace.name
         else { return }
         let pending = WorkspaceSidebarPendingHorizontalReorder(
@@ -571,6 +578,7 @@ struct WorkspaceSidebarHorizontalBar: View {
         workspaceReorderSourceName = nil
         workspaceReorderTarget = nil
         workspaceDragStartX = nil
+        workspaceDragOrder = nil
         workspaceDragOffset = 0
         if !keepPendingDrop { pendingWorkspaceReorder = nil }
     }

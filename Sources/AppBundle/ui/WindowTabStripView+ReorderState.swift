@@ -15,11 +15,11 @@ extension WindowTabStripView {
             orderBeforeDrop: orderBeforeDrop,
             sourceVisualOffset: nil,
         )
-        draggingTabId = nil
-        hoveredTabId = nil
-        dragTranslationX = 0
+        clearTabDragState()
+        let clearToken = UUID()
+        pendingReorderClearToken = clearToken
         DispatchQueue.main.asyncAfter(deadline: .now() + windowTabReorderDropClearDelay) {
-            guard pendingReorderDrop?.windowId == windowId else { return }
+            guard pendingReorderClearToken == clearToken else { return }
             pendingReorderDrop = nil
         }
     }

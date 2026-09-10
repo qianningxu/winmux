@@ -6,6 +6,8 @@ struct WindowTabStripView: View {
 
     @ObservedObject var trayModel = TrayMenuModel.shared
     @State var draggingTabId: UInt32?
+    @State var dragOriginalOrder: [UInt32]?
+    @State var pendingReorderClearToken = UUID()
     @State var hoveredTabId: UInt32?
     @State var dragTranslationX: CGFloat = 0
     @State var reorderPreviewTargetIndex: Int?

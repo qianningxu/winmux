@@ -6,7 +6,7 @@ extension WindowTabStripView {
         for tab: WindowTabItemViewModel,
         context: WindowTabStripLayoutContext,
     ) -> some Gesture {
-        DragGesture(minimumDistance: 5, coordinateSpace: .named(context.scrollCoordinateSpaceName))
+        DragGesture(minimumDistance: windowTabReorderMinimumDistance, coordinateSpace: .named(context.scrollCoordinateSpaceName))
             .onChanged { value in
                 noteCurrentMousePointerSample()
                 handleTabDragChanged(
@@ -16,8 +16,13 @@ extension WindowTabStripView {
                     pointerXInViewport: value.location.x,
                 )
             }
-            .onEnded { _ in
+            .onEnded { value in
                 noteCurrentMousePointerSample()
+                if draggingTabId == tab.windowId, dragOriginalOrder == context.tabOrder {
+                    reorderPreviewTargetIndex = tabReorderTargetIndexForFrames(
+                        pointerXInViewport: value.location.x, tabOrder: context.tabOrder,
+                        tabFramesById: tabFramesById, sourceIndex: draggingIndex(context: context))
+                }
                 handleTabDragEnded(tab: tab, context: context)
             }
     }
@@ -47,6 +52,15 @@ extension WindowTabStripView {
             updateDetachedTabFromTabStrip(tab.windowId)
             return
         }
+        if draggingTabId == nil {
+            dragOriginalOrder = context.tabOrder
+            pendingReorderDrop = nil
+            pendingReorderClearToken = UUID()
+        }
+        guard dragOriginalOrder == context.tabOrder else {
+            clearTabDragState()
+            return
+        }
         draggingTabId = tab.windowId
         hoveredTabId = nil
         dragTranslationX = translation.width
@@ -67,7 +81,8 @@ extension WindowTabStripView {
             Task { @MainActor in
                 try? await resetManipulatedWithMouseIfPossible()
             }
-        } else if let srcIdx = draggingIndex(context: context),
+        } else if dragOriginalOrder == context.tabOrder,
+                  let srcIdx = draggingIndex(context: context),
                   let tgtIdx = reorderPreviewTargetIndex,
                   srcIdx != tgtIdx {
             settleReorderedTab(
@@ -84,6 +99,7 @@ extension WindowTabStripView {
 
     func clearTabDragState() {
         draggingTabId = nil
+        dragOriginalOrder = nil
         hoveredTabId = nil
         dragTranslationX = 0
         reorderPreviewTargetIndex = nil

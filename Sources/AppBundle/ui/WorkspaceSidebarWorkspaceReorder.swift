@@ -1346,6 +1346,12 @@ struct WorkspaceSidebarWorkspaceReorderGestureModifier: ViewModifier {
                         }
                     },
             )
+            .onDisappear {
+                if isDragging {
+                    isDragging = false
+                    endWorkspaceSidebarItemDrag()
+                }
+            }
         } else {
             content
         }
