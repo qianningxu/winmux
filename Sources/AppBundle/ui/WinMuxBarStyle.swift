@@ -10,10 +10,10 @@ enum WinMuxBarStyle {
     static let contentInset = standardGap * 3.5
     static let iconSpacing = standardGap * 2
     static let strokeWidth = standardGap * 0.25
-    static let fontSize: CGFloat = 12
+    static let fontSize: CGFloat = 14
     static let maximumTabWidth = standardGap * 50
-    static let projectBarHeight = standardGap * 8
-    static let workspaceBarHeight = standardGap * 9
+    static let projectBarHeight = standardGap * 9
+    static let workspaceBarHeight = standardGap * 10
 }
 
 struct WinMuxBarDivider: View {
