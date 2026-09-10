@@ -25,8 +25,8 @@ final class WinMuxOverlayPaletteTest: XCTestCase {
     func testNamedTokenLayerExposesAppearanceSpecificValues() {
         assertGray(GeistColorTokens.background1Light.nsColor, 1.00)
         assertGray(GeistColorTokens.background2Dark.nsColor, 0.00)
-        assertGray(GeistColorTokens.gray1Light.nsColor, 0.95)
-        assertGray(GeistColorTokens.gray10Dark.nsColor, 0.93)
+        assertGray(GeistColorTokens.gray100Light.nsColor, 0.95)
+        assertGray(GeistColorTokens.gray1000Dark.nsColor, 0.93)
 
         for family in WorkspaceSidebarProjectThemeFamily.allCases {
             for theme in [AppearanceTheme.light, .dark] {

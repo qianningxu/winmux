@@ -27,6 +27,8 @@ Never finish a WinMux implementation task without completing this installed-app 
 
 ## UI Design Tokens
 
+- Color names use `<family>-<100...1000>-<light|dark>` (for example `gray-1000-light`). Swift constants use camelCase (`gray1000Light`). Apply this to every color family. Background tokens retain `background-1-light` / `background-2-dark` (`background1Light` / `background2Dark`). Semantic helpers resolve to these tokens; they are not additional colors.
+
 - Use `GeistColorTokens` and the `WinMuxOverlayPalette`/`winMuxOverlay*` helpers for every rendered UI colour. Do not introduce literal `Color` or `NSColor` values outside the token definitions, dynamic user-configured colours, or explicit transparency/mask tokens in `DesignTokens.swift`.
 - Prefer the named `WinMuxSpacing` roles for UI spacing, padding, insets, and fixed visual offsets. If no role fits, use a clear `standardGap` multiple (including half-step multiples); do not introduce raw numeric layout spacing values.
 
