@@ -7,6 +7,20 @@ import XCTest
 final class MinimumWindowSizeTest: XCTestCase {
     override func setUp() async throws { setUpWorkspacesForTests() }
 
+    func testMinimumProbeRejectsAnUnchangedWindowSize() {
+        XCTAssertNil(confirmedMinimumSizeAfterNativeProbe(
+            original: CGSize(width: 1200, height: 900),
+            observed: CGSize(width: 1200, height: 900)))
+        XCTAssertEqual(confirmedMinimumSizeAfterNativeProbe(
+            original: CGSize(width: 1200, height: 900),
+            observed: CGSize(width: 900, height: 900)),
+        CGSize(width: 900, height: 0))
+        XCTAssertEqual(confirmedMinimumSizeAfterNativeProbe(
+            original: CGSize(width: 1200, height: 900),
+            observed: CGSize(width: 900, height: 600)),
+        CGSize(width: 900, height: 600))
+    }
+
     func testUnequalMinimumsReplaceHalfSplitWithoutOverflow() {
         XCTAssertEqual(constrainedTileWeights(proposed: [500, 500], minimums: [650, 100], available: 1000), [650, 350])
         XCTAssertEqual(constrainedTileWeights(proposed: [100, 700, 200], minimums: [300, 100, 250], available: 1000), [300, 450, 250])

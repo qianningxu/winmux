@@ -1,6 +1,19 @@
 import AppKit
 import Common
 
+func confirmedMinimumSizeAfterNativeProbe(
+    original: CGSize,
+    observed: CGSize,
+    tolerance: CGFloat = 0.5
+) -> CGSize? {
+    let width = observed.width.isFinite && observed.width > 0 &&
+        observed.width < original.width - tolerance ? observed.width : 0
+    let height = observed.height.isFinite && observed.height > 0 &&
+        observed.height < original.height - tolerance ? observed.height : 0
+    guard width > 0 || height > 0 else { return nil }
+    return CGSize(width: width, height: height)
+}
+
 /// Preserve requested proportions where possible, redistributing only the
 /// space needed by constrained children. Infeasible layouts retain minimums.
 func constrainedTileWeights(proposed: [CGFloat], minimums: [CGFloat], available: CGFloat) -> [CGFloat] {

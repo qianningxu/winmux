@@ -130,10 +130,10 @@ final class MacApp: AbstractApp {
                     window.set(Ax.sizeAttr, originalSize)
                 }
                 guard window.set(Ax.sizeAttr, CGSize(width: 1, height: 1)),
-                      let minimum = window.get(Ax.sizeAttr),
-                      minimum.width.isFinite, minimum.height.isFinite,
-                      minimum.width > 0, minimum.height > 0 else { return nil }
-                return minimum
+                      let observed = window.get(Ax.sizeAttr)
+                else { return nil }
+                return confirmedMinimumSizeAfterNativeProbe(
+                    original: originalSize, observed: observed)
             }
         }
     }
