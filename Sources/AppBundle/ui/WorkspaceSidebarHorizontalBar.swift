@@ -704,7 +704,10 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                                 cornerRadius: WinMuxBarStyle.cornerRadius,
                                 style: .continuous
                             )
-                            .fill(palette.color(.gray, .color1))
+                            .strokeBorder(
+                                palette.color(.gray, .color6),
+                                lineWidth: WinMuxBarStyle.strokeWidth
+                            )
                         } else if isDropTarget || isReorderTarget || isReorderSource || isHovered {
                             RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius)
                                 .fill(palette.color(.gray, .color4))
