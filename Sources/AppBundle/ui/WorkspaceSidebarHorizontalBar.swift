@@ -142,7 +142,7 @@ struct WorkspaceSidebarHorizontalBar: View {
     var body: some View {
         GeometryReader { geometry in
             let surfaceHeight = max(geometry.size.height, 1)
-            let innerPadding = WinMuxSpacing.hairline
+            let innerPadding = WinMuxBarStyle.topBarContentInset
             let contentHeight = max(surfaceHeight - innerPadding * 2, 1)
             let surfaceWidth = max(geometry.size.width, 1)
 
