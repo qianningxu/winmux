@@ -273,7 +273,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                     }
                 } label: {
                     Image(systemName: "square.stack.3d.up")
-                        .font(.system(size: projectTabsBarFontSize, weight: .medium))
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(palette.content(.secondary))
                         .frame(width: contentHeight, height: contentHeight)
                     .contentShape(Rectangle())
