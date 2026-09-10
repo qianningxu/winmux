@@ -162,6 +162,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                 HStack(spacing: WinMuxBarStyle.innerSpacing) {
                     projectControl(contentHeight: contentHeight)
 
+                    WinMuxBarDivider(height: WinMuxSpacing.panel, palette: palette)
 
                     workspaceTabStrip(contentHeight: contentHeight)
                 }
