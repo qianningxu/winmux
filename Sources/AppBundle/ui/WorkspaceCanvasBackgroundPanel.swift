@@ -124,11 +124,28 @@ struct WorkspaceCanvasBackgroundView: View {
     let theme: AppearanceTheme
     var cornerRadius = WinMuxBarStyle.topBarSurfaceCornerRadius
 
-    var body: some View {
-        WinMuxDesignTokens.transparent
-            .allowsHitTesting(false)
+    private var frameShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
     }
 
+    var body: some View {
+        let palette = WinMuxOverlayPalette(
+            theme: theme,
+            projectThemeFamily: projectThemeFamily
+        )
+        frameShape
+            .fill(workspaceCanvasBackground(for: palette))
+        .clipShape(frameShape)
+        .overlay {
+            frameShape
+                .strokeBorder(palette.color(palette.activeGeistFamily, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
+        }
+        .accessibilityLabel("Project frame")
+        .allowsHitTesting(false)
+        .background {
+            WinMuxDesignTokens.transparent
+        }
+    }
 }
 
 func workspaceCanvasProjectThemeFamily(
