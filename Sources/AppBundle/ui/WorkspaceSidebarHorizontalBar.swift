@@ -329,7 +329,9 @@ struct WorkspaceSidebarHorizontalBar: View {
         let textWidth = (workspace.displayName as NSString).size(withAttributes: [
             .font: NSFont.systemFont(ofSize: WinMuxBarStyle.fontSize, weight: .semibold)
         ]).width
-        return min(ceil(textWidth) + WinMuxBarStyle.contentInset * 2, WinMuxBarStyle.maximumTabWidth)
+        let closeWidth = hoveredWorkspaceName == workspace.name && workspace.tabSummary.windowCount > 0
+            ? workspaceSidebarWindowCloseButtonSize + WinMuxBarStyle.innerSpacing : 0
+        return min(ceil(textWidth) + WinMuxBarStyle.contentInset * 2 + closeWidth, WinMuxBarStyle.maximumTabWidth)
     }
 
     private func workspaceTab(
@@ -644,7 +646,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
     }
 
     var body: some View {
-        ZStack(alignment: .trailing) {
+        HStack(spacing: WinMuxBarStyle.innerSpacing) {
             if isRenaming {
                 WorkspaceSidebarWorkspaceRenameField(
                     text: $renamingText,
@@ -671,7 +673,8 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                                 }
                             }
                     }
-                    .padding(.horizontal, WinMuxBarStyle.contentInset)
+                    .padding(.leading, WinMuxBarStyle.contentInset)
+                    .padding(.trailing, isHovered && workspace.tabSummary.windowCount > 0 ? WinMuxSpacing.none : WinMuxBarStyle.contentInset)
                     .frame(
                         minWidth: 0,
                         maxWidth: .infinity,
@@ -699,6 +702,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .padding(.trailing, WinMuxBarStyle.contentInset)
                 .transition(.opacity)
             }
         }
