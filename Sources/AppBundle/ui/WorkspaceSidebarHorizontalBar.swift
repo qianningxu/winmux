@@ -159,7 +159,7 @@ struct WorkspaceSidebarHorizontalBar: View {
             .clipShape(UnevenRoundedRectangle(
                 topLeadingRadius: projectCornerRadius,
                 bottomLeadingRadius: 0, bottomTrailingRadius: 0,
-                topTrailingRadius: projectCornerRadius, style: .circular))
+                topTrailingRadius: projectCornerRadius, style: .continuous))
             .coordinateSpace(name: "workspaceSidebarContent")
             .onPreferenceChange(WorkspaceSidebarHorizontalTabFramePreferenceKey.self) { frames in
                 workspaceReorderFrames = frames

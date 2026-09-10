@@ -125,7 +125,7 @@ struct WorkspaceCanvasBackgroundView: View {
     var cornerRadius = WinMuxBarStyle.topBarSurfaceCornerRadius
 
     private var frameShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .circular)
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
     }
 
     var body: some View {
