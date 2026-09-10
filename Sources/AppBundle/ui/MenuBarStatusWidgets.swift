@@ -17,7 +17,6 @@ private let menuBarFloatingSurfaceVerticalInset: CGFloat = 0
 let menuBarSurfaceHorizontalInset: CGFloat = standardGap
 let menuBarFloatingSurfaceOutset: CGFloat = menuBarFloatingSurfaceVerticalInset * 2
 let menuBarSurfaceCornerRadius: CGFloat = WinMuxBarStyle.cornerRadius
-private let periodWeekCount = 13
 private let menuBarChartSize = CGSize(width: 360, height: 216)
 private let menuBarBreakPotSize = CGSize(width: 320, height: 132)
 
@@ -298,25 +297,21 @@ struct MenuBarPeriodCapsule: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 300)) { context in
-            let snapshot = PeriodHeatmapAggregator(
-                entriesDirectory: URL(filePath: menuBarWidgetDataPath, directoryHint: .isDirectory),
-                togglDirectory: URL(filePath: "/Users/side/Documents/now/my_app/self/self_ob/Toggl", directoryHint: .isDirectory),
-            ).load(now: context.date)
-            let currentWeek = min(max(snapshot.currentWeek, 1), periodWeekCount)
+            let period = MenuBarAcademicPeriod(now: context.date)
 
             HStack(spacing: menuBarWidgetSpacing) {
                 Image(systemName: "calendar")
                     .font(.system(size: menuBarWidgetIconSize, weight: menuBarWidgetFontWeight))
                     .frame(width: menuBarWidgetIconFrame, height: menuBarWidgetIconFrame)
                     .foregroundStyle(menuBarWidgetIcon)
-                Text("Period \(currentWeek)/\(periodWeekCount)")
+                Text(period.title)
                     .font(.system(size: menuBarWidgetFontSize, weight: menuBarWidgetFontWeight))
                     .monospacedDigit()
 
             }
             .menuBarWidgetItem(height: height)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text("Period, week \(currentWeek) of \(periodWeekCount)"))
+            .accessibilityLabel(Text(period.accessibilityLabel))
         }
     }
 }
