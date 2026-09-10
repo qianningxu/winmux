@@ -1,7 +1,9 @@
 import AppKit
 
 private let windowTabBarOuterInsetValue = WinMuxSpacing.compact
-private let windowTabGroupShellHorizontalInsetValue = windowTabBarOuterInsetValue
+// The workspace layout already supplies the gap between groups. Keep the
+// bar and native window on the same horizontal bounds without adding it twice.
+private let windowTabGroupShellHorizontalInsetValue = WinMuxSpacing.none
 // Reserve four points before and after the workspace tab bar.
 private let windowTabGroupShellTopInsetValue = windowTabBarOuterInsetValue * 2
 private let windowTabGroupShellBottomInsetValue = WinMuxSpacing.none

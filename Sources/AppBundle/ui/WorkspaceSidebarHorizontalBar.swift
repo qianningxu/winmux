@@ -185,6 +185,9 @@ struct WorkspaceSidebarHorizontalBar: View {
                 }
                 .offset(x: outerInset, y: outerInset)
             }
+            // Offsets do not expand layout bounds; include the outer inset
+            // before clipping so the lower border remains inside the frame.
+            .frame(width: surfaceWidth, height: surfaceHeight, alignment: .topLeading)
             .clipShape(UnevenRoundedRectangle(
                 topLeadingRadius: projectCornerRadius,
                 bottomLeadingRadius: 0, bottomTrailingRadius: 0,
