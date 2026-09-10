@@ -95,7 +95,6 @@ struct WorkspaceSidebarHorizontalBar: View {
     @State private var renamingWorkspaceText = ""
     @State private var activeInUseOverrideWorkspaceName: String?
     @State private var hoveredWorkspaceName: String?
-    @State private var closeHoveredWorkspaceName: String?
     @State private var workspaceReorderFrames: [WorkspaceSidebarHorizontalTabFrame] = []
     @StateObject private var workspaceDragDriver = WorkspaceSidebarWorkspaceReorderDriver()
     @State private var workspaceReorderSourceName: String?
@@ -225,8 +224,8 @@ struct WorkspaceSidebarHorizontalBar: View {
     private func projectControl(contentHeight: CGFloat) -> some View {
         let project = activeProject
         let name = project?.displayName ?? "Main"
-        let textWidth = (name as NSString).size(withAttributes: [
-            .font: NSFont.systemFont(ofSize: workspaceSidebarProjectLabelFontSize, weight: .semibold)
+        let textWidth = (name.uppercased() as NSString).size(withAttributes: [
+            .font: NSFont.systemFont(ofSize: workspaceSidebarProjectLabelFontSize, weight: .regular)
         ]).width
         let controlWidth = min(max(ceil(textWidth) + standardGap * 11.5, standardGap * 23), standardGap * 34)
 
@@ -238,7 +237,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                 onCommit: { finishProjectRename() },
                 onCancel: { finishProjectRename(cancelled: true) },
                 showsPlate: false,
-                font: .systemFont(ofSize: workspaceSidebarProjectLabelFontSize, weight: .semibold)
+                font: .systemFont(ofSize: workspaceSidebarProjectLabelFontSize, weight: .regular)
             )
             .frame(width: controlWidth, height: contentHeight)
         } else {
@@ -273,8 +272,8 @@ struct WorkspaceSidebarHorizontalBar: View {
                     HStack(spacing: WinMuxBarStyle.innerSpacing) {
                         Image(systemName: "circle.inset.filled")
                             .foregroundStyle(WinMuxOverlayPalette(colorScheme: .light).color(.gray, .color7))
-                        Text(name)
-                            .font(.system(size: workspaceSidebarProjectLabelFontSize, weight: .semibold))
+                        Text(name.uppercased())
+                            .font(.system(size: workspaceSidebarProjectLabelFontSize, weight: .regular))
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }
@@ -330,9 +329,7 @@ struct WorkspaceSidebarHorizontalBar: View {
         let textWidth = (workspace.displayName as NSString).size(withAttributes: [
             .font: NSFont.systemFont(ofSize: WinMuxBarStyle.fontSize, weight: .semibold)
         ]).width
-        let closeWidth = closeHoveredWorkspaceName == workspace.name && workspace.tabSummary.windowCount > 0
-            ? workspaceSidebarWindowCloseButtonSize + WinMuxSpacing.hairline : 0
-        return min(ceil(textWidth) + WinMuxBarStyle.contentInset * 2 + closeWidth, WinMuxBarStyle.maximumTabWidth)
+        return min(ceil(textWidth) + WinMuxBarStyle.contentInset * 2, WinMuxBarStyle.maximumTabWidth)
     }
 
     private func workspaceTab(
@@ -360,7 +357,6 @@ struct WorkspaceSidebarHorizontalBar: View {
             renamingText: $renamingWorkspaceText,
             activeInUseOverrideWorkspaceName: $activeInUseOverrideWorkspaceName,
             hoveredWorkspaceName: $hoveredWorkspaceName,
-            closeHoveredWorkspaceName: $closeHoveredWorkspaceName,
             actions: actions,
             projectDestinations: workspaceSidebarProjectDestinations(
                 projects: snapshot.projects,
@@ -623,7 +619,6 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
     @Binding var renamingText: String
     @Binding var activeInUseOverrideWorkspaceName: String?
     @Binding var hoveredWorkspaceName: String?
-    @Binding var closeHoveredWorkspaceName: String?
     let actions: WorkspaceSidebarActions
     let projectDestinations: [WorkspaceSidebarProjectViewModel]
     let onSelect: () -> Void
@@ -646,10 +641,6 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
 
     private var isHovered: Bool {
         hoveredWorkspaceName == workspace.name
-    }
-
-    private var showsClose: Bool {
-        closeHoveredWorkspaceName == workspace.name && !isRenaming && workspace.tabSummary.windowCount > 0
     }
 
     var body: some View {
@@ -680,8 +671,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                                 }
                             }
                     }
-                    .padding(.leading, WinMuxBarStyle.contentInset)
-                    .padding(.trailing, showsClose ? WinMuxSpacing.none : WinMuxBarStyle.contentInset)
+                    .padding(.horizontal, WinMuxBarStyle.contentInset)
                     .frame(
                         minWidth: 0,
                         maxWidth: .infinity,
@@ -700,48 +690,17 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                 .buttonStyle(.plain)
             }
 
-            if showsClose {
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(palette.content(.secondary))
-                        .frame(width: workspaceSidebarWindowCloseButtonSize, height: workspaceSidebarWindowCloseButtonSize)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .padding(.trailing, WinMuxBarStyle.contentInset)
-                .transition(.opacity)
-            }
         }
         .frame(minWidth: 0, maxWidth: .infinity, alignment: .center)
         .contentShape(Rectangle())
         .onHover { hovering in
             hoveredWorkspaceName = hovering ? workspace.name : nil
             actions.hoverWorkspace(workspace.name, hovering)
-            if !hovering && closeHoveredWorkspaceName == workspace.name {
-                closeHoveredWorkspaceName = nil
-            }
-        }
-        .background {
-            GeometryReader { geometry in
-                Color.clear.onContinuousHover { phase in
-                    switch phase {
-                    case .active(let location):
-                        let expansion = showsClose ? workspaceSidebarWindowCloseButtonSize + WinMuxSpacing.hairline : 0
-                        let isNearEnd = location.x >= geometry.size.width - WinMuxBarStyle.contentInset - expansion
-                        if isNearEnd && !isRenaming {
-                            closeHoveredWorkspaceName = workspace.name
-                        } else if closeHoveredWorkspaceName == workspace.name {
-                            closeHoveredWorkspaceName = nil
-                        }
-                    case .ended:
-                        if closeHoveredWorkspaceName == workspace.name { closeHoveredWorkspaceName = nil }
-                    }
-                }
-            }
         }
         .contextMenu {
             Button("Rename tab", action: onBeginRename)
+            Button("Close workspace", action: onClose)
+                .disabled(workspace.tabSummary.windowCount == 0)
             if !projectDestinations.isEmpty {
                 Menu("Move to") {
                     ForEach(projectDestinations) { project in
