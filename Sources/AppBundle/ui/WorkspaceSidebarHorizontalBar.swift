@@ -270,17 +270,10 @@ struct WorkspaceSidebarHorizontalBar: View {
                         }
                     }
                 } label: {
-                    HStack(spacing: WinMuxBarStyle.innerSpacing) {
-                        Image(systemName: "circle.inset.filled")
-                            .foregroundStyle(WinMuxOverlayPalette(colorScheme: .light).color(.gray, .color7))
-                        Text(name.uppercased())
-                            .font(.system(size: workspaceSidebarProjectLabelFontSize, weight: .regular))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-                    .foregroundStyle(palette.content(.primary))
-                    .frame(width: max(controlWidth - WinMuxBarStyle.contentInset * 2, 0), height: contentHeight)
-                    .padding(.horizontal, WinMuxBarStyle.contentInset)
+                    Image(systemName: "square.stack.3d.up")
+                        .font(.system(size: workspaceSidebarProjectLabelFontSize, weight: .regular))
+                        .foregroundStyle(palette.content(.secondary))
+                        .frame(width: contentHeight, height: contentHeight)
                     .contentShape(Rectangle())
                 }
                 .menuStyle(.button)
@@ -288,10 +281,10 @@ struct WorkspaceSidebarHorizontalBar: View {
                 .menuIndicator(.hidden)
                 .fixedSize()
                 .layoutPriority(1)
-                .help("Switch project")
+                .help("Project: \(name) — Switch project")
                 .accessibilityLabel("Project: \(name)")
             }
-            .frame(width: controlWidth, height: contentHeight)
+            .frame(width: contentHeight, height: contentHeight)
         }
     }
 
