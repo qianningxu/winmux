@@ -4,7 +4,8 @@ struct WindowTabGroupVisualView: View {
     let strip: WindowTabStripViewModel
 
     @ObservedObject private var trayModel = TrayMenuModel.shared
-    private var palette: WinMuxOverlayPalette { trayModel.projectPalette(workspaceName: strip.workspaceName) }
+    @Environment(\.colorScheme) private var colorScheme
+    private var palette: WinMuxOverlayPalette { trayModel.projectPalette(workspaceName: strip.workspaceName, colorScheme: colorScheme) }
 
     var body: some View {
         GeometryReader { geometry in

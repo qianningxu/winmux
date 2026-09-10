@@ -130,12 +130,12 @@ private func circularHueDistance(_ lhs: CGFloat, _ rhs: CGFloat) -> CGFloat {
 
 @MainActor
 extension TrayMenuModel {
-    func projectPalette(workspaceName: String? = nil, colorScheme: ColorScheme = .light) -> WinMuxOverlayPalette {
+    func projectPalette(workspaceName: String? = nil, colorScheme: ColorScheme? = nil) -> WinMuxOverlayPalette {
         let projectId = workspaceName.flatMap { name in
             workspaceSidebarWorkspaces.first { $0.name == name }?.projectId
         } ?? workspaceSidebarActiveProjectId
         return WinMuxOverlayPalette(
-            colorScheme: colorScheme,
+            theme: colorScheme.map(AppearanceTheme.init(colorScheme:)) ?? .current,
             projectThemeFamily: workspaceSidebarProjectThemeFamily(
                 projects: workspaceSidebarProjects,
                 activeProjectId: projectId

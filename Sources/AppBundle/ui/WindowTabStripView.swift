@@ -22,7 +22,7 @@ struct WindowTabStripView: View {
     @Environment(\.colorScheme) var barColorScheme
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
-    var palette: WinMuxOverlayPalette { trayModel.projectPalette(workspaceName: strip.workspaceName) }
+    var palette: WinMuxOverlayPalette { trayModel.projectPalette(workspaceName: strip.workspaceName, colorScheme: barColorScheme) }
 
     var body: some View {
         GeometryReader { proxy in

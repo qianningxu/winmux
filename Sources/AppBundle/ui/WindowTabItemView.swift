@@ -13,7 +13,7 @@ struct WindowTabItemView: View {
     @Environment(\.colorScheme) var colorScheme
 
     @ObservedObject private var trayModel = TrayMenuModel.shared
-    var palette: WinMuxOverlayPalette { trayModel.projectPalette(workspaceName: tab.workspaceName) }
+    var palette: WinMuxOverlayPalette { trayModel.projectPalette(workspaceName: tab.workspaceName, colorScheme: colorScheme) }
 
     var body: some View {
         HStack(spacing: showsTitle ? WinMuxBarStyle.iconSpacing : WinMuxSpacing.none) {
