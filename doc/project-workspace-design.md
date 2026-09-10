@@ -18,8 +18,8 @@ The names describe UI surfaces. Internal workspace/project identifiers, configur
 
 ## Native frame corrections
 
-Project frame bottom corners follow the estimated native corner radius of the window touching each bottom edge, plus its actual inset. They are not a fixed mockup radius. The content area reserves four points below the project tabs even for a single window without workspace tabs.
+Project frame uses the same radius on all four corners, chosen to accommodate the estimated native window radius plus its outer inset. The project tabs bar follows that same outer contour. The content area reserves four points below the project tabs even for a single window without workspace tabs.
 
-A stacked window has its own visible outer frame around the workspace tab bar and native window. Its native window has four-point side/bottom insets; the workspace tab bar supplies four-point top/bottom spacing. Stack frame bottom corners follow the native corner plus the stack inset. The project frame accounts for both nested insets when a stack touches a project corner.
+Stacked windows have no additional outer frame or shell inset. Native window borders remain visible, and the shared workspace surface supplies the existing four-point tiling gaps.
 
 Project and workspace tab titles use 14-point text. Widget text remains 12 points.

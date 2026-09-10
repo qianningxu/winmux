@@ -11,7 +11,7 @@ final class WorkspaceCanvasBackgroundPanel: NSPanelHud {
     private let monitorScopeId: String
     private var projectThemeFamily: WorkspaceSidebarProjectThemeFamily?
     private var theme: AppearanceTheme
-    private var lowerCornerRadii = CGSize.zero
+    private var cornerRadius: CGFloat = 0
 
     private init(monitor: Monitor) {
         monitorScopeId = workspaceSidebarMonitorScopeId(for: monitor)
@@ -91,16 +91,16 @@ final class WorkspaceCanvasBackgroundPanel: NSPanelHud {
             width: screen.frame.width,
             height: max(screen.frame.maxY - workspaceSidebarTopBarHeight(for: screen) - screen.visibleFrame.minY, 1)
         )
-        let radii = projectFrameLowerCornerRadii(on: monitor, frame: frame)
-        if self.projectThemeFamily != projectThemeFamily || self.theme != theme || lowerCornerRadii != radii {
+        let radius = projectFrameCornerRadius(on: monitor)
+        if self.projectThemeFamily != projectThemeFamily || self.theme != theme || cornerRadius != radius {
             self.projectThemeFamily = projectThemeFamily
             self.theme = theme
-            lowerCornerRadii = radii
+            cornerRadius = radius
             hostingView.rootView = WorkspaceCanvasBackgroundView(
                 projectThemeFamily: projectThemeFamily,
                 reserveHeight: CGFloat(config.workspaceSidebar.menuBarReserveHeight),
                 theme: theme,
-                lowerCornerRadii: radii
+                cornerRadius: radius
             )
         }
         if self.frame != frame {
@@ -122,16 +122,10 @@ struct WorkspaceCanvasBackgroundView: View {
     let projectThemeFamily: WorkspaceSidebarProjectThemeFamily?
     let reserveHeight: CGFloat
     let theme: AppearanceTheme
-    var lowerCornerRadii = CGSize(width: windowTabPreviewCornerRadius + WinMuxSpacing.compact,
-                                  height: windowTabPreviewCornerRadius + WinMuxSpacing.compact)
+    var cornerRadius = WinMuxBarStyle.topBarSurfaceCornerRadius
 
-    private var frameShape: UnevenRoundedRectangle {
-        UnevenRoundedRectangle(
-            topLeadingRadius: WinMuxBarStyle.topBarSurfaceCornerRadius,
-            bottomLeadingRadius: lowerCornerRadii.width,
-            bottomTrailingRadius: lowerCornerRadii.height,
-            topTrailingRadius: WinMuxBarStyle.topBarSurfaceCornerRadius,
-            style: .circular)
+    private var frameShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .circular)
     }
 
     var body: some View {
@@ -172,22 +166,21 @@ func workspaceCanvasBackground(for palette: WinMuxOverlayPalette) -> Color {
     palette.color(.gray, .color6)
 }
 
-/// Native windows own their curvature. Match the enclosing project corners to
-/// the windows actually touching each bottom edge, plus their measured inset.
+/// Use one enclosing radius for all four corners, accommodating native windows.
 @MainActor
-func projectFrameLowerCornerRadii(on monitor: Monitor, frame: CGRect) -> CGSize {
-    let fallback = windowTabPreviewCornerRadius + WinMuxSpacing.compact
-    var result = CGSize(width: fallback, height: fallback)
+func projectFrameCornerRadius(on monitor: Monitor) -> CGFloat {
+    let fallback = WinMuxBarStyle.topBarSurfaceCornerRadius
+    guard let screen = workspaceSidebarScreen(for: monitor) else { return fallback }
+    let frame = screen.visibleFrame
+    var result = fallback
     for window in monitor.activeWorkspace.allLeafWindowsRecursive where !window.isFloating && !window.isHiddenInCorner {
         guard let rect = window.lastKnownActualRect?.toAppKitScreenRect else { continue }
         let bottomInset = rect.minY - frame.minY
         guard bottomInset >= 0, bottomInset <= WinMuxSpacing.regular + WinMuxBarStyle.strokeWidth else { continue }
-        let nativeRadius = estimatedWindowPreviewCornerRadius(for: window.windowId)
-        if abs(rect.minX - frame.minX - bottomInset) <= 1 {
-            result.width = nativeRadius + bottomInset
-        }
-        if abs(frame.maxX - rect.maxX - bottomInset) <= 1 {
-            result.height = nativeRadius + bottomInset
+        let touchesLeft = abs(rect.minX - screen.frame.minX - bottomInset) <= WinMuxBarStyle.strokeWidth
+        let touchesRight = abs(screen.frame.maxX - rect.maxX - bottomInset) <= WinMuxBarStyle.strokeWidth
+        if touchesLeft || touchesRight {
+            result = max(result, estimatedWindowPreviewCornerRadius(for: window.windowId) + bottomInset)
         }
     }
     return result

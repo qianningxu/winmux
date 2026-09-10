@@ -127,6 +127,13 @@ struct WorkspaceSidebarHorizontalBar: View {
         WorkspaceSidebarPanel.panel(for: snapshot.targetMonitorScopeId)
     }
 
+    private var projectCornerRadius: CGFloat {
+        guard let monitor = sortedMonitors.first(where: {
+            workspaceSidebarMonitorScopeId(for: $0) == snapshot.targetMonitorScopeId
+        }) else { return WinMuxBarStyle.topBarSurfaceCornerRadius }
+        return projectFrameCornerRadius(on: monitor)
+    }
+
     var body: some View {
         GeometryReader { geometry in
             let surfaceHeight = max(geometry.size.height, 1)
@@ -150,9 +157,9 @@ struct WorkspaceSidebarHorizontalBar: View {
                 .padding(.top, innerPadding)
             }
             .clipShape(UnevenRoundedRectangle(
-                topLeadingRadius: WinMuxBarStyle.topBarSurfaceCornerRadius,
+                topLeadingRadius: projectCornerRadius,
                 bottomLeadingRadius: 0, bottomTrailingRadius: 0,
-                topTrailingRadius: WinMuxBarStyle.topBarSurfaceCornerRadius))
+                topTrailingRadius: projectCornerRadius, style: .circular))
             .coordinateSpace(name: "workspaceSidebarContent")
             .onPreferenceChange(WorkspaceSidebarHorizontalTabFramePreferenceKey.self) { frames in
                 workspaceReorderFrames = frames
