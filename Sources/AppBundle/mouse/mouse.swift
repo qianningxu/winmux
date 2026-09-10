@@ -314,6 +314,21 @@ func isManipulatedWithMouse(_ window: Window) async throws -> Bool {
         .andAsync { @Sendable @MainActor in try await getNativeFocusedWindow() == window }
 }
 
+/// Continuing native geometry notifications must not restart preview setup or
+/// replace pointer-driven rendering with an older app frame (upstream WinMux).
+@MainActor
+func isContinuingManagedDragSessionForResizedEvent(_ windowId: UInt32) -> Bool {
+    guard isLeftMouseButtonDown, currentlyManipulatedWithMouseWindowId == windowId else { return false }
+    switch getCurrentMouseManipulationKind() {
+        case .resize:
+            return WindowMouseInteractionDriver.shared.resizeSession?.windowId == windowId
+        case .move:
+            return WindowMouseInteractionDriver.shared.moveSession?.windowId == windowId
+        case .none:
+            return false
+    }
+}
+
 func shouldIgnoreMovedObsForManagedWindowDragSession(
     observedWindowId: UInt32?,
     currentWindowId: UInt32?,

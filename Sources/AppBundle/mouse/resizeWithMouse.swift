@@ -12,6 +12,7 @@ func resizedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutabl
             return
         }
         guard RunSessionGuard.isServerEnabled != nil else { return }
+        if let windowId, isContinuingManagedDragSessionForResizedEvent(windowId) { return }
         guard let windowId, let window = Window.get(byId: windowId), try await isResizeManipulatedWithMouse(window) else {
             scheduleRefreshSession(.ax(notif))
             return

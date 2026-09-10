@@ -8,6 +8,8 @@ The user requested shading on **both** sides with app icons and without preview 
 
 The existing minimum-layout calculation still includes inactive tabs. The initial pointer offset is preserved. Resize sessions have unique identities; stale calibration callbacks are rejected, queued AX writes are canceled on stop, and the event constraint expires and clears on mouse-up or a disabled event tap.
 
+The drag loop also follows upstream's current-pointer rendering in both calibration branches and initial setup, its 30 Hz calibration interval, and its early return for continuing resize/move notifications. An extracted-production-method regression check confirms a delayed native width of 450 cannot replace a current pointer-derived width of 500, including the first calibration. Detailed frame tracing is disabled outside explicit verification.
+
 ## Verification
 
 Installed signed app, Built-in Retina Display, 1728 × 1117 logical points:

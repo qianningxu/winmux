@@ -46,8 +46,8 @@ extension WindowMouseInteractionDriver {
             resizeGesture = makeResizeGesture(window: window, observedRect: window.lastKnownActualRect, sample: sample)
         }
         refreshResizePointerConstraints(window: window)
-        guard let rect = window.lastKnownActualRect ??
-            window.lastAppliedLayoutPhysicalRect
+        guard let rect = resizeGesture?.predictedRect(mouse: MousePointerTracker.shared.currentSample.point) ??
+            window.lastAppliedLayoutPhysicalRect ?? window.lastKnownActualRect
         else { return }
         beginStableResizePreviewFrame(for: window)
         updateResizePreviewIfNeeded(window: window, rect: rect, force: true)
