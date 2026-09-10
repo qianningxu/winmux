@@ -3,9 +3,9 @@ import SwiftUI
 /// Shared visual rules for project tabs, workspace tabs, and the widget bar.
 enum WinMuxBarStyle {
     static let cornerRadius = standardGap * 4
-    static let topBarCornerRadius = standardGap * 2
-    static let topBarSurfaceCornerRadius = standardGap * 5
-    static let workspaceTabBarCornerRadius = standardGap * 5
+    static let topBarCornerRadius = standardGap * 4
+    static let topBarSurfaceCornerRadius = standardGap * 4
+    static let workspaceTabBarCornerRadius = standardGap * 4
     static let containerInset = standardGap
     static let topBarContentInset = standardGap
     static let contentInset = standardGap * 3.5

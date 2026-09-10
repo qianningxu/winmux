@@ -731,10 +731,10 @@ private struct MenuBarWidgetItemModifier: ViewModifier {
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: height)
             .winMuxBarSegment(palette, isSelected: isSelected, isHovered: isHovered)
-            .clipShape(RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarCornerRadius, style: .circular))
+            .clipShape(RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarCornerRadius, style: .continuous))
             .overlay {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarCornerRadius, style: .circular)
+                    RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarCornerRadius, style: .continuous)
                         .strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
                         .allowsHitTesting(false)
                 }

@@ -18,7 +18,7 @@ The names describe UI surfaces. Internal workspace/project identifiers, configur
 
 ## Native frame corrections
 
-Project frame uses the same continuous radius on all four corners, chosen to accommodate the estimated native window radius plus its outer inset. The Project menu is an outlined pill. Project selections use typography rather than a filled plate.
+All WinMux-controlled frames, bars, and tabs use a 16-point continuous radius. The Project menu is an outlined pill. Project selections use typography rather than a filled plate.
 
 Each stacked window has a gray-500 rounded workspace tab surface and a six-point gap before its native window. Native window borders remain visible.
 
