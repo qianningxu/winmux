@@ -61,7 +61,7 @@ struct WindowTabRenameTextField: NSViewRepresentable {
         field.drawsBackground = false
         field.focusRingType = .none
         field.textColor = WinMuxOverlayPalette.current.contentNSColor(.primary)
-        field.font = .systemFont(ofSize: 12, weight: .semibold)
+        field.font = .systemFont(ofSize: WinMuxBarStyle.fontSize, weight: .semibold)
         field.lineBreakMode = .byTruncatingTail
         field.usesSingleLineMode = true
         field.cell?.wraps = false
@@ -74,6 +74,7 @@ struct WindowTabRenameTextField: NSViewRepresentable {
     }
 
     func updateNSView(_ field: NSTextField, context: Context) {
+        field.font = .systemFont(ofSize: WinMuxBarStyle.fontSize, weight: .semibold)
         if field.stringValue != text {
             field.stringValue = text
         }
