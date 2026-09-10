@@ -134,13 +134,6 @@ struct WorkspaceSidebarHorizontalBar: View {
         WorkspaceSidebarPanel.panel(for: snapshot.targetMonitorScopeId)
     }
 
-    private var projectCornerRadius: CGFloat {
-        guard let monitor = sortedMonitors.first(where: {
-            workspaceSidebarMonitorScopeId(for: $0) == snapshot.targetMonitorScopeId
-        }) else { return WinMuxBarStyle.topBarSurfaceCornerRadius }
-        return projectFrameCornerRadius(on: monitor)
-    }
-
     var body: some View {
         GeometryReader { geometry in
             let surfaceHeight = max(geometry.size.height, 1)
@@ -149,7 +142,7 @@ struct WorkspaceSidebarHorizontalBar: View {
             let innerPadding = WinMuxBarStyle.innerSpacing
             let contentHeight = max(barHeight - innerPadding * 2, 1)
             let surfaceWidth = max(geometry.size.width, 1)
-            let barWidth = max(surfaceWidth - outerInset * 2, 1)
+            let barWidth = surfaceWidth
 
 
             ZStack(alignment: .topLeading) {
@@ -159,21 +152,15 @@ struct WorkspaceSidebarHorizontalBar: View {
                 }
                 .fixedSize(horizontal: true, vertical: false)
                 .frame(
-                    width: max(barWidth - innerPadding * 2, 1),
+                    width: barWidth,
                     height: contentHeight,
                     alignment: .center
                 )
-                .padding(.horizontal, innerPadding)
                 .padding(.vertical, innerPadding)
-                .offset(x: outerInset, y: outerInset)
+                .offset(y: outerInset)
             }
-            // Offsets do not expand layout bounds; include the outer inset
-            // before clipping so the lower border remains inside the frame.
+            // Preserve the vertical gaps without an enclosing frame or side insets.
             .frame(width: surfaceWidth, height: surfaceHeight, alignment: .topLeading)
-            .clipShape(UnevenRoundedRectangle(
-                topLeadingRadius: projectCornerRadius,
-                bottomLeadingRadius: 0, bottomTrailingRadius: 0,
-                topTrailingRadius: projectCornerRadius, style: .continuous))
             .coordinateSpace(name: "workspaceSidebarContent")
             .onPreferenceChange(WorkspaceSidebarHorizontalTabFramePreferenceKey.self) { frames in
                 workspaceReorderFrames = frames
@@ -185,8 +172,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                 actions.setDropTargets([])
             }
         }
-        // The canvas panel supplies the project frame surface and rounded border.
-        // Keep this higher panel transparent so it cannot cover the top edge.
+        // Project tabs float above the workspace with no enclosing surface.
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Project tabs bar")
         .onDisappear { clearWorkspaceReorderState() }
