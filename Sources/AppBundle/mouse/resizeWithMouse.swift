@@ -61,6 +61,7 @@ func updateCompositedResizePreview(_ window: Window, rect: Rect) {
     WindowTabStripPanelController.shared.showChromeDuringMouseInteraction()
     WindowTabStripPanelController.shared.updateResizingTabGroupChrome(window: window, activeWindowRect: rect)
     if resizePreviewHasVisibleChange(from: rect, to: boundedRect) {
+        WindowMouseInteractionDriver.shared.constrainResizePointerIfNeeded(from: rect, to: boundedRect)
         WindowMouseInteractionDriver.shared.enqueueLiveResizeFrame(window: window, frame: boundedRect)
     }
     let rect = boundedRect

@@ -11,6 +11,21 @@ extension WindowMouseInteractionDriver {
         lastRenderedResizePreviewRect = rect
         updateCompositedResizePreview(window, rect: rect)
     }
+
+    func constrainResizePointerIfNeeded(from proposed: Rect, to bounded: Rect) {
+        guard resizePreviewHasVisibleChange(from: proposed, to: bounded),
+              let session = resizeSession,
+              let gesture = resizeGesture,
+              gesture.windowId == session.windowId
+        else { return }
+        let sample = MousePointerTracker.shared.currentSample
+        let point = gesture.pointerPoint(constrainingTo: bounded, current: sample.point)
+        guard abs(point.x - sample.point.x) >= resizePreviewVisibleChangeThreshold ||
+            abs(point.y - sample.point.y) >= resizePreviewVisibleChangeThreshold
+        else { return }
+        CGWarpMouseCursorPosition(point)
+        MousePointerTracker.shared.note(point: point, timestamp: sample.timestamp)
+    }
 }
 
 func resizePreviewHasVisibleChange(from previous: Rect?, to next: Rect) -> Bool {

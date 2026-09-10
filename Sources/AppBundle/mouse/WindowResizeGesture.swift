@@ -52,6 +52,21 @@ struct ResizeGestureSessionState {
         return Rect(topLeftX: minX, topLeftY: minY, width: maxX - minX, height: maxY - minY)
     }
 
+    func pointerPoint(constrainingTo rect: Rect, current: CGPoint) -> CGPoint {
+        var point = current
+        if edges.left {
+            point.x = rect.minX + mouseOffset.left
+        } else if edges.right {
+            point.x = rect.maxX + mouseOffset.right
+        }
+        if edges.up {
+            point.y = rect.minY + mouseOffset.up
+        } else if edges.down {
+            point.y = rect.maxY + mouseOffset.down
+        }
+        return point
+    }
+
     mutating func calibrate(observedRect: Rect, mouse: CGPoint, timestamp: TimeInterval) {
         let observedEdges = resizeGestureEdgesFromDelta(baseRect: baseRect, observedRect: observedRect)
         if observedEdges.hasAny {
