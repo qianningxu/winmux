@@ -123,6 +123,7 @@ struct WorkspaceCanvasBackgroundView: View {
     let reserveHeight: CGFloat
     let theme: AppearanceTheme
     var cornerRadius = WinMuxBarStyle.topBarSurfaceCornerRadius
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private var frameShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -133,8 +134,17 @@ struct WorkspaceCanvasBackgroundView: View {
             theme: theme,
             projectThemeFamily: projectThemeFamily
         )
-        frameShape
-            .fill(workspaceCanvasBackground(for: palette))
+        ZStack {
+            if !reduceTransparency {
+                VisualEffectBlur(
+                    material: .sidebar,
+                    blendingMode: .behindWindow,
+                    appearance: NSAppearance(named: .aqua)
+                )
+            }
+            frameShape
+                .fill(workspaceCanvasBackground(for: palette).opacity(reduceTransparency ? 1 : 0.24))
+        }
         .clipShape(frameShape)
         .overlay {
             frameShape
