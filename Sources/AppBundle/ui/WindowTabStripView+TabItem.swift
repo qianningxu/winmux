@@ -34,7 +34,6 @@ extension WindowTabStripView {
                 )
             }
         }
-        .offset(x: tabVisualOffset(for: tab, context: context))
         .zIndex(draggingTabId == tab.windowId || isEditing ? 1 : 0)
         .transaction { $0.animation = nil }
         .onHover { hovering in
