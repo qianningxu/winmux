@@ -72,6 +72,7 @@ extension WindowTabStripView {
                     }
                 }
             }
+            .winMuxZeroHorizontalScrollContentMargins()
             .onChange(of: tabAutoScrollDirection) { direction in
                 guard let direction, let target = tabAutoScrollTarget(direction: direction) else { return }
                 withAnimation(.linear(duration: windowTabStripAutoScrollDuration)) {
@@ -123,4 +124,15 @@ extension WindowTabStripView {
         }
     }
 
+}
+
+private extension View {
+    @ViewBuilder
+    func winMuxZeroHorizontalScrollContentMargins() -> some View {
+        if #available(macOS 14.0, *) {
+            contentMargins(.horizontal, WinMuxSpacing.none, for: .scrollContent)
+        } else {
+            self
+        }
+    }
 }
