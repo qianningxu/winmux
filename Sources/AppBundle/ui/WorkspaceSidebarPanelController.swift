@@ -61,11 +61,11 @@ final class WorkspaceSidebarPanel: NSPanelHud {
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
         hasShadow = false
-        isFloatingPanel = true
+        isFloatingPanel = false
         isExcludedFromWindowsMenu = true
         animationBehavior = .none
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        applyWinMuxLayer(.menuBarSurface)
+        applyWinMuxLayer(.projectTabs)
         contentView = hostingView
         hostingView.frame = contentView?.bounds ?? .zero
         hostingView.autoresizingMask = [.width, .height]

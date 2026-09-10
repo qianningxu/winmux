@@ -741,8 +741,8 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
-    func testWindowIntentPreviewRendersBelowWorkspaceSidebar() {
-        XCTAssertLessThan(
+    func testWindowIntentPreviewRendersAboveProjectTabs() {
+        XCTAssertGreaterThan(
             WindowDropIntentOverlayPanelController.shared.level.rawValue,
             WorkspaceSidebarPanel.shared.level.rawValue,
         )
@@ -765,8 +765,8 @@ final class WorkspaceSidebarDragTest: XCTestCase {
     }
 
     @MainActor
-    func testWorkspaceSidebarLayerIsAboveAllWinMuxPanels() {
-        for layer in WinMuxPanelLayer.allCases where layer != .workspaceSidebar {
+    func testWorkspaceSidebarLayerIsAboveNonMenuWinMuxPanels() {
+        for layer in WinMuxPanelLayer.allCases where layer != .workspaceSidebar && layer != .workspaceSidebarActionMenu {
             XCTAssertLessThan(
                 layer.level.rawValue,
                 WinMuxPanelLayer.workspaceSidebar.level.rawValue,

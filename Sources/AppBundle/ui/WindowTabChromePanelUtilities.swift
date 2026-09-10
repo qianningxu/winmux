@@ -32,7 +32,8 @@ func applyWindowTabVisualStackingPolicy(for strip: WindowTabStripViewModel, to p
 
 @MainActor
 func applyWindowTabStripStackingPolicy(for strip: WindowTabStripViewModel, to panel: NSPanelHud) {
-    applyWindowTabChromeStackingPolicy(for: strip, to: panel, order: .above)
+    // Keep the native window's shadow visible over the workspace tab bar.
+    applyWindowTabChromeStackingPolicy(for: strip, to: panel, order: .below)
 }
 
 @MainActor

@@ -23,7 +23,8 @@ extension WorkspaceSidebarPanel {
 
     func updateProjectPresentationLayout() {
         let hasPresentation = projectActionMenuPresentationExtraWidth > 0 || projectMenuPresentationExtraHeight > 0
-        applyWinMuxLayer(.menuBarSurface)
+        // Expanded menus need to cover workspace content; the resting bar does not.
+        applyWinMuxLayer(hasPresentation ? .menuBarSurface : .projectTabs)
         if let layout = currentSidebarPanelLayout(), frame != layout.frame {
             setFrame(layout.frame, display: true, animate: false)
         }
