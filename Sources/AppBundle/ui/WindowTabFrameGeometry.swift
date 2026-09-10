@@ -18,7 +18,7 @@ func windowTabGroupFrameRect(forActiveWindowContentRect contentRect: Rect) -> Re
 func windowTabBarRect(forGroupFrameRect groupFrameRect: Rect) -> Rect {
     Rect(
         topLeftX: groupFrameRect.topLeftX + windowTabGroupShellHorizontalInset(),
-        topLeftY: groupFrameRect.topLeftY + windowTabGroupShellHorizontalInset(),
+        topLeftY: groupFrameRect.topLeftY,
         width: max(groupFrameRect.width - windowTabGroupShellHorizontalInset() * 2, 0),
         height: min(resolvedWindowTabBarHeight(), groupFrameRect.height),
     )

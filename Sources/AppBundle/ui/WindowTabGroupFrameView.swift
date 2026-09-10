@@ -8,10 +8,20 @@ struct WindowTabGroupFrameView: View {
     private var palette: WinMuxOverlayPalette { WinMuxOverlayPalette(colorScheme: colorScheme) }
 
     var body: some View {
-        Rectangle()
+        let radius = strip.activeWindowCornerRadius + WinMuxSpacing.compact
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: WinMuxBarStyle.cornerRadius,
+            bottomLeadingRadius: radius,
+            bottomTrailingRadius: radius,
+            topTrailingRadius: WinMuxBarStyle.cornerRadius,
+            style: .circular)
+        shape
             .fill(palette.color(.gray, .color3))
+            .overlay {
+                shape.strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
+            }
             .frame(width: groupSize.width, height: groupSize.height)
             .allowsHitTesting(false)
-            .accessibilityLabel("Workspace frame")
+            .accessibilityLabel("Stacked window frame")
     }
 }

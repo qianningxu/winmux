@@ -11,6 +11,7 @@ final class WorkspaceCanvasBackgroundPanel: NSPanelHud {
     private let monitorScopeId: String
     private var projectThemeFamily: WorkspaceSidebarProjectThemeFamily?
     private var theme: AppearanceTheme
+    private var lowerCornerRadii = CGSize.zero
 
     private init(monitor: Monitor) {
         monitorScopeId = workspaceSidebarMonitorScopeId(for: monitor)
@@ -84,26 +85,24 @@ final class WorkspaceCanvasBackgroundPanel: NSPanelHud {
             projectColors: config.workspaceSidebar.projectColors
         )
         let theme = themeOverride ?? AppearanceTheme.current
-        if self.projectThemeFamily != projectThemeFamily || self.theme != theme {
-            self.projectThemeFamily = projectThemeFamily
-            self.theme = theme
-            let palette = WinMuxOverlayPalette(
-                theme: theme,
-                projectThemeFamily: projectThemeFamily
-            )
-            backgroundColor = WinMuxDesignTokens.transparentNSColor
-            hostingView.rootView = WorkspaceCanvasBackgroundView(
-                projectThemeFamily: projectThemeFamily,
-                reserveHeight: CGFloat(config.workspaceSidebar.menuBarReserveHeight),
-                theme: theme
-            )
-        }
         let frame = NSRect(
             x: screen.frame.minX,
             y: screen.visibleFrame.minY,
             width: screen.frame.width,
             height: max(screen.frame.maxY - workspaceSidebarTopBarHeight(for: screen) - screen.visibleFrame.minY, 1)
         )
+        let radii = projectFrameLowerCornerRadii(on: monitor, frame: frame)
+        if self.projectThemeFamily != projectThemeFamily || self.theme != theme || lowerCornerRadii != radii {
+            self.projectThemeFamily = projectThemeFamily
+            self.theme = theme
+            lowerCornerRadii = radii
+            hostingView.rootView = WorkspaceCanvasBackgroundView(
+                projectThemeFamily: projectThemeFamily,
+                reserveHeight: CGFloat(config.workspaceSidebar.menuBarReserveHeight),
+                theme: theme,
+                lowerCornerRadii: radii
+            )
+        }
         if self.frame != frame {
             setFrame(frame, display: true, animate: false)
         }
@@ -123,6 +122,17 @@ struct WorkspaceCanvasBackgroundView: View {
     let projectThemeFamily: WorkspaceSidebarProjectThemeFamily?
     let reserveHeight: CGFloat
     let theme: AppearanceTheme
+    var lowerCornerRadii = CGSize(width: windowTabPreviewCornerRadius + WinMuxSpacing.compact,
+                                  height: windowTabPreviewCornerRadius + WinMuxSpacing.compact)
+
+    private var frameShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            topLeadingRadius: WinMuxBarStyle.topBarSurfaceCornerRadius,
+            bottomLeadingRadius: lowerCornerRadii.width,
+            bottomTrailingRadius: lowerCornerRadii.height,
+            topTrailingRadius: WinMuxBarStyle.topBarSurfaceCornerRadius,
+            style: .circular)
+    }
 
     var body: some View {
         let palette = WinMuxOverlayPalette(
@@ -130,15 +140,15 @@ struct WorkspaceCanvasBackgroundView: View {
             projectThemeFamily: projectThemeFamily
         )
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarSurfaceCornerRadius, style: .circular)
+            frameShape
                 .fill(palette.color(.gray, .color6))
             Rectangle()
                 .fill(palette.color(.gray, .color3))
                 .padding(.top, WinMuxBarStyle.projectBarHeight)
         }
-        .clipShape(RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarSurfaceCornerRadius, style: .circular))
+        .clipShape(frameShape)
         .overlay {
-            RoundedRectangle(cornerRadius: WinMuxBarStyle.topBarSurfaceCornerRadius, style: .circular)
+            frameShape
                 .strokeBorder(palette.color(.gray, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
         }
         .accessibilityLabel("Project frame")
@@ -160,4 +170,25 @@ func workspaceCanvasProjectThemeFamily(
 
 func workspaceCanvasBackground(for palette: WinMuxOverlayPalette) -> Color {
     palette.color(.gray, .color6)
+}
+
+/// Native windows own their curvature. Match the enclosing project corners to
+/// the windows actually touching each bottom edge, plus their measured inset.
+@MainActor
+func projectFrameLowerCornerRadii(on monitor: Monitor, frame: CGRect) -> CGSize {
+    let fallback = windowTabPreviewCornerRadius + WinMuxSpacing.compact
+    var result = CGSize(width: fallback, height: fallback)
+    for window in monitor.activeWorkspace.allLeafWindowsRecursive where !window.isFloating && !window.isHiddenInCorner {
+        guard let rect = window.lastKnownActualRect?.toAppKitScreenRect else { continue }
+        let bottomInset = rect.minY - frame.minY
+        guard bottomInset >= 0, bottomInset <= WinMuxSpacing.regular + WinMuxBarStyle.strokeWidth else { continue }
+        let nativeRadius = estimatedWindowPreviewCornerRadius(for: window.windowId)
+        if abs(rect.minX - frame.minX - bottomInset) <= 1 {
+            result.width = nativeRadius + bottomInset
+        }
+        if abs(frame.maxX - rect.maxX - bottomInset) <= 1 {
+            result.height = nativeRadius + bottomInset
+        }
+    }
+    return result
 }

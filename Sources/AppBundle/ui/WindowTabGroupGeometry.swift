@@ -3,7 +3,7 @@ import AppKit
 @MainActor
 func windowTabGroupAppCornerRadius(activeWindowId: UInt32?) -> CGFloat {
     let radius = activeWindowId.map(estimatedWindowPreviewCornerRadius) ?? windowTabPreviewCornerRadius
-    return min(max(radius, 6), windowTabGroupFrameMaxInnerCornerRadius)
+    return max(radius, 0)
 }
 
 func windowTabGroupOuterCornerRadius(innerCornerRadius _: CGFloat) -> CGFloat {

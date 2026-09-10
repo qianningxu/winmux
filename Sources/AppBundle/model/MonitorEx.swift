@@ -17,7 +17,8 @@ extension Monitor {
         // Reserve the tabs below the native menu-bar boundary before laying
         // out windows, including any floating surface outset.
         let topBarReservation = topBarOverlap + menuBarFloatingSurfaceOutset
-        let topInset = max(gaps.outer.top.toDouble(), topBarReservation)
+        let contentTopGap = config.workspaceSidebar.enabled ? WinMuxSpacing.compact : max(gaps.outer.top.toDouble(), 0)
+        let topInset = topBarReservation + contentTopGap
         let rightInset = max(gaps.outer.right.toDouble(), 0)
         let bottomInset = max(gaps.outer.bottom.toDouble(), 0)
         return Rect(

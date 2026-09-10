@@ -21,9 +21,9 @@ import XCTest
         let tabBarRect = tabGroup.windowTabBarRect.orDie()
         let groupFrameRect = tabGroup.windowTabGroupFrameRect.orDie()
 
-        XCTAssertEqual(tabBarRect.topLeftX, 0)
+        XCTAssertEqual(tabBarRect.topLeftX, 4)
         XCTAssertEqual(tabBarRect.topLeftY, 0)
-        XCTAssertEqual(tabBarRect.width, 240)
+        XCTAssertEqual(tabBarRect.width, 232)
         XCTAssertEqual(tabBarRect.height, resolvedWindowTabBarHeight())
         XCTAssertEqual(groupFrameRect.topLeftX, 0)
         XCTAssertEqual(groupFrameRect.topLeftY, 0)
@@ -59,7 +59,7 @@ import XCTest
     @MainActor
     func testTabGroupResizeChromeFrameDerivesFromActiveWindowContentFrame() {
         config.windowTabs.height = 36
-        let activeContentFrame = Rect(topLeftX: 43, topLeftY: 96, width: 494, height: 261)
+        let activeContentFrame = Rect(topLeftX: 44, topLeftY: 96, width: 492, height: 260)
         let groupFrame = windowTabGroupFrameRect(forActiveWindowContentRect: activeContentFrame)
         let tabBarFrame = windowTabBarRect(forGroupFrameRect: groupFrame)
 
@@ -67,9 +67,9 @@ import XCTest
         XCTAssertEqual(groupFrame.topLeftY, 60)
         XCTAssertEqual(groupFrame.width, 500)
         XCTAssertEqual(groupFrame.height, 300)
-        XCTAssertEqual(tabBarFrame.topLeftX, 40)
+        XCTAssertEqual(tabBarFrame.topLeftX, 44)
         XCTAssertEqual(tabBarFrame.topLeftY, 60)
-        XCTAssertEqual(tabBarFrame.width, 500)
+        XCTAssertEqual(tabBarFrame.width, 492)
         XCTAssertEqual(tabBarFrame.height, 36)
     }
 
