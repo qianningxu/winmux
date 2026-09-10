@@ -652,7 +652,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                 Button(action: onSelect) {
                     HStack(spacing: WinMuxBarStyle.iconSpacing) {
                         Text(workspace.displayName)
-                            .font(.system(size: WinMuxBarStyle.fontSize, weight: isActive ? .semibold : .regular))
+                            .font(.system(size: WinMuxBarStyle.fontSize, weight: isActive || isHovered ? .semibold : .regular))
                             .foregroundStyle(WinMuxOverlayPalette(colorScheme: .light).color(.gray, isActive ? .color10 : .color9))
                             .lineLimit(1)
                             .truncationMode(.tail)
