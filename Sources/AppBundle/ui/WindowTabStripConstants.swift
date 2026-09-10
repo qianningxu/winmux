@@ -5,7 +5,7 @@ import SwiftUI
 // MARK: - Constants
 
 let windowTabPreviewCornerRadius: CGFloat = 14
-let windowTabStripContentHorizontalPadding: CGFloat = WinMuxSpacing.none
+let windowTabStripContentHorizontalPadding: CGFloat = WinMuxSpacing.hairline
 let windowTabStripGroupHandleWidth: CGFloat = 26
 let windowTabStripReservedHandleWidth: CGFloat = WinMuxSpacing.none
 let windowTabStripTrailingGroupDragGutterWidth: CGFloat = 0

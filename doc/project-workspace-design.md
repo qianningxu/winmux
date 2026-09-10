@@ -12,7 +12,7 @@ The approved prototype lives in `../temp/winmux`. The native implementation uses
 | Stacked window | Windows sharing one workspace tab bar | Existing grouping behavior |
 | Workspace window | Native app window and title bar | Native controls, borders, and corner geometry retained |
 
-Tab widths retain the existing native calculation and 200-point upper limit. Content is left aligned. The Project menu and workspace tabs share one first-row border. Both navigation rows are 36 points tall with 32-point tabs and two points above and below. Workspace windows use six-point structural gaps.
+Tab widths retain the existing native calculation and 200-point upper limit. Content is left aligned. The Project menu and workspace tabs share one first-row border. Both navigation rows are 36 points tall with 32-point tabs and two points on every side. Workspace windows use six-point structural gaps.
 
 The names describe UI surfaces. Internal workspace/project identifiers, configuration keys, CLI commands, and stored user state keep their existing meanings for compatibility. Native window corners remain owned by their applications; the HTML mockup's simulated 20-point corners do not forcibly reshape third-party windows.
 
