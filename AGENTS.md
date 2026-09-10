@@ -56,4 +56,4 @@ Never finish a WinMux implementation task without completing this installed-app 
 
 Use these names in UI copy, documentation, and discussion. Internal WorkspaceSidebar, Workspace, tab-group, configuration, and command identifiers remain compatible; naming changes do not migrate user data.
 
-Keep the widget bar within the native menu-bar area. The project tabs bar is horizontal, non-expandable, immediately below it. Reserve room for it above workspace windows. The project frame uses subtle native frosted glass with a project-token tint and a visible rounded border. Respect Reduce Transparency with a solid token-color fallback.
+Keep the widget bar within the native menu-bar area. The project tabs bar is horizontal, non-expandable, immediately below it. Reserve room for it above workspace windows. Frames use solid token colors, not glass.
