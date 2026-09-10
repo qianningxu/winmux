@@ -244,26 +244,27 @@ struct WorkspaceSidebarHorizontalBar: View {
             ProjectMenuAppearanceHost(colorScheme: colorScheme) {
                 Menu {
                     ForEach(snapshot.projects) { project in
-                        Menu {
-                            Button("Switch theme") {
-                                toggleWorkspaceSidebarAppearance()
-                            }
-                            if projectsAreEnabled() {
-                                Divider()
-                                projectActions(for: project)
-                            }
+                        Button {
+                            actions.send(.selectProject(project.id))
                         } label: {
                             if project.id == snapshot.activeProjectId {
                                 Label(project.displayName, systemImage: "checkmark")
                             } else {
                                 Text(project.displayName)
                             }
-                        } primaryAction: {
-                            actions.send(.selectProject(project.id))
+                        }
+                    }
+                    Divider()
+                    Menu("Config") {
+                        Button("Switch theme") {
+                            toggleWorkspaceSidebarAppearance()
+                        }
+                        if projectsAreEnabled(), let project = activeProject {
+                            Divider()
+                            projectActions(for: project)
                         }
                     }
                     if projectsAreEnabled() {
-                        Divider()
                         Button("New project") {
                             actions.send(.createProject(displayName: nil))
                         }
