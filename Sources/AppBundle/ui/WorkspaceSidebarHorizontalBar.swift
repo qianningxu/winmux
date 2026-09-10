@@ -323,8 +323,12 @@ struct WorkspaceSidebarHorizontalBar: View {
                             .frame(width: tabWidth, height: contentHeight)
                     }
                 }
+                .padding(.bottom, WinMuxBarStyle.topBarContentInset)
             }
-            .frame(width: geometry.size.width, height: contentHeight, alignment: .leading)
+            // Keep the connecting selection inside the scroll viewport.
+            .frame(width: geometry.size.width,
+                   height: contentHeight + WinMuxBarStyle.topBarContentInset,
+                   alignment: .topLeading)
         }
         .frame(maxWidth: .infinity)
         .frame(height: contentHeight)
