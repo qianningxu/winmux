@@ -2,6 +2,10 @@ import SwiftUI
 
 /// Shared visual rules for project tabs, workspace tabs, and the widget bar.
 enum WinMuxBarStyle {
+    static let glassTintOpacity = 0.42
+    static let glassBarOpacity = 0.22
+    static let glassSelectionOpacity = 0.72
+
     static let cornerRadius = standardGap * 4
     static let topBarCornerRadius = standardGap * 4
     static let topBarSurfaceCornerRadius = standardGap * 4
@@ -67,5 +71,20 @@ extension View {
                 Rectangle().fill(palette.color(palette.activeGeistFamily, .color2))
             }
         }
+    }
+}
+
+/// Workspace chrome shares the project frame's native glass backing.
+/// Avoid an opaque surface or a second blur layer over that material.
+struct WinMuxWorkspaceGlassBackground: View {
+    let palette: WinMuxOverlayPalette
+    var isSelected = false
+    var isHovered = false
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        let step: GeistColorStep = isSelected ? .color3 : (isHovered ? .color2 : .color1)
+        palette.color(palette.activeGeistFamily, step)
+            .opacity(reduceTransparency ? 1 : (isSelected ? WinMuxBarStyle.glassSelectionOpacity : WinMuxBarStyle.glassBarOpacity))
     }
 }

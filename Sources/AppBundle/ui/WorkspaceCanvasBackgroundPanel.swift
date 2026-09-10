@@ -143,7 +143,7 @@ struct WorkspaceCanvasBackgroundView: View {
                 )
             }
             frameShape
-                .fill(workspaceCanvasBackground(for: palette).opacity(reduceTransparency ? 1 : 0.24))
+                .fill(workspaceCanvasBackground(for: palette).opacity(reduceTransparency ? 1 : WinMuxBarStyle.glassTintOpacity))
         }
         .clipShape(frameShape)
         .overlay {

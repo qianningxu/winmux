@@ -281,7 +281,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                 } label: {
                     Image(systemName: "square.stack.3d.up")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(palette.content(.secondary))
+                        .foregroundStyle(palette.content(.primary).opacity(0.72))
                         .frame(width: contentHeight, height: contentHeight)
                     .contentShape(Rectangle())
                 }
@@ -678,7 +678,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                     HStack(spacing: WinMuxBarStyle.iconSpacing) {
                         Text(workspace.displayName)
                             .font(.system(size: projectTabsBarFontSize, weight: isActive || isHovered ? .semibold : .medium))
-                            .foregroundStyle(palette.color(palette.activeGeistFamily, isActive ? .color10 : .color9))
+                            .foregroundStyle(palette.content(.primary).opacity(isActive || isHovered ? 1 : 0.72))
                             .lineLimit(1)
                             .truncationMode(.tail)
                             .overlay(alignment: .bottom) {
@@ -766,7 +766,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
         } else {
             Image(systemName: "square.stack.3d.up")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(palette.content(.secondary))
+                .foregroundStyle(palette.content(.primary).opacity(0.72))
                 .frame(width: workspaceSidebarAppIconSize + 2, height: workspaceSidebarAppIconSize + 2)
         }
     }

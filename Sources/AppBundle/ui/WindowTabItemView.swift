@@ -29,7 +29,15 @@ struct WindowTabItemView: View {
         .foregroundStyle(tabForegroundStyle)
         .padding(.horizontal, showsTitle ? max(WinMuxBarStyle.contentInset, reservesCloseButtonSpace ? windowTabStripCloseButtonReservedWidth : 0) : WinMuxSpacing.none)
         .frame(width: width, height: height, alignment: .center)
-        .winMuxBarSegment(palette, isSelected: tab.isActive || isDragSource, isHovered: isHovered)
+        .background {
+            if tab.isActive || isDragSource || isHovered {
+                WinMuxWorkspaceGlassBackground(
+                    palette: palette,
+                    isSelected: tab.isActive || isDragSource,
+                    isHovered: isHovered
+                )
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius, style: .continuous))
         .opacity(isDragSource ? 0.55 : 1.0)
         .contentShape(Rectangle())
@@ -37,7 +45,7 @@ struct WindowTabItemView: View {
 
     private var tabForegroundStyle: Color {
         if tab.isActive || isHovered { return palette.content(.primary) }
-        return palette.content(.secondary)
+        return palette.content(.primary).opacity(0.72)
     }
 
     private var iconSize: CGFloat {
