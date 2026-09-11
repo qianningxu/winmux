@@ -309,8 +309,8 @@ private enum MenuBarBreakPotResetError: LocalizedError {
     }
 }
 
-private func menuBarBreakPotFinishDate(from noteContents: String) -> Date? {
-    let pattern = #"(?m)^finish:\s*(.+?)\s*$"#
+func menuBarBreakPotFinishDate(from noteContents: String, timeZone: TimeZone = .current) -> Date? {
+    let pattern = #"(?m)^finish:[ \t]*([^\r\n]+?)[ \t]*$"#
     guard let expression = try? NSRegularExpression(pattern: pattern),
           let match = expression.firstMatch(
               in: noteContents,
@@ -320,9 +320,32 @@ private func menuBarBreakPotFinishDate(from noteContents: String) -> Date? {
     else {
         return nil
     }
+    let value = String(noteContents[range])
+    let fractionalSecondsFormatter = ISO8601DateFormatter()
+    fractionalSecondsFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = fractionalSecondsFormatter.date(from: value) {
+        return date
+    }
+
     let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return formatter.date(from: String(noteContents[range]))
+    formatter.formatOptions = [.withInternetDateTime]
+    if let date = formatter.date(from: value) {
+        return date
+    }
+
+    // Obsidian datetime properties may omit an offset; these are local wall times.
+    let localFormatter = DateFormatter()
+    localFormatter.locale = Locale(identifier: "en_US_POSIX")
+    localFormatter.calendar = Calendar(identifier: .gregorian)
+    localFormatter.timeZone = timeZone
+    localFormatter.isLenient = false
+    for format in ["yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd"] {
+        localFormatter.dateFormat = format
+        if let date = localFormatter.date(from: value), localFormatter.string(from: date) == value {
+            return date
+        }
+    }
+    return nil
 }
 
 private func menuBarBreakPotDateString(_ date: Date) -> String {
