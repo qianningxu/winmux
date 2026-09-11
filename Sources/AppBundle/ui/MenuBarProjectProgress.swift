@@ -185,7 +185,7 @@ private struct MenuBarProjectProgressItem: View {
                     .frame(width: menuBarWidgetIconFrame, height: menuBarWidgetIconFrame)
                     .foregroundStyle(menuBarWidgetIcon)
             }
-            Text("\(project.widgetName) - \(project.completedTaskCount)/\(project.totalTaskCount) - \(deadlineText)")
+            Text("\(project.widgetName) - \(project.completedTaskCount)/\(project.totalTaskCount)\(project.widgetOrder < 4 ? "" : " - \(deadlineText)")")
                 .font(.system(size: menuBarWidgetFontSize, weight: menuBarWidgetFontWeight))
                 .monospacedDigit()
                 .lineLimit(1)
