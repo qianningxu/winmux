@@ -682,7 +682,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                     workspaceName: workspace.name,
                     onCommit: onCommitRename,
                     onCancel: onCancelRename,
-                    font: .systemFont(ofSize: 12.5, weight: .medium),
+                    font: .systemFont(ofSize: projectTabsBarFontSize, weight: isActive || isHovered ? .semibold : .medium),
                 )
                 .frame(minWidth: 0, maxWidth: .infinity, alignment: .center)
             } else {
