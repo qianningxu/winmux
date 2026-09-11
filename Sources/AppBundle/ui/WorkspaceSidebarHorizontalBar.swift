@@ -348,6 +348,7 @@ struct WorkspaceSidebarHorizontalBar: View {
                         if index > 0 {
                             WinMuxBarDivider(height: WinMuxSpacing.panel, palette: palette)
                                 .padding(.horizontal, WinMuxSpacing.hairline)
+                                .opacity(workspaceReorderSourceName != nil || pendingWorkspaceReorder != nil ? 0 : 1)
                         }
                         workspaceTab(workspace, contentHeight: contentHeight)
                             .frame(width: workspaceTabWidth(workspace), height: contentHeight)
