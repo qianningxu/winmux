@@ -710,12 +710,6 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                         maxHeight: contentHeight,
                         alignment: .center,
                     )
-                    .background {
-                        if isDropTarget || isReorderTarget || isReorderSource {
-                            RoundedRectangle(cornerRadius: WinMuxBarStyle.cornerRadius)
-                                .fill(palette.color(palette.activeGeistFamily, .color4))
-                        }
-                    }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
