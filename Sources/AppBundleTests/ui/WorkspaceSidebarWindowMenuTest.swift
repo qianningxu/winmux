@@ -14,14 +14,17 @@ final class WorkspaceSidebarWindowMenuTest: XCTestCase {
         XCTAssertEqual(item.menuTitle, "NetEase Music — Floating")
     }
 
-    func testBuildsMenuRowsForEveryWindowInEveryTab() {
+    func testBuildsMenuRowsOnlyForTheSelectedWorkspace() {
         let first = makeWorkspace(name: "1", displayName: "ChatGPT", windowId: 11, appName: "ChatGPT")
         let second = makeWorkspace(name: "2", displayName: "Browser", windowId: 12, appName: "Safari")
 
-        let items = workspaceSidebarTiledWindowMenuItems(workspaces: [first, second])
+        let firstItems = workspaceSidebarTiledWindowMenuItems(workspaces: [first])
+        let secondItems = workspaceSidebarTiledWindowMenuItems(workspaces: [second])
 
-        XCTAssertEqual(items.map(\.menuTitle), ["ChatGPT — ChatGPT", "Safari — Browser"])
-        XCTAssertEqual(items.map(\.isFloating), [false, false])
+        XCTAssertEqual(firstItems.map(\.menuTitle), ["ChatGPT — ChatGPT"])
+        XCTAssertEqual(firstItems.map(\.windowId), [11])
+        XCTAssertEqual(secondItems.map(\.menuTitle), ["Safari — Browser"])
+        XCTAssertEqual(secondItems.map(\.windowId), [12])
     }
 
     private func makeWorkspace(

@@ -155,9 +155,8 @@ struct WorkspaceSidebarHorizontalBar: View {
     }
 
     @MainActor
-    private var allWindowMenuItems: [WorkspaceSidebarWindowMenuItem] {
-        let tiled = workspaceSidebarTiledWindowMenuItems(workspaces: projectWorkspaces)
-        let floating = globalFloatingWindowsContainer.children.compactMap { node -> WorkspaceSidebarWindowMenuItem? in
+    private var floatingWindowMenuItems: [WorkspaceSidebarWindowMenuItem] {
+        globalFloatingWindowsContainer.children.compactMap { node -> WorkspaceSidebarWindowMenuItem? in
             guard let window = node as? Window, window.isBound else { return nil }
             return WorkspaceSidebarWindowMenuItem(
                 windowId: window.windowId,
@@ -169,7 +168,11 @@ struct WorkspaceSidebarHorizontalBar: View {
         }.sorted { lhs, rhs in
             lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
         }
-        return tiled + floating
+    }
+
+    @MainActor
+    private func windowMenuItems(for workspace: WorkspaceSidebarWorkspaceViewModel) -> [WorkspaceSidebarWindowMenuItem] {
+        workspaceSidebarTiledWindowMenuItems(workspaces: [workspace]) + floatingWindowMenuItems
     }
 
     private var palette: WinMuxOverlayPalette {
@@ -442,7 +445,7 @@ struct WorkspaceSidebarHorizontalBar: View {
             activeInUseOverrideWorkspaceName: $activeInUseOverrideWorkspaceName,
             hoveredWorkspaceName: $hoveredWorkspaceName,
             actions: actions,
-            allWindowMenuItems: allWindowMenuItems,
+            allWindowMenuItems: windowMenuItems(for: workspace),
             projectDestinations: workspaceSidebarProjectDestinations(
                 projects: snapshot.projects,
                 currentProjectId: workspace.projectId,

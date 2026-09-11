@@ -16,7 +16,8 @@ final class FloatingWindowLevelControllerTest: XCTestCase {
             }
         )
 
-        controller.sync(floatingWindowIds: [11, 12])
+        let promoted = controller.sync(floatingWindowIds: [11, 12])
+        XCTAssertEqual(promoted, [11, 12])
         XCTAssertEqual(writes.map(\.0), [11])
         XCTAssertEqual(writes.map(\.1), [3])
 
