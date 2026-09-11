@@ -26,9 +26,33 @@ final class MacosMinimizedWindowsContainer: TreeNode, NonLeafTreeNodeObject {
 @MainActor let macosPopupWindowsContainer = MacosPopupWindowsContainer()
 /// The container for macOS objects that are windows from AX perspective but from human perspective they are not even
 /// dialogs. E.g. Sonoma (macOS 14) keyboard layout switch
-final class MacosPopupWindowsContainer: TreeNode, NonLeafTreeNodeObject {
+class MacosPopupWindowsContainer: TreeNode, NonLeafTreeNodeObject {
     @MainActor
     fileprivate init() {
         super.init(parent: NilTreeNode.instance, adaptiveWeight: 1, index: INDEX_BIND_LAST)
+    }
+}
+
+// Global, non-workspace windows share the unmanaged tree traversal behavior of
+// native overlays, but retain floating-window focus and tiling commands.
+@MainActor let globalFloatingWindowsContainer = GlobalFloatingWindowsContainer()
+final class GlobalFloatingWindowsContainer: MacosPopupWindowsContainer {}
+
+@MainActor
+func detachWorkspaceFloatingWindows() {
+    for workspace in Workspace.all {
+        for window in workspace.floatingWindows {
+            (window as? MacWindow)?.unhideFromCorner()
+            window.bindAsFloatingWindow(to: workspace)
+        }
+    }
+}
+
+@MainActor
+func raiseGlobalFloatingWindows() {
+    guard TrayMenuModel.shared.isEnabled else { return }
+    for window in globalFloatingWindowsContainer.children.compactMap({ $0 as? MacWindow }) {
+        guard !window.macApp.nsApp.isHidden, !window.macApp.nsApp.isTerminated else { continue }
+        window.macApp.raiseWindow(window.windowId)
     }
 }

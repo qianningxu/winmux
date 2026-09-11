@@ -5,6 +5,7 @@ func normalizeLayoutReason() async throws {
         try await _normalizeLayoutReason(workspace: workspace, windows: windows)
     }
     try await _normalizeLayoutReason(workspace: focus.workspace, windows: macosMinimizedWindowsContainer.children.filterIsInstance(of: Window.self))
+    try await _normalizeLayoutReason(workspace: focus.workspace, windows: globalFloatingWindowsContainer.allLeafWindowsRecursive)
     try await validateStillPopups()
 }
 

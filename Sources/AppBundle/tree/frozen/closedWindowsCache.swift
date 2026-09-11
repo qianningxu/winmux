@@ -89,6 +89,11 @@ func restoreFrozenWorldIfNeeded(_ frozenWorld: FrozenWorld, newlyDetectedWindow:
     if !frozenWorld.windowIds.contains(newlyDetectedWindow.windowId) {
         return false
     }
+    if let frozenWindow = frozenWorld.globalFloatingWindows?.first(where: { $0.id == newlyDetectedWindow.windowId }) {
+        applyFrozenWindowState(newlyDetectedWindow, frozenWindow)
+        newlyDetectedWindow.bindAsFloatingWindow(to: focus.workspace)
+        return true
+    }
     guard frozenWorld.workspaces.contains(where: { collectFrozenWindows($0)[newlyDetectedWindow.windowId] != nil }) else {
         return false
     }

@@ -34,6 +34,11 @@ struct LayoutCommand: Command {
             case .vertical:
                 return changeTilingLayout(io, targetLayout: nil, targetOrientation: .v, window: window)
             case .tiling:
+                if window.parent is GlobalFloatingWindowsContainer {
+                    window.lastFloatingSize = try await window.getAxSize() ?? window.lastFloatingSize
+                    try await window.relayoutWindow(on: target.workspace, forceTile: true)
+                    return true
+                }
                 guard let parent = window.parent else { return false }
                 switch parent.cases {
                     case .macosPopupWindowsContainer:
@@ -87,7 +92,7 @@ extension Window {
             case .h_tiles:     (parent as? TilingContainer).map { $0.layout == .tiles && $0.orientation == .h } == true
             case .v_tiles:     (parent as? TilingContainer).map { $0.layout == .tiles && $0.orientation == .v } == true
             case .tiling:      parent is TilingContainer
-            case .floating:    parent is Workspace
+            case .floating:    isFloating
         }
     }
 }

@@ -21,7 +21,7 @@ open class Window: TreeNode, Hashable {
 
     @MainActor static func get(byId windowId: UInt32) -> Window? { // todo make non optional
         isUnitTest
-            ? Workspace.all.flatMap { $0.allLeafWindowsRecursive }.first(where: { $0.windowId == windowId })
+            ? (Workspace.all.flatMap { $0.allLeafWindowsRecursive } + globalFloatingWindowsContainer.allLeafWindowsRecursive).first(where: { $0.windowId == windowId })
             : MacWindow.allWindowsMap[windowId]
     }
 
@@ -52,19 +52,19 @@ enum LayoutReason: Codable, Equatable, Sendable {
 }
 
 extension Window {
-    var isFloating: Bool { parent is Workspace } // todo drop. It will be a source of bugs when sticky is introduced
+    var isFloating: Bool { parent is Workspace || parent is GlobalFloatingWindowsContainer }
 
     @discardableResult
     @MainActor
     func bindAsFloatingWindow(to workspace: Workspace) -> BindingData? {
-        bind(to: workspace, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+        bind(to: globalFloatingWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
     }
 
     @MainActor
     func rememberMacOsLayoutOrigin(detachFromWorkspace: Bool = false) {
         guard let parent else { return }
         layoutReason = .macos(
-            prevParentKind: parent.kind,
+            prevParentKind: isFloating ? .workspace : parent.kind,
             prevWorkspaceName: detachFromWorkspace ? nil : nodeWorkspace?.name,
         )
     }

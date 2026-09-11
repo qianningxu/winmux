@@ -6,7 +6,7 @@ func tryOnWindowDetected(_ window: Window) async throws {
              .macosFullscreenWindowsContainer, .macosHiddenAppsWindowsContainer:
             try await onWindowDetected(window)
         case .macosPopupWindowsContainer:
-            break
+            if window.isFloating { try await onWindowDetected(window) }
     }
 }
 

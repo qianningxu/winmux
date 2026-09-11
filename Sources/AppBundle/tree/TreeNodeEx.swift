@@ -46,12 +46,16 @@ extension TreeNode {
     @MainActor
     var nodeMonitor: Monitor? {
         switch self.nodeCases {
-            case .workspace(let ws): ws.workspaceMonitor
-            case .window: parent?.nodeMonitor
-            case .tilingContainer: parent?.nodeMonitor
-            case .macosFullscreenWindowsContainer: parent?.nodeMonitor
-            case .macosHiddenAppsWindowsContainer: parent?.nodeMonitor
-            case .macosMinimizedWindowsContainer, .macosPopupWindowsContainer: nil
+            case .workspace(let ws): return ws.workspaceMonitor
+            case .window(let window):
+                if window.parent is GlobalFloatingWindowsContainer {
+                    return window.lastKnownActualRect?.center.monitorApproximation ?? mainMonitor
+                }
+                return parent?.nodeMonitor
+            case .tilingContainer: return parent?.nodeMonitor
+            case .macosFullscreenWindowsContainer: return parent?.nodeMonitor
+            case .macosHiddenAppsWindowsContainer: return parent?.nodeMonitor
+            case .macosMinimizedWindowsContainer, .macosPopupWindowsContainer: return nil
         }
     }
 

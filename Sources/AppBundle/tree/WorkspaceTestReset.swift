@@ -10,6 +10,7 @@ func resetWorkspaceNameGenerationStateForTests() {
 
 @MainActor
 func resetWinMuxWorkspaceStateForTests() {
+    for window in globalFloatingWindowsContainer.children { window.unbindFromParent() }
     for workspace in Workspace.all {
         workspace.lifecycle = .durable
     }

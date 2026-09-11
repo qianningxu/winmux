@@ -124,6 +124,7 @@ func illegalChildParentRelation(child: TreeNode, parent: NonLeafTreeNodeObject?)
 }
 
 func getChildParentRelationOrNil(child: TreeNode, parent: NonLeafTreeNodeObject) -> ChildParentRelation? {
+    if child is Window, parent is GlobalFloatingWindowsContainer { return .floatingWindow }
     return switch (child.nodeCases, parent.cases) {
         case (.workspace, _): nil
         case (.window, .workspace): .floatingWindow

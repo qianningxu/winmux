@@ -39,7 +39,7 @@ func raiseNewlyDetectedDialogsAfterFocusSync() {
 
 @MainActor
 func focusNewlyDetectedDialog(_ window: Window) {
-    guard window.parent is Workspace,
+    guard window.isFloating,
           window.visualWorkspace?.isVisible == true,
           window.focusWindow()
     else { return }
@@ -84,7 +84,7 @@ final class MacWindow: Window {
             targetWorkspace,
             window: nil,
         )
-        let wasDetectedAsDialog = data.parent is Workspace
+        let wasDetectedAsDialog = data.parent is Workspace || data.parent is GlobalFloatingWindowsContainer
 
         // atomic synchronous section
         if let existing = allWindowsMap[windowId] { return existing }
