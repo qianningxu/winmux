@@ -266,25 +266,38 @@ private struct MenuBarStatusWidgetGroup: View {
             let surfaceHeight = max(1, geometry.size.height - menuBarContentTopInset)
             let widgetHeight = max(1, surfaceHeight - WinMuxBarStyle.topBarContentInset * 2)
             VStack(spacing: standardGap * 0) {
-                MenuBarProjectLeadingWidgetLayout(
-                    separation: menuBarWidgetGroupSpacing,
-                    cameraSafeEdges: cameraSafeEdges.map {
-                        ($0.lowerBound - menuBarSurfaceHorizontalInset - WinMuxBarStyle.topBarContentInset)
-                            ...
-                        ($0.upperBound - menuBarSurfaceHorizontalInset - WinMuxBarStyle.topBarContentInset)
+                TimelineView(.periodic(from: .now, by: menuBarProjectProgressRefreshInterval)) { context in
+                    let projects = MenuBarProjectProgressLoader(
+                        baseURL: URL(filePath: menuBarProjectsBasePath)
+                    ).load(now: context.date)
+                    MenuBarProjectLeadingWidgetLayout(
+                        separation: menuBarWidgetGroupSpacing,
+                        projectSeparation: standardGap,
+                        projectCount: projects.count,
+                        cameraSafeEdges: cameraSafeEdges.map {
+                            ($0.lowerBound - menuBarSurfaceHorizontalInset - WinMuxBarStyle.topBarContentInset)
+                                ...
+                            ($0.upperBound - menuBarSurfaceHorizontalInset - WinMuxBarStyle.topBarContentInset)
+                        }
+                    ) {
+                        MenuBarPeriodCapsule(height: widgetHeight)
+
+                        ForEach(Array(projects.enumerated()), id: \.element.id) { index, project in
+                            MenuBarProjectProgressCapsule(
+                                project: project,
+                                showsIcon: index == 0,
+                                height: widgetHeight
+                            )
+                        }
+
+                        MenuBarDailyFocusCapsule(height: widgetHeight)
+
+                        MenuBarBreakPotWidget(height: widgetHeight)
+
+                        MenuBarSleepCapsule(height: widgetHeight)
+
+                        MenuBarSpendingCapsule(height: widgetHeight)
                     }
-                ) {
-                    MenuBarPeriodCapsule(height: widgetHeight)
-
-                    MenuBarProjectsProgressWidget(height: widgetHeight)
-
-                    MenuBarDailyFocusCapsule(height: widgetHeight)
-
-                    MenuBarBreakPotWidget(height: widgetHeight)
-
-                    MenuBarSleepCapsule(height: widgetHeight)
-
-                    MenuBarSpendingCapsule(height: widgetHeight)
                 }
                 .frame(
                     width: max(
