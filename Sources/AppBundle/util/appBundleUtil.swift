@@ -96,8 +96,10 @@ public final class TerminationPreparationCoordinator {
 
 @MainActor
 private func makeAllWindowsVisibleAndRestoreSize() async throws {
-    // Make all windows fullscreen before Quit
+    // Release managed tiled windows on quit. Floating windows already have
+    // user-owned geometry and must survive a WinMux restart without moving.
     for (_, window) in MacWindow.allWindowsMap {
+        if window.isFloating { continue }
         // makeAllWindowsVisibleAndRestoreSize may be invoked when something went wrong (e.g. some windows are unbound)
         // that's why it's not allowed to use `.parent` call in here
         let monitor = try await window.getCenter()?.monitorApproximation ?? mainMonitor
