@@ -56,6 +56,7 @@ final class WindowResizePreviewCompositorView: NSView {
             itemLayer.update(
                 item, scale: scale, shadeOnly: shadeOnly,
                 shadeFill: NSColor(palette.color(palette.activeGeistFamily, .color3)).cgColor,
+                shadeStroke: NSColor(palette.color(palette.activeGeistFamily, .color7)).cgColor,
                 iconResolver: resolvedIconImage
             )
         }

@@ -102,6 +102,8 @@ public final class MenuBarStatusWidgetsController {
     }
 
     fileprivate func registerChartFrame(_ frame: NSRect, kind: MenuBarStatusChartKind, screenNumber: NSNumber) {
+        if kind == .sleep { chartFrames[.spending]?[screenNumber] = nil }
+        if kind == .spending { chartFrames[.sleep]?[screenNumber] = nil }
         chartFrames[kind, default: [:]][screenNumber] = frame
     }
 
@@ -294,9 +296,7 @@ private struct MenuBarStatusWidgetGroup: View {
 
                         MenuBarBreakPotWidget(height: widgetHeight)
 
-                        MenuBarSleepCapsule(height: widgetHeight)
-
-                        MenuBarSpendingCapsule(height: widgetHeight)
+                        MenuBarSleepSpendingCapsule(height: widgetHeight)
                     }
                 }
                 .frame(

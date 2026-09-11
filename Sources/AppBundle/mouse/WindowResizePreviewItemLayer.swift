@@ -58,6 +58,7 @@ final class WindowResizePreviewItemLayer: CALayer {
         scale: CGFloat,
         shadeOnly: Bool = false,
         shadeFill: CGColor? = nil,
+        shadeStroke: CGColor? = nil,
         iconResolver: (WindowResizePreviewIcon) -> CGImage?,
     ) {
         contentsScale = scale
@@ -67,13 +68,20 @@ final class WindowResizePreviewItemLayer: CALayer {
             updateIcons(item: item, scale: scale, iconResolver: iconResolver)
             topBarLayer.isHidden = true
             mockTabStrokeLayer.isHidden = true
-            strokeLayer.isHidden = true
+            strokeLayer.isHidden = false
+            strokeLayer.strokeColor = shadeStroke ?? ResizePreviewPalette.stroke
+            strokeLayer.lineWidth = WinMuxBarStyle.strokeWidth
+            strokeLayer.frame = localBounds
+            strokeLayer.contentsScale = scale
             surfaceLayer.fillRule = .nonZero
             surfaceLayer.fillColor = shadeFill ?? ResizePreviewPalette.fill
             surfaceLayer.frame = localBounds
             surfaceLayer.contentsScale = scale
             let radius = windowResizePreviewCornerRadius(for: localBounds)
             surfaceLayer.path = CGPath(roundedRect: localBounds, cornerWidth: radius,
+                cornerHeight: radius, transform: nil)
+            let borderBounds = localBounds.insetBy(dx: strokeLayer.lineWidth / 2, dy: strokeLayer.lineWidth / 2)
+            strokeLayer.path = CGPath(roundedRect: borderBounds, cornerWidth: radius,
                 cornerHeight: radius, transform: nil)
             return
         }
