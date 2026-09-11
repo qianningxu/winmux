@@ -269,9 +269,11 @@ private struct MenuBarStatusWidgetGroup: View {
             let widgetHeight = max(1, surfaceHeight - WinMuxBarStyle.topBarContentInset * 2)
             VStack(spacing: standardGap * 0) {
                 TimelineView(.periodic(from: .now, by: menuBarProjectProgressRefreshInterval)) { context in
-                    let projects = MenuBarProjectProgressLoader(
-                        baseURL: URL(filePath: menuBarProjectsBasePath)
-                    ).load(now: context.date)
+                    let projects = menuBarVisibleProjectProgress(
+                        MenuBarProjectProgressLoader(
+                            baseURL: URL(filePath: menuBarProjectsBasePath)
+                        ).load(now: context.date)
+                    )
                     MenuBarProjectLeadingWidgetLayout(
                         separation: menuBarWidgetGroupSpacing,
                         projectSeparation: standardGap * 0.75,

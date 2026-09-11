@@ -28,6 +28,38 @@ final class MenuBarProjectProgressTest: XCTestCase {
         }
     }
 
+    func testOnlyProjectsWithRemainingTasksAreVisible() {
+        let active = MenuBarProjectProgress(
+            name: "Active",
+            timeProgress: 0,
+            completedTaskCount: 2,
+            totalTaskCount: 3,
+            daysRemaining: nil,
+            priority: 1,
+            ratio: 0
+        )
+        let completed = MenuBarProjectProgress(
+            name: "Completed",
+            timeProgress: 100,
+            completedTaskCount: 3,
+            totalTaskCount: 3,
+            daysRemaining: nil,
+            priority: 1,
+            ratio: 0
+        )
+        let empty = MenuBarProjectProgress(
+            name: "Empty",
+            timeProgress: 0,
+            completedTaskCount: 0,
+            totalTaskCount: 0,
+            daysRemaining: nil,
+            priority: 1,
+            ratio: 0
+        )
+
+        XCTAssertEqual(menuBarVisibleProjectProgress([active, completed, empty]), [active])
+    }
+
     func testLoadsEveryProjectMatchingProjectsViewFiltersAndSortsByPriority() throws {
         let fixture = try ProjectProgressFixture()
         defer { fixture.remove() }

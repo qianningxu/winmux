@@ -15,6 +15,10 @@ struct MenuBarProjectProgress: Identifiable, Equatable {
 
     var id: String { name }
 
+    var remainingTaskCount: Int {
+        max(0, totalTaskCount - completedTaskCount)
+    }
+
     var widgetOrder: Int {
         ["mt3507_math_stats", "mt4112_numerical_methods", "mt4113_statistical_computing", "mt4511_asymptotic_methods"].firstIndex(of: name) ?? 4
     }
@@ -28,6 +32,10 @@ struct MenuBarProjectProgress: Identifiable, Equatable {
             default: name
         }
     }
+}
+
+func menuBarVisibleProjectProgress(_ projects: [MenuBarProjectProgress]) -> [MenuBarProjectProgress] {
+    projects.filter { $0.remainingTaskCount > 0 }
 }
 
 struct MenuBarProjectProgressLoader {
@@ -143,9 +151,11 @@ struct MenuBarProjectsProgressWidget: View {
                 by: menuBarProjectProgressRefreshInterval
             )
         ) { context in
-            let projects = MenuBarProjectProgressLoader(
-                baseURL: URL(filePath: menuBarProjectsBasePath)
-            ).load(now: context.date)
+            let projects = menuBarVisibleProjectProgress(
+                MenuBarProjectProgressLoader(
+                    baseURL: URL(filePath: menuBarProjectsBasePath)
+                ).load(now: context.date)
+            )
 
             HStack(spacing: standardGap * 0.75) {
                 ForEach(projects) { project in
