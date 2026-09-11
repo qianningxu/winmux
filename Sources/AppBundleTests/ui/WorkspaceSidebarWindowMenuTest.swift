@@ -2,6 +2,18 @@
 import XCTest
 
 final class WorkspaceSidebarWindowMenuTest: XCTestCase {
+    func testMarksFloatingWindowRows() {
+        let item = WorkspaceSidebarWindowMenuItem(
+            windowId: 10,
+            title: "NetEase Music",
+            tabName: nil,
+            isFloating: true,
+            isFocused: false
+        )
+
+        XCTAssertEqual(item.menuTitle, "NetEase Music — Floating")
+    }
+
     func testBuildsMenuRowsForEveryWindowInEveryTab() {
         let first = makeWorkspace(name: "1", displayName: "ChatGPT", windowId: 11, appName: "ChatGPT")
         let second = makeWorkspace(name: "2", displayName: "Browser", windowId: 12, appName: "Safari")
