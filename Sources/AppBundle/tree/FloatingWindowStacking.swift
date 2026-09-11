@@ -1,6 +1,8 @@
 import AppKit
 
 @MainActor private var floatingFocusOrder: [UInt32] = []
+@MainActor private var floatingRaiseTask: Task<Void, Never>?
+@MainActor private var floatingRaisePending = false
 
 /// Raise sequentially: AX requests to different applications otherwise race.
 @MainActor
@@ -17,9 +19,20 @@ func raiseFloatingWindowsInFocusOrder(nativeFocused: Window?) async {
         floatingFocusOrder.removeAll { $0 == id }
         floatingFocusOrder.append(id)
     }
-    let ordered = floatingFocusOrder.compactMap { id in windows.first { $0.windowId == id } }
-    for window in ordered {
-        guard !Task.isCancelled else { return }
-        try? await window.macApp.raiseWindowAndWait(window.windowId)
+    floatingRaisePending = true
+    guard floatingRaiseTask == nil else { return }
+    floatingRaiseTask = Task { @MainActor in
+        defer { floatingRaiseTask = nil }
+        while floatingRaisePending {
+            floatingRaisePending = false
+            let ordered = floatingFocusOrder
+            for id in ordered {
+                guard TrayMenuModel.shared.isEnabled, !serverArgs.isReadOnly else { return }
+                guard let window = MacWindow.allWindowsMap[id],
+                      window.parent is GlobalFloatingWindowsContainer,
+                      !window.macApp.nsApp.isHidden else { continue }
+                try? await window.macApp.raiseWindowAndWait(id)
+            }
+        }
     }
 }

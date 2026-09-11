@@ -191,6 +191,7 @@ func runRefreshSessionBlocking(
                 if let nativeFocused { try await debugWindowsIfRecording(nativeFocused) }
                 await updateNativeFullscreenChromeSuppression(nativeFocused: nativeFocused)
                 updateFocusCache(nativeFocused)
+                await raiseFloatingWindowsInFocusOrder(nativeFocused: nativeFocused)
                 try checkCancellation()
 
                 if shouldLayoutWorkspaces && optimisticallyPreLayoutWorkspaces { try await layoutWorkspaces() }
