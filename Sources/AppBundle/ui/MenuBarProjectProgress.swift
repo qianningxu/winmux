@@ -147,12 +147,9 @@ struct MenuBarProjectsProgressWidget: View {
                 baseURL: URL(filePath: menuBarProjectsBasePath)
             ).load(now: context.date)
 
-            HStack(spacing: standardGap) {
+            HStack(spacing: standardGap * 0.75) {
                 ForEach(projects) { project in
-                    MenuBarProjectProgressItem(
-                        project: project,
-                        showsIcon: project.id == projects.first?.id
-                    )
+                    MenuBarProjectProgressItem(project: project)
                         .menuBarWidgetItem(height: height)
                         .fixedSize(horizontal: true, vertical: false)
                 }
@@ -164,27 +161,19 @@ struct MenuBarProjectsProgressWidget: View {
 
 struct MenuBarProjectProgressCapsule: View {
     let project: MenuBarProjectProgress
-    let showsIcon: Bool
     let height: CGFloat
 
     var body: some View {
-        MenuBarProjectProgressItem(project: project, showsIcon: showsIcon)
+        MenuBarProjectProgressItem(project: project)
             .menuBarWidgetItem(height: height)
     }
 }
 
 private struct MenuBarProjectProgressItem: View {
     let project: MenuBarProjectProgress
-    let showsIcon: Bool
 
     var body: some View {
         HStack(spacing: menuBarWidgetSpacing) {
-            if showsIcon {
-                Image(systemName: "checklist")
-                    .font(.system(size: menuBarWidgetIconSize, weight: menuBarWidgetFontWeight))
-                    .frame(width: menuBarWidgetIconFrame, height: menuBarWidgetIconFrame)
-                    .foregroundStyle(menuBarWidgetIcon)
-            }
             Text("\(project.widgetName) - \(project.completedTaskCount)/\(project.totalTaskCount)\(project.widgetOrder < 4 ? "" : " - \(deadlineText)")")
                 .font(.system(size: menuBarWidgetFontSize, weight: menuBarWidgetFontWeight))
                 .monospacedDigit()

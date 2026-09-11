@@ -34,7 +34,8 @@ struct MenuBarAcademicPeriod {
     }
 
     var title: String {
-        let progress = "Y4S1 - \(weekday) - \(currentWeek)/\(totalWeeks) Week - \(elapsedDays)/\(totalDays) day"
+        let displayWeekday = weekday == "Fri" ? "Fi" : weekday
+        let progress = "Y4S1 - \(displayWeekday) - \(currentWeek)/\(totalWeeks)W - \(elapsedDays)/\(totalDays)D"
         return specialWeek.map { "\(progress) - \($0)" } ?? progress
     }
 

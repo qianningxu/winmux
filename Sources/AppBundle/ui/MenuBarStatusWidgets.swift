@@ -274,7 +274,7 @@ private struct MenuBarStatusWidgetGroup: View {
                     ).load(now: context.date)
                     MenuBarProjectLeadingWidgetLayout(
                         separation: menuBarWidgetGroupSpacing,
-                        projectSeparation: standardGap,
+                        projectSeparation: standardGap * 0.75,
                         projectCount: projects.count,
                         cameraSafeEdges: cameraSafeEdges.map {
                             ($0.lowerBound - menuBarSurfaceHorizontalInset - WinMuxBarStyle.topBarContentInset)
@@ -284,10 +284,9 @@ private struct MenuBarStatusWidgetGroup: View {
                     ) {
                         MenuBarPeriodCapsule(height: widgetHeight)
 
-                        ForEach(Array(projects.enumerated()), id: \.element.id) { index, project in
+                        ForEach(projects) { project in
                             MenuBarProjectProgressCapsule(
                                 project: project,
-                                showsIcon: index == 0,
                                 height: widgetHeight
                             )
                         }
