@@ -102,9 +102,6 @@ public final class MenuBarStatusWidgetsController {
     }
 
     fileprivate func registerChartFrame(_ frame: NSRect, kind: MenuBarStatusChartKind, screenNumber: NSNumber) {
-        // Sleep and spending share a slot; only the visible chart owns its hit region.
-        if kind == .sleep { chartFrames[.spending]?[screenNumber] = nil }
-        if kind == .spending { chartFrames[.sleep]?[screenNumber] = nil }
         chartFrames[kind, default: [:]][screenNumber] = frame
     }
 
@@ -255,13 +252,15 @@ private struct MenuBarStatusWidgetGroup: View {
                 MenuBarBalancedWidgetLayout(separation: menuBarWidgetGroupSpacing) {
                     MenuBarPeriodCapsule(height: widgetHeight)
 
-                    MenuBarDailyFocusCapsule(height: widgetHeight)
-
                     MenuBarProjectsProgressWidget(height: widgetHeight)
+
+                    MenuBarDailyFocusCapsule(height: widgetHeight)
 
                     MenuBarBreakPotWidget(height: widgetHeight)
 
-                    MenuBarSleepSpendingCapsule(height: widgetHeight)
+                    MenuBarSpendingCapsule(height: widgetHeight)
+
+                    MenuBarSleepCapsule(height: widgetHeight)
                 }
                 .frame(
                     width: max(
@@ -311,20 +310,6 @@ struct MenuBarPeriodCapsule: View {
             .menuBarWidgetItem(height: height)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(period.accessibilityLabel))
-        }
-    }
-}
-
-struct MenuBarSleepSpendingCapsule: View {
-    let height: CGFloat
-
-    var body: some View {
-        TimelineView(.periodic(from: Calendar.current.dateInterval(of: .hour, for: .now)!.start, by: 3600)) { context in
-            if Calendar.current.component(.hour, from: context.date).isMultiple(of: 2) {
-                MenuBarSleepCapsule(height: height)
-            } else {
-                MenuBarSpendingCapsule(height: height)
-            }
         }
     }
 }

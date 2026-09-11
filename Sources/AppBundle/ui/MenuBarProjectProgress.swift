@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 private let menuBarProjectsBasePath = "/Users/side/Documents/now/my_app/self/self_ob/Others/tasks.base"
-let menuBarProjectProgressRotationInterval: TimeInterval = 5 * 60
+let menuBarProjectProgressRefreshInterval: TimeInterval = 5 * 60
 
 struct MenuBarProjectProgress: Identifiable, Equatable {
     let name: String
@@ -14,6 +14,16 @@ struct MenuBarProjectProgress: Identifiable, Equatable {
     let ratio: Double
 
     var id: String { name }
+
+    var widgetName: String {
+        switch name {
+            case "mt3507_math_stats": "Math Stats"
+            case "mt4112_numerical_methods": "Numerical"
+            case "mt4113_statistical_computing": "Stat Computing"
+            case "mt4511_asymptotic_methods": "Asymptotics"
+            default: name
+        }
+    }
 }
 
 struct MenuBarProjectProgressLoader {
@@ -114,19 +124,6 @@ struct MenuBarProjectProgressLoader {
     }
 }
 
-enum MenuBarProjectProgressRotation {
-    static func index(
-        for date: Date,
-        projectCount: Int,
-        interval: TimeInterval = menuBarProjectProgressRotationInterval
-    ) -> Int? {
-        guard projectCount > 0, interval > 0 else { return nil }
-
-        let bucket = Int(floor(date.timeIntervalSinceReferenceDate / interval))
-        return ((bucket % projectCount) + projectCount) % projectCount
-    }
-}
-
 struct MenuBarProjectsProgressWidget: View {
     let height: CGFloat
 
@@ -138,19 +135,16 @@ struct MenuBarProjectsProgressWidget: View {
         TimelineView(
             .periodic(
                 from: Date(timeIntervalSinceReferenceDate: 0),
-                by: menuBarProjectProgressRotationInterval
+                by: menuBarProjectProgressRefreshInterval
             )
         ) { context in
             let projects = MenuBarProjectProgressLoader(
                 baseURL: URL(filePath: menuBarProjectsBasePath)
             ).load(now: context.date)
 
-            Group {
-                if let index = MenuBarProjectProgressRotation.index(
-                    for: context.date,
-                    projectCount: projects.count
-                ) {
-                    MenuBarProjectProgressItem(project: projects[index])
+            HStack(spacing: menuBarWidgetSpacing) {
+                ForEach(projects) { project in
+                    MenuBarProjectProgressItem(project: project)
                 }
             }
             .menuBarWidgetItem(height: height)
@@ -168,12 +162,11 @@ private struct MenuBarProjectProgressItem: View {
                 .font(.system(size: menuBarWidgetIconSize, weight: menuBarWidgetFontWeight))
                 .frame(width: menuBarWidgetIconFrame, height: menuBarWidgetIconFrame)
                 .foregroundStyle(menuBarWidgetIcon)
-            Text("\(project.name) · \(project.completedTaskCount)/\(project.totalTaskCount) · \(deadlineText)")
+            Text("\(project.widgetName) · \(project.completedTaskCount)/\(project.totalTaskCount) · \(deadlineText)")
                 .font(.system(size: menuBarWidgetFontSize, weight: menuBarWidgetFontWeight))
                 .monospacedDigit()
                 .lineLimit(1)
         }
-        .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             Text(

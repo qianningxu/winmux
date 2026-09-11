@@ -212,7 +212,7 @@ final class WorkspaceSidebarHorizontalBarTest: XCTestCase {
             workspaceSidebarHorizontalProjectPopupHeight(projectCount: 3),
             workspaceSidebarProjectPopupRowHeight,
         )
-        XCTAssertEqual(menuBarProjectProgressRotationInterval, 5 * 60)
+        XCTAssertEqual(menuBarProjectProgressRefreshInterval, 5 * 60)
     }
 
     func testTopBarProjectDestinationsExcludeCurrentProject() {

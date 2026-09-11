@@ -3,36 +3,29 @@ import XCTest
 @testable import AppBundle
 
 final class MenuBarProjectProgressTest: XCTestCase {
-    func testProjectProgressRotatesOneProjectEveryFiveMinutes() {
-        let firstBoundary = Date(timeIntervalSinceReferenceDate: 300 * 1_000)
-        let firstIndex = MenuBarProjectProgressRotation.index(for: firstBoundary, projectCount: 3)
-
-        XCTAssertEqual(firstIndex, 1)
-        XCTAssertEqual(
-            MenuBarProjectProgressRotation.index(
-                for: firstBoundary.addingTimeInterval(menuBarProjectProgressRotationInterval - 1),
-                projectCount: 3
-            ),
-            firstIndex
-        )
-        XCTAssertEqual(
-            MenuBarProjectProgressRotation.index(
-                for: firstBoundary.addingTimeInterval(menuBarProjectProgressRotationInterval),
-                projectCount: 3
-            ),
-            2
-        )
-        XCTAssertEqual(
-            MenuBarProjectProgressRotation.index(
-                for: firstBoundary.addingTimeInterval(menuBarProjectProgressRotationInterval * 2),
-                projectCount: 3
-            ),
-            0
-        )
+    func testProjectProgressRefreshesEveryFiveMinutes() {
+        XCTAssertEqual(menuBarProjectProgressRefreshInterval, 5 * 60)
     }
 
-    func testProjectProgressRotationHasNoSelectionWithoutProjects() {
-        XCTAssertNil(MenuBarProjectProgressRotation.index(for: .now, projectCount: 0))
+    func testCourseProjectsUseCompactWidgetNames() {
+        let names = [
+            "mt3507_math_stats": "Math Stats",
+            "mt4112_numerical_methods": "Numerical",
+            "mt4113_statistical_computing": "Stat Computing",
+            "mt4511_asymptotic_methods": "Asymptotics",
+        ]
+        for (name, expected) in names {
+            let project = MenuBarProjectProgress(
+                name: name,
+                timeProgress: 0,
+                completedTaskCount: 0,
+                totalTaskCount: 0,
+                daysRemaining: nil,
+                priority: 1,
+                ratio: 0
+            )
+            XCTAssertEqual(project.widgetName, expected)
+        }
     }
 
     func testLoadsEveryProjectMatchingProjectsViewFiltersAndSortsByPriority() throws {
