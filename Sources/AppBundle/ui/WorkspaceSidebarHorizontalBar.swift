@@ -696,10 +696,10 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                             .lineLimit(1)
                             .truncationMode(.tail)
                             .overlay(alignment: .bottom) {
-                                if isActive {
+                                if isActive || isHovered {
                                     Rectangle()
                                         .fill(palette.color(palette.activeGeistFamily, .color10))
-                                        .frame(height: WinMuxBarStyle.innerSpacing / 2)
+                                        .frame(height: WinMuxBarStyle.strokeWidth)
                                 }
                             }
                     }

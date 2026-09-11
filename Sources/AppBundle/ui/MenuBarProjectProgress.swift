@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-private let menuBarProjectsBasePath = "/Users/side/Documents/now/my_app/self/self_ob/Others/tasks.base"
+let menuBarProjectsBasePath = "/Users/side/Documents/now/my_app/self/self_ob/Others/tasks.base"
 let menuBarProjectProgressRefreshInterval: TimeInterval = 5 * 60
 
 struct MenuBarProjectProgress: Identifiable, Equatable {
@@ -154,6 +154,18 @@ struct MenuBarProjectsProgressWidget: View {
             }
             .accessibilityElement(children: .contain)
         }
+    }
+}
+
+struct MenuBarProjectProgressCapsule: View {
+    let project: MenuBarProjectProgress
+    let showsIcon: Bool
+    let height: CGFloat
+
+    var body: some View {
+        MenuBarProjectProgressItem(project: project, showsIcon: showsIcon)
+            .menuBarWidgetItem(height: height)
+            .fixedSize(horizontal: true, vertical: false)
     }
 }
 
