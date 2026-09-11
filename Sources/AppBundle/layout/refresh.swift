@@ -261,6 +261,7 @@ func runRefreshSessionBlocking(
                 // it back above a settings/dialog window detected by refresh().
                 raiseNewlyDetectedDialogsAfterFocusSync()
                 await updateWindowTabModel()
+                await raiseFloatingWindowsInFocusOrder(nativeFocused: nativeFocused)
                 debugFocusLog("runRefreshSessionBlocking end event=\(event) nativeFocused=\(nativeFocused?.windowId.description ?? "nil") focus=\(debugDescribe(focus))")
             }
         }
@@ -321,6 +322,7 @@ func runLightSession<T>(
                             focusAfter?.nativeFocus() // syncFocusToMacOs
                         }
                     }
+                    await raiseFloatingWindowsInFocusOrder(nativeFocused: focusAfter != focusBefore ? focusAfter : nativeFocused)
                     if shouldSchedulePostRefresh {
                         scheduleRefreshSession(event)
                     }

@@ -192,6 +192,13 @@ final class MacApp: AbstractApp {
         }
     }
 
+    func raiseWindowAndWait(_ windowId: UInt32) async throws {
+        if serverArgs.isReadOnly { return }
+        _ = try await withWindow(windowId) { window, _ in
+            AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+        }
+    }
+
     func raiseWindow(_ windowId: UInt32) {
         if serverArgs.isReadOnly { return }
         _ = withWindowAsync(windowId) { window, job in

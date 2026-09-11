@@ -4,6 +4,14 @@ import XCTest
 
 final class RefreshFocusSyncTest: XCTestCase {
     @MainActor
+    func testGlobalFloatingWindowKeepsNativeFocus() {
+        setUpWorkspacesForTests()
+        let window = TestWindow.new(id: 912, parent: globalFloatingWindowsContainer)
+        updateFocusCache(window)
+        XCTAssertEqual(focus.windowOrNil?.windowId, window.windowId)
+    }
+
+    @MainActor
     func testShouldNotSyncFocusBackToPopupWindow() {
         setUpWorkspacesForTests()
 
