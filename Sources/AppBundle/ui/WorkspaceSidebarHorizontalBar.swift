@@ -684,6 +684,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
                     onCancel: onCancelRename,
                     font: .systemFont(ofSize: projectTabsBarFontSize, weight: isActive || isHovered ? .semibold : .medium),
                 )
+                .padding(.horizontal, WinMuxBarStyle.contentInset)
                 .frame(minWidth: 0, maxWidth: .infinity, alignment: .center)
             } else {
                 Button(action: onSelect) {
