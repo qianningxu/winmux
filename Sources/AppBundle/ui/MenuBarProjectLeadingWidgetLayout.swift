@@ -50,18 +50,27 @@ func menuBarProjectLeadingWidgetPlacements(
     let outerGap = max(0, separation)
     let projectGap = max(0, projectSeparation)
     let lastProjectIndex = min(max(projectCount, 0), max(widths.count - 1, 0))
+    let statusWidths = Array(widths.dropFirst(lastProjectIndex + 1))
+    let statusTotal = statusWidths.reduce(0, +) + CGFloat(max(0, statusWidths.count - 1)) * outerGap
+    let statusStart = max(0, available - statusTotal)
     var x: CGFloat = 0
     var result: [MenuBarWidgetPlacement] = []
     for (index, width) in widths.enumerated() {
+        if index == lastProjectIndex + 1 {
+            x = statusStart
+        }
         if index > 0 {
-            x += index > 1 && index <= lastProjectIndex ? projectGap : outerGap
+            if index != lastProjectIndex + 1 {
+                x += index > 1 && index <= lastProjectIndex ? projectGap : outerGap
+            }
         }
         if let cameraSafeEdges,
-           x < cameraSafeEdges.lowerBound,
+           x < cameraSafeEdges.upperBound,
            x + width > cameraSafeEdges.lowerBound {
             x = cameraSafeEdges.upperBound
         }
-        let visibleWidth = min(width, max(0, available - x))
+        let end = index <= lastProjectIndex && !statusWidths.isEmpty ? statusStart - outerGap : available
+        let visibleWidth = min(width, max(0, end - x))
         result.append(MenuBarWidgetPlacement(x: x, width: visibleWidth))
         x += visibleWidth
     }

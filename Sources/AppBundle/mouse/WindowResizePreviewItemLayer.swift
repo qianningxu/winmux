@@ -57,6 +57,7 @@ final class WindowResizePreviewItemLayer: CALayer {
         _ item: WindowResizePreviewLocalItem,
         scale: CGFloat,
         shadeOnly: Bool = false,
+        shadeFill: CGColor? = nil,
         iconResolver: (WindowResizePreviewIcon) -> CGImage?,
     ) {
         contentsScale = scale
@@ -68,7 +69,7 @@ final class WindowResizePreviewItemLayer: CALayer {
             mockTabStrokeLayer.isHidden = true
             strokeLayer.isHidden = true
             surfaceLayer.fillRule = .nonZero
-            surfaceLayer.fillColor = ResizePreviewPalette.fill
+            surfaceLayer.fillColor = shadeFill ?? ResizePreviewPalette.fill
             surfaceLayer.frame = localBounds
             surfaceLayer.contentsScale = scale
             let radius = windowResizePreviewCornerRadius(for: localBounds)

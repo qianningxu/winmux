@@ -52,7 +52,12 @@ final class WindowResizePreviewCompositorView: NSView {
                 layer?.addSublayer(itemLayer)
                 appearingLayers.append(itemLayer)
             }
-            itemLayer.update(item, scale: scale, shadeOnly: shadeOnly, iconResolver: resolvedIconImage)
+            let palette = TrayMenuModel.shared.projectPalette()
+            itemLayer.update(
+                item, scale: scale, shadeOnly: shadeOnly,
+                shadeFill: NSColor(palette.color(palette.activeGeistFamily, .color3)).cgColor,
+                iconResolver: resolvedIconImage
+            )
         }
         CATransaction.commit()
         appearingLayers.forEach { $0.animateAppear() }

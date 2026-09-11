@@ -37,7 +37,7 @@ final class MenuBarProjectProgressTest: XCTestCase {
             "Interview Q",
             frontmatter: """
             Period:
-              - Y3 summer
+              - Y4S1
             Status: In progress
             Priority: 3
             ratio: 4
@@ -48,7 +48,7 @@ final class MenuBarProjectProgressTest: XCTestCase {
         try fixture.writeProject(
             "Leetcode",
             frontmatter: """
-            Period: Y3 summer
+            Period: Y4S1
             Status:
               - In progress
             Priority: 2
@@ -59,13 +59,14 @@ final class MenuBarProjectProgressTest: XCTestCase {
         try fixture.writeProject(
             "Completed",
             frontmatter: """
-            Period: Y3 summer
+            Period: Y4S1
             Status: Completed
             Priority: 9
             """
         )
 
         let now = try XCTUnwrap(ProjectProgressFixture.date("2026-09-04T12:00:00"))
+        try fixture.writeProject("Old period", frontmatter: "Period: Y3 summer\nStatus: In progress\nPriority: 10")
         let projects = MenuBarProjectProgressLoader(baseURL: fixture.baseURL).load(now: now)
 
         XCTAssertEqual(projects.map(\.name), ["Interview Q", "Leetcode"])
@@ -84,7 +85,7 @@ final class MenuBarProjectProgressTest: XCTestCase {
         try fixture.writeProject(
             "Interview Q",
             frontmatter: """
-            Period: Y3 summer
+            Period: Y4S1
             Status: In progress
             Priority: 1
             start: 2026-09-01

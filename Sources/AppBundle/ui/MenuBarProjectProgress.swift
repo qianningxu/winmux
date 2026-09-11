@@ -15,6 +15,10 @@ struct MenuBarProjectProgress: Identifiable, Equatable {
 
     var id: String { name }
 
+    var widgetOrder: Int {
+        ["mt3507_math_stats", "mt4112_numerical_methods", "mt4113_statistical_computing", "mt4511_asymptotic_methods"].firstIndex(of: name) ?? 4
+    }
+
     var widgetName: String {
         switch name {
             case "mt3507_math_stats": "Math Stats"
@@ -53,7 +57,7 @@ struct MenuBarProjectProgressLoader {
             .compactMap { projectURL in
                 guard let contents = try? String(contentsOf: projectURL, encoding: .utf8),
                       let frontmatter = ProjectFrontmatter(contents: contents),
-                      frontmatter.values(for: "Period").contains(filter.period),
+                      frontmatter.values(for: "Period").contains("Y4S1"),
                       frontmatter.values(for: "Status").contains(filter.status),
                       !filter.requiresPriority || frontmatter.number(for: "Priority") != nil
                 else { return nil }
@@ -71,6 +75,7 @@ struct MenuBarProjectProgressLoader {
                 )
             }
             .sorted {
+                if $0.widgetOrder != $1.widgetOrder { return $0.widgetOrder < $1.widgetOrder }
                 if $0.priority != $1.priority { return $0.priority > $1.priority }
                 if $0.ratio != $1.ratio { return $0.ratio > $1.ratio }
                 return $0.name.localizedStandardCompare($1.name) == .orderedAscending
@@ -165,7 +170,6 @@ struct MenuBarProjectProgressCapsule: View {
     var body: some View {
         MenuBarProjectProgressItem(project: project, showsIcon: showsIcon)
             .menuBarWidgetItem(height: height)
-            .fixedSize(horizontal: true, vertical: false)
     }
 }
 
@@ -209,7 +213,6 @@ private struct MenuBarProjectProgressItem: View {
 
 private struct ProjectViewFilter {
     let folder: String
-    let period: String
     let status: String
     let requiresPriority: Bool
 
@@ -220,12 +223,10 @@ private struct ProjectViewFilter {
         }
 
         guard let folder = Self.quotedValue(in: projectsView, after: "file.folder =="),
-              let period = Self.quotedValue(in: projectsView, after: "Period.contains("),
               let status = Self.quotedValue(in: projectsView, after: "Status.contains(")
         else { return nil }
 
         self.folder = folder
-        self.period = period
         self.status = status
         requiresPriority = projectsView.contains("!Priority.isEmpty()")
     }

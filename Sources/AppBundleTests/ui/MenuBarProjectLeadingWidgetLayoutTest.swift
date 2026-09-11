@@ -9,7 +9,7 @@ final class MenuBarProjectLeadingWidgetLayoutTest: XCTestCase {
             [
                 MenuBarWidgetPlacement(x: 0, width: 80),
                 MenuBarWidgetPlacement(x: 92, width: 60),
-                MenuBarWidgetPlacement(x: 164, width: 40),
+                MenuBarWidgetPlacement(x: 260, width: 40),
             ]
         )
     }
