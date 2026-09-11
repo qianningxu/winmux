@@ -53,6 +53,7 @@ final class FloatingWindowLevelController {
 
 @MainActor
 func syncGlobalFloatingWindowLevels() {
+    startFloatingWindowOrderMonitor()
     let floatingWindowIds: Set<UInt32> = if TrayMenuModel.shared.isEnabled && !serverArgs.isReadOnly {
         Set(globalFloatingWindowsContainer.children.compactMap { ($0 as? MacWindow)?.windowId })
     } else {
