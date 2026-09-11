@@ -115,9 +115,9 @@ private func unambiguousLegacyWindowTabLabelKey(for window: Window, rawTitle: St
     if let rawTitle { title = rawTitle } else { title = await getCachedWindowTitle(window) ?? appName }
     let key = windowTabLabelKey(app: window.app, rawTitle: title)
     guard config.windowTabs.tabLabels[key] != nil else { return nil }
-    let windows = isUnitTest
+    let windows: [Window] = isUnitTest
         ? Workspace.all.flatMap { $0.allLeafWindowsRecursive }
-        : Array(MacWindow.allWindowsMap.values)
+        : MacWindow.allWindowsMap.values.map { $0 as Window }
     for other in windows where other.windowId != window.windowId {
         let otherAppName = other.app.name ?? other.app.rawAppBundleId ?? "Window"
         let otherTitle = await getCachedWindowTitle(other) ?? otherAppName
