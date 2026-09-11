@@ -32,6 +32,7 @@ private struct AppServerTerminationHandler: TerminationHandler {
         // written by the background persistence actor.  Await it here so a
         // clean quit cannot outrun the final checkpoint.
         await persistFrozenWorldForRestartAndWaitIfPossible()
+        FloatingWindowLevelController.shared.restoreAll()
         try await makeAllWindowsVisibleAndRestoreSize()
         await toggleReleaseServerIfDebug(.on)
     }

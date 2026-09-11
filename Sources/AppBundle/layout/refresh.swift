@@ -391,6 +391,7 @@ struct RunSessionGuard: Sendable {
 func refreshModel() {
     detachWorkspaceFloatingWindows()
     Workspace.reconcileWorkspaceState()
+    syncGlobalFloatingWindowLevels()
     checkOnFocusChangedCallbacks()
     normalizeContainers()
 }
