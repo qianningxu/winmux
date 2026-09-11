@@ -249,7 +249,7 @@ private struct MenuBarStatusWidgetGroup: View {
             let surfaceHeight = max(1, geometry.size.height - menuBarContentTopInset)
             let widgetHeight = max(1, surfaceHeight - WinMuxBarStyle.topBarContentInset * 2)
             VStack(spacing: standardGap * 0) {
-                MenuBarBalancedWidgetLayout(separation: menuBarWidgetGroupSpacing) {
+                MenuBarProjectLeadingWidgetLayout(separation: menuBarWidgetGroupSpacing) {
                     MenuBarPeriodCapsule(height: widgetHeight)
 
                     MenuBarProjectsProgressWidget(height: widgetHeight)
@@ -258,9 +258,9 @@ private struct MenuBarStatusWidgetGroup: View {
 
                     MenuBarBreakPotWidget(height: widgetHeight)
 
-                    MenuBarSpendingCapsule(height: widgetHeight)
-
                     MenuBarSleepCapsule(height: widgetHeight)
+
+                    MenuBarSpendingCapsule(height: widgetHeight)
                 }
                 .frame(
                     width: max(

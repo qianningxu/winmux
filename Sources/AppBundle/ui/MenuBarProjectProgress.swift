@@ -142,12 +142,15 @@ struct MenuBarProjectsProgressWidget: View {
                 baseURL: URL(filePath: menuBarProjectsBasePath)
             ).load(now: context.date)
 
-            HStack(spacing: menuBarWidgetSpacing) {
+            HStack(spacing: WinMuxSpacing.comfortable) {
                 ForEach(projects) { project in
-                    MenuBarProjectProgressItem(project: project)
+                    MenuBarProjectProgressItem(
+                        project: project,
+                        showsIcon: project.id == projects.first?.id
+                    )
+                        .menuBarWidgetItem(height: height)
                 }
             }
-            .menuBarWidgetItem(height: height)
             .accessibilityElement(children: .contain)
         }
     }
@@ -155,13 +158,16 @@ struct MenuBarProjectsProgressWidget: View {
 
 private struct MenuBarProjectProgressItem: View {
     let project: MenuBarProjectProgress
+    let showsIcon: Bool
 
     var body: some View {
         HStack(spacing: menuBarWidgetSpacing) {
-            Image(systemName: "checklist")
-                .font(.system(size: menuBarWidgetIconSize, weight: menuBarWidgetFontWeight))
-                .frame(width: menuBarWidgetIconFrame, height: menuBarWidgetIconFrame)
-                .foregroundStyle(menuBarWidgetIcon)
+            if showsIcon {
+                Image(systemName: "checklist")
+                    .font(.system(size: menuBarWidgetIconSize, weight: menuBarWidgetFontWeight))
+                    .frame(width: menuBarWidgetIconFrame, height: menuBarWidgetIconFrame)
+                    .foregroundStyle(menuBarWidgetIcon)
+            }
             Text("\(project.widgetName) · \(project.completedTaskCount)/\(project.totalTaskCount) · \(deadlineText)")
                 .font(.system(size: menuBarWidgetFontSize, weight: menuBarWidgetFontWeight))
                 .monospacedDigit()
