@@ -260,7 +260,6 @@ func runRefreshSessionBlocking(
                 // to macOS. Otherwise focusing the previous window here can put
                 // it back above a settings/dialog window detected by refresh().
                 raiseNewlyDetectedDialogsAfterFocusSync()
-                raiseGlobalFloatingWindows()
                 await updateWindowTabModel()
                 debugFocusLog("runRefreshSessionBlocking end event=\(event) nativeFocused=\(nativeFocused?.windowId.description ?? "nil") focus=\(debugDescribe(focus))")
             }
@@ -322,7 +321,6 @@ func runLightSession<T>(
                             focusAfter?.nativeFocus() // syncFocusToMacOs
                         }
                     }
-                    raiseGlobalFloatingWindows()
                     if shouldSchedulePostRefresh {
                         scheduleRefreshSession(event)
                     }

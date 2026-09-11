@@ -26,6 +26,40 @@ struct WorkspaceSidebarHorizontalReorderTarget: Equatable {
     let placement: WorkspaceReorderPlacement
 }
 
+struct WorkspaceSidebarWindowMenuItem: Equatable, Identifiable {
+    let windowId: UInt32
+    let title: String
+    let tabName: String?
+    let isFloating: Bool
+    let isFocused: Bool
+
+    var id: UInt32 { windowId }
+    var menuTitle: String {
+        "\(title) — \(isFloating ? "Floating" : tabName ?? "Tab")"
+    }
+}
+
+func workspaceSidebarTiledWindowMenuItems(
+    workspaces: [WorkspaceSidebarWorkspaceViewModel]
+) -> [WorkspaceSidebarWindowMenuItem] {
+    workspaces.flatMap { workspace in
+        workspace.items.flatMap { item -> [WorkspaceSidebarWindowViewModel] in
+            switch item.kind {
+                case .window(let window): [window]
+                case .tabGroup(let group): group.tabs
+            }
+        }.map { window in
+            WorkspaceSidebarWindowMenuItem(
+                windowId: window.windowId,
+                title: window.title ?? window.appName,
+                tabName: workspace.displayName,
+                isFloating: false,
+                isFocused: window.isFocused
+            )
+        }
+    }
+}
+
 func workspaceSidebarHorizontalReorderTarget(
     sourceWorkspaceName: String,
     pointer: CGPoint,
@@ -118,6 +152,24 @@ struct WorkspaceSidebarHorizontalBar: View {
 
     private var projectWorkspaces: [WorkspaceSidebarWorkspaceViewModel] {
         workspaceSidebarHorizontalVisibleWorkspaces(in: snapshot)
+    }
+
+    @MainActor
+    private var allWindowMenuItems: [WorkspaceSidebarWindowMenuItem] {
+        let tiled = workspaceSidebarTiledWindowMenuItems(workspaces: projectWorkspaces)
+        let floating = globalFloatingWindowsContainer.children.compactMap { node -> WorkspaceSidebarWindowMenuItem? in
+            guard let window = node as? Window, window.isBound else { return nil }
+            return WorkspaceSidebarWindowMenuItem(
+                windowId: window.windowId,
+                title: sidebarDisplayLabel(for: window),
+                tabName: nil,
+                isFloating: true,
+                isFocused: focus.windowOrNil == window
+            )
+        }.sorted { lhs, rhs in
+            lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
+        return tiled + floating
     }
 
     private var palette: WinMuxOverlayPalette {
@@ -390,6 +442,7 @@ struct WorkspaceSidebarHorizontalBar: View {
             activeInUseOverrideWorkspaceName: $activeInUseOverrideWorkspaceName,
             hoveredWorkspaceName: $hoveredWorkspaceName,
             actions: actions,
+            allWindowMenuItems: allWindowMenuItems,
             projectDestinations: workspaceSidebarProjectDestinations(
                 projects: snapshot.projects,
                 currentProjectId: workspace.projectId,
@@ -652,6 +705,7 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
     @Binding var activeInUseOverrideWorkspaceName: String?
     @Binding var hoveredWorkspaceName: String?
     let actions: WorkspaceSidebarActions
+    let allWindowMenuItems: [WorkspaceSidebarWindowMenuItem]
     let projectDestinations: [WorkspaceSidebarProjectViewModel]
     let onSelect: () -> Void
     let onBeginRename: () -> Void
@@ -727,6 +781,21 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
             Button("Rename tab", action: onBeginRename)
             Button("Close workspace", action: onClose)
                 .disabled(workspace.tabSummary.windowCount == 0)
+            if !allWindowMenuItems.isEmpty {
+                Menu("All windows") {
+                    ForEach(allWindowMenuItems.filter { !$0.isFloating }) { item in
+                        windowMenuButton(item)
+                    }
+                    if allWindowMenuItems.contains(where: \.isFloating),
+                       allWindowMenuItems.contains(where: { !$0.isFloating })
+                    {
+                        Divider()
+                    }
+                    ForEach(allWindowMenuItems.filter(\.isFloating)) { item in
+                        windowMenuButton(item)
+                    }
+                }
+            }
             if !projectDestinations.isEmpty {
                 Menu("Move to") {
                     ForEach(projectDestinations) { project in
@@ -758,6 +827,17 @@ private struct WorkspaceSidebarHorizontalWorkspaceTab: View {
             }
         }
         .animation(.easeOut(duration: 0.10), value: isHovered)
+    }
+
+    private func windowMenuButton(_ item: WorkspaceSidebarWindowMenuItem) -> some View {
+        Button {
+            actions.send(.selectWindow(item.windowId))
+        } label: {
+            Label(
+                item.menuTitle,
+                systemImage: item.isFloating ? "pin.fill" : item.isFocused ? "checkmark" : "macwindow"
+            )
+        }
     }
 
     @ViewBuilder

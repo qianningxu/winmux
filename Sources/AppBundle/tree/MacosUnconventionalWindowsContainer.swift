@@ -47,12 +47,3 @@ func detachWorkspaceFloatingWindows() {
         }
     }
 }
-
-@MainActor
-func raiseGlobalFloatingWindows() {
-    guard TrayMenuModel.shared.isEnabled else { return }
-    for window in globalFloatingWindowsContainer.children.compactMap({ $0 as? MacWindow }) {
-        guard !window.macApp.nsApp.isHidden, !window.macApp.nsApp.isTerminated else { continue }
-        window.macApp.raiseWindow(window.windowId)
-    }
-}
