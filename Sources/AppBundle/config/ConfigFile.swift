@@ -56,6 +56,9 @@ func preferredEditableConfigUrl() -> URL {
 func starterConfigText() -> String {
     let starterBindings: [String: String] = [
         ("alt-space", "layout horizontal vertical"),
+        ("ctrl-alt-j", "split 1:2"),
+        ("ctrl-alt-k", "split 1:1"),
+        ("ctrl-alt-l", "split 2:1"),
         ("ctrl-f", "open-sidebar"),
         ("alt-b", "open-sidebar"),
         ("alt-h", "focus left"),

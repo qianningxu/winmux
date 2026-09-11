@@ -20,6 +20,18 @@ public struct SplitCmdArgs: CmdArgs {
 
     public enum SplitArg: String, CaseIterable, Sendable {
         case horizontal, vertical, opposite
+        case oneToTwo = "1:2"
+        case oneToOne = "1:1"
+        case twoToOne = "2:1"
+
+        public var leftFraction: Double? {
+            switch self {
+                case .oneToTwo: 1.0 / 3.0
+                case .oneToOne: 0.5
+                case .twoToOne: 2.0 / 3.0
+                default: nil
+            }
+        }
     }
 }
 

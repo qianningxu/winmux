@@ -6,6 +6,18 @@ struct SplitCommand: Command {
     /*conforms*/ let shouldResetClosedWindowsCache = true
 
     func run(_ env: CmdEnv, _ io: CmdIo) -> Bool {
+        if let leftFraction = args.arg.val.leftFraction {
+            guard let target = args.resolveTargetOrReportError(env, io) else { return false }
+            let root = target.workspace.rootTilingContainer
+            guard root.layout == .tiles, root.orientation == .h, root.children.count == 2,
+                  let window = target.windowOrNil,
+                  window.parentsWithSelf.contains(where: { $0 === root })
+            else { return true }
+            let total = root.children.reduce(CGFloat.zero) { $0 + $1.getWeight(.h) }
+            root.children[0].setWeight(.h, total * leftFraction)
+            root.children[1].setWeight(.h, total * (1 - leftFraction))
+            return true
+        }
         if config.enableNormalizationFlattenContainers {
             return io.err("'split' has no effect when 'enable-normalization-flatten-containers' normalization enabled. My recommendation: keep the normalizations enabled, and prefer 'join-with' over 'split'.")
         }
@@ -23,6 +35,7 @@ struct SplitCommand: Command {
                     case .vertical: .v
                     case .horizontal: .h
                     case .opposite: parent.orientation.opposite
+                    case .oneToTwo, .oneToOne, .twoToOne: .h // Ratios are handled above.
                 }
                 if parent.children.count == 1 {
                     parent.changeOrientation(orientation)
