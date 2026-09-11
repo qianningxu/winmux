@@ -223,7 +223,7 @@ func parseCommandOrCommands(_ raw: TOMLValueConvertible) -> Parsed<[any Command]
     if config.enableNormalizationFlattenContainers {
         let containsSplitCommand = config.modes.values.lazy.flatMap { $0.bindings.values }
             .flatMap { $0.commands }
-            .contains { $0 is SplitCommand }
+            .contains { ($0 as? SplitCommand).map { $0.args.arg.val.leftFraction == nil } ?? false }
         if containsSplitCommand {
             errors += [.semantic(
                 .emptyRoot, // todo Make 'split' + flatten normalization prettier
