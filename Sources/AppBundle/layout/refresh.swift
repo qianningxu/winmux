@@ -191,7 +191,6 @@ func runRefreshSessionBlocking(
                 if let nativeFocused { try await debugWindowsIfRecording(nativeFocused) }
                 await updateNativeFullscreenChromeSuppression(nativeFocused: nativeFocused)
                 updateFocusCache(nativeFocused)
-                await raiseFloatingWindowsInFocusOrder(nativeFocused: nativeFocused)
                 try checkCancellation()
 
                 if shouldLayoutWorkspaces && optimisticallyPreLayoutWorkspaces { try await layoutWorkspaces() }
@@ -262,7 +261,6 @@ func runRefreshSessionBlocking(
                 // it back above a settings/dialog window detected by refresh().
                 raiseNewlyDetectedDialogsAfterFocusSync()
                 await updateWindowTabModel()
-                await raiseFloatingWindowsInFocusOrder(nativeFocused: nativeFocused)
                 debugFocusLog("runRefreshSessionBlocking end event=\(event) nativeFocused=\(nativeFocused?.windowId.description ?? "nil") focus=\(debugDescribe(focus))")
             }
         }
@@ -323,7 +321,6 @@ func runLightSession<T>(
                             focusAfter?.nativeFocus() // syncFocusToMacOs
                         }
                     }
-                    await raiseFloatingWindowsInFocusOrder(nativeFocused: focusAfter != focusBefore ? focusAfter : nativeFocused)
                     if shouldSchedulePostRefresh {
                         scheduleRefreshSession(event)
                     }
@@ -392,7 +389,6 @@ struct RunSessionGuard: Sendable {
 func refreshModel() {
     detachWorkspaceFloatingWindows()
     Workspace.reconcileWorkspaceState()
-    syncGlobalFloatingWindowLevels()
     checkOnFocusChangedCallbacks()
     normalizeContainers()
 }
