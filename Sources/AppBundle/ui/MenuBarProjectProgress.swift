@@ -142,13 +142,14 @@ struct MenuBarProjectsProgressWidget: View {
                 baseURL: URL(filePath: menuBarProjectsBasePath)
             ).load(now: context.date)
 
-            HStack(spacing: WinMuxSpacing.comfortable) {
+            HStack(spacing: standardGap) {
                 ForEach(projects) { project in
                     MenuBarProjectProgressItem(
                         project: project,
                         showsIcon: project.id == projects.first?.id
                     )
                         .menuBarWidgetItem(height: height)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
             }
             .accessibilityElement(children: .contain)
@@ -168,7 +169,7 @@ private struct MenuBarProjectProgressItem: View {
                     .frame(width: menuBarWidgetIconFrame, height: menuBarWidgetIconFrame)
                     .foregroundStyle(menuBarWidgetIcon)
             }
-            Text("\(project.widgetName) · \(project.completedTaskCount)/\(project.totalTaskCount) · \(deadlineText)")
+            Text("\(project.widgetName) - \(project.completedTaskCount)/\(project.totalTaskCount) - \(deadlineText)")
                 .font(.system(size: menuBarWidgetFontSize, weight: menuBarWidgetFontWeight))
                 .monospacedDigit()
                 .lineLimit(1)
@@ -182,9 +183,8 @@ private struct MenuBarProjectProgressItem: View {
     }
 
     private var deadlineText: String {
-        guard let daysRemaining = project.daysRemaining else { return "no deadline" }
-        if daysRemaining < 0 { return "\(-daysRemaining)d overdue" }
-        return "\(daysRemaining)d left"
+        guard let daysRemaining = project.daysRemaining else { return "—" }
+        return "\(daysRemaining)d"
     }
 
     private var deadlineAccessibilityText: String {

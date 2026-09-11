@@ -13,4 +13,16 @@ final class MenuBarProjectLeadingWidgetLayoutTest: XCTestCase {
             ]
         )
     }
+
+    func testCameraAreaSeparatesAndConstrainsBothGroups() {
+        let placements = menuBarProjectLeadingWidgetPlacements(
+            [100, 300, 180, 120],
+            availableWidth: 800,
+            separation: 6,
+            cameraSafeEdges: 350 ... 450
+        )
+
+        XCTAssertLessThanOrEqual(placements[1].x + placements[1].width, 350)
+        XCTAssertGreaterThanOrEqual(placements[2].x, 450)
+    }
 }

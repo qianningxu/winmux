@@ -153,9 +153,11 @@ public final class MenuBarStatusWidgetsController {
             activeScreenNumbers.insert(screenNumber)
             let panel = panelsByScreenNumber[screenNumber] ?? MenuBarStatusWidgetPanel()
             panelsByScreenNumber[screenNumber] = panel
+            let panelFrame = menuBarFrame(for: screen)
             panel.show(
-                in: menuBarFrame(for: screen),
-                projectThemeFamily: projectThemeFamily
+                in: panelFrame,
+                projectThemeFamily: projectThemeFamily,
+                cameraSafeEdges: menuBarCameraSafeEdges(for: screen, panelFrame: panelFrame)
             )
         }
 
@@ -168,8 +170,18 @@ public final class MenuBarStatusWidgetsController {
     }
 }
 
+private func menuBarCameraSafeEdges(for screen: NSScreen, panelFrame: NSRect) -> ClosedRange<CGFloat>? {
+    guard let left = screen.auxiliaryTopLeftArea,
+          let right = screen.auxiliaryTopRightArea,
+          left.maxX < right.minX
+    else { return nil }
+    return (left.maxX - panelFrame.minX) ... (right.minX - panelFrame.minX)
+}
+
 private final class MenuBarStatusWidgetPanel: NSPanelHud {
-    private let hostingView = NSHostingView(rootView: MenuBarStatusWidgetGroup(projectThemeFamily: nil))
+    private let hostingView = NSHostingView(
+        rootView: MenuBarStatusWidgetGroup(projectThemeFamily: nil, cameraSafeEdges: nil)
+    )
     private(set) var projectThemeFamily: WorkspaceSidebarProjectThemeFamily?
 
     override init() {
@@ -210,11 +222,15 @@ private final class MenuBarStatusWidgetPanel: NSPanelHud {
 
     func show(
         in frame: NSRect,
-        projectThemeFamily: WorkspaceSidebarProjectThemeFamily?
+        projectThemeFamily: WorkspaceSidebarProjectThemeFamily?,
+        cameraSafeEdges: ClosedRange<CGFloat>?
     ) {
-        if self.projectThemeFamily != projectThemeFamily {
+        if self.projectThemeFamily != projectThemeFamily || hostingView.rootView.cameraSafeEdges != cameraSafeEdges {
             self.projectThemeFamily = projectThemeFamily
-            hostingView.rootView = MenuBarStatusWidgetGroup(projectThemeFamily: projectThemeFamily)
+            hostingView.rootView = MenuBarStatusWidgetGroup(
+                projectThemeFamily: projectThemeFamily,
+                cameraSafeEdges: cameraSafeEdges
+            )
         }
         if self.frame != frame {
             setFrame(frame, display: true, animate: false)
@@ -239,6 +255,7 @@ private func menuBarFrame(for screen: NSScreen) -> NSRect {
 
 private struct MenuBarStatusWidgetGroup: View {
     let projectThemeFamily: WorkspaceSidebarProjectThemeFamily?
+    let cameraSafeEdges: ClosedRange<CGFloat>?
 
     var body: some View {
         let palette = WinMuxOverlayPalette(
@@ -249,7 +266,14 @@ private struct MenuBarStatusWidgetGroup: View {
             let surfaceHeight = max(1, geometry.size.height - menuBarContentTopInset)
             let widgetHeight = max(1, surfaceHeight - WinMuxBarStyle.topBarContentInset * 2)
             VStack(spacing: standardGap * 0) {
-                MenuBarProjectLeadingWidgetLayout(separation: menuBarWidgetGroupSpacing) {
+                MenuBarProjectLeadingWidgetLayout(
+                    separation: menuBarWidgetGroupSpacing,
+                    cameraSafeEdges: cameraSafeEdges.map {
+                        ($0.lowerBound - menuBarSurfaceHorizontalInset - WinMuxBarStyle.topBarContentInset)
+                            ...
+                        ($0.upperBound - menuBarSurfaceHorizontalInset - WinMuxBarStyle.topBarContentInset)
+                    }
+                ) {
                     MenuBarPeriodCapsule(height: widgetHeight)
 
                     MenuBarProjectsProgressWidget(height: widgetHeight)

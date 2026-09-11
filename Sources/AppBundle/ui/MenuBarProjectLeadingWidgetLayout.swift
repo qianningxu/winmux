@@ -4,6 +4,7 @@ import SwiftUI
 /// status widgets stay on the trailing side.
 struct MenuBarProjectLeadingWidgetLayout: SwiftUI.Layout {
     let separation: CGFloat
+    let cameraSafeEdges: ClosedRange<CGFloat>?
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
@@ -18,7 +19,8 @@ struct MenuBarProjectLeadingWidgetLayout: SwiftUI.Layout {
         let placements = menuBarProjectLeadingWidgetPlacements(
             subviews.map { $0.sizeThatFits(.unspecified).width },
             availableWidth: bounds.width,
-            separation: separation
+            separation: separation,
+            cameraSafeEdges: cameraSafeEdges
         )
         for (subview, placement) in zip(subviews, placements) {
             subview.place(
@@ -33,25 +35,34 @@ struct MenuBarProjectLeadingWidgetLayout: SwiftUI.Layout {
 func menuBarProjectLeadingWidgetPlacements(
     _ idealWidths: [CGFloat],
     availableWidth: CGFloat,
-    separation: CGFloat
+    separation: CGFloat,
+    cameraSafeEdges: ClosedRange<CGFloat>? = nil
 ) -> [MenuBarWidgetPlacement] {
     guard !idealWidths.isEmpty else { return [] }
     let widths = idealWidths.map { $0.isFinite ? max(0, $0) : 0 }
     let available = max(0, availableWidth)
-    let gapCount = max(widths.count - 1, 0)
-    let gap = gapCount > 0 ? min(max(0, separation), available / CGFloat(gapCount)) : 0
-    let contentWidth = max(0, available - CGFloat(gapCount) * gap)
-    let total = widths.reduce(0, +)
-    let resolved = total > contentWidth && total > 0
-        ? widths.map { contentWidth * $0 / total }
-        : widths
-    let leadingCount = min(2, resolved.count)
-    let trailing = resolved.dropFirst(leadingCount)
+    let gap = max(0, separation)
+    let leadingCount = min(2, widths.count)
+    var leading = Array(widths.prefix(leadingCount))
+    var trailing = Array(widths.dropFirst(leadingCount))
+
+    if let cameraSafeEdges {
+        leading = menuBarWidthsFitting(leading, available: max(0, cameraSafeEdges.lowerBound), gap: gap)
+        trailing = menuBarWidthsFitting(
+            trailing,
+            available: max(0, available - cameraSafeEdges.upperBound),
+            gap: gap
+        )
+    } else {
+        let fitted = menuBarWidthsFitting(widths, available: available, gap: gap)
+        leading = Array(fitted.prefix(leadingCount))
+        trailing = Array(fitted.dropFirst(leadingCount))
+    }
     var leadingX: CGFloat = 0
     var trailingX = available - trailing.reduce(0, +) - CGFloat(max(trailing.count - 1, 0)) * gap
     var result: [MenuBarWidgetPlacement] = []
 
-    for width in resolved.prefix(leadingCount) {
+    for width in leading {
         result.append(MenuBarWidgetPlacement(x: leadingX, width: width))
         leadingX += width + gap
     }
@@ -60,4 +71,12 @@ func menuBarProjectLeadingWidgetPlacements(
         trailingX += width + gap
     }
     return result
+}
+
+private func menuBarWidthsFitting(_ widths: [CGFloat], available: CGFloat, gap: CGFloat) -> [CGFloat] {
+    guard !widths.isEmpty else { return [] }
+    let contentAvailable = max(0, available - CGFloat(max(widths.count - 1, 0)) * gap)
+    let total = widths.reduce(0, +)
+    guard total > contentAvailable, total > 0 else { return widths }
+    return widths.map { contentAvailable * $0 / total }
 }
