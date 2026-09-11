@@ -3,8 +3,8 @@ import Charts
 import Foundation
 import SwiftUI
 
-let menuBarWidgetIcon = workspaceSidebarWidgetContent(.primary)
-let menuBarWidgetText = workspaceSidebarWidgetContent(.primary)
+let menuBarWidgetIcon = WinMuxOverlayPalette(theme: .dark).content(.primary)
+let menuBarWidgetText = WinMuxOverlayPalette(theme: .dark).content(.primary)
 private let menuBarWidgetDataPath = defaultWorkspaceSidebarDataPath
 let menuBarWidgetSpacing: CGFloat = WinMuxBarStyle.iconSpacing
 let menuBarWidgetFontSize = NSFont.menuBarFont(ofSize: 0).pointSize
@@ -242,11 +242,10 @@ private func menuBarFrame(for screen: NSScreen) -> NSRect {
 
 private struct MenuBarStatusWidgetGroup: View {
     let projectThemeFamily: WorkspaceSidebarProjectThemeFamily?
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let palette = WinMuxOverlayPalette(
-            colorScheme: colorScheme,
+            theme: .dark,
             projectThemeFamily: projectThemeFamily
         )
         GeometryReader { geometry in
@@ -284,6 +283,7 @@ private struct MenuBarStatusWidgetGroup: View {
             .background(palette.geistBackground(.secondary))
         }
         .environment(\.workspaceSidebarProjectThemeFamily, projectThemeFamily)
+        .environment(\.colorScheme, .dark)
     }
 }
 

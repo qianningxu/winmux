@@ -263,11 +263,12 @@ struct WorkspaceSidebarHorizontalBar: View {
                     }
                     Divider()
                     Menu("Config") {
-                        Button("Switch theme") {
-                            toggleWorkspaceSidebarAppearance()
+                        Menu("Theme") {
+                            themeOption("Light", theme: .light)
+                            themeOption("Dark", theme: .dark)
+                            themeOption("System", theme: nil)
                         }
                         if projectsAreEnabled(), let project = activeProject {
-                            Divider()
                             projectActions(for: project)
                         }
                     }
@@ -292,6 +293,19 @@ struct WorkspaceSidebarHorizontalBar: View {
                 .accessibilityLabel("Project: \(name)")
             }
             .frame(width: contentHeight, height: contentHeight)
+        }
+    }
+
+    @ViewBuilder
+    private func themeOption(_ title: String, theme: AppearanceTheme?) -> some View {
+        Button {
+            setWorkspaceSidebarAppearance(theme)
+        } label: {
+            if currentWorkspaceSidebarAppearancePreference() == theme {
+                Label(title, systemImage: "checkmark")
+            } else {
+                Text(title)
+            }
         }
     }
 

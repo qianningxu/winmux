@@ -25,18 +25,27 @@ func restoreWorkspaceSidebarAppearancePreference() {
     applyWorkspaceSidebarAppearance(theme, persist: false)
 }
 
+func currentWorkspaceSidebarAppearancePreference() -> AppearanceTheme? {
+    workspaceSidebarAppearancePreference(
+        rawValue: UserDefaults.standard.string(forKey: workspaceSidebarAppearancePreferenceKey) ?? ""
+    )
+}
+
 @MainActor
-func toggleWorkspaceSidebarAppearance() {
-    let theme: AppearanceTheme = AppearanceTheme.current == .dark ? .light : .dark
+func setWorkspaceSidebarAppearance(_ theme: AppearanceTheme?) {
     applyWorkspaceSidebarAppearance(theme, persist: true)
 }
 
 @MainActor
-private func applyWorkspaceSidebarAppearance(_ theme: AppearanceTheme, persist: Bool) {
-    NSApplication.shared.appearance = NSAppearance(named: theme == .dark ? .darkAqua : .aqua)
+private func applyWorkspaceSidebarAppearance(_ theme: AppearanceTheme?, persist: Bool) {
+    NSApplication.shared.appearance = theme.map { NSAppearance(named: $0 == .dark ? .darkAqua : .aqua) } ?? nil
     WorkspaceCanvasBackgroundPanel.refreshAll(themeOverride: theme)
     guard persist else { return }
-    UserDefaults.standard.setValue(theme == .dark ? "dark" : "light", forKey: workspaceSidebarAppearancePreferenceKey)
+    if let theme {
+        UserDefaults.standard.setValue(theme == .dark ? "dark" : "light", forKey: workspaceSidebarAppearancePreferenceKey)
+    } else {
+        UserDefaults.standard.removeObject(forKey: workspaceSidebarAppearancePreferenceKey)
+    }
 }
 
 func workspaceSidebarPinnedExpandedPreference() -> Bool {
