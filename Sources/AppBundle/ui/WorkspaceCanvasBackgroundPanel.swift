@@ -123,7 +123,7 @@ struct WorkspaceCanvasBackgroundView: View {
     let projectThemeFamily: WorkspaceSidebarProjectThemeFamily?
     let reserveHeight: CGFloat
     let theme: AppearanceTheme
-    var cornerRadius = WinMuxBarStyle.topBarSurfaceCornerRadius
+    var cornerRadius: CGFloat = 0
 
     private var frameShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -176,22 +176,8 @@ func workspaceCanvasBackground(for palette: WinMuxOverlayPalette) -> Color {
     palette.color(palette.activeGeistFamily, .color1)
 }
 
-/// Use one enclosing radius for all four corners, accommodating native windows.
+/// The project frame and its matching tabs bar have square outer corners.
 @MainActor
-func projectFrameCornerRadius(on monitor: Monitor) -> CGFloat {
-    let fallback = WinMuxBarStyle.topBarSurfaceCornerRadius
-    guard let screen = workspaceSidebarScreen(for: monitor) else { return fallback }
-    let frame = screen.visibleFrame
-    var result = fallback
-    for window in monitor.activeWorkspace.allLeafWindowsRecursive where !window.isFloating && !window.isHiddenInCorner {
-        guard let rect = window.lastKnownActualRect?.toAppKitScreenRect else { continue }
-        let bottomInset = rect.minY - frame.minY
-        guard bottomInset >= 0, bottomInset <= WinMuxSpacing.regular + WinMuxBarStyle.strokeWidth else { continue }
-        let touchesLeft = abs(rect.minX - screen.frame.minX - bottomInset) <= WinMuxBarStyle.strokeWidth
-        let touchesRight = abs(screen.frame.maxX - rect.maxX - bottomInset) <= WinMuxBarStyle.strokeWidth
-        if touchesLeft || touchesRight {
-            result = max(result, estimatedWindowPreviewCornerRadius(for: window.windowId) + bottomInset)
-        }
-    }
-    return result
+func projectFrameCornerRadius(on _: Monitor) -> CGFloat {
+    0
 }

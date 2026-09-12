@@ -192,7 +192,7 @@ struct WorkspaceSidebarHorizontalBar: View {
     private var projectCornerRadius: CGFloat {
         guard let monitor = sortedMonitors.first(where: {
             workspaceSidebarMonitorScopeId(for: $0) == snapshot.targetMonitorScopeId
-        }) else { return WinMuxBarStyle.topBarSurfaceCornerRadius }
+        }) else { return 0 }
         return projectFrameCornerRadius(on: monitor)
     }
 
