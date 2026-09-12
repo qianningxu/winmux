@@ -140,7 +140,13 @@ struct WorkspaceCanvasBackgroundView: View {
             ))
         .background {
             if !reduceTransparency {
-                VisualEffectBlur(material: .underWindowBackground, blendingMode: .behindWindow)
+                // Native materials include a tint of their own; keep that layer
+                // faint so it does not fill in the project tint's transparency.
+                VisualEffectBlur(
+                    material: .underWindowBackground,
+                    blendingMode: .behindWindow,
+                    opacity: 1 - WinMuxDesignTokens.projectFrameTintOpacity
+                )
                     .environment(\.colorScheme, theme == .dark ? .dark : .light)
             }
         }
