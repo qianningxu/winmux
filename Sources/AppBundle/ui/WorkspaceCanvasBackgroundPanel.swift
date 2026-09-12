@@ -119,6 +119,7 @@ func workspaceCanvasBackgroundFrame(
 }
 
 struct WorkspaceCanvasBackgroundView: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     let projectThemeFamily: WorkspaceSidebarProjectThemeFamily?
     let reserveHeight: CGFloat
     let theme: AppearanceTheme
@@ -134,7 +135,15 @@ struct WorkspaceCanvasBackgroundView: View {
             projectThemeFamily: projectThemeFamily
         )
         frameShape
-            .fill(workspaceCanvasBackground(for: palette))
+            .fill(workspaceCanvasBackground(for: palette).opacity(
+                reduceTransparency ? 1 : WinMuxDesignTokens.projectFrameTintOpacity
+            ))
+        .background {
+            if !reduceTransparency {
+                VisualEffectBlur(material: .underWindowBackground, blendingMode: .behindWindow)
+                    .environment(\.colorScheme, theme == .dark ? .dark : .light)
+            }
+        }
         .clipShape(frameShape)
         .overlay {
             frameShape

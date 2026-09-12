@@ -11,6 +11,7 @@ enum WinMuxDesignTokens {
     static let transparent: Color = Color.clear
     static let transparentNSColor: NSColor = NSColor.clear
     static let mask = Color.black
+    static let projectFrameTintOpacity = 0.75
 }
 
 let standardGap = WinMuxDesignTokens.standardGap
