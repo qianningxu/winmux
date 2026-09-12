@@ -3,8 +3,8 @@ import Charts
 import Foundation
 import SwiftUI
 
-let menuBarWidgetIcon = WinMuxOverlayPalette(theme: .dark).content(.primary)
-let menuBarWidgetText = WinMuxOverlayPalette(theme: .dark).content(.primary)
+let menuBarWidgetIcon = winMuxOverlayContent(.primary)
+let menuBarWidgetText = winMuxOverlayContent(.primary)
 private let menuBarWidgetDataPath = defaultWorkspaceSidebarDataPath
 let menuBarWidgetSpacing: CGFloat = WinMuxBarStyle.iconSpacing
 let menuBarWidgetFontSize = NSFont.menuBarFont(ofSize: 0).pointSize
@@ -196,7 +196,14 @@ private final class MenuBarStatusWidgetPanel: NSPanelHud {
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         // Keep the surface beneath the native menu bar and above workspace backgrounds.
         applyWinMuxLayer(.menuBarSurface)
-        contentView = hostingView
+        let materialView = NSVisualEffectView()
+        materialView.material = .menu
+        materialView.blendingMode = .behindWindow
+        materialView.state = .active
+        contentView = materialView
+        hostingView.frame = materialView.bounds
+        hostingView.autoresizingMask = [.width, .height]
+        materialView.addSubview(hostingView)
         hostingView.setAccessibilityLabel("Widget bar")
     }
 
@@ -260,10 +267,6 @@ private struct MenuBarStatusWidgetGroup: View {
     let cameraSafeEdges: ClosedRange<CGFloat>?
 
     var body: some View {
-        let palette = WinMuxOverlayPalette(
-            theme: .dark,
-            projectThemeFamily: projectThemeFamily
-        )
         GeometryReader { geometry in
             let surfaceHeight = max(1, geometry.size.height - menuBarContentTopInset)
             let widgetHeight = max(1, surfaceHeight - WinMuxBarStyle.topBarContentInset * 2)
@@ -310,17 +313,14 @@ private struct MenuBarStatusWidgetGroup: View {
                     height: widgetHeight
                 )
                 .padding(WinMuxBarStyle.topBarContentInset)
-                .background(palette.geistBackground(.secondary))
                 .padding(.horizontal, menuBarSurfaceHorizontalInset)
                 .padding(.top, menuBarContentTopInset)
 
             Spacer(minLength: standardGap * 0)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
-            .background(palette.geistBackground(.secondary))
         }
         .environment(\.workspaceSidebarProjectThemeFamily, projectThemeFamily)
-        .environment(\.colorScheme, .dark)
     }
 }
 
