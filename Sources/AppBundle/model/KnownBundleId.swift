@@ -4,6 +4,8 @@ enum KnownBundleId: String, Equatable {
     case activityMonitor = "com.apple.ActivityMonitor"
     case alacritty = "org.alacritty"
     case braveBrowser = "com.brave.Browser"
+    case chatgpt = "com.openai.chat"
+    case codex = "com.openai.codex"
     case chrome = "com.google.Chrome"
     case cleanshotx = "pl.maketheweb.cleanshotx"
     case emacs = "org.gnu.Emacs"

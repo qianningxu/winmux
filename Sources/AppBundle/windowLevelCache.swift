@@ -120,3 +120,10 @@ enum MacOsWindowLevel: Sendable, Equatable {
         }
     }
 }
+
+/// Native companion panels own their geometry and stacking, even when AX calls
+/// them dialogs. Keep the main (normal-level) ChatGPT window managed.
+func isNativeOverlayWindow(level: MacOsWindowLevel?, appId: KnownBundleId?) -> Bool {
+    level?.isSystemOverlay == true ||
+        ((appId == .chatgpt || appId == .codex) && level == .alwaysOnTopWindow)
+}

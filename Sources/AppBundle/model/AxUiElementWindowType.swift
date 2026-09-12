@@ -106,7 +106,7 @@ extension AxUiElementMock {
     ) -> Bool {
         // Status helpers such as Typeless's invisible overlay expose AX window
         // controls, but must not keep a workspace alive after its real windows close.
-        if windowLevel?.isSystemOverlay == true { return false }
+        if isNativeOverlayWindow(level: windowLevel, appId: id) { return false }
         if windowLevel != .normalWindow &&
             // Slowly roll out windowLevel for applications for which we have the appropriate dumps
             (id == .slack || id == .chrome || id?.isFirefox == true || id == .braveBrowser || id == .screenstudio || id == .cleanshotx || id == .iterm2)

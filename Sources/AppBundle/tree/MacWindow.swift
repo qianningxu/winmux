@@ -287,7 +287,7 @@ final class MacWindow: Window {
     }
 
     @MainActor
-    func unhideFromCorner() {
+    func unhideFromCorner(restoringTiledOverlay: Bool = false) {
         guard let prevUnhiddenProportionalPositionInsideWorkspaceRect else { return }
         guard let nodeWorkspace else { return } // hiding only makes sense for workspace windows
         guard let parent else { return }
@@ -307,6 +307,8 @@ final class MacWindow: Window {
             // Just a small optimization to avoid unnecessary AX calls for non floating windows
             // Tiling windows should be unhidden with layoutRecursive anyway
             case .floatingWindow:
+                restoreToSavedWorkspacePosition()
+            case .tiling where restoringTiledOverlay:
                 restoreToSavedWorkspacePosition()
             case .macosNativeFullscreenWindow, .macosNativeHiddenAppWindow, .macosNativeMinimizedWindow,
                  .macosPopupWindow, .tiling, .rootTilingContainer, .shimContainerRelation: break
