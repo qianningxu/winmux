@@ -151,10 +151,6 @@ struct WorkspaceCanvasBackgroundView: View {
             }
         }
         .clipShape(frameShape)
-        .overlay {
-            frameShape
-                .strokeBorder(palette.color(palette.activeGeistFamily, .color5), lineWidth: WinMuxBarStyle.strokeWidth)
-        }
         .accessibilityLabel("Project frame")
         .allowsHitTesting(false)
         .background {
